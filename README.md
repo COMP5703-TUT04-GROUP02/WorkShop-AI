@@ -22,7 +22,7 @@ This is a working demo, not a production deployment.
 - Checkout uses a mock payment gateway. The quoted amount is charged in TRY; no card processor is connected.
 - Google and Apple buttons on the sign-in screen are placeholders until OAuth client IDs are configured.
 - Address autocomplete needs a Google Maps API key. The rest of the app runs without it.
-- Vector search for reviews (Milvus) is optional and off by default.
+- Vector search for reviews (Milvus) runs in Docker Compose. A local Python process can omit it.
 
 
 
@@ -50,7 +50,7 @@ migrations/        Alembic revisions
 tests/             pytest suite
 docs/              API notes and conventions
 scripts/           JWT key generation
-docker-compose.yml PostgreSQL, Redis, and optional Milvus
+docker-compose.yml PostgreSQL, Redis, Milvus, API, Expo web
 ```
 
 
@@ -59,15 +59,35 @@ docker-compose.yml PostgreSQL, Redis, and optional Milvus
 
 - Python 3.11 or newer
 - Node.js 20 or newer
-- Docker (PostgreSQL is published on host port **5436**; Redis on **6379**)
+- Docker (optional full stack; PostgreSQL is on host port **5436**, Redis **6379**, API **8000**, web **8090**)
 
 
 
 ## Getting started
 
+### Docker (API + web)
 
+This starts PostgreSQL, Redis, Milvus, the API, a Celery worker, and the Expo web build. Copy `.env.example` to `.env` and set `LLM_API_KEY` (and `LLM_PROVIDER` if needed). Compose reads that file for chat and review embeddings. Do not point `WORKSHOP_DATABASE_URL` at `127.0.0.1` inside the containers; Compose already injects the Docker network URLs.
 
-### 1. Clone and configure the API
+The browser talks to the API on the host (`http://127.0.0.1:8000`), not the Docker network name.
+
+```bash
+cp .env.example .env
+# set LLM_API_KEY=...
+docker compose up --build
+```
+
+- App: [http://127.0.0.1:8090](http://127.0.0.1:8090)
+- API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+
+Demo accounts are seeded automatically (`Demo1234`). An admin can still sign in with ChatGPT Plus from the dashboard instead of (or in addition to) an API key.
+
+iOS / Android / Expo Go still run on the host (`cd frontend/mobile && npm start`). Only the web client is containerised.
+
+### Local process (API on the host)
+
+#### 1. Clone and configure the API
 
 ```bash
 python -m venv .venv
@@ -79,7 +99,7 @@ python scripts/generate_jwt_keys.py
 
 The key script writes `backend/certs/jwt-private.pem` and `backend/certs/jwt-public.pem`. Those files stay local and should not be committed.
 
-### 2. Start PostgreSQL and Redis
+#### 2. Start PostgreSQL and Redis (if you are not using the full Docker stack)
 
 ```bash
 docker compose up -d postgres redis
@@ -93,7 +113,7 @@ postgresql+psycopg://workshop:workshop@127.0.0.1:5436/workshop
 
 
 
-### 3. Migrate and seed
+#### 3. Migrate and seed
 
 ```bash
 alembic upgrade head
@@ -102,7 +122,7 @@ python -m backend.seed_demo_data
 
 
 
-### 4. Run the API
+#### 4. Run the API
 
 ```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
@@ -113,7 +133,7 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 
 
-### 5. Run the app
+#### 5. Run the app
 
 ```bash
 cd frontend/mobile
@@ -165,11 +185,7 @@ Copy `.env.example` and adjust as needed. The values most people change first:
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`                          | Place search in the location picker                     |
 
 
-Vector search is optional:
-
-```bash
-docker compose --profile vector up -d
-```
+Vector search uses Milvus. Docker Compose starts it with the rest of the stack. A local Python process can skip it and still run bookings and chat.
 
 ## Language models
 

@@ -1,3 +1,24 @@
+x-backend-env: &backend-env
+  WORKSHOP_DATABASE_URL: postgresql+psycopg://workshop:workshop@postgres:5432/workshop
+  WORKSHOP_REDIS_HOST: redis
+  WORKSHOP_REDIS_PORT: 6379
+  WORKSHOP_CELERY_BROKER_URL: redis://redis:6379/1
+  WORKSHOP_CELERY_RESULT_BACKEND: redis://redis:6379/2
+  WORKSHOP_JWT_PRIVATE_KEY_PATH: backend/certs/jwt-private.pem
+  WORKSHOP_JWT_PUBLIC_KEY_PATH: backend/certs/jwt-public.pem
+  WORKSHOP_UPLOAD_DIR: backend/uploads
+  WORKSHOP_MILVUS_HOST: milvus
+  WORKSHOP_MILVUS_PORT: 19530
+  LLM_PROVIDER: ${LLM_PROVIDER:-qwen}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  QWEN_API_KEY: ${QWEN_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+  LLM_BASE_URL: ${LLM_BASE_URL:-}
+  EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+  EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+
 services:
   postgres:
     container_name: workshop-ai-postgres
@@ -24,9 +45,13 @@ services:
     volumes:
       - workshop-ai-redis:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   etcd:
-    profiles: ["vector"]
     container_name: workshop-ai-etcd
     image: quay.io/coreos/etcd:v3.5.18
     environment:
@@ -36,7 +61,7 @@ services:
       - ETCD_SNAPSHOT_COUNT=50000
     command: >
       etcd
-      -advertise-client-urls=http://127.0.0.1:2379
+      -advertise-client-urls=http://etcd:2379
       -listen-client-urls=http://0.0.0.0:2379
       --data-dir=/etcd
     volumes:
@@ -48,7 +73,6 @@ services:
       retries: 3
 
   minio:
-    profiles: ["vector"]
     container_name: workshop-ai-minio
     image: minio/minio:RELEASE.2024-05-28T17-19-04Z
     environment:
@@ -67,7 +91,6 @@ services:
       retries: 3
 
   milvus:
-    profiles: ["vector"]
     container_name: workshop-ai-milvus
     image: milvusdb/milvus:v2.4.4
     command: ["milvus", "run", "standalone"]
@@ -82,8 +105,84 @@ services:
     volumes:
       - workshop-ai-milvus:/var/lib/milvus
     depends_on:
-      - etcd
-      - minio
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 10
+      start_period: 90s
+
+  api:
+    container_name: workshop-ai-api
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *backend-env
+      WORKSHOP_SEED: "1"
+      WORKSHOP_CORS_ORIGINS: http://localhost:8090,http://127.0.0.1:8090,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8081,http://127.0.0.1:8081
+    volumes:
+      - workshop-ai-certs:/app/backend/certs
+      - workshop-ai-uploads:/app/backend/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    command: ["api"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  worker:
+    container_name: workshop-ai-worker
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    environment:
+      <<: *backend-env
+    volumes:
+      - workshop-ai-certs:/app/backend/certs
+      - workshop-ai-uploads:/app/backend/uploads
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    command: ["worker"]
+
+  web:
+    container_name: workshop-ai-web
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+      args:
+        EXPO_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+        EXPO_PUBLIC_WS_BASE_URL: ws://127.0.0.1:8000
+    ports:
+      - "8090:80"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   workshop-ai-postgres:
@@ -91,3 +190,5 @@ volumes:
   workshop-ai-minio:
   workshop-ai-milvus:
   workshop-ai-redis:
+  workshop-ai-certs:
+  workshop-ai-uploads:
