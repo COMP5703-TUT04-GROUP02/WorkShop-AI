@@ -1,0 +1,72 @@
+from datetime import datetime, timezone
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from backend import models
+from backend.utils.formatters import format_provider_profile_response
+from backend.utils.review import get_provider_rating_summary
+from backend.core.clock import utc_now
+
+
+def format_provider_profile_with_rating(profile, db: Session):
+    result = format_provider_profile_response(profile)
+    result.update(get_provider_rating_summary(profile.id, db))
+
+    return result
+
+
+def format_favorite_provider_response(favorite, db: Session):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.id == favorite.provider_profile_id)
+        .first()
+    )
+
+    return {
+        "id": favorite.id,
+        "customer_id": favorite.customer_id,
+        "provider_profile_id": favorite.provider_profile_id,
+        "created_at": favorite.created_at,
+        "provider": (
+            format_provider_profile_with_rating(provider_profile, db)
+            if provider_profile
+            else None
+        ),
+    }
+
+
+def get_provider_profile_for_user(user_id: int, db: Session):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.user_id == user_id)
+        .first()
+    )
+
+    if not provider_profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Provider profile not found",
+        )
+
+    return provider_profile
+
+
+def add_provider_verification_history(
+    profile: models.ProviderProfile,
+    old_status: str,
+    new_status: str,
+    note: str | None,
+    current_user: models.User,
+    db: Session,
+):
+    history = models.ProviderVerificationHistory(
+        provider_profile_id=profile.id,
+        changed_by_user_id=current_user.id,
+        old_status=old_status,
+        new_status=new_status,
+        note=note,
+        changed_at=utc_now(),
+    )
+
+    db.add(history)

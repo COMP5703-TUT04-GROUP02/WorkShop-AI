@@ -1,0 +1,161 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  getCurrentUser,
+  loginWithPassword,
+  logoutByRefreshToken,
+  refreshAccessToken,
+  registerUser,
+  updateCurrentUser,
+  uploadCurrentUserAvatar,
+} from "../api/auth";
+import { setAccessToken } from "../api/client";
+import type { RegisterRequest, User } from "../types/auth";
+
+const ACCESS_TOKEN_KEY = "workshop_ai_access_token";
+const REFRESH_TOKEN_KEY = "workshop_ai_refresh_token";
+
+type AuthContextValue = {
+  user: User | null;
+  isLoading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (payload: RegisterRequest) => Promise<void>;
+  signOut: () => Promise<void>;
+  updateUserProfile: (payload: { name: string }) => Promise<User>;
+  uploadAvatar: (payload: {
+    uri: string;
+    fileName?: string | null;
+    mimeType?: string | null;
+  }) => Promise<User>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    restoreSession();
+  }, []);
+
+  async function saveSession(accessToken: string, newRefreshToken: string, nextUser: User) {
+    setAccessToken(accessToken);
+    setRefreshToken(newRefreshToken);
+    setUser(nextUser);
+    await AsyncStorage.multiSet([
+      [ACCESS_TOKEN_KEY, accessToken],
+      [REFRESH_TOKEN_KEY, newRefreshToken],
+    ]);
+  }
+
+  async function clearSession() {
+    setAccessToken(null);
+    setRefreshToken(null);
+    setUser(null);
+    await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+  }
+
+  async function restoreSession() {
+    try {
+      const [[, savedAccessToken], [, savedRefreshToken]] = await AsyncStorage.multiGet([
+        ACCESS_TOKEN_KEY,
+        REFRESH_TOKEN_KEY,
+      ]);
+
+      if (!savedAccessToken || !savedRefreshToken) {
+        return;
+      }
+
+      setAccessToken(savedAccessToken);
+      setRefreshToken(savedRefreshToken);
+
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+      } catch {
+        const refreshed = await refreshAccessToken(savedRefreshToken);
+        await saveSession(
+          refreshed.access_token,
+          refreshed.refresh_token,
+          refreshed.user,
+        );
+      }
+    } catch {
+      await clearSession();
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function signIn(email: string, password: string) {
+    const data = await loginWithPassword(email, password);
+    await saveSession(data.access_token, data.refresh_token, data.user);
+  }
+
+  async function signUp(payload: RegisterRequest) {
+    const data = await registerUser(payload);
+    await saveSession(data.access_token, data.refresh_token, data.user);
+  }
+
+  async function signOut() {
+    const tokenToRevoke = refreshToken;
+    await clearSession();
+
+    if (tokenToRevoke) {
+      await logoutByRefreshToken(tokenToRevoke);
+    }
+  }
+
+  async function updateUserProfile(payload: { name: string }) {
+    const nextUser = await updateCurrentUser(payload);
+    setUser(nextUser);
+
+    return nextUser;
+  }
+
+  async function uploadAvatar(payload: {
+    uri: string;
+    fileName?: string | null;
+    mimeType?: string | null;
+  }) {
+    const data = await uploadCurrentUserAvatar(payload);
+    setUser(data.user);
+
+    return data.user;
+  }
+
+  const value = useMemo(
+    () => ({
+      user,
+      isLoading,
+      signIn,
+      signUp,
+      signOut,
+      updateUserProfile,
+      uploadAvatar,
+    }),
+    [user, isLoading, refreshToken],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error("useAuth must be used inside AuthProvider");
+  }
+
+  return context;
+}

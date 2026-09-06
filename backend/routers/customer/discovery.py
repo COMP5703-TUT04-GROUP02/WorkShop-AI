@@ -1,0 +1,303 @@
+"""Customer API.
+
+Customer-facing endpoints: profile, favorites, chat, bookings, payments, refunds, complaints, reviews.
+Booking state changes live in `utils/customer_booking_actions.py`; routers handle params and auth.
+"""
+
+from datetime import datetime, timezone
+from fastapi import Depends, File, Form, HTTPException, UploadFile
+from pydantic import ValidationError
+from sqlalchemy.orm import Session
+from backend import models
+from backend.ai.tools import create_chat_room_tool
+from backend.auth import get_db, require_customer
+from backend.constants import ALLOWED_PROVIDER_TAGS
+from backend.core.clock import utc_now
+from backend.utils.booking import (
+    add_booking_status_history,
+    ensure_booking_status,
+    format_booking_detail_response,
+)
+from backend.utils.availability import ensure_provider_available_for_datetime_range
+from backend.utils.chat import (
+    create_booking_status_chat_message,
+    format_chat_message_response,
+    format_chat_room_response_with_unread,
+    push_chat_message_to_room_members,
+)
+from backend.utils.complaint import (
+    add_complaint_status_history,
+    format_complaint_response,
+)
+from backend.utils.customer_booking_actions import (
+    accept_customer_booking_quote_action,
+    appeal_customer_refund_request_action,
+    cancel_customer_booking_action,
+    confirm_customer_booking_complete_action,
+    create_customer_booking_action,
+    create_customer_refund_request_action,
+    reject_customer_booking_complete_action,
+    reject_customer_booking_quote_action,
+    pay_customer_booking_action,
+)
+from backend.utils.customer_recommendation import (
+    build_customer_home_recommendations,
+    save_customer_provider_tag_history,
+    search_customer_providers,
+)
+from backend.utils.formatters import format_customer_profile_response
+from backend.utils.notification import create_admin_notifications, create_notification
+from backend.utils.pagination import build_paginated_response, paginate_query
+from backend.utils.payment import format_payment_response
+from backend.services.payment_gateway import payment_gateway
+from backend.utils.provider import (
+    format_favorite_provider_response,
+    format_provider_profile_with_rating,
+)
+from backend.utils.refund import (
+    add_refund_request_status_history,
+    ensure_refund_can_restore_previous_booking_status,
+    format_refund_request_response,
+)
+from backend.utils.review import format_review_detail_response
+from backend.utils.review_embedding_queue import (
+    enqueue_review_embedding_delete,
+    enqueue_review_embedding_sync,
+)
+from backend.utils.router import ApiRouter
+from backend.schemas import (
+    ApiResponse,
+    BookingCreate,
+    BookingCreateResponseData,
+    BookingNoteUpdate,
+    BookingStatus,
+    BookingUpdate,
+    BookingUpdateResponseData,
+    ComplaintCreate,
+    ComplaintStatus,
+    CustomerHomeRecommendationResponseData,
+    CustomerProviderDetailResponseData,
+    CustomerProviderSearchResponseData,
+    CustomerProfileCreate,
+    CustomerServiceProvinceUpdate,
+    NotificationRelatedType,
+    NotificationType,
+    PaymentCreate,
+    PaymentStatus,
+    ProviderVerificationStatus,
+    RefundRequestCreate,
+    RefundAppealCreate,
+    RefundRequestStatus,
+    ReviewCreate,
+    ReviewUpdate,
+)
+from backend.utils.response import success_response
+
+router = ApiRouter(tags=["Customer"])
+
+def format_customer_search_history_response(history: models.CustomerSearchHistory):
+    return {
+        "id": history.id,
+        "customer_id": history.customer_id,
+        "last_provider_profile_id": history.last_provider_profile_id,
+        "last_provider_tag": history.last_provider_tag,
+        "updated_at": history.updated_at,
+    }
+
+
+@router.get(
+    "/customer/home/recommendations",
+    response_model=ApiResponse[CustomerHomeRecommendationResponseData],
+)
+def get_customer_home_recommendations(
+    service_province: str | None = None,
+    provider_tag: str | None = None,
+    limit: int = 20,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    if provider_tag and provider_tag not in ALLOWED_PROVIDER_TAGS:
+        raise HTTPException(status_code=400, detail=f"Unsupported tag: {provider_tag}")
+
+    return success_response(
+        build_customer_home_recommendations(
+            current_user,
+            db,
+            service_province=service_province,
+            provider_tag=provider_tag,
+            limit=limit,
+        )
+    )
+
+
+@router.get(
+    "/customer/providers/search",
+    response_model=ApiResponse[CustomerProviderSearchResponseData],
+)
+def search_customer_provider_profiles(
+    keyword: str,
+    service_province: str | None = None,
+    limit: int = 40,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    return success_response(
+        search_customer_providers(
+            current_user,
+            db,
+            keyword,
+            service_province=service_province,
+            limit=limit,
+        )
+    )
+
+
+@router.get(
+    "/customer/providers/{provider_id}",
+    response_model=ApiResponse[CustomerProviderDetailResponseData],
+)
+def get_customer_provider_detail(
+    provider_id: int,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.id == provider_id,
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    history = save_customer_provider_tag_history(
+        current_user.id,
+        provider_profile,
+        db,
+    )
+    return success_response(
+        {
+            "provider": format_provider_profile_with_rating(provider_profile, db),
+            "history": format_customer_search_history_response(history),
+        }
+    )
+
+
+@router.post("/customer/favorites/{provider_profile_id}")
+def add_favorite_provider(
+    provider_profile_id: int,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.id == provider_profile_id)
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+    if provider_profile.verification_status != "approved":
+        raise HTTPException(
+            status_code=400, detail="Only approved providers can be favorited"
+        )
+    existing_favorite = (
+        db.query(models.FavoriteProvider)
+        .filter(
+            models.FavoriteProvider.customer_id == current_user.id,
+            models.FavoriteProvider.provider_profile_id == provider_profile_id,
+        )
+        .first()
+    )
+    if existing_favorite:
+        raise HTTPException(status_code=400, detail="Provider is already in favorites")
+    favorite = models.FavoriteProvider(
+        customer_id=current_user.id,
+        provider_profile_id=provider_profile_id,
+        created_at=utc_now(),
+    )
+    db.add(favorite)
+    db.commit()
+    db.refresh(favorite)
+    return success_response(
+        {
+            "message": "Provider added to favorites successfully",
+            "favorite": format_favorite_provider_response(favorite, db),
+        }
+    )
+
+
+@router.get("/customer/favorites")
+def get_favorite_providers(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(models.FavoriteProvider)
+        .filter(models.FavoriteProvider.customer_id == current_user.id)
+        .order_by(models.FavoriteProvider.created_at.desc())
+    )
+    favorites, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for favorite in favorites:
+        result.append(format_favorite_provider_response(favorite, db))
+    return success_response(build_paginated_response(result, total, page, page_size))
+
+
+@router.delete("/customer/favorites/{provider_profile_id}")
+def remove_favorite_provider(
+    provider_profile_id: int,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    favorite = (
+        db.query(models.FavoriteProvider)
+        .filter(
+            models.FavoriteProvider.customer_id == current_user.id,
+            models.FavoriteProvider.provider_profile_id == provider_profile_id,
+        )
+        .first()
+    )
+    if not favorite:
+        raise HTTPException(status_code=404, detail="Favorite provider not found")
+    db.delete(favorite)
+    db.commit()
+    return success_response({"message": "Provider removed from favorites successfully"})
+
+
+@router.post("/customer/chats/{provider_profile_id}")
+def open_chat_with_provider(
+    provider_profile_id: int,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    return success_response(
+        create_chat_room_tool(provider_profile_id, current_user, db)
+    )
+
+
+@router.get("/customer/chats")
+def get_customer_chats(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(models.ChatRoom)
+        .filter(models.ChatRoom.customer_id == current_user.id)
+        .order_by(models.ChatRoom.last_message_at.desc().nullslast())
+    )
+    chat_rooms, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for chat_room in chat_rooms:
+        result.append(
+            format_chat_room_response_with_unread(chat_room, db, current_user)
+        )
+    return success_response(build_paginated_response(result, total, page, page_size))
+
+

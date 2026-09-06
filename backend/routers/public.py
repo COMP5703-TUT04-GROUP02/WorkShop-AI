@@ -1,0 +1,363 @@
+"""Public API.
+
+Unauthenticated data: approved providers, public profiles, reviews, portfolios, ratings.
+"""
+
+from datetime import datetime
+
+from fastapi import Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from backend import models
+from backend.auth import get_db
+from backend.utils.formatters import (
+    format_provider_portfolio_response,
+    normalize_provider_tags,
+    tags_to_list,
+)
+from backend.utils.availability import is_provider_available_for_datetime_range
+from backend.utils.location import (
+    calculate_distance_km,
+    has_location,
+    has_partial_location,
+    provider_can_serve_location,
+)
+from backend.utils.pagination import (
+    build_paginated_response,
+    paginate_list,
+    paginate_query,
+)
+from backend.utils.provider import format_provider_profile_with_rating
+from backend.utils.review import (
+    format_review_detail_response,
+    get_provider_rating_summary as build_provider_rating_summary,
+)
+from backend.schemas import (
+    ApiResponse,
+    PaginatedData,
+    ProviderProfileWithRatingResponse,
+    ProviderPortfolioResponse,
+    ProviderVerificationStatus,
+    RatingSummaryResponse,
+    ReviewDetailResponse,
+)
+from backend.utils.response import success_response
+from backend.utils.router import ApiRouter
+
+router = ApiRouter(tags=["Public"])
+
+
+@router.get(
+    "/providers",
+    response_model=ApiResponse[PaginatedData[ProviderProfileWithRatingResponse]],
+)
+def get_all_providers(
+    service_province: str | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    min_experience: int | None = None,
+    latitude: float | None = Query(default=None, ge=-90, le=90),
+    longitude: float | None = Query(default=None, ge=-180, le=180),
+    max_distance_km: float | None = Query(default=None, gt=0),
+    scheduled_start_time: datetime | None = None,
+    scheduled_end_time: datetime | None = None,
+    tags: list[str] | None = Query(default=None),
+    sort_by: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+):
+    if has_partial_location(latitude, longitude):
+        raise HTTPException(
+            status_code=400,
+            detail="Latitude and longitude must be provided together",
+        )
+
+    location_enabled = has_location(latitude, longitude)
+
+    if max_distance_km is not None and not location_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="max_distance_km requires latitude and longitude",
+        )
+
+    if sort_by in ["distance_asc", "distance_desc"] and not location_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Distance sorting requires latitude and longitude",
+        )
+
+    if (scheduled_start_time is None) != (scheduled_end_time is None):
+        raise HTTPException(
+            status_code=400,
+            detail="scheduled_start_time and scheduled_end_time must be provided together",
+        )
+
+    if scheduled_start_time is not None and scheduled_end_time <= scheduled_start_time:
+        raise HTTPException(
+            status_code=400,
+            detail="scheduled_end_time must be after scheduled_start_time",
+        )
+
+    schedule_enabled = (
+        scheduled_start_time is not None and scheduled_end_time is not None
+    )
+
+    query = db.query(models.ProviderProfile).filter(
+        models.ProviderProfile.verification_status
+        == ProviderVerificationStatus.approved
+    )
+    if service_province:
+        query = query.filter(
+            models.ProviderProfile.service_province.contains(service_province)
+        )
+    if min_price is not None:
+        query = query.filter(models.ProviderProfile.hourly_rate >= min_price)
+    if max_price is not None:
+        query = query.filter(models.ProviderProfile.hourly_rate <= max_price)
+    if min_experience is not None:
+        query = query.filter(models.ProviderProfile.experience_years >= min_experience)
+    if sort_by == "price_asc":
+        query = query.order_by(models.ProviderProfile.hourly_rate.asc())
+    if sort_by == "price_desc":
+        query = query.order_by(models.ProviderProfile.hourly_rate.desc())
+    if sort_by == "experience_desc":
+        query = query.order_by(models.ProviderProfile.experience_years.desc())
+    if sort_by == "experience_asc":
+        query = query.order_by(models.ProviderProfile.experience_years.asc())
+
+    distance_by_provider_id = {}
+    needs_python_filter = bool(tags) or location_enabled or schedule_enabled
+
+    if needs_python_filter:
+        profiles = query.all()
+
+        if tags:
+            requested_tags = normalize_provider_tags(tags)
+            if not requested_tags:
+                return success_response(
+                    build_paginated_response([], 0, page, page_size)
+                )
+            profiles = [
+                profile
+                for profile in profiles
+                if all((tag in tags_to_list(profile.tags) for tag in requested_tags))
+            ]
+
+        if schedule_enabled:
+            profiles = [
+                profile
+                for profile in profiles
+                if is_provider_available_for_datetime_range(
+                    profile.id,
+                    scheduled_start_time,
+                    scheduled_end_time,
+                    db,
+                )
+            ]
+
+        if location_enabled:
+            location_filtered_profiles = []
+
+            for profile in profiles:
+                if not has_location(profile.latitude, profile.longitude):
+                    continue
+
+                distance_km = calculate_distance_km(
+                    latitude,
+                    longitude,
+                    profile.latitude,
+                    profile.longitude,
+                )
+
+                if not provider_can_serve_location(profile, distance_km):
+                    continue
+
+                if max_distance_km is not None and distance_km > max_distance_km:
+                    continue
+
+                distance_by_provider_id[profile.id] = distance_km
+                location_filtered_profiles.append(profile)
+
+            profiles = location_filtered_profiles
+
+            if sort_by == "distance_asc":
+                profiles.sort(key=lambda profile: distance_by_provider_id[profile.id])
+            if sort_by == "distance_desc":
+                profiles.sort(
+                    key=lambda profile: distance_by_provider_id[profile.id],
+                    reverse=True,
+                )
+
+        profiles, total, page, page_size = paginate_list(profiles, page, page_size)
+    else:
+        profiles, total, page, page_size = paginate_query(query, page, page_size)
+
+    result = []
+    for profile in profiles:
+        provider_result = format_provider_profile_with_rating(profile, db)
+        if profile.id in distance_by_provider_id:
+            provider_result["distance_km"] = distance_by_provider_id[profile.id]
+        if schedule_enabled:
+            provider_result["is_available_for_requested_time"] = True
+        result.append(provider_result)
+    return success_response(build_paginated_response(result, total, page, page_size))
+
+
+@router.get(
+    "/providers/{provider_id}",
+    response_model=ApiResponse[ProviderProfileWithRatingResponse],
+)
+def get_provider_by_id(provider_id: int, db: Session = Depends(get_db)):
+    profile = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.id == provider_id,
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return success_response(format_provider_profile_with_rating(profile, db))
+
+
+@router.get(
+    "/providers/{provider_id}/reviews",
+    response_model=ApiResponse[PaginatedData[ReviewDetailResponse]],
+)
+def get_provider_reviews(
+    provider_id: int, page: int = 1, page_size: int = 20, db: Session = Depends(get_db)
+):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.id == provider_id,
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    query = (
+        db.query(models.Review)
+        .filter(
+            models.Review.provider_profile_id == provider_id,
+            models.Review.is_visible == 1,
+        )
+        .order_by(models.Review.created_at.desc())
+    )
+    reviews, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for review in reviews:
+        result.append(format_review_detail_response(review, db))
+    return build_paginated_response(result, total, page, page_size)
+
+
+@router.get(
+    "/providers/{provider_id}/portfolio",
+    response_model=ApiResponse[PaginatedData[ProviderPortfolioResponse]],
+)
+def get_provider_public_portfolio(
+    provider_id: int,
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.id == provider_id,
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    query = (
+        db.query(models.ProviderPortfolio)
+        .filter(
+            models.ProviderPortfolio.provider_profile_id == provider_id,
+            models.ProviderPortfolio.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .order_by(models.ProviderPortfolio.created_at.desc())
+    )
+    portfolios, total, page, page_size = paginate_query(query, page, page_size)
+    result = [
+        format_provider_portfolio_response(portfolio, db) for portfolio in portfolios
+    ]
+    return build_paginated_response(result, total, page, page_size)
+
+
+@router.get(
+    "/providers/{provider_id}/portfolio/{portfolio_id}",
+    response_model=ApiResponse[ProviderPortfolioResponse],
+)
+def get_provider_public_portfolio_item(
+    provider_id: int,
+    portfolio_id: int,
+    db: Session = Depends(get_db),
+):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.id == provider_id,
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    portfolio = (
+        db.query(models.ProviderPortfolio)
+        .filter(
+            models.ProviderPortfolio.id == portfolio_id,
+            models.ProviderPortfolio.provider_profile_id == provider_id,
+            models.ProviderPortfolio.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    return success_response(format_provider_portfolio_response(portfolio, db))
+
+
+@router.get(
+    "/providers/{provider_id}/rating-summary",
+    response_model=ApiResponse[RatingSummaryResponse],
+)
+def get_provider_rating_summary(provider_id: int, db: Session = Depends(get_db)):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.id == provider_id,
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved,
+        )
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    summary = build_provider_rating_summary(provider_id, db)
+    summary["provider_profile_id"] = provider_id
+    return success_response(summary)
+
+
+@router.get("/reviews/{review_id}", response_model=ApiResponse[ReviewDetailResponse])
+def get_review_by_id(review_id: int, db: Session = Depends(get_db)):
+    review = (
+        db.query(models.Review)
+        .filter(models.Review.id == review_id, models.Review.is_visible == 1)
+        .first()
+    )
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return success_response(format_review_detail_response(review, db))

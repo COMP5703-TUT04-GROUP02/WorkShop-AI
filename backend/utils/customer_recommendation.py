@@ -1,0 +1,410 @@
+import re
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from backend import models
+from backend.schemas import ProviderVerificationStatus
+from backend.utils.formatters import tags_to_list
+from backend.utils.location import calculate_distance_km, has_location
+from backend.utils.provider import format_provider_profile_with_rating
+from backend.core.clock import utc_now
+
+DEFAULT_HISTORY_PROVIDER_TAG = "cleaning"
+SEARCH_SPLIT_PATTERN = re.compile(r"[\s,.;:/\\|]+")
+
+
+def get_customer_search_history(customer_id: int, db: Session):
+    return (
+        db.query(models.CustomerSearchHistory)
+        .filter(models.CustomerSearchHistory.customer_id == customer_id)
+        .first()
+    )
+
+
+def get_customer_history_tag(customer_id: int, db: Session):
+    history = get_customer_search_history(customer_id, db)
+
+    if history and history.last_provider_tag:
+        return history.last_provider_tag
+
+    return DEFAULT_HISTORY_PROVIDER_TAG
+
+
+def save_customer_provider_tag_history(
+    customer_id: int,
+    provider_profile: models.ProviderProfile,
+    db: Session,
+):
+    provider_tags = tags_to_list(provider_profile.tags)
+    last_provider_tag = (
+        provider_tags[0] if provider_tags else DEFAULT_HISTORY_PROVIDER_TAG
+    )
+    history = get_customer_search_history(customer_id, db)
+    now = utc_now()
+
+    if not history:
+        history = models.CustomerSearchHistory(
+            customer_id=customer_id,
+            last_provider_profile_id=provider_profile.id,
+            last_provider_tag=last_provider_tag,
+            updated_at=now,
+        )
+        db.add(history)
+    else:
+        history.last_provider_profile_id = provider_profile.id
+        history.last_provider_tag = last_provider_tag
+        history.updated_at = now
+
+    db.commit()
+    db.refresh(history)
+    return history
+
+
+def get_customer_recommendation_location(customer_profile):
+    if not customer_profile:
+        return None, None
+
+    if has_location(
+        customer_profile.current_latitude, customer_profile.current_longitude
+    ):
+        return customer_profile.current_latitude, customer_profile.current_longitude
+
+    if has_location(
+        customer_profile.default_service_latitude,
+        customer_profile.default_service_longitude,
+    ):
+        return (
+            customer_profile.default_service_latitude,
+            customer_profile.default_service_longitude,
+        )
+
+    if has_location(customer_profile.latitude, customer_profile.longitude):
+        return customer_profile.latitude, customer_profile.longitude
+
+    return None, None
+
+
+def get_first_provider_portfolio_image_url(provider_profile_id: int, db: Session):
+    portfolio = (
+        db.query(models.ProviderPortfolio)
+        .filter(
+            models.ProviderPortfolio.provider_profile_id == provider_profile_id,
+            models.ProviderPortfolio.media_type == "image",
+            models.ProviderPortfolio.verification_status == "approved",
+        )
+        .order_by(models.ProviderPortfolio.created_at.asc())
+        .first()
+    )
+
+    return portfolio.image_url if portfolio else None
+
+
+def format_home_provider_item(
+    provider_profile: models.ProviderProfile,
+    db: Session,
+    recommendation_score: float,
+    matched_tags: list[str],
+    recommendation_reasons: list[str],
+    distance_km: float | None,
+):
+    provider_data = format_provider_profile_with_rating(provider_profile, db)
+    provider_data["first_portfolio_image_url"] = get_first_provider_portfolio_image_url(
+        provider_profile.id,
+        db,
+    )
+    provider_data["recommendation_score"] = recommendation_score
+    provider_data["matched_tags"] = matched_tags
+    provider_data["recommendation_reasons"] = recommendation_reasons
+    provider_data["distance_km"] = distance_km
+
+    return provider_data
+
+
+def calculate_home_recommendation_score(
+    provider_profile: models.ProviderProfile,
+    service_province: str,
+    history_provider_tag: str,
+    customer_latitude: float | None,
+    customer_longitude: float | None,
+    selected_provider_tag: str | None = None,
+):
+    score = 0.0
+    reasons = []
+    distance_km = None
+    provider_tags = tags_to_list(provider_profile.tags)
+    recommendation_tag = selected_provider_tag or history_provider_tag
+
+    if provider_profile.service_province == service_province:
+        score += 100
+        reasons.append("same_province")
+
+    if recommendation_tag in provider_tags:
+        score += 45
+        reasons.append(
+            "matched_selected_tag" if selected_provider_tag else "matched_history_tag"
+        )
+
+    if has_location(customer_latitude, customer_longitude) and has_location(
+        provider_profile.latitude,
+        provider_profile.longitude,
+    ):
+        distance_km = calculate_distance_km(
+            customer_latitude,
+            customer_longitude,
+            provider_profile.latitude,
+            provider_profile.longitude,
+        )
+        distance_score = max(0, 30 - distance_km)
+        score += distance_score
+
+        if distance_score > 0:
+            reasons.append("nearby")
+
+    return {
+        "score": round(score, 2),
+        "distance_km": distance_km,
+        "matched_tags": (
+            [recommendation_tag] if recommendation_tag in provider_tags else []
+        ),
+        "reason_codes": reasons,
+    }
+
+
+def build_customer_home_recommendations(
+    current_user: models.User,
+    db: Session,
+    service_province: str | None = None,
+    provider_tag: str | None = None,
+    limit: int = 20,
+):
+    customer_profile = (
+        db.query(models.CustomerProfile)
+        .filter(models.CustomerProfile.user_id == current_user.id)
+        .first()
+    )
+    selected_province = (
+        service_province
+        or (customer_profile.service_province if customer_profile else None)
+        or "Istanbul"
+    )
+    history_provider_tag = get_customer_history_tag(current_user.id, db)
+    customer_latitude, customer_longitude = get_customer_recommendation_location(
+        customer_profile
+    )
+
+    provider_profiles = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved
+        )
+        .all()
+    )
+
+    recommendations = []
+    for profile in provider_profiles:
+        profile_tags = tags_to_list(profile.tags)
+        if provider_tag and provider_tag not in profile_tags:
+            continue
+
+        scoring = calculate_home_recommendation_score(
+            profile,
+            selected_province,
+            history_provider_tag,
+            customer_latitude,
+            customer_longitude,
+            selected_provider_tag=provider_tag,
+        )
+        recommendations.append(
+            format_home_provider_item(
+                profile,
+                db,
+                scoring["score"],
+                scoring["matched_tags"],
+                scoring["reason_codes"],
+                scoring["distance_km"],
+            )
+        )
+
+    recommendations.sort(
+        key=lambda provider: (
+            provider["recommendation_score"],
+            provider.get("average_rating") or 0,
+            provider.get("review_count") or 0,
+            -provider.get("hourly_rate", 0),
+        ),
+        reverse=True,
+    )
+
+    return {
+        "service_province": selected_province,
+        "history_provider_tag": history_provider_tag,
+        "items": recommendations[:limit],
+    }
+
+
+def tokenize_provider_search_keyword(keyword: str):
+    tokens = [
+        token.strip().lower()
+        for token in SEARCH_SPLIT_PATTERN.split(keyword)
+        if token.strip()
+    ]
+
+    return list(dict.fromkeys(tokens))
+
+
+def text_matches_token(text: str | None, token: str):
+    if not text:
+        return False
+
+    normalized_text = text.lower()
+    return token in normalized_text or normalized_text in token
+
+
+def score_provider_search_match(
+    provider_profile: models.ProviderProfile,
+    tokens: list[str],
+    service_province: str,
+    customer_latitude: float | None,
+    customer_longitude: float | None,
+):
+    score = 0.0
+    matched_tags = []
+    reasons = []
+    matched_any_search_field = False
+    provider_tags = tags_to_list(provider_profile.tags)
+    searchable_tags = [tag.lower() for tag in provider_tags]
+
+    for token in tokens:
+        tag_matched = [
+            provider_tags[index]
+            for index, tag in enumerate(searchable_tags)
+            if token in tag or tag in token
+        ]
+        if tag_matched:
+            matched_any_search_field = True
+            score += 80 * len(tag_matched)
+            reasons.append("matched_tag")
+            matched_tags.extend(tag for tag in tag_matched if tag not in matched_tags)
+
+        if text_matches_token(provider_profile.business_name, token):
+            matched_any_search_field = True
+            score += 45
+            reasons.append("matched_business_name")
+
+        if text_matches_token(provider_profile.service_province, token):
+            matched_any_search_field = True
+            score += 35
+            reasons.append("matched_province_keyword")
+
+    if not matched_any_search_field:
+        return None
+
+    if provider_profile.service_province == service_province:
+        score += 60
+        reasons.append("same_province")
+
+    distance_km = None
+    if has_location(customer_latitude, customer_longitude) and has_location(
+        provider_profile.latitude,
+        provider_profile.longitude,
+    ):
+        distance_km = calculate_distance_km(
+            customer_latitude,
+            customer_longitude,
+            provider_profile.latitude,
+            provider_profile.longitude,
+        )
+        distance_score = max(0, 25 - distance_km)
+        score += distance_score
+
+        if distance_score > 0:
+            reasons.append("nearby")
+
+    return {
+        "score": round(score, 2),
+        "distance_km": distance_km,
+        "matched_tags": matched_tags,
+        "reason_codes": list(dict.fromkeys(reasons)),
+    }
+
+
+def search_customer_providers(
+    current_user: models.User,
+    db: Session,
+    keyword: str,
+    service_province: str | None = None,
+    limit: int = 40,
+):
+    tokens = tokenize_provider_search_keyword(keyword)
+    customer_profile = (
+        db.query(models.CustomerProfile)
+        .filter(models.CustomerProfile.user_id == current_user.id)
+        .first()
+    )
+    selected_province = (
+        service_province
+        or (customer_profile.service_province if customer_profile else None)
+        or "Istanbul"
+    )
+    customer_latitude, customer_longitude = get_customer_recommendation_location(
+        customer_profile
+    )
+
+    if not tokens:
+        return {
+            "keyword": keyword,
+            "tokens": [],
+            "service_province": selected_province,
+            "items": [],
+        }
+
+    provider_profiles = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.verification_status
+            == ProviderVerificationStatus.approved
+        )
+        .all()
+    )
+
+    results = []
+    for profile in provider_profiles:
+        scoring = score_provider_search_match(
+            profile,
+            tokens,
+            selected_province,
+            customer_latitude,
+            customer_longitude,
+        )
+        if not scoring:
+            continue
+
+        results.append(
+            format_home_provider_item(
+                profile,
+                db,
+                scoring["score"],
+                scoring["matched_tags"],
+                scoring["reason_codes"],
+                scoring["distance_km"],
+            )
+        )
+
+    results.sort(
+        key=lambda provider: (
+            provider["recommendation_score"],
+            provider.get("average_rating") or 0,
+            provider.get("review_count") or 0,
+            -provider.get("hourly_rate", 0),
+        ),
+        reverse=True,
+    )
+
+    return {
+        "keyword": keyword,
+        "tokens": tokens,
+        "service_province": selected_province,
+        "items": results[:limit],
+    }
