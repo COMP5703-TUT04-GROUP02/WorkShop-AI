@@ -31,13 +31,27 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       WORKSHOP_DATABASE_URL: postgresql+psycopg://workshop:workshop@localhost:5432/workshop_test
+      WORKSHOP_REDIS_HOST: 127.0.0.1
+      WORKSHOP_REDIS_PORT: 6379
+      WORKSHOP_CELERY_BROKER_URL: redis://127.0.0.1:6379/1
+      WORKSHOP_CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/2
       QWEN_API_KEY: ""
       DASHSCOPE_API_KEY: ""
       OPENAI_API_KEY: ""
       LLM_API_KEY: ""
       EMBEDDING_API_KEY: ""
+      LLM_TIMEOUT_SECONDS: "5"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -52,7 +66,7 @@ jobs:
       - name: Lint
         run: ruff check backend tests
       - name: Test
-        run: pytest -q
+        run: pytest -q --durations=20
 
   mobile:
     name: mobile
