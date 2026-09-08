@@ -183,6 +183,13 @@ Auth: required; some admin-only maintenance endpoints.
 | `POST` | `/ai/actions/confirm` | Confirm a pending AI action. | - | `application/json` -> `AIActionConfirmRequest` | `ApiResponse_Any_` |
 | `GET` | `/ai/actions/{action_id}` | Get Ai Pending Action | `action_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/ai/actions/{action_id}/cancel` | Cancel Ai Action | `action_id`(path, required, integer) | - | `ApiResponse_Any_` |
+| `GET` | `/ai/oauth` | Get chat auth status (API key + ChatGPT + Grok) | - | - | `ApiResponse_Any_` |
+| `PUT` | `/ai/oauth` | Switch chat auth (`key`, `chatgpt`, or `grok`) | - | `application/json` -> `LLMAuthUpdate` | `ApiResponse_Any_` |
+| `PUT` | `/ai/oauth/key` | Save an admin chat API key | - | `application/json` -> `LLMApiKeyUpdate` | `ApiResponse_Any_` |
+| `DELETE` | `/ai/oauth/key` | Clear the admin chat API key | - | - | `ApiResponse_Any_` |
+| `POST` | `/ai/oauth/models` | List official chat models | - | `application/json` -> `LLMModelsRequest` | `ApiResponse_Any_` |
+| `POST` | `/ai/oauth/chatgpt/start` | Start ChatGPT device login | - | - | `ApiResponse_Any_` |
+| `POST` | `/ai/oauth/grok/start` | Start Grok device login | - | - | `ApiResponse_Any_` |
 | `POST` | `/ai/chat` | Enqueue Ai Chat | - | `application/json` -> `AIChatRequest` | `ApiResponse_Any_` |
 | `POST` | `/ai/chat/async` | Enqueue Ai Chat Alias | - | `application/json` -> `AIChatRequest` | `ApiResponse_Any_` |
 | `GET` | `/ai/chat/messages` | Get Ai Chat Messages | `page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |

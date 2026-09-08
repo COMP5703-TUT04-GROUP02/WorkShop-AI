@@ -7,21 +7,24 @@ or a ChatGPT Plus subscription when an admin has signed in.
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from backend.ai.codex import DEFAULT_CODEX_MODEL, CodexChatModel
-from backend.ai.oauth.runtime import get_llm_auth_mode
+from backend.ai.oauth.api_key import resolve_chat_settings
+from backend.ai.oauth.grok import DEFAULT_GROK_MODEL, XAI_API_BASE
+from backend.ai.oauth.runtime import (
+    get_llm_auth_mode,
+    get_saved_subscription_model,
+    grok_oauth,
+)
 from backend.config import (
     EMBEDDING_API_KEY,
     EMBEDDING_BASE_URL,
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL,
-    LLM_API_KEY,
-    LLM_BASE_URL,
     LLM_MAX_TOKENS,
     LLM_MAX_RETRIES,
-    LLM_MODEL,
-    LLM_PROVIDER,
     LLM_TEMPERATURE,
     LLM_TIMEOUT_SECONDS,
 )
+from backend.llm_provider import preset_headers
 
 
 def get_qwen_chat_model(
@@ -30,34 +33,42 @@ def get_qwen_chat_model(
 ):
     auth_mode = get_llm_auth_mode()
     if auth_mode == "chatgpt":
-        model_name = LLM_MODEL
-        if (
-            not model_name
-            or model_name.startswith("qwen")
-            or model_name in {"gpt-5.6", "gpt-6-astra"}
-        ):
-            model_name = DEFAULT_CODEX_MODEL
+        model_name = get_saved_subscription_model("chatgpt") or DEFAULT_CODEX_MODEL
         return CodexChatModel(
             model=model_name,
             temperature=temperature if temperature is not None else LLM_TEMPERATURE,
             max_tokens=max_tokens if max_tokens is not None else LLM_MAX_TOKENS,
         )
+    if auth_mode == "grok":
+        model_name = get_saved_subscription_model("grok") or DEFAULT_GROK_MODEL
+        return ChatOpenAI(
+            model=model_name,
+            api_key=grok_oauth.bearer(),
+            base_url=XAI_API_BASE,
+            max_tokens=LLM_MAX_TOKENS if max_tokens is None else max_tokens,
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=LLM_MAX_RETRIES,
+        )
 
-    if not LLM_API_KEY:
+    chat = resolve_chat_settings()
+    if not chat.api_key:
         raise ValueError(
-            "LLM API key is not configured. Set LLM_API_KEY or sign in with a "
-            "ChatGPT Plus subscription in the admin dashboard."
+            "LLM API key is not configured. Save a vendor key in the admin "
+            "dashboard, set LLM_API_KEY, or sign in with ChatGPT or Grok."
         )
 
     kwargs = {
-        "model": LLM_MODEL,
-        "api_key": LLM_API_KEY,
-        "base_url": LLM_BASE_URL,
+        "model": chat.model,
+        "api_key": chat.api_key,
+        "base_url": chat.base_url,
         "max_tokens": LLM_MAX_TOKENS if max_tokens is None else max_tokens,
         "timeout": LLM_TIMEOUT_SECONDS,
         "max_retries": LLM_MAX_RETRIES,
     }
-    if LLM_PROVIDER != "openai":
+    headers = preset_headers(chat.provider)
+    if headers:
+        kwargs["default_headers"] = headers
+    if chat.provider not in {"openai", "grok"}:
         kwargs["temperature"] = LLM_TEMPERATURE if temperature is None else temperature
     return ChatOpenAI(**kwargs)
 

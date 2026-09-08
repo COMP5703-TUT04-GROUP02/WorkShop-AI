@@ -32,9 +32,13 @@ from backend.services.milvus_service import (
 )
 from backend.services.ai_service import generate_embedding, test_qwen_chat
 from backend.services.redis_service import check_redis_connection
+from backend.ai.oauth.api_key import clear_admin_llm, save_admin_llm
+from backend.ai.oauth.models import list_key_models, list_subscription_models
 from backend.ai.oauth.runtime import (
     chatgpt_oauth,
+    grok_oauth,
     logout_chatgpt,
+    logout_grok,
     set_saved_auth,
     subscription_status,
 )
@@ -96,6 +100,21 @@ logger = logging.getLogger(__name__)
 
 class LLMAuthUpdate(BaseModel):
     auth: str
+    model: str = ""
+
+
+class LLMApiKeyUpdate(BaseModel):
+    provider: str = "qwen"
+    api_key: str = ""
+    base_url: str = ""
+    model: str = ""
+
+
+class LLMModelsRequest(BaseModel):
+    source: str = "key"
+    provider: str = "qwen"
+    api_key: str = ""
+    base_url: str = ""
 
 
 def is_llm_service_error(error: Exception):
@@ -110,6 +129,7 @@ def is_llm_service_error(error: Exception):
             "not signed in",
             "embeddings are not configured",
             "not signed in to chatgpt",
+            "not signed in to grok",
             "invalid_api_key",
             "api-key",
             "api key",
@@ -135,13 +155,13 @@ def build_ai_service_error_response(
         )
     elif "LLM API key is not configured" in error_text:
         answer = (
-            "AI API key is not configured. Set LLM_PROVIDER and the matching "
-            "vendor key (LLM_API_KEY, QWEN_API_KEY, or OPENAI_API_KEY)."
+            "AI API key is not configured. Save a vendor key in the admin "
+            "dashboard, or set LLM_PROVIDER and the matching vendor key."
         )
     elif "not supported when using Codex" in error_text:
         answer = (
             "This ChatGPT subscription cannot use the configured Codex model. "
-            "Try again, or set LLM_MODEL to a ChatGPT Codex model such as gpt-5.5."
+            "Load official models in the admin dashboard and pick a Codex model."
         )
     else:
         answer = "AI service is temporarily unavailable. Please try again later."
@@ -632,10 +652,75 @@ def update_ai_oauth_auth(
     current_user: models.User = Depends(require_admin),
 ):
     try:
-        set_saved_auth(request_data.auth)
+        set_saved_auth(request_data.auth, request_data.model)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return success_response(subscription_status())
+
+
+@router.put("/ai/oauth/key")
+def update_ai_oauth_key(
+    request_data: LLMApiKeyUpdate,
+    current_user: models.User = Depends(require_admin),
+):
+    try:
+        save_admin_llm(
+            request_data.provider,
+            request_data.api_key,
+            request_data.base_url,
+            request_data.model,
+        )
+        set_saved_auth("key")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return success_response(subscription_status())
+
+
+@router.delete("/ai/oauth/key")
+def delete_ai_oauth_key(current_user: models.User = Depends(require_admin)):
+    clear_admin_llm()
+    return success_response(subscription_status())
+
+
+@router.post("/ai/oauth/models")
+def list_ai_oauth_models(
+    request_data: LLMModelsRequest,
+    current_user: models.User = Depends(require_admin),
+):
+    try:
+        if request_data.source in {"chatgpt", "grok"}:
+            return success_response(list_subscription_models(request_data.source))
+        return success_response(
+            list_key_models(
+                request_data.provider,
+                request_data.api_key,
+                request_data.base_url,
+            )
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.post("/ai/oauth/grok/start")
+def start_grok_oauth(current_user: models.User = Depends(require_admin)):
+    try:
+        grok_oauth.start()
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return success_response(subscription_status())
+
+
+@router.post("/ai/oauth/grok/cancel")
+def cancel_grok_oauth(current_user: models.User = Depends(require_admin)):
+    grok_oauth.cancel()
+    return success_response(subscription_status())
+
+
+@router.post("/ai/oauth/grok/logout")
+def logout_grok_oauth(current_user: models.User = Depends(require_admin)):
+    return success_response(logout_grok())
 
 
 @router.get("/ai/health/redis")
