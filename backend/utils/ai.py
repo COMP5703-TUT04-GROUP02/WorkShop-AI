@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -167,6 +168,41 @@ def parse_user_service_need(query: str):
         "matched_tags": matched_tags,
         "budget_preference": budget_preference,
     }
+
+
+_CAPABILITY_ONLY_RE = re.compile(
+    r"^\s*(?:hi[,!.\s]+|hello[,!.\s]+|hey[,!.\s]+)?"
+    r"(?:"
+    r"who are you|what are you|what can you do|what do you do|"
+    r"how (?:do|can) i use you|what can you help(?: me)? with|"
+    r"help|capabilities|"
+    r"你是谁|你能做什么|怎么用|"
+    r"kimsin|neler yapabilirsin|ne yapabilirsin"
+    r")[\s!.?]*$",
+    re.IGNORECASE,
+)
+
+_CASUAL_GREETING_ONLY_RE = re.compile(
+    r"^\s*(?:"
+    r"hi|hello|hey|yo|sup|thanks|thank you|cheers|"
+    r"merhaba|selam|iyi günler|"
+    r"你好|嗨|哈喽|谢谢"
+    r")[\s!.?]*$",
+    re.IGNORECASE,
+)
+
+CASUAL_LOCAL_ANSWER = (
+    "I'm Workshop AI. I can help find nearby providers, compare reviews, "
+    "and draft a booking. Tell me the service you need."
+)
+
+
+def looks_like_capability_question(query: str) -> bool:
+    return bool(_CAPABILITY_ONLY_RE.match((query or "").strip()))
+
+
+def looks_like_casual_greeting_only(query: str) -> bool:
+    return bool(_CASUAL_GREETING_ONLY_RE.match((query or "").strip()))
 
 
 def looks_like_review_summary_question(query: str):

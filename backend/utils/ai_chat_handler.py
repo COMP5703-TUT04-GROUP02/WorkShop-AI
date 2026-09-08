@@ -5,7 +5,8 @@ Converts natural language into backend flows:
 2. Handle multi-turn follow-ups (e.g. "first one", location, schedule).
 3. LangChain tool calling for search, reviews, status, or pending actions.
 4. DB-changing actions become confirmation cards only after user confirms.
-5. Falls back to legacy intent classification when no tool matches.
+5. Greetings and capability questions are answered locally. If no tool is chosen,
+   rule-based search/review fallbacks run without a second model call.
 """
 
 import re
@@ -19,12 +20,11 @@ from backend.ai.tool_calling import (
     choose_and_run_langchain_tools,
     execute_langchain_tool_call,
 )
-from backend.services.ai_service import (
-    classify_user_intent,
-    extract_service_need,
-    generate_casual_chat_response,
+from backend.ai.tools import (
+    get_platform_capabilities_tool,
+    search_providers_tool,
+    summarize_provider_reviews_tool,
 )
-from backend.ai.tools import search_providers_tool, summarize_provider_reviews_tool
 from backend.services.redis_service import (
     get_last_provider_recommendation_context,
     get_last_recommended_providers,
@@ -32,6 +32,9 @@ from backend.services.redis_service import (
     save_last_recommended_providers,
 )
 from backend.utils.ai import (
+    CASUAL_LOCAL_ANSWER,
+    looks_like_capability_question,
+    looks_like_casual_greeting_only,
     looks_like_review_summary_question,
     parse_user_service_need,
 )
@@ -42,7 +45,6 @@ from backend.utils.ai_chat import (
     get_last_pending_clarification_from_history,
     get_last_provider_recommendation_context_from_history,
     get_last_recommended_provider_ids_from_history,
-    get_recent_ai_chat_history,
     resolve_candidate_provider_ids,
     save_ai_chat_exchange,
 )
@@ -179,6 +181,109 @@ def save_tool_calling_exchange(
     response.pop("assistant_metadata", None)
 
     return response
+
+
+def chat_request_payload(request_data: AIChatRequest) -> dict:
+    return {
+        "message": request_data.message,
+        "service_province": request_data.service_province,
+        "service_address": getattr(request_data, "service_address", None),
+        "max_price": request_data.max_price,
+        "latitude": request_data.latitude,
+        "longitude": request_data.longitude,
+        "max_distance_km": request_data.max_distance_km,
+        "scheduled_start_time": request_data.scheduled_start_time,
+        "scheduled_end_time": request_data.scheduled_end_time,
+        "candidate_provider_ids": request_data.candidate_provider_ids,
+    }
+
+
+def build_plain_answer_response(
+    request_data: AIChatRequest,
+    current_user: models.User,
+    answer: str,
+    request_metadata: dict,
+    db: Session,
+    *,
+    response_type: str,
+    intent_name: str,
+    reason: str,
+    extra: dict | None = None,
+):
+    intent = {
+        "intent": intent_name,
+        "confidence": 1,
+        "reason": reason,
+    }
+    response = {
+        **chat_request_payload(request_data),
+        "type": response_type,
+        "intent": intent,
+        "answer": answer,
+        "assistant_metadata": {
+            "intent": intent,
+            "answer_source": response_type,
+        },
+    }
+    if extra:
+        response.update(extra)
+        response["assistant_metadata"].update(extra)
+    return save_tool_calling_exchange(
+        request_data,
+        current_user,
+        response,
+        request_metadata,
+        db,
+    )
+
+
+def try_handle_local_chat_fastpath(
+    request_data: AIChatRequest,
+    current_user: models.User,
+    request_metadata: dict,
+    db: Session,
+):
+    if looks_like_capability_question(request_data.message):
+        result = get_platform_capabilities_tool(question=request_data.message)
+        tool_result = {
+            "tool_name": "get_platform_capabilities",
+            "tool_args": {"question": request_data.message},
+            "result": result,
+        }
+        return build_platform_capabilities_response_from_tool_result(
+            request_data,
+            current_user,
+            {
+                "message": request_data.message,
+                "type": "tool_call",
+                "answer": result["answer"],
+                "tool_calls": [
+                    {
+                        "name": "get_platform_capabilities",
+                        "args": {"question": request_data.message},
+                        "source": "local_fastpath",
+                    }
+                ],
+                "tool_results": [tool_result],
+            },
+            tool_result,
+            request_metadata,
+            db,
+        )
+
+    if looks_like_casual_greeting_only(request_data.message):
+        return build_plain_answer_response(
+            request_data,
+            current_user,
+            CASUAL_LOCAL_ANSWER,
+            request_metadata,
+            db,
+            response_type="casual_chat",
+            intent_name="casual_chat",
+            reason="Local greeting fastpath",
+        )
+
+    return None
 
 
 def get_missing_tool_arg_names(error_details):
@@ -1613,16 +1718,29 @@ def try_handle_with_langchain_tool_calling(
         build_langchain_tool_context(request_data, current_user, db),
     )
 
-    if tool_calling_result["type"] != "tool_call":
-        return None
+    if tool_calling_result["type"] == "tool_call":
+        return build_tool_calling_response_from_result(
+            request_data,
+            current_user,
+            tool_calling_result,
+            request_metadata,
+            db,
+        )
 
-    return build_tool_calling_response_from_result(
-        request_data,
-        current_user,
-        tool_calling_result,
-        request_metadata,
-        db,
-    )
+    answer = (tool_calling_result.get("answer") or "").strip()
+    if answer and not answer.startswith("No suitable capability found"):
+        return build_plain_answer_response(
+            request_data,
+            current_user,
+            answer,
+            request_metadata,
+            db,
+            response_type="answer",
+            intent_name="tool_calling",
+            reason="Model replied without choosing a tool",
+        )
+
+    return None
 
 
 def handle_ai_chat_request(
@@ -1687,6 +1805,15 @@ def handle_ai_chat_request(
     if booking_draft_schedule_update_response:
         return booking_draft_schedule_update_response
 
+    local_response = try_handle_local_chat_fastpath(
+        request_data,
+        current_user,
+        request_metadata,
+        db,
+    )
+    if local_response:
+        return local_response
+
     tool_calling_response = try_handle_with_langchain_tool_calling(
         request_data,
         current_user,
@@ -1696,81 +1823,34 @@ def handle_ai_chat_request(
     if tool_calling_response:
         return tool_calling_response
 
-    intent_result = classify_user_intent(request_data.message)
+    return handle_rule_based_chat_fallback(
+        request_data,
+        current_user,
+        request_metadata,
+        db,
+    )
+
+
+def handle_rule_based_chat_fallback(
+    request_data: AIChatRequest,
+    current_user: models.User,
+    request_metadata: dict,
+    db: Session,
+):
     fallback_need = parse_user_service_need(request_data.message)
-    is_low_confidence = intent_result["confidence"] < 0.6
-
-    if fallback_need["matched_tags"] and (
-        intent_result["intent"] == "unknown" or is_low_confidence
-    ):
-        intent_result = {
-            "intent": "provider_search",
-            "confidence": max(intent_result["confidence"], 0.6),
-            "reason": "Rule fallback matched service tags",
+    if fallback_need["matched_tags"]:
+        extracted_need = {
+            "service_tags": fallback_need["matched_tags"],
+            "service_province": None,
+            "max_price": None,
+            "budget_preference": fallback_need["budget_preference"],
+            "quality_preference": False,
+            "urgency": None,
         }
-
-    if (
-        not fallback_need["matched_tags"]
-        and looks_like_review_summary_question(request_data.message)
-        and (intent_result["intent"] == "unknown" or is_low_confidence)
-    ):
-        intent_result = {
-            "intent": "review_summary",
-            "confidence": max(intent_result["confidence"], 0.6),
-            "reason": "Rule fallback matched review summary question",
-        }
-
-    if intent_result["intent"] == "casual_chat":
-        chat_history = get_recent_ai_chat_history(current_user.id, db)
-        answer = generate_casual_chat_response(
-            request_data.message,
-            chat_history,
-        )
-        response = {
-            "message": request_data.message,
-            "service_province": request_data.service_province,
-            "max_price": request_data.max_price,
-            "latitude": request_data.latitude,
-            "longitude": request_data.longitude,
-            "max_distance_km": request_data.max_distance_km,
-            "scheduled_start_time": request_data.scheduled_start_time,
-            "scheduled_end_time": request_data.scheduled_end_time,
-            "candidate_provider_ids": request_data.candidate_provider_ids,
-            "type": "casual_chat",
-            "intent": intent_result,
-            "answer": answer,
-        }
-        save_ai_chat_exchange(
-            current_user.id,
-            request_data.message,
-            answer,
-            intent_result["intent"],
-            response["type"],
-            request_metadata,
-            {
-                "intent": intent_result,
-            },
-            db,
-        )
-
-        return response
-
-    if intent_result["intent"] == "provider_search":
-        extracted_need = extract_service_need(request_data.message)
-
-        if not extracted_need["service_tags"]:
-            extracted_need["service_tags"] = fallback_need["matched_tags"]
-
-        if not extracted_need["budget_preference"]:
-            extracted_need["budget_preference"] = fallback_need["budget_preference"]
-
-        service_province = (
-            request_data.service_province or extracted_need["service_province"]
-        )
-        max_price = request_data.max_price or extracted_need["max_price"]
+        service_province = request_data.service_province
+        max_price = request_data.max_price
         scheduled_start_time = request_data.scheduled_start_time
         scheduled_end_time = request_data.scheduled_end_time
-
         provider_search_result = search_providers_tool(
             query=request_data.message,
             service_tags=extracted_need["service_tags"],
@@ -1792,7 +1872,6 @@ def handle_ai_chat_request(
             if key != "resolved_need"
         }
         resolved_need = provider_search_result["resolved_need"]
-
         extracted_need.update(resolved_need)
         recommended_provider_ids = [
             recommendation["provider_id"]
@@ -1801,66 +1880,47 @@ def handle_ai_chat_request(
         recommended_providers = build_provider_recommendation_snapshot(
             recommendations["recommendations"],
         )
-        save_last_recommended_providers(
-            current_user.id,
-            recommended_provider_ids,
-        )
+        save_last_recommended_providers(current_user.id, recommended_provider_ids)
         save_last_provider_recommendation_context(
             current_user.id,
             recommended_providers,
         )
+        intent = {
+            "intent": "provider_search",
+            "confidence": 0.7,
+            "reason": "Rule fallback matched service tags",
+        }
         answer = build_provider_search_answer(recommendations)
-        response_type = (
-            "provider_search_no_match"
-            if recommendations.get("no_core_tag_matched")
-            else "provider_search"
-        )
         response = {
-            "message": request_data.message,
-            "service_province": request_data.service_province,
-            "max_price": request_data.max_price,
-            "latitude": request_data.latitude,
-            "longitude": request_data.longitude,
-            "max_distance_km": request_data.max_distance_km,
-            "scheduled_start_time": request_data.scheduled_start_time,
-            "scheduled_end_time": request_data.scheduled_end_time,
-            "candidate_provider_ids": request_data.candidate_provider_ids,
-            "type": response_type,
-            "intent": intent_result,
+            **chat_request_payload(request_data),
+            "type": (
+                "provider_search_no_match"
+                if recommendations.get("no_core_tag_matched")
+                else "provider_search"
+            ),
+            "intent": intent,
             "answer": answer,
             "extracted_need": extracted_need,
             **recommendations,
-        }
-        save_ai_chat_exchange(
-            current_user.id,
-            request_data.message,
-            answer,
-            intent_result["intent"],
-            response["type"],
-            request_metadata,
-            {
-                "intent": intent_result,
+            "assistant_metadata": {
+                "intent": intent,
                 "extracted_need": extracted_need,
                 "recommended_provider_ids": recommended_provider_ids,
                 "recommended_providers": recommended_providers,
                 "recommendation_count": recommendations["recommendation_count"],
                 "no_core_tag_matched": recommendations.get("no_core_tag_matched"),
-                "latitude": resolved_need["latitude"],
-                "longitude": resolved_need["longitude"],
-                "max_distance_km": resolved_need["max_distance_km"],
-                "scheduled_start_time": (
-                    scheduled_start_time.isoformat() if scheduled_start_time else None
-                ),
-                "scheduled_end_time": (
-                    scheduled_end_time.isoformat() if scheduled_end_time else None
-                ),
+                "answer_source": "rule_fallback_provider_search",
             },
+        }
+        return save_tool_calling_exchange(
+            request_data,
+            current_user,
+            response,
+            request_metadata,
             db,
         )
 
-        return response
-
-    if intent_result["intent"] == "review_summary":
+    if looks_like_review_summary_question(request_data.message):
         recent_provider_ids = get_last_recommended_providers(current_user.id)
         history_provider_ids = get_last_recommended_provider_ids_from_history(
             current_user.id,
@@ -1871,40 +1931,22 @@ def handle_ai_chat_request(
             recent_provider_ids,
             history_provider_ids,
         )
-
+        intent = {
+            "intent": "review_summary",
+            "confidence": 0.7,
+            "reason": "Rule fallback matched review summary question",
+        }
         if not candidate_provider_ids:
-            answer = (
-                "Please select or recommend a few providers first, then I can summarize reviews, price, and attitude."
-            )
-            response = {
-                "message": request_data.message,
-                "service_province": request_data.service_province,
-                "max_price": request_data.max_price,
-                "latitude": request_data.latitude,
-                "longitude": request_data.longitude,
-                "max_distance_km": request_data.max_distance_km,
-                "scheduled_start_time": request_data.scheduled_start_time,
-                "scheduled_end_time": request_data.scheduled_end_time,
-                "candidate_provider_ids": request_data.candidate_provider_ids,
-                "type": "review_summary",
-                "intent": intent_result,
-                "answer": answer,
-            }
-            save_ai_chat_exchange(
-                current_user.id,
-                request_data.message,
-                answer,
-                intent_result["intent"],
-                response["type"],
+            return build_plain_answer_response(
+                request_data,
+                current_user,
+                "Please select or recommend a few providers first, then I can summarize reviews, price, and attitude.",
                 request_metadata,
-                {
-                    "intent": intent_result,
-                    "reason": "No recent candidate providers",
-                },
                 db,
+                response_type="review_summary",
+                intent_name="review_summary",
+                reason=intent["reason"],
             )
-
-            return response
 
         review_summary_result = summarize_provider_reviews_tool(
             question=request_data.message,
@@ -1912,71 +1954,36 @@ def handle_ai_chat_request(
             current_user=current_user,
             db=db,
         )
-        answer = review_summary_result["answer"]
-        review_context_source = review_summary_result["review_context_source"]
-        review_context = review_summary_result["review_context"]
-
         response = {
-            "message": request_data.message,
-            "service_province": request_data.service_province,
-            "max_price": request_data.max_price,
-            "latitude": request_data.latitude,
-            "longitude": request_data.longitude,
-            "max_distance_km": request_data.max_distance_km,
-            "scheduled_start_time": request_data.scheduled_start_time,
-            "scheduled_end_time": request_data.scheduled_end_time,
+            **chat_request_payload(request_data),
             "candidate_provider_ids": candidate_provider_ids,
             "type": "review_summary",
-            "intent": intent_result,
-            "answer": answer,
-            "review_context_source": review_context_source,
-            "review_context": review_context,
-        }
-        save_ai_chat_exchange(
-            current_user.id,
-            request_data.message,
-            answer,
-            intent_result["intent"],
-            response["type"],
-            request_metadata,
-            {
-                "intent": intent_result,
+            "intent": intent,
+            "answer": review_summary_result["answer"],
+            "review_context_source": review_summary_result["review_context_source"],
+            "review_context": review_summary_result["review_context"],
+            "assistant_metadata": {
+                "intent": intent,
                 "candidate_provider_ids": candidate_provider_ids,
-                "review_context_source": review_context_source,
+                "review_context_source": review_summary_result["review_context_source"],
+                "answer_source": "rule_fallback_review_summary",
             },
+        }
+        return save_tool_calling_exchange(
+            request_data,
+            current_user,
+            response,
+            request_metadata,
             db,
         )
 
-        return response
-
-    answer = (
-        "I did not quite understand. Describe the service you need, or select providers for a review summary."
-    )
-    response = {
-        "message": request_data.message,
-        "service_province": request_data.service_province,
-        "max_price": request_data.max_price,
-        "latitude": request_data.latitude,
-        "longitude": request_data.longitude,
-        "max_distance_km": request_data.max_distance_km,
-        "scheduled_start_time": request_data.scheduled_start_time,
-        "scheduled_end_time": request_data.scheduled_end_time,
-        "candidate_provider_ids": request_data.candidate_provider_ids,
-        "type": intent_result["intent"],
-        "intent": intent_result,
-        "answer": answer,
-    }
-    save_ai_chat_exchange(
-        current_user.id,
-        request_data.message,
-        answer,
-        intent_result["intent"],
-        response["type"],
+    return build_plain_answer_response(
+        request_data,
+        current_user,
+        "I did not quite understand. Describe the service you need, or select providers for a review summary.",
         request_metadata,
-        {
-            "intent": intent_result,
-        },
         db,
+        response_type="unknown",
+        intent_name="unknown",
+        reason="No tool and no rule fallback matched",
     )
-
-    return response

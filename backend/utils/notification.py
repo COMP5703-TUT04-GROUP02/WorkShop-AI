@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from backend import models
 from backend.schemas import NotificationRelatedType, NotificationType
 from backend.services.redis_service import (
-    get_cached_notification_unread_count,
     increment_notification_unread_count,
     set_notification_unread_count,
 )
@@ -66,14 +65,8 @@ def count_unread_notifications_from_db(user_id: int, db: Session):
 
 
 def get_notification_unread_count(user_id: int, db: Session):
-    cached_count = get_cached_notification_unread_count(user_id)
-
-    if cached_count is not None:
-        return cached_count
-
     unread_count = count_unread_notifications_from_db(user_id, db)
     set_notification_unread_count(user_id, unread_count)
-
     return unread_count
 
 

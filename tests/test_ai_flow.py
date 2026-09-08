@@ -81,8 +81,47 @@ def test_admin_oauth_status(client, marketplace):
     response = client.get("/ai/oauth", headers=marketplace["admin"]["headers"])
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    assert data["auth"] in {"key", "chatgpt"}
+    assert data["auth"] in {"key", "chatgpt", "grok"}
     assert "chatgpt" in data
+    assert "grok" in data
+    assert any(item["id"] == "claude" for item in data["providers"])
+    assert data["key"]["source"] in {"admin", "env", "none"}
+    assert "api_key_preview" in data["key"]
+
+
+def test_admin_can_save_and_clear_api_key(client, marketplace, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "backend.ai.oauth.api_key.ADMIN_KEY_PATH",
+        tmp_path / "llm_api.json",
+    )
+    headers = marketplace["admin"]["headers"]
+    saved = client.put(
+        "/ai/oauth/key",
+        json={
+            "provider": "qwen",
+            "api_key": "sk-admin-test-key",
+            "model": "qwen3.8-max",
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    data = saved.json()["data"]
+    assert data["auth"] == "key"
+    assert data["key"]["source"] == "admin"
+    assert data["key"]["provider"] == "qwen"
+    assert data["key"]["api_key_preview"] == "sk-a…-key"
+    assert "sk-admin-test-key" not in saved.text
+
+    forbidden = client.put(
+        "/ai/oauth/key",
+        json={"provider": "qwen", "api_key": "sk-customer"},
+        headers=marketplace["customer"]["headers"],
+    )
+    assert forbidden.status_code == 403
+
+    cleared = client.delete("/ai/oauth/key", headers=headers)
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["data"]["key"]["source"] != "admin"
 
 
 def test_admin_redis_health_reports_status(client, marketplace, monkeypatch):

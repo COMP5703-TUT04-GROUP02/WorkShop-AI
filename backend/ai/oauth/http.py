@@ -49,3 +49,9 @@ def post_form(client: httpx.Client, url: str, form: dict, headers: dict | None =
     response = client.post(url, data=form, headers=headers)
     raise_for_oauth_body(response.status_code, response.content)
     return response.json() if response.content else {}
+
+
+def get_json(client: httpx.Client, url: str, headers: dict | None = None):
+    response = client.get(url, headers=headers)
+    raise_for_oauth_body(response.status_code, response.content)
+    return response.json() if response.content else {}

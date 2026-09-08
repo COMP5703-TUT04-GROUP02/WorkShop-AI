@@ -22,21 +22,21 @@ This is a working demo, not a production deployment.
 - Checkout uses a mock payment gateway. The quoted amount is charged in TRY; no card processor is connected.
 - Google and Apple buttons on the sign-in screen are placeholders until OAuth client IDs are configured.
 - Address autocomplete needs a Google Maps API key. The rest of the app runs without it.
-- Vector search for reviews (Milvus) runs in Docker Compose. A local Python process can omit it.
+- Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
 
 
 
 ## Stack
 
 
-| Layer    | Choice                                           |
-| -------- | ------------------------------------------------ |
-| API      | FastAPI, SQLAlchemy, Alembic                     |
-| Database | PostgreSQL 16                                    |
-| Auth     | RS256 JWTs, refresh-token sessions               |
-| Realtime | WebSockets, Redis                                |
-| App      | Expo / React Native (web included)               |
-| Optional | Redis-backed Celery, Milvus, Qwen-compatible LLM |
+| Layer    | Choice                                                           |
+| -------- | ---------------------------------------------------------------- |
+| API      | FastAPI, SQLAlchemy, Alembic                                     |
+| Database | PostgreSQL 16                                                    |
+| Auth     | RS256 JWTs, refresh-token sessions                               |
+| Realtime | WebSockets, Redis                                                |
+| App      | Expo / React Native (web included)                               |
+| Optional | Redis-backed Celery, Milvus, TEI embeddings, Qwen-compatible LLM |
 
 
 
@@ -50,26 +50,26 @@ migrations/        Alembic revisions
 tests/             pytest suite
 docs/              API notes and conventions
 scripts/           JWT key generation
-docker-compose.yml PostgreSQL, Redis, Milvus, API, Expo web
+docker-compose.yml PostgreSQL, Redis, Milvus, TEI, API, Expo web
 ```
 
 
 
 ## Requirements
 
-- Python 3.11 or newer
-- Node.js 20 or newer
-- Docker (optional full stack; PostgreSQL is on host port **5436**, Redis **6379**, API **8000**, web **8090**)
+- **Docker** (recommended one-command stack)
+- Python 3.11 or newer and Node.js 20 or newer (only for split local debug)
+- Host ports: PostgreSQL **5436**, Redis **6379**, TEI **8091**, API **8000**, web **8090**
 
 
 
 ## Getting started
 
-### Docker (API + web)
+Prefer Docker. Use the host API / Expo process only when you need to debug one side without rebuilding images.
 
-This starts PostgreSQL, Redis, Milvus, the API, a Celery worker, and the Expo web build. Copy `.env.example` to `.env` and set `LLM_API_KEY` (and `LLM_PROVIDER` if needed). Compose reads that file for chat and review embeddings. Do not point `WORKSHOP_DATABASE_URL` at `127.0.0.1` inside the containers; Compose already injects the Docker network URLs.
+### 1. Docker (recommended)
 
-The browser talks to the API on the host (`http://127.0.0.1:8000`), not the Docker network name.
+This starts PostgreSQL, Redis, Milvus, TEI (`Qwen3-Embedding-0.6B`), the API, a Celery worker, and the Expo web build. Copy `.env.example` to `.env` and set `LLM_API_KEY` (and `LLM_PROVIDER` if needed). Compose reads that file for chat. Review embeddings default to the TEI container (`http://tei:80/v1`); do not point `EMBEDDING_BASE_URL` or `WORKSHOP_DATABASE_URL` at `127.0.0.1` inside the stack. The first TEI start downloads model weights into a volume.
 
 ```bash
 cp .env.example .env
@@ -85,7 +85,9 @@ Demo accounts are seeded automatically (`Demo1234`). An admin can still sign in 
 
 iOS / Android / Expo Go still run on the host (`cd frontend/mobile && npm start`). Only the web client is containerised.
 
-### Local process (API on the host)
+### 2. Split local debug (API / Expo on the host)
+
+Use this when you want `--reload` on the API, Expo web/dev tools, or a phone client, without rebuilding the web image. Keep Docker for PostgreSQL and Redis (and TEI if you need review search).
 
 #### 1. Clone and configure the API
 
@@ -99,7 +101,7 @@ python scripts/generate_jwt_keys.py
 
 The key script writes `backend/certs/jwt-private.pem` and `backend/certs/jwt-public.pem`. Those files stay local and should not be committed.
 
-#### 2. Start PostgreSQL and Redis (if you are not using the full Docker stack)
+#### 2. Start PostgreSQL and Redis
 
 ```bash
 docker compose up -d postgres redis
@@ -171,50 +173,62 @@ Every seeded account uses the password `Demo1234`.
 Copy `.env.example` and adjust as needed. The values most people change first:
 
 
-| Variable                                                   | Purpose                                                 |
-| ---------------------------------------------------------- | ------------------------------------------------------- |
-| `WORKSHOP_DATABASE_URL`                                    | SQLAlchemy URL (PostgreSQL on port 5436 by default)     |
-| `WORKSHOP_JWT_*`                                           | RS256 key paths and token lifetimes                     |
-| `WORKSHOP_CORS_ORIGINS`                                    | Allowed web origins (Expo web ports are already listed) |
-| `LLM_PROVIDER` | Chat vendor: `qwen`, `openai`, or `custom` |
-| `LLM_API_KEY` / `QWEN_API_KEY` / `OPENAI_API_KEY` | API key for the selected vendor |
-| `LLM_BASE_URL` / `LLM_MODEL` | Optional overrides for the provider preset |
-| `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | OAuth audience checks for `/social-login` |
-| `EXPO_PUBLIC_API_BASE_URL`                                 | API used by the Expo web/dev client                     |
-| `EXPO_PUBLIC_LAN_API_BASE_URL`                             | API used by Expo Go on a phone                          |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`                          | Place search in the location picker                     |
+| Variable                                                   | Purpose                                                                                                                                                   |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WORKSHOP_DATABASE_URL`                                    | SQLAlchemy URL (PostgreSQL on port 5436 by default)                                                                                                       |
+| `WORKSHOP_JWT_*`                                           | RS256 key paths and token lifetimes                                                                                                                       |
+| `WORKSHOP_CORS_ORIGINS`                                    | Allowed web origins (Expo web ports are already listed)                                                                                                   |
+| `LLM_PROVIDER`                                             | Chat vendor: `qwen`, `openai`, `claude`, `kimi`, `kimi-code`, `deepseek`, `grok`, or `custom`                                                             |
+| `LLM_API_KEY` / vendor `*_API_KEY`                         | API key for the selected vendor                                                                                                                           |
+| `LLM_BASE_URL` / `LLM_MODEL`                               | Optional overrides for the provider preset                                                                                                                |
+| `EMBEDDING_*`                                              | Review vectors. Compose defaults to local TEI (`Qwen3-Embedding-0.6B`, 1024). Leave blank in Docker; uncomment the host URL only for a local API process. |
+| `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | OAuth audience checks for `/social-login`                                                                                                                 |
+| `EXPO_PUBLIC_API_BASE_URL`                                 | API used by the Expo web/dev client                                                                                                                       |
+| `EXPO_PUBLIC_LAN_API_BASE_URL`                             | API used by Expo Go on a phone                                                                                                                            |
+| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`                          | Place search in the location picker                                                                                                                       |
 
 
-Vector search uses Milvus. Docker Compose starts it with the rest of the stack. A local Python process can skip it and still run bookings and chat.
+Vector search uses Milvus plus local TEI embeddings. The recommended Docker stack starts both. A split local API process can skip them and still run bookings and chat. For review search on the host API, start TEI with `docker compose up -d tei` and uncomment the `EMBEDDING_*` host values in `.env`.
 
 ## Language models
 
-Customer AI chat can use either a **developer API key** or an **admin-signed subscription**.
+Customer AI chat can use a **developer API key** or an **admin-signed ChatGPT / Grok subscription**. An admin picks a vendor and key on the Admin dashboard (**Customer AI**), then loads the official `/models` list. Keys are stored `0600` as `backend/certs/llm_api.json` and override `.env` until cleared.
 
 ### API keys
 
-Set `LLM_PROVIDER` and the matching key:
+Set `LLM_PROVIDER` and the matching key, or save the same values from the dashboard:
 
-| `LLM_PROVIDER` | Key | Default model | API host |
-| --- | --- | --- | --- |
-| `qwen` (default) | `LLM_API_KEY` or `QWEN_API_KEY` | `qwen3.8-max` | DashScope compatible-mode |
-| `openai` (alias `gpt`) | `OPENAI_API_KEY` | `gpt-6-astra` | `https://api.openai.com/v1` |
-| `custom` | `LLM_API_KEY` | (set `LLM_MODEL`) | (set `LLM_BASE_URL`) |
 
-`LLM_MODEL` and `LLM_BASE_URL` override the preset when you need a specific model ID. Comment them out when switching vendors, otherwise the old host is reused. Qwen and OpenAI both provide the embeddings used for review search; override with `EMBEDDING_*` if needed.
+| `LLM_PROVIDER`         | Key                                  | Default model     | API host                         |
+| ---------------------- | ------------------------------------ | ----------------- | -------------------------------- |
+| `qwen` (default)       | `LLM_API_KEY` or `QWEN_API_KEY`      | `qwen3.8-max`     | DashScope compatible-mode        |
+| `openai` (alias `gpt`) | `OPENAI_API_KEY`                     | `gpt-6-astra`     | `https://api.openai.com/v1`      |
+| `claude`               | `ANTHROPIC_API_KEY`                  | `claude-sonnet-5` | `https://api.anthropic.com/v1`   |
+| `kimi`                 | `KIMI_API_KEY` or `MOONSHOT_API_KEY` | `kimi-k3`         | `https://api.moonshot.cn/v1`     |
+| `kimi-code`            | `KIMI_CODE_API_KEY`                  | `k3`              | `https://api.kimi.com/coding/v1` |
+| `deepseek`             | `DEEPSEEK_API_KEY`                   | `deepseek-chat`   | `https://api.deepseek.com/v1`    |
+| `grok`                 | `XAI_API_KEY`                        | `grok-4.7`        | `https://api.x.ai/v1`            |
+| `custom`               | `LLM_API_KEY`                        | (set `LLM_MODEL`) | (set `LLM_BASE_URL`)             |
+
+
+`LLM_MODEL` and `LLM_BASE_URL` override the preset when you need a specific model ID. Comment them out when switching vendors, otherwise the old host is reused.
+
+Review search does not use a ChatGPT subscription. Compose defaults to Hugging Face Text Embeddings Inference (TEI) running `Qwen/Qwen3-Embedding-0.6B` (1024 dimensions). That is independent of the chat vendor. If `EMBEDDING_*` is unset outside Docker, Qwen and OpenAI API keys can still provide embeddings (`text-embedding-v4` / `text-embedding-3-large`).
 
 ### ChatGPT Plus subscription
 
-An admin signs in with ChatGPT Plus/Pro from the Admin dashboard. No local callback port is opened, and tokens are stored `0600` under `backend/certs/`. Customer AI Chat then uses that membership quota instead of a billed API key.
+An admin signs in with ChatGPT Plus/Pro from the Admin dashboard. Customer AI Chat then uses that membership quota instead of a billed API key.
 
 1. Sign in as `demo_admin@workshop.ai`.
-2. Open **Customer AI subscription**.
+2. Open **Customer AI**.
 3. Click **Sign in** on ChatGPT Plus/Pro, open the URL, enter the pairing code.
-4. Click **Use this subscription**.
+4. Click **Use this subscription**. Use **Save and use** on the API key card to switch back.
 
-ChatGPT subscription traffic goes to the Codex Responses API (`chatgpt.com/backend-api/codex/responses`), not `api.openai.com`, and defaults to `gpt-5.5`. Set `LLM_MODEL` to override that default.
+After sign-in, click **Load official models** and pick one.
 
-Treat this as an operator credential for a demo or a machine you control. It is not a way to share one personal Plus account with arbitrary end users in production.
+### Grok subscription
+
+The same Admin page can sign in with SuperGrok / X Premium+ through xAI’s device-code OAuth (`auth.x.ai`). Load models, then **Use this subscription**.
 
 ## Tests
 
@@ -244,11 +258,13 @@ CI runs Alembic against PostgreSQL 16, Ruff (syntax and undefined-name checks), 
 - [API conventions](docs/backend-api-standard.md)
 - [Contributing](CONTRIBUTING.md)
 
+
+
 ## Contributing
 
 Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- Branch: `<usyd-unikey>/short-slug` (example: `xhua0028/postgres-english-tests`). No direct pushes to `main`.
+- Branch: `<usyd-unikey>/WS-<num>-short-slug` (example: `xhua0028/WS-23-auth-api`). Omit `WS-<num>` only when there is no Jira item. No direct pushes to `main`.
 - Commit and PR title: `<type>: <description>` (example: `feat: add RS256 JWT sessions`).
 - Merge only via pull request. At least one reviewer when another maintainer is available. Only repository maintainers may merge `main`.
 - Checks when they apply: `pytest` and `ruff check backend tests`; mobile `npm run typecheck`; new Alembic revision (never edit applied ones).

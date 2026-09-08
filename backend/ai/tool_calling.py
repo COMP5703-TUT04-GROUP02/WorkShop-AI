@@ -1,8 +1,8 @@
 """LangChain tool-calling flow.
 
-The model decides whether to call tools from user input and context; after execution,
-the tool results are passed back for a final English answer.
-All tool calls are logged to `ai_tool_call_logs` for debugging.
+The model decides whether to call tools from user input and context. After
+execution, canned tool answers are used when present; the chat handler otherwise
+formats the reply. All tool calls are logged to `ai_tool_call_logs`.
 """
 
 from typing import Any
@@ -12,7 +12,7 @@ import time
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -21,57 +21,56 @@ from backend.ai.clients import get_message_content, get_qwen_chat_model
 from backend.ai.langchain_tools import build_langchain_tools
 from backend.utils.ai_tool_log import create_ai_tool_call_log
 
-TOOL_CALLING_SYSTEM_PROMPT = (
-    "You are Workshop AI's tool-calling assistant."
-    "Choose tools based on user needs."
-    "User messages may include context; actionable_context lists bookings or refund requests the user can act on."
-    "When the user says 'this booking', 'that order', 'this refund', etc., use actionable_context to fill booking_id or refund_request_id."
-    "Only auto-fill an id when there is a single candidate or the user clearly refers to one record; otherwise ask which one — do not guess."
-    "If the action is clear but booking_id or refund_request_id is missing, call the tool with known args;"
-    "the backend will return choices for the user."
-    "For local service providers, call search_providers."
-    "For search_providers, service_tags must use core tags only: cleaning, childcare, elderly_care, electrician, plumbing, painter, locksmith, technician, moving."
-    "Do not map unrecognized needs to other; pass an empty service_tags array when no core tag fits."
-    "If the user wants to book, create an order, reserve, or order from a provider, always call prepare_booking_draft_action first —"
-    "do not call search_providers. Booking intent overrides search intent."
-    "If the user asks what you can do, how to use you, or similar (including minor typos), call get_platform_capabilities."
-    "For reviews, price, attitude, or reputation of candidates, call summarize_provider_reviews."
-    "To chat with a provider when provider_profile_id is known, call create_chat_room."
-    "For a specific booking's status, quote, payment, refund, or next step with booking_id, call get_booking_status."
-    "For booking flow, quotes, payment, acceptance, refunds, complaints, or cancellation rules, call explain_booking_flow."
-    "To create or book a service, prefer prepare_booking_draft_action even with partial info."
-    "prepare_booking_draft_action returns missing fields, provider choices, and next questions; a confirmation draft only when complete."
-    "If the user says 'first one', 'number 1', etc., and recommended_provider_context or candidate_provider_ids exist,"
-    "resolve to the provider_profile_id at that index for prepare_booking_draft_action, create_chat_room, or summarize_provider_reviews."
-    "If booking_draft lacks provider_profile_id and the user picks by rank or price, they are choosing from recommended_provider_context."
-    "If booking_draft exists and the user changes provider, address, time, or description, call prepare_booking_draft_action with only the new fields."
-    "If the user cancels the draft ('start over', 'never mind', 'don't book'), do not continue booking; the backend clears the draft."
-    "Do not invent provider_profile_id, address, coordinates, or appointment times."
-    "For relative dates (today, tomorrow) with current_date in context, convert to ISO datetimes."
-    "If date/time is unclear, leave fields empty so prepare_booking_draft_action asks for them."
-    "Only call prepare_create_booking_action when provider_profile_id, description, address, location, and times are all explicit;"
-    "it only creates a pending confirmation — never say the order is already created."
-    "To cancel a booking with booking_id, call prepare_cancel_booking_action (confirmation draft only)."
-    "To request a refund with booking_id, service_stage, and reason, call prepare_refund_request_action."
-    "To pay or accept a quote with booking_id, call prepare_pay_booking_action."
-    "To reject a quote with booking_id and reason, call prepare_reject_quote_action."
-    "To confirm completion with booking_id, call prepare_confirm_complete_action."
-    "To reject completion with booking_id and reason, call prepare_reject_complete_action."
-    "Providers: quote with booking_id and amount -> prepare_quote_booking_action;"
-    "reject booking -> prepare_reject_booking_action;"
-    "mark complete -> prepare_complete_booking_action;"
-    "approve refund -> prepare_approve_refund_action;"
-    "reject refund -> prepare_reject_refund_action."
-    "All database-changing actions require user confirmation first."
-    "If draft_status=missing_info or missing_fields is present, tell the user what is missing"
-    "and ask using the questions in missing_fields; do not say booking/payment can proceed yet."
-    "If information is insufficient, do not invent parameters; explain what is still needed."
-)
+TOOL_CALLING_SYSTEM_PROMPT = """You are Workshop AI's tool-calling assistant. Choose tools from the user message and context. Do not name a chat vendor or model.
+
+## Routing
+- Find local providers: search_providers. service_tags must be core tags only: cleaning, childcare, elderly_care, electrician, plumbing, painter, locksmith, technician, moving. Never map unknown needs to other; use an empty array.
+- Book, reserve, or create an order: prepare_booking_draft_action only. Do not call search_providers. Booking overrides search.
+- Reviews, price, attitude, or reputation: summarize_provider_reviews.
+- Chat with a known provider_profile_id: create_chat_room.
+- One booking's status, quote, payment, refund, or next step: get_booking_status.
+- How booking, quotes, payment, refunds, complaints, or cancellation work: explain_booking_flow.
+- What you can do or how to use you, including minor typos: get_platform_capabilities.
+- Cancel a booking: prepare_cancel_booking_action (confirmation draft only).
+- Request a refund: prepare_refund_request_action with booking_id, service_stage, and reason.
+- Pay or accept a quote: prepare_pay_booking_action.
+- Reject a quote: prepare_reject_quote_action.
+- Confirm completion: prepare_confirm_complete_action.
+- Reject completion: prepare_reject_complete_action.
+- Provider quote: prepare_quote_booking_action.
+- Provider reject booking: prepare_reject_booking_action.
+- Provider mark complete: prepare_complete_booking_action.
+- Provider approve refund: prepare_approve_refund_action.
+- Provider reject refund: prepare_reject_refund_action.
+
+## References
+- actionable_context lists bookings or refund requests the user can act on.
+- Phrases like "this booking", "that order", or "this refund" fill booking_id or refund_request_id from that list.
+- Auto-fill an id only when there is one candidate or the user clearly points at one record. Otherwise ask. Do not guess.
+- If the action is clear but the id is missing, call the tool with known args; the backend returns choices.
+- "first one" or "number 1" with recommended_provider_context or candidate_provider_ids: use that index for prepare_booking_draft_action, create_chat_room, or summarize_provider_reviews.
+- If booking_draft lacks provider_profile_id and the user picks by rank or price, they are choosing from recommended_provider_context.
+
+## Drafts
+- Prefer prepare_booking_draft_action even with partial info. It returns missing fields, provider choices, and next questions. A confirmation draft only when complete.
+- If booking_draft exists and the user changes provider, address, time, or description, call it with only the new fields.
+- If the user cancels the draft ("start over", "never mind", "don't book"), do not continue booking; the backend clears the draft.
+- Relative dates (today, tomorrow) with current_date: convert to ISO datetimes. If date or time is unclear, leave fields empty.
+- Only call prepare_create_booking_action when provider_profile_id, description, address, location, and times are all explicit. It only creates a pending confirmation. Never say the order already exists.
+
+## Safety
+- Do not invent provider_profile_id, address, coordinates, or appointment times.
+- All database-changing actions require user confirmation first.
+- If draft_status=missing_info or missing_fields is present, ask the missing_fields questions. Do not say booking or payment can proceed.
+- If information is insufficient, do not invent parameters; say what is still needed.
+- When you speak to the user, reply in the user's language. Quote money in TRY.
+"""
 
 TOOL_CHOICE_RETRY_PROMPT = (
-    "The last tool choice invoked no tools and returned an empty reply. Re-evaluate."
-    "Follow system rules, the user message, and context to pick the best tool."
-    "If no tool fits, reply in natural language about what information is still needed."
+    "The last tool choice invoked no tools and returned an empty reply. "
+    "Re-evaluate. "
+    "Follow system rules, the user message, and context to pick the best tool. "
+    "If no tool fits, reply in the user's language about what information is still needed. "
     "Do not invent parameters or call tools unnecessarily."
 )
 
@@ -90,29 +89,21 @@ def build_tool_calling_user_message(
     )
 
 
-def build_tool_message_content(tool_result: dict):
-    return json.dumps(jsonable_encoder(tool_result), ensure_ascii=False, default=str)
-
-
-def generate_final_tool_answer(model, messages, first_response, tool_messages):
-    last_error = None
-
-    for _ in range(2):
-        try:
-            final_response = model.invoke([*messages, first_response, *tool_messages])
-            answer = get_message_content(final_response).strip()
-
-            if answer:
-                return answer, None
-        except Exception as error:
-            last_error = error
-
-    if last_error:
-        error_message = f"{last_error.__class__.__name__}: {last_error}"
-    else:
-        error_message = "AI returned empty final answer"
-
-    return None, error_message
+def canned_answer_from_tool_results(tool_results: list[dict[str, Any]]) -> str | None:
+    answers = []
+    for tool_result in tool_results:
+        if tool_result.get("error"):
+            return None
+        payload = tool_result.get("result") or {}
+        if not isinstance(payload, dict):
+            return None
+        answer = str(payload.get("answer") or "").strip()
+        if not answer:
+            return None
+        answers.append(answer)
+    if not answers:
+        return None
+    return "\n\n".join(answers)
 
 
 def should_retry_empty_tool_choice(response):
@@ -334,12 +325,10 @@ def choose_and_run_langchain_tools(
         }
 
     tool_results = []
-    tool_messages = []
 
-    for index, tool_call in enumerate(tool_calls):
+    for tool_call in tool_calls:
         tool_name = tool_call["name"]
         tool_args = tool_call.get("args") or {}
-        tool_call_id = tool_call.get("id") or f"{tool_name}-{index}"
         tool_result = execute_langchain_tool_call(
             tool_name,
             tool_args,
@@ -348,33 +337,13 @@ def choose_and_run_langchain_tools(
             message,
             context,
         )
-
         tool_results.append(tool_result)
-        tool_messages.append(
-            ToolMessage(
-                content=build_tool_message_content(tool_result),
-                tool_call_id=tool_call_id,
-            )
-        )
-
-    answer, final_answer_error = generate_final_tool_answer(
-        model,
-        messages,
-        first_response,
-        tool_messages,
-    )
-
-    if not answer:
-        answer = (
-            "AI finished the tool query but failed to generate the final reply."
-            f"Error: {final_answer_error}"
-        )
 
     return {
         "message": message,
         "type": "tool_call",
-        "answer": answer,
+        "answer": canned_answer_from_tool_results(tool_results),
         "tool_calls": jsonable_encoder(tool_calls),
         "tool_results": tool_results,
-        "final_answer_error": final_answer_error,
+        "final_answer_error": None,
     }

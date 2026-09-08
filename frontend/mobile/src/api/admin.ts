@@ -132,7 +132,9 @@ export async function rejectAdminRefundAppeal(
   return response.data.data;
 }
 
-export type LLMAuthMode = "key" | "chatgpt";
+export type LLMAuthMode = "key" | "chatgpt" | "grok";
+
+export type LLMKeySource = "admin" | "env" | "none";
 
 export type LLMOauthProviderStatus = {
   connected: boolean;
@@ -144,11 +146,35 @@ export type LLMOauthProviderStatus = {
   note?: string;
 };
 
+export type LLMKeyStatus = {
+  configured: boolean;
+  source: LLMKeySource;
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key_preview: string;
+};
+
+export type LLMProviderChoice = {
+  id: string;
+  label: string;
+};
+
 export type LLMOauthStatus = {
   auth: LLMAuthMode;
   saved_auth: LLMAuthMode;
   llm_provider: string;
-  chatgpt: LLMOauthProviderStatus;
+  providers: LLMProviderChoice[];
+  key: LLMKeyStatus;
+  chatgpt: LLMOauthProviderStatus & { model?: string };
+  grok: LLMOauthProviderStatus & { model?: string };
+};
+
+export type LLMModelList = {
+  source: string;
+  provider: string;
+  models: string[];
+  default: string;
 };
 
 export async function getLLMOauthStatus() {
@@ -156,30 +182,66 @@ export async function getLLMOauthStatus() {
   return response.data.data;
 }
 
-export async function startLLMOauth(provider: "chatgpt") {
+export async function startLLMOauth(provider: "chatgpt" | "grok") {
   const response = await apiClient.post<ApiResponse<LLMOauthStatus>>(
     `/ai/oauth/${provider}/start`,
   );
   return response.data.data;
 }
 
-export async function cancelLLMOauth(provider: "chatgpt") {
+export async function cancelLLMOauth(provider: "chatgpt" | "grok") {
   const response = await apiClient.post<ApiResponse<LLMOauthStatus>>(
     `/ai/oauth/${provider}/cancel`,
   );
   return response.data.data;
 }
 
-export async function logoutLLMOauth(provider: "chatgpt") {
+export async function logoutLLMOauth(provider: "chatgpt" | "grok") {
   const response = await apiClient.post<ApiResponse<LLMOauthStatus>>(
     `/ai/oauth/${provider}/logout`,
   );
   return response.data.data;
 }
 
-export async function setLLMOauthAuth(auth: LLMAuthMode) {
+export async function setLLMOauthAuth(auth: LLMAuthMode, model = "") {
   const response = await apiClient.put<ApiResponse<LLMOauthStatus>>("/ai/oauth", {
     auth,
+    model,
   });
+  return response.data.data;
+}
+
+export async function listLLMModels(payload: {
+  source?: "key" | "chatgpt" | "grok";
+  provider?: string;
+  api_key?: string;
+  base_url?: string;
+}) {
+  const response = await apiClient.post<ApiResponse<LLMModelList>>(
+    "/ai/oauth/models",
+    payload,
+  );
+  return response.data.data;
+}
+
+export type LLMApiKeyUpdate = {
+  provider: string;
+  api_key: string;
+  base_url?: string;
+  model?: string;
+};
+
+export async function saveLLMApiKey(payload: LLMApiKeyUpdate) {
+  const response = await apiClient.put<ApiResponse<LLMOauthStatus>>(
+    "/ai/oauth/key",
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function clearLLMApiKey() {
+  const response = await apiClient.delete<ApiResponse<LLMOauthStatus>>(
+    "/ai/oauth/key",
+  );
   return response.data.data;
 }

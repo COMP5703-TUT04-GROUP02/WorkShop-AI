@@ -40,16 +40,16 @@ TOOL_FIELD_QUESTIONS = {
 }
 
 BOOKING_DRAFT_CONTINUATION_PROMPT = (
-    "The user is completing an unfinished booking draft."
-    "Determine whether the message supplies missing or updated draft fields."
-    "If the user provides service description, address, coordinates, or start/end times,"
-    "call prepare_booking_draft_action with only the new or changed fields from this turn."
-    "Do not call search_providers or re-recommend providers."
-    "If the user gives a time without a date and booking_draft.provided_fields.scheduled_start_time has a date,"
-    "keep the draft date and update only the time."
-    "For coordinates like 44.22 32.11, the first number is service_latitude, the second service_longitude."
-    "Phrases like need lockout service or elderly daily care should become service_description."
-    "If no draft fields were provided, skip tools and explain what is still needed."
+    "The user is completing an unfinished booking draft. "
+    "Determine whether the message supplies missing or updated draft fields. "
+    "If the user provides service description, address, coordinates, or start or end times, "
+    "call prepare_booking_draft_action with only the new or changed fields from this turn. "
+    "Do not call search_providers or re-recommend providers. "
+    "If the user gives a time without a date and booking_draft.provided_fields.scheduled_start_time has a date, "
+    "keep the draft date and update only the time. "
+    "For coordinates like 44.22 32.11, the first number is service_latitude, the second service_longitude. "
+    "Phrases like need lockout service or elderly daily care should become service_description. "
+    "If no draft fields were provided, skip tools and explain what is still needed in the user's language."
 )
 
 BOOKING_DRAFT_CONTINUATION_KEYWORDS = [

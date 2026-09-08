@@ -1,3 +1,7 @@
+## Jira work item(s)
+
+WS-<number> <work item name>
+
 ## What changed?
 
 -
