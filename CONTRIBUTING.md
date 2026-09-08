@@ -2,32 +2,33 @@
 
 GitHub Actions CI is not a substitute for the local checks below. Run the ones that match what you changed before you open a pull request.
 
-This repository does not use Jira. Track work in GitHub issues or pull requests.
+Work is tracked in Jira (`WS-<number>`). Put the key in the branch name and on the pull request.
 
 ## Branches
 
 - `main` is the integration branch. **Do not push to `main`.**
-- Implementation branches: `<usyd-unikey>/short-slug`  
+- Implementation branches: `<usyd-unikey>/WS-<num>-short-slug`  
   The slash is part of the name; GitHub shows it as a folder.
+- If a change has no Jira item yet, omit the key: `<usyd-unikey>/short-slug`.
 
 ```bash
 git checkout main
 git pull
-git checkout -b xhua0028/postgres-english-tests
+git checkout -b xhua0028/WS-23-auth-api
 ```
 
 Rename an existing local branch:
 
 ```bash
-git branch -m old-name xhua0028/postgres-english-tests
+git branch -m old-name xhua0028/WS-23-auth-api
 ```
 
 Examples:
 
 | Branch | Use |
 | ------ | --- |
-| `xhua0028/postgres-english-tests` | Postgres baseline and English copy |
-| `xhua0028/fix-websocket-auth` | WebSocket auth payload |
+| `xhua0028/WS-23-auth-api` | Aiden, WS-23 |
+| `xhua0028/llm-vendors-and-auth` | No Jira item yet |
 
 ## Commits and pull request titles
 
@@ -47,6 +48,7 @@ Example: `feat: add RS256 JWT sessions`
 ## Pull requests
 
 - Open a PR into `main`. Use `.github/PULL_REQUEST_TEMPLATE.md`.
+- Fill `WS-<number> <work item name>`. Use `N/A` only when there is no Jira item.
 - Nested **If** checkboxes apply only when that kind of change is in the PR. Leave them unchecked when they do not apply.
 - At least **one reviewer** when another maintainer is available.
 - **Only repository maintainers** may merge into `main`. Nobody else merges, even if checks are green.

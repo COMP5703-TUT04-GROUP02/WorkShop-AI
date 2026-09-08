@@ -264,7 +264,7 @@ CI runs Alembic against PostgreSQL 16, Ruff (syntax and undefined-name checks), 
 
 Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- Branch: `<usyd-unikey>/short-slug` (example: `xhua0028/postgres-english-tests`). No direct pushes to `main`.
+- Branch: `<usyd-unikey>/WS-<num>-short-slug` (example: `xhua0028/WS-23-auth-api`). Omit `WS-<num>` only when there is no Jira item. No direct pushes to `main`.
 - Commit and PR title: `<type>: <description>` (example: `feat: add RS256 JWT sessions`).
 - Merge only via pull request. At least one reviewer when another maintainer is available. Only repository maintainers may merge `main`.
 - Checks when they apply: `pytest` and `ruff check backend tests`; mobile `npm run typecheck`; new Alembic revision (never edit applied ones).
