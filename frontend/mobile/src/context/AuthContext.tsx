@@ -12,12 +12,11 @@ import {
   getCurrentUser,
   loginWithPassword,
   logoutByRefreshToken,
-  refreshAccessToken,
   registerUser,
   updateCurrentUser,
   uploadCurrentUserAvatar,
 } from "../api/auth";
-import { setAccessToken } from "../api/client";
+import { setSessionHooks, setSessionTokens } from "../api/client";
 import type { RegisterRequest, User } from "../types/auth";
 
 const ACCESS_TOKEN_KEY = "workshop_ai_access_token";
@@ -45,11 +44,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setSessionHooks({
+      onTokensRefreshed: async (nextAccessToken, nextRefreshToken, nextUser) => {
+        setRefreshToken(nextRefreshToken);
+        setUser(nextUser);
+        await AsyncStorage.multiSet([
+          [ACCESS_TOKEN_KEY, nextAccessToken],
+          [REFRESH_TOKEN_KEY, nextRefreshToken],
+        ]);
+      },
+      onSessionExpired: async () => {
+        setRefreshToken(null);
+        setUser(null);
+        await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+      },
+    });
     restoreSession();
+
+    return () => {
+      setSessionHooks(null);
+    };
   }, []);
 
   async function saveSession(accessToken: string, newRefreshToken: string, nextUser: User) {
-    setAccessToken(accessToken);
+    setSessionTokens(accessToken, newRefreshToken);
     setRefreshToken(newRefreshToken);
     setUser(nextUser);
     await AsyncStorage.multiSet([
@@ -59,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function clearSession() {
-    setAccessToken(null);
+    setSessionTokens(null, null);
     setRefreshToken(null);
     setUser(null);
     await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
@@ -76,20 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setAccessToken(savedAccessToken);
+      setSessionTokens(savedAccessToken, savedRefreshToken);
       setRefreshToken(savedRefreshToken);
-
-      try {
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
-      } catch {
-        const refreshed = await refreshAccessToken(savedRefreshToken);
-        await saveSession(
-          refreshed.access_token,
-          refreshed.refresh_token,
-          refreshed.user,
-        );
-      }
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
     } catch {
       await clearSession();
     } finally {

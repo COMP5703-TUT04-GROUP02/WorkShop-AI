@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import { apiClient, setAccessToken } from "./client";
+import { apiClient, setSessionTokens } from "./client";
 import type { ApiResponse, RegisterRequest, TokenResponse, User } from "../types/auth";
 
 function unwrapData<T>(response: { data: ApiResponse<T> }) {
@@ -26,7 +26,7 @@ export async function loginWithPassword(email: string, password: string) {
     },
   );
   const data = unwrapData(response);
-  setAccessToken(data.access_token);
+  setSessionTokens(data.access_token, data.refresh_token);
 
   return data;
 }
@@ -42,7 +42,7 @@ export async function refreshAccessToken(refreshToken: string) {
     refresh_token: refreshToken,
   });
   const data = unwrapData(response);
-  setAccessToken(data.access_token);
+  setSessionTokens(data.access_token, data.refresh_token);
 
   return data;
 }
@@ -102,5 +102,5 @@ export async function logoutByRefreshToken(refreshToken: string) {
   await apiClient.post("/logout", {
     refresh_token: refreshToken,
   });
-  setAccessToken(null);
+  setSessionTokens(null, null);
 }
