@@ -12,12 +12,13 @@ import {
   getCurrentUser,
   loginWithPassword,
   logoutByRefreshToken,
+  patchCurrentUser,
   registerUser,
   updateCurrentUser,
   uploadCurrentUserAvatar,
 } from "../api/auth";
 import { setSessionHooks, setSessionTokens } from "../api/client";
-import type { RegisterRequest, User } from "../types/auth";
+import type { RegisterRequest, User, UserProfilePatchPayload } from "../types/auth";
 
 const ACCESS_TOKEN_KEY = "workshop_ai_access_token";
 const REFRESH_TOKEN_KEY = "workshop_ai_refresh_token";
@@ -29,6 +30,7 @@ type AuthContextValue = {
   signUp: (payload: RegisterRequest) => Promise<void>;
   signOut: () => Promise<void>;
   updateUserProfile: (payload: { name: string }) => Promise<User>;
+  patchUserProfile: (payload: UserProfilePatchPayload) => Promise<User>;
   uploadAvatar: (payload: {
     uri: string;
     fileName?: string | null;
@@ -131,6 +133,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextUser;
   }
 
+  async function patchUserProfile(payload: UserProfilePatchPayload) {
+    const nextUser = await patchCurrentUser(payload);
+    setUser(nextUser);
+
+    return nextUser;
+  }
+
   async function uploadAvatar(payload: {
     uri: string;
     fileName?: string | null;
@@ -150,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       updateUserProfile,
+      patchUserProfile,
       uploadAvatar,
     }),
     [user, isLoading, refreshToken],

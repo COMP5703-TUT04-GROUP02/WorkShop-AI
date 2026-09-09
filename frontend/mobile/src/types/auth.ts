@@ -31,3 +31,7 @@ export type RegisterRequest = {
   password: string;
   role: Exclude<UserRole, "admin">;
 };
+
+export type UserProfilePatchPayload = {
+  name?: string;
+};

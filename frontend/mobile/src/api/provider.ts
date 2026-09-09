@@ -9,6 +9,7 @@ import type {
   ProviderAvailabilityOverride,
   ProviderAvailabilityResponseData,
   ProviderAvailabilityUpdateResponseData,
+  ProviderContactProfilePatchPayload,
   ProviderContactProfilePayload,
   ProviderContactProfileUpdateResponse,
   ProviderPortfolio,
@@ -92,6 +93,16 @@ export async function updateProviderContactProfile(
   payload: ProviderContactProfilePayload,
 ) {
   const response = await apiClient.put<
+    ApiResponse<ProviderContactProfileUpdateResponse>
+  >("/provider/profile/contact", payload);
+
+  return response.data.data;
+}
+
+export async function patchProviderContactProfile(
+  payload: ProviderContactProfilePatchPayload,
+) {
+  const response = await apiClient.patch<
     ApiResponse<ProviderContactProfileUpdateResponse>
   >("/provider/profile/contact", payload);
 

@@ -12,11 +12,11 @@ import {
 
 import {
   getCustomerProfile,
-  updateCustomerProfile,
+  patchCustomerProfile,
 } from "../api/customer";
 import {
   getProviderProfile,
-  updateProviderContactProfile,
+  patchProviderContactProfile,
 } from "../api/provider";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { ProvincePickerModal } from "../components/ProvincePickerModal";
@@ -25,13 +25,40 @@ import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
-import type { CustomerProfile } from "../types/customer";
 import type { ProviderProfile } from "../types/provider";
 
 const DEFAULT_SERVICE_PROVINCE = "Istanbul";
 
+type AccountFormValues = {
+  name: string;
+  phoneNumber: string;
+  address: string;
+  serviceProvince: string;
+  notes: string;
+};
+
+type MessageTone = "success" | "error";
+
+function toFormValues(
+  userName: string,
+  profile?: {
+    phone_number?: string | null;
+    address?: string | null;
+    service_province?: string | null;
+    notes?: string | null;
+  } | null,
+): AccountFormValues {
+  return {
+    name: userName,
+    phoneNumber: profile?.phone_number ?? "",
+    address: profile?.address ?? "",
+    serviceProvince: profile?.service_province || DEFAULT_SERVICE_PROVINCE,
+    notes: profile?.notes ?? "",
+  };
+}
+
 export function AccountEditScreen() {
-  const { user, updateUserProfile } = useAuth();
+  const { user, patchUserProfile } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [name, setName] = useState(user?.name ?? "");
@@ -39,12 +66,15 @@ export function AccountEditScreen() {
   const [address, setAddress] = useState("");
   const [serviceProvince, setServiceProvince] = useState(DEFAULT_SERVICE_PROVINCE);
   const [notes, setNotes] = useState("");
-  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
   const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
   const [isProvincePickerVisible, setIsProvincePickerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<MessageTone>("success");
+  const [initialValues, setInitialValues] = useState<AccountFormValues | null>(
+    user ? toFormValues(user.name) : null,
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -57,18 +87,25 @@ export function AccountEditScreen() {
 
         setIsLoading(true);
         setMessage("");
-        setName(user.name);
+        const fallbackValues = toFormValues(user.name);
+        setName(fallbackValues.name);
+        setPhoneNumber(fallbackValues.phoneNumber);
+        setAddress(fallbackValues.address);
+        setServiceProvince(fallbackValues.serviceProvince);
+        setNotes(fallbackValues.notes);
+        setInitialValues(fallbackValues);
 
         try {
           if (user.role === "customer") {
             const profile = await getCustomerProfile();
 
             if (isActive && profile) {
-              setCustomerProfile(profile);
-              setPhoneNumber(profile.phone_number);
-              setAddress(profile.address);
-              setServiceProvince(profile.service_province || DEFAULT_SERVICE_PROVINCE);
-              setNotes(profile.notes ?? "");
+              const nextValues = toFormValues(user.name, profile);
+              setPhoneNumber(nextValues.phoneNumber);
+              setAddress(nextValues.address);
+              setServiceProvince(nextValues.serviceProvince);
+              setNotes(nextValues.notes);
+              setInitialValues(nextValues);
             }
           }
 
@@ -76,11 +113,13 @@ export function AccountEditScreen() {
             const profile = await getProviderProfile();
 
             if (isActive && profile) {
+              const nextValues = toFormValues(user.name, profile);
               setProviderProfile(profile);
-              setPhoneNumber(profile.phone_number || "");
-              setAddress(profile.address || "");
-              setServiceProvince(profile.service_province || DEFAULT_SERVICE_PROVINCE);
-              setNotes(profile.notes ?? "");
+              setPhoneNumber(nextValues.phoneNumber);
+              setAddress(nextValues.address);
+              setServiceProvince(nextValues.serviceProvince);
+              setNotes(nextValues.notes);
+              setInitialValues(nextValues);
             }
           }
         } catch {
@@ -110,8 +149,24 @@ export function AccountEditScreen() {
     const trimmedName = name.trim();
     const trimmedPhone = phoneNumber.trim();
     const trimmedAddress = address.trim();
+    const trimmedNotes = notes.trim();
+    const currentValues = {
+      name: trimmedName,
+      phoneNumber: trimmedPhone,
+      address: trimmedAddress,
+      serviceProvince,
+      notes: trimmedNotes,
+    };
+    const savedValues = initialValues ?? toFormValues(user.name);
+    const phoneChanged = currentValues.phoneNumber !== savedValues.phoneNumber.trim();
+    const addressChanged = currentValues.address !== savedValues.address.trim();
 
-    if (!trimmedName || (user.role !== "admin" && (!trimmedPhone || !trimmedAddress))) {
+    if (
+      !trimmedName ||
+      (user.role !== "admin" &&
+        ((phoneChanged && !trimmedPhone) || (addressChanged && !trimmedAddress)))
+    ) {
+      setMessageTone("error");
       setMessage("Fill in the required fields.");
       return;
     }
@@ -120,39 +175,55 @@ export function AccountEditScreen() {
     setMessage("");
 
     try {
-      await updateUserProfile({ name: trimmedName });
+      if (currentValues.name !== savedValues.name.trim()) {
+        await patchUserProfile({ name: currentValues.name });
+      }
 
       if (user.role === "customer") {
-        await updateCustomerProfile({
-          phone_number: trimmedPhone,
-          address: trimmedAddress,
-          service_province: serviceProvince,
-          latitude: customerProfile?.latitude ?? null,
-          longitude: customerProfile?.longitude ?? null,
-          current_address: customerProfile?.current_address ?? null,
-          current_latitude: customerProfile?.current_latitude ?? null,
-          current_longitude: customerProfile?.current_longitude ?? null,
-          default_service_address: customerProfile?.default_service_address ?? null,
-          default_service_latitude:
-            customerProfile?.default_service_latitude ?? null,
-          default_service_longitude:
-            customerProfile?.default_service_longitude ?? null,
-          notes: notes.trim() || null,
-        });
+        const profilePatch: Parameters<typeof patchCustomerProfile>[0] = {};
+
+        if (phoneChanged) {
+          profilePatch.phone_number = currentValues.phoneNumber;
+        }
+        if (addressChanged) {
+          profilePatch.address = currentValues.address;
+        }
+        if (currentValues.serviceProvince !== savedValues.serviceProvince) {
+          profilePatch.service_province = currentValues.serviceProvince;
+        }
+        if (currentValues.notes !== savedValues.notes.trim()) {
+          profilePatch.notes = currentValues.notes || null;
+        }
+        if (Object.keys(profilePatch).length > 0) {
+          await patchCustomerProfile(profilePatch);
+        }
       }
 
       if (user.role === "provider") {
-        await updateProviderContactProfile({
-          phone_number: trimmedPhone,
-          address: trimmedAddress,
-          service_province: serviceProvince,
-          notes: notes.trim() || null,
-        });
+        const profilePatch: Parameters<typeof patchProviderContactProfile>[0] = {};
+
+        if (phoneChanged) {
+          profilePatch.phone_number = currentValues.phoneNumber;
+        }
+        if (addressChanged) {
+          profilePatch.address = currentValues.address;
+        }
+        if (currentValues.serviceProvince !== savedValues.serviceProvince) {
+          profilePatch.service_province = currentValues.serviceProvince;
+        }
+        if (currentValues.notes !== savedValues.notes.trim()) {
+          profilePatch.notes = currentValues.notes || null;
+        }
+        if (Object.keys(profilePatch).length > 0) {
+          await patchProviderContactProfile(profilePatch);
+        }
       }
 
+      setMessageTone("success");
       setMessage("Profile saved");
       navigation.goBack();
     } catch {
+      setMessageTone("error");
       setMessage("Couldn't save. Try again.");
     } finally {
       setIsSaving(false);
@@ -220,7 +291,18 @@ export function AccountEditScreen() {
               </Text>
             ) : null}
 
-            {message ? <Text style={styles.messageText}>{message}</Text> : null}
+            {message ? (
+              <Text
+                style={[
+                  styles.messageText,
+                  messageTone === "success"
+                    ? styles.successMessageText
+                    : styles.errorMessageText,
+                ]}
+              >
+                {message}
+              </Text>
+            ) : null}
 
             <PrimaryButton
               disabled={isSaving}
@@ -291,7 +373,12 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   messageText: {
-    color: colors.danger,
     fontSize: 13,
+  },
+  successMessageText: {
+    color: colors.primary,
+  },
+  errorMessageText: {
+    color: colors.danger,
   },
 });
