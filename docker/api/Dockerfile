@@ -19,7 +19,8 @@ COPY scripts /app/scripts
 COPY backend /app/backend
 COPY docker/api/entrypoint.sh /app/docker/api/entrypoint.sh
 
-RUN chmod +x /app/docker/api/entrypoint.sh \
+RUN sed -i 's/\r$//' /app/docker/api/entrypoint.sh \
+    && chmod +x /app/docker/api/entrypoint.sh \
     && mkdir -p /app/backend/certs /app/backend/uploads
 
 EXPOSE 8000

@@ -16,7 +16,7 @@ ARG EXPO_PUBLIC_WS_BASE_URL=ws://127.0.0.1:8000
 ENV EXPO_PUBLIC_API_BASE_URL=$EXPO_PUBLIC_API_BASE_URL \
     EXPO_PUBLIC_WS_BASE_URL=$EXPO_PUBLIC_WS_BASE_URL
 
-RUN npx expo export --platform web --output-dir dist
+RUN npx expo export --platform web --output-dir dist --max-workers 2
 
 FROM nginx:1.27-alpine
 

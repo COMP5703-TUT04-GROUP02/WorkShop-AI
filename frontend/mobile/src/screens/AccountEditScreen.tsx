@@ -10,10 +10,7 @@ import {
   View,
 } from "react-native";
 
-import {
-  getCustomerProfile,
-  patchCustomerProfile,
-} from "../api/customer";
+import { getCustomerProfile, patchCustomerProfile } from "../api/customer";
 import {
   getProviderProfile,
   patchProviderContactProfile,
@@ -64,9 +61,12 @@ export function AccountEditScreen() {
   const [name, setName] = useState(user?.name ?? "");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [address, setAddress] = useState("");
-  const [serviceProvince, setServiceProvince] = useState(DEFAULT_SERVICE_PROVINCE);
+  const [serviceProvince, setServiceProvince] = useState(
+    DEFAULT_SERVICE_PROVINCE,
+  );
   const [notes, setNotes] = useState("");
-  const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
+  const [providerProfile, setProviderProfile] =
+    useState<ProviderProfile | null>(null);
   const [isProvincePickerVisible, setIsProvincePickerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -158,16 +158,39 @@ export function AccountEditScreen() {
       notes: trimmedNotes,
     };
     const savedValues = initialValues ?? toFormValues(user.name);
-    const phoneChanged = currentValues.phoneNumber !== savedValues.phoneNumber.trim();
+    const phoneChanged =
+      currentValues.phoneNumber !== savedValues.phoneNumber.trim();
     const addressChanged = currentValues.address !== savedValues.address.trim();
+    const profilePatch: Parameters<typeof patchCustomerProfile>[0] = {};
+
+    if (phoneChanged) {
+      profilePatch.phone_number = currentValues.phoneNumber;
+    }
+    if (addressChanged) {
+      profilePatch.address = currentValues.address;
+    }
+    if (currentValues.serviceProvince !== savedValues.serviceProvince) {
+      profilePatch.service_province = currentValues.serviceProvince;
+    }
+    if (currentValues.notes !== savedValues.notes.trim()) {
+      profilePatch.notes = currentValues.notes || null;
+    }
+    const hasProfilePatch = Object.keys(profilePatch).length > 0;
 
     if (
       !trimmedName ||
       (user.role !== "admin" &&
-        ((phoneChanged && !trimmedPhone) || (addressChanged && !trimmedAddress)))
+        ((phoneChanged && !trimmedPhone) ||
+          (addressChanged && !trimmedAddress)))
     ) {
       setMessageTone("error");
       setMessage("Fill in the required fields.");
+      return;
+    }
+
+    if (user.role === "provider" && !providerProfile && hasProfilePatch) {
+      setMessageTone("error");
+      setMessage("Create a provider profile first, then add contact details.");
       return;
     }
 
@@ -180,41 +203,13 @@ export function AccountEditScreen() {
       }
 
       if (user.role === "customer") {
-        const profilePatch: Parameters<typeof patchCustomerProfile>[0] = {};
-
-        if (phoneChanged) {
-          profilePatch.phone_number = currentValues.phoneNumber;
-        }
-        if (addressChanged) {
-          profilePatch.address = currentValues.address;
-        }
-        if (currentValues.serviceProvince !== savedValues.serviceProvince) {
-          profilePatch.service_province = currentValues.serviceProvince;
-        }
-        if (currentValues.notes !== savedValues.notes.trim()) {
-          profilePatch.notes = currentValues.notes || null;
-        }
-        if (Object.keys(profilePatch).length > 0) {
+        if (hasProfilePatch) {
           await patchCustomerProfile(profilePatch);
         }
       }
 
       if (user.role === "provider") {
-        const profilePatch: Parameters<typeof patchProviderContactProfile>[0] = {};
-
-        if (phoneChanged) {
-          profilePatch.phone_number = currentValues.phoneNumber;
-        }
-        if (addressChanged) {
-          profilePatch.address = currentValues.address;
-        }
-        if (currentValues.serviceProvince !== savedValues.serviceProvince) {
-          profilePatch.service_province = currentValues.serviceProvince;
-        }
-        if (currentValues.notes !== savedValues.notes.trim()) {
-          profilePatch.notes = currentValues.notes || null;
-        }
-        if (Object.keys(profilePatch).length > 0) {
+        if (hasProfilePatch) {
           await patchProviderContactProfile(profilePatch);
         }
       }

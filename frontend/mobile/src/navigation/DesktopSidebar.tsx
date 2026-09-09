@@ -4,6 +4,7 @@ import type { ComponentType } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
+import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { colors, layout, spacing } from "../theme/theme";
 import { tabIcons } from "./tabIcons";
@@ -19,6 +20,8 @@ type SidebarItem = {
 
 export function DesktopSidebar() {
   const { user } = useAuth();
+  const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
+    useProviderProfileGate();
   const { chatUnreadCount, notificationUnreadCount } = useRealtime();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -43,20 +46,38 @@ export function DesktopSidebar() {
           const isActive =
             active.tab === item.tab ||
             (active.stack !== "Main" &&
-              item.stackRoutes?.includes(active.stack as keyof RootStackParamList));
+              item.stackRoutes?.includes(
+                active.stack as keyof RootStackParamList,
+              ));
 
           return (
             <Pressable
               accessibilityRole="button"
               key={item.tab}
-              onPress={() => navigation.navigate("Main", { screen: item.tab })}
+              onPress={() => {
+                if (
+                  user?.role === "provider" &&
+                  isProviderProfileRequired &&
+                  item.tab !== "ProviderHome"
+                ) {
+                  showProviderProfileRequiredMessage();
+                  return;
+                }
+
+                navigation.navigate("Main", { screen: item.tab });
+              }}
               style={[styles.item, isActive ? styles.itemActive : null]}
             >
               <item.icon
                 color={isActive ? colors.primary : colors.mutedText}
                 size={20}
               />
-              <Text style={[styles.itemLabel, isActive ? styles.itemLabelActive : null]}>
+              <Text
+                style={[
+                  styles.itemLabel,
+                  isActive ? styles.itemLabelActive : null,
+                ]}
+              >
                 {item.label}
               </Text>
               {item.badge ? (
@@ -79,7 +100,8 @@ function useActiveDesktopRoute(defaultTab: keyof MainTabParamList) {
     const route = state.routes[state.index];
     if (route.name === "Main") {
       const tabState = route.state;
-      const tabIndex = tabState && "index" in tabState ? tabState.index ?? 0 : 0;
+      const tabIndex =
+        tabState && "index" in tabState ? (tabState.index ?? 0) : 0;
       const tabRoute = tabState?.routes?.[tabIndex];
       return {
         stack: "Main",
