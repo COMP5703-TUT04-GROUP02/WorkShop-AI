@@ -3,6 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "include": ["index.ts", "App.tsx", "src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist", "dist-*", ".expo"]
+  "include": ["index.ts", "App.tsx", "src/**/*.ts", "src/**/*.tsx"]
 }
