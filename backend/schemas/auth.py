@@ -15,14 +15,17 @@ from backend.constants import ALLOWED_PROVIDER_TAGS
 
 from backend.schemas.common import *  # noqa: F403
 
+
 class UserRole(str, Enum):
     customer = "customer"
     provider = "provider"
     admin = "admin"
 
+
 class SocialAuthProvider(str, Enum):
     google = "google"
     apple = "apple"
+
 
 class UserRegister(BaseModel):
     name: str
@@ -38,6 +41,7 @@ class UserRegister(BaseModel):
 
         return value
 
+
 class UserResponse(BaseModel):
     id: int
     name: str
@@ -48,6 +52,7 @@ class UserResponse(BaseModel):
     is_banned: bool = False
     last_login_at: str | None = None
     created_at: str | None = None
+
 
 class UserProfileUpdate(BaseModel):
     name: str
@@ -60,6 +65,22 @@ class UserProfileUpdate(BaseModel):
 
         return value.strip()
 
+
+class UserProfilePatch(BaseModel):
+    name: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_empty(cls, value):
+        if value is None:
+            return value
+
+        if not value.strip():
+            raise ValueError("Name cannot be empty")
+
+        return value.strip()
+
+
 class AvatarUploadResponse(BaseModel):
     original_file_name: str
     file_name: str
@@ -68,11 +89,13 @@ class AvatarUploadResponse(BaseModel):
     size: int
     user: UserResponse
 
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     user: UserResponse
+
 
 class SocialLoginRequest(BaseModel):
     provider: SocialAuthProvider
@@ -97,18 +120,22 @@ class SocialLoginRequest(BaseModel):
 
         return value
 
+
 class SocialLoginResponseData(TokenResponse):
     provider: SocialAuthProvider
     is_new_user: bool
     linked_social_account: bool
+
 
 class OAuthTokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
+
 class RegisterResponseData(BaseModel):
     user: UserResponse
+
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
@@ -121,6 +148,7 @@ class RefreshTokenRequest(BaseModel):
 
         return value
 
+
 class AdminUserStatusUpdate(BaseModel):
     is_active: bool | None = None
     is_banned: bool | None = None
@@ -131,4 +159,3 @@ class AdminUserStatusUpdate(BaseModel):
             raise ValueError("At least one status field is required")
 
         return self
-

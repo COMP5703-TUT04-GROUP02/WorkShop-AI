@@ -1,7 +1,14 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import type { ComponentType } from "react";
+import { useEffect } from "react";
+import { Pressable } from "react-native";
 
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { useAuth } from "../context/AuthContext";
+import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { AccountScreen } from "../screens/AccountScreen";
 import { AdminDashboardScreen } from "../screens/admin/AdminDashboardScreen";
@@ -21,10 +28,24 @@ export type { MainTabParamList } from "./types";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const GuardedProviderScheduleScreen = withRequiredProviderProfile(
+  ProviderScheduleScreen,
+);
+const GuardedProviderBookingsScreen = withRequiredProviderProfile(
+  ProviderBookingsScreen,
+);
+const GuardedProviderChatsScreen =
+  withRequiredProviderProfile(ProviderChatsScreen);
+
 export function RoleTabs() {
   const { user } = useAuth();
+  const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
+    useProviderProfileGate();
   const { chatUnreadCount, notificationUnreadCount } = useRealtime();
   const isWebDesktop = useIsWebDesktop();
+  const providerBlockedTabButton = isProviderProfileRequired
+    ? buildProviderBlockedTabButton(showProviderProfileRequiredMessage)
+    : undefined;
 
   const initialRouteName =
     user?.role === "admin"
@@ -123,30 +144,57 @@ export function RoleTabs() {
           />
           <Tab.Screen
             name="ProviderSchedule"
-            component={ProviderScheduleScreen}
+            component={GuardedProviderScheduleScreen}
+            listeners={{
+              tabPress: (event) => {
+                if (isProviderProfileRequired) {
+                  event.preventDefault();
+                  showProviderProfileRequiredMessage();
+                }
+              },
+            }}
             options={{
               title: "Schedule",
               tabBarLabel: "Schedule",
               tabBarIcon: tabIcons.schedule,
+              tabBarButton: providerBlockedTabButton,
             }}
           />
           <Tab.Screen
             name="ProviderBookings"
-            component={ProviderBookingsScreen}
+            component={GuardedProviderBookingsScreen}
+            listeners={{
+              tabPress: (event) => {
+                if (isProviderProfileRequired) {
+                  event.preventDefault();
+                  showProviderProfileRequiredMessage();
+                }
+              },
+            }}
             options={{
               title: "Bookings",
               tabBarLabel: "Bookings",
               tabBarIcon: tabIcons.bookings,
+              tabBarButton: providerBlockedTabButton,
             }}
           />
           <Tab.Screen
             name="ProviderChats"
-            component={ProviderChatsScreen}
+            component={GuardedProviderChatsScreen}
+            listeners={{
+              tabPress: (event) => {
+                if (isProviderProfileRequired) {
+                  event.preventDefault();
+                  showProviderProfileRequiredMessage();
+                }
+              },
+            }}
             options={{
               title: "Chats",
               tabBarLabel: "Chats",
               tabBarIcon: tabIcons.chats,
               tabBarBadge: formatUnreadBadge(chatUnreadCount),
+              tabBarButton: providerBlockedTabButton,
             }}
           />
         </>
@@ -184,4 +232,56 @@ function formatUnreadBadge(count: number) {
   }
 
   return count > 99 ? "99+" : count;
+}
+
+function buildProviderBlockedTabButton(
+  showProviderProfileRequiredMessage: () => void,
+) {
+  return function ProviderBlockedTabButton(props: BottomTabBarButtonProps) {
+    return (
+      <Pressable
+        accessibilityLabel={props.accessibilityLabel}
+        accessibilityRole={props.accessibilityRole}
+        accessibilityState={props.accessibilityState}
+        onLongPress={props.onLongPress}
+        onPress={() => {
+          showProviderProfileRequiredMessage();
+        }}
+        style={props.style}
+        testID={props.testID}
+      >
+        {props.children}
+      </Pressable>
+    );
+  };
+}
+
+function withRequiredProviderProfile<P extends object>(
+  ScreenComponent: ComponentType<P>,
+) {
+  return function RequiredProviderProfileScreen(props: P) {
+    const { user } = useAuth();
+    const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
+      useProviderProfileGate();
+    const navigation =
+      useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+
+    useEffect(() => {
+      if (user?.role === "provider" && isProviderProfileRequired) {
+        showProviderProfileRequiredMessage();
+        navigation.navigate("ProviderHome");
+      }
+    }, [
+      isProviderProfileRequired,
+      navigation,
+      showProviderProfileRequiredMessage,
+      user?.role,
+    ]);
+
+    if (user?.role === "provider" && isProviderProfileRequired) {
+      return null;
+    }
+
+    return <ScreenComponent {...props} />;
+  };
 }

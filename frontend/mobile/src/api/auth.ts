@@ -1,7 +1,13 @@
 import { Platform } from "react-native";
 
 import { apiClient, setSessionTokens } from "./client";
-import type { ApiResponse, RegisterRequest, TokenResponse, User } from "../types/auth";
+import type {
+  ApiResponse,
+  RegisterRequest,
+  TokenResponse,
+  User,
+  UserProfilePatchPayload,
+} from "../types/auth";
 
 function unwrapData<T>(response: { data: ApiResponse<T> }) {
   if (!response.data.success || !response.data.data) {
@@ -55,6 +61,12 @@ export async function getCurrentUser() {
 
 export async function updateCurrentUser(payload: { name: string }) {
   const response = await apiClient.put<ApiResponse<User>>("/me", payload);
+
+  return unwrapData(response);
+}
+
+export async function patchCurrentUser(payload: UserProfilePatchPayload) {
+  const response = await apiClient.patch<ApiResponse<User>>("/me", payload);
 
   return unwrapData(response);
 }

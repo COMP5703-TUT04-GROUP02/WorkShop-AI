@@ -15,6 +15,7 @@ from backend.constants import ALLOWED_PROVIDER_TAGS
 
 from backend.schemas.common import *  # noqa: F403
 
+
 class ProviderCertificateFileInput(BaseModel):
     file_url: str
     original_file_name: str
@@ -29,6 +30,7 @@ class ProviderCertificateFileInput(BaseModel):
             raise ValueError("Certificate file fields cannot be empty")
 
         return value.strip()
+
 
 class ProviderProfileCreate(BaseModel):
     business_name: str
@@ -82,6 +84,7 @@ class ProviderProfileCreate(BaseModel):
 
         return cleaned_tags
 
+
 class ProviderContactProfileUpdate(BaseModel):
     phone_number: str
     address: str
@@ -96,10 +99,30 @@ class ProviderContactProfileUpdate(BaseModel):
 
         return value.strip()
 
+
+class ProviderContactProfilePatch(BaseModel):
+    phone_number: str | None = None
+    address: str | None = None
+    service_province: str | None = None
+    notes: str | None = None
+
+    @field_validator("phone_number", "address", "service_province")
+    @classmethod
+    def validate_not_empty(cls, value):
+        if value is None:
+            return value
+
+        if not value.strip():
+            raise ValueError("Field cannot be empty")
+
+        return value.strip()
+
+
 class ProviderVerificationStatus(str, Enum):
     pending = "pending"
     approved = "approved"
     rejected = "rejected"
+
 
 class ProviderProfileResponse(BaseModel):
     id: int
@@ -115,9 +138,7 @@ class ProviderProfileResponse(BaseModel):
     tags: list[str]
     certificate_name: str
     certificate_url: str
-    certificate_files: list["ProviderCertificateFileResponse"] = Field(
-        default_factory=list
-    )
+    certificate_files: list["ProviderCertificateFileResponse"] = Field(default_factory=list)
     hourly_rate: int
     experience_years: int
     verification_status: ProviderVerificationStatus
@@ -125,15 +146,18 @@ class ProviderProfileResponse(BaseModel):
     notes: str | None = None
     is_online: bool = False
 
+
 class ProviderProfileWithRatingResponse(ProviderProfileResponse):
     average_rating: float | None = None
     review_count: int
     distance_km: float | None = None
     is_available_for_requested_time: bool | None = None
 
+
 class ProviderVerificationUpdate(BaseModel):
     verification_status: ProviderVerificationStatus
     verification_note: str
+
 
 class ProviderPortfolioVerificationUpdate(BaseModel):
     verification_status: ProviderVerificationStatus
@@ -146,6 +170,7 @@ class ProviderPortfolioVerificationUpdate(BaseModel):
             raise ValueError("Verification note cannot be empty")
 
         return value.strip()
+
 
 class ProviderAvailabilityItem(BaseModel):
     weekday: int = Field(ge=1, le=7)
@@ -170,6 +195,7 @@ class ProviderAvailabilityItem(BaseModel):
 
         return self
 
+
 class ProviderAvailabilityUpdate(BaseModel):
     availabilities: list[ProviderAvailabilityItem] = Field(min_length=0, max_length=7)
 
@@ -182,6 +208,7 @@ class ProviderAvailabilityUpdate(BaseModel):
 
         return self
 
+
 class ProviderAvailabilityResponse(BaseModel):
     id: int
     provider_profile_id: int
@@ -189,6 +216,7 @@ class ProviderAvailabilityResponse(BaseModel):
     start_time: str
     end_time: str
     is_available: bool
+
 
 class ProviderAvailabilityOverrideUpdate(BaseModel):
     start_time: time | None = None
@@ -212,6 +240,7 @@ class ProviderAvailabilityOverrideUpdate(BaseModel):
 
         return self
 
+
 class ProviderAvailabilityOverrideResponse(BaseModel):
     id: int
     provider_profile_id: int
@@ -222,6 +251,7 @@ class ProviderAvailabilityOverrideResponse(BaseModel):
     created_at: str
     updated_at: str
 
+
 class CertificateUploadResponse(BaseModel):
     original_file_name: str
     file_name: str
@@ -230,8 +260,10 @@ class CertificateUploadResponse(BaseModel):
     media_type: str = "document"
     size: int
 
+
 class CertificateUploadBatchResponse(BaseModel):
     files: list[CertificateUploadResponse]
+
 
 class ProviderCertificateFileResponse(BaseModel):
     id: int
@@ -243,6 +275,7 @@ class ProviderCertificateFileResponse(BaseModel):
     sort_order: int
     created_at: str
 
+
 class ProviderPortfolioMediaResponse(BaseModel):
     id: int
     portfolio_id: int
@@ -252,6 +285,7 @@ class ProviderPortfolioMediaResponse(BaseModel):
     media_type: str = "image"
     sort_order: int
     created_at: str
+
 
 class ProviderPortfolioResponse(BaseModel):
     id: int
@@ -270,4 +304,3 @@ class ProviderPortfolioResponse(BaseModel):
 
 ProviderProfileResponse.model_rebuild()
 ProviderProfileWithRatingResponse.model_rebuild()
-

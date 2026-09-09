@@ -1,5 +1,14 @@
-import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import {
+  DefaultTheme,
+  NavigationContainer,
+  useNavigation,
+} from "@react-navigation/native";
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationProp,
+} from "@react-navigation/native-stack";
+import type { ComponentType } from "react";
+import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { AccountEditScreen } from "../screens/AccountEditScreen";
@@ -16,6 +25,10 @@ import { ProviderPortfolioCreateScreen } from "../screens/provider/ProviderPortf
 import { ProviderPortfolioDetailScreen } from "../screens/provider/ProviderPortfolioDetailScreen";
 import { ProviderPortfolioListScreen } from "../screens/provider/ProviderPortfolioListScreen";
 import { useAuth } from "../context/AuthContext";
+import {
+  ProviderProfileGateProvider,
+  useProviderProfileGate,
+} from "../context/ProviderProfileGateContext";
 import { RealtimeProvider } from "../context/RealtimeContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { colors } from "../theme/theme";
@@ -26,6 +39,34 @@ import type { RootStackParamList } from "./types";
 export type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const GuardedCustomerProviderDetailScreen = withRequiredProviderProfile(
+  CustomerProviderDetailScreen,
+);
+const GuardedCustomerProviderSearchResultsScreen = withRequiredProviderProfile(
+  CustomerProviderSearchResultsScreen,
+);
+const GuardedCustomerProviderPortfolioDetailScreen =
+  withRequiredProviderProfile(CustomerProviderPortfolioDetailScreen);
+const GuardedChatRoomScreen = withRequiredProviderProfile(ChatRoomScreen);
+const GuardedAccountEditScreen = withRequiredProviderProfile(AccountEditScreen);
+const GuardedAccountSecurityScreen = withRequiredProviderProfile(
+  AccountSecurityScreen,
+);
+const GuardedHelpScreen = withRequiredProviderProfile(HelpScreen);
+const GuardedBookingHistoryScreen =
+  withRequiredProviderProfile(BookingHistoryScreen);
+const GuardedNotificationsScreen =
+  withRequiredProviderProfile(NotificationsScreen);
+const GuardedProviderPortfolioListScreen = withRequiredProviderProfile(
+  ProviderPortfolioListScreen,
+);
+const GuardedProviderPortfolioCreateScreen = withRequiredProviderProfile(
+  ProviderPortfolioCreateScreen,
+);
+const GuardedProviderPortfolioDetailScreen = withRequiredProviderProfile(
+  ProviderPortfolioDetailScreen,
+);
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -54,7 +95,9 @@ export function AppNavigator() {
     <NavigationContainer theme={navigationTheme}>
       {user ? (
         <RealtimeProvider>
-          <AuthenticatedStack />
+          <ProviderProfileGateProvider>
+            <AuthenticatedStack />
+          </ProviderProfileGateProvider>
         </RealtimeProvider>
       ) : (
         <Stack.Navigator>
@@ -88,68 +131,108 @@ function AuthenticatedStack() {
       />
       <Stack.Screen
         name="CustomerProviderDetail"
-        component={CustomerProviderDetailScreen}
+        component={GuardedCustomerProviderDetailScreen}
         options={{ title: "Provider" }}
       />
       <Stack.Screen
         name="CustomerProviderSearchResults"
-        component={CustomerProviderSearchResultsScreen}
+        component={GuardedCustomerProviderSearchResultsScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CustomerProviderPortfolioDetail"
-        component={CustomerProviderPortfolioDetailScreen}
+        component={GuardedCustomerProviderPortfolioDetailScreen}
         options={{ title: "Portfolio" }}
       />
       <Stack.Screen
         name="ChatRoom"
-        component={ChatRoomScreen}
+        component={GuardedChatRoomScreen}
         options={({ route }) => ({
           title: route.params.title,
         })}
       />
       <Stack.Screen
         name="AccountEdit"
-        component={AccountEditScreen}
+        component={GuardedAccountEditScreen}
         options={{ title: "Edit profile" }}
       />
       <Stack.Screen
         name="AccountSecurity"
-        component={AccountSecurityScreen}
+        component={GuardedAccountSecurityScreen}
         options={{ title: "Sign-in" }}
       />
       <Stack.Screen
         name="Help"
-        component={HelpScreen}
+        component={GuardedHelpScreen}
         options={{ title: "Help" }}
       />
       <Stack.Screen
         name="BookingHistory"
-        component={BookingHistoryScreen}
+        component={GuardedBookingHistoryScreen}
         options={{ title: "Booking history" }}
       />
       <Stack.Screen
         name="Notifications"
-        component={NotificationsScreen}
+        component={GuardedNotificationsScreen}
         options={{ title: "Notifications" }}
       />
       <Stack.Screen
         name="ProviderPortfolioList"
-        component={ProviderPortfolioListScreen}
+        component={GuardedProviderPortfolioListScreen}
         options={{ title: "Portfolios" }}
       />
       <Stack.Screen
         name="ProviderPortfolioCreate"
-        component={ProviderPortfolioCreateScreen}
+        component={GuardedProviderPortfolioCreateScreen}
         options={{ title: "Add portfolio" }}
       />
       <Stack.Screen
         name="ProviderPortfolioDetail"
-        component={ProviderPortfolioDetailScreen}
+        component={GuardedProviderPortfolioDetailScreen}
         options={{ title: "Portfolio" }}
       />
     </Stack.Navigator>
   );
+}
+
+function withRequiredProviderProfile<P extends object>(
+  ScreenComponent: ComponentType<P>,
+) {
+  return function RequiredProviderProfileStackScreen(props: P) {
+    const { user } = useAuth();
+    const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
+      useProviderProfileGate();
+    const navigation =
+      useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+    useEffect(() => {
+      if (user?.role === "provider" && isProviderProfileRequired) {
+        showProviderProfileRequiredMessage();
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Main",
+              params: {
+                screen: "ProviderHome",
+              },
+            },
+          ],
+        });
+      }
+    }, [
+      isProviderProfileRequired,
+      navigation,
+      showProviderProfileRequiredMessage,
+      user?.role,
+    ]);
+
+    if (user?.role === "provider" && isProviderProfileRequired) {
+      return null;
+    }
+
+    return <ScreenComponent {...props} />;
+  };
 }
 
 const styles = StyleSheet.create({

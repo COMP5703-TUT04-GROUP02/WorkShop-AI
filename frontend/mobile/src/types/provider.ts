@@ -42,6 +42,9 @@ export type ProviderContactProfilePayload = {
   notes: string | null;
 };
 
+export type ProviderContactProfilePatchPayload =
+  Partial<ProviderContactProfilePayload>;
+
 export type ProviderContactProfileUpdateResponse = {
   message: string;
   profile: ProviderProfile;
