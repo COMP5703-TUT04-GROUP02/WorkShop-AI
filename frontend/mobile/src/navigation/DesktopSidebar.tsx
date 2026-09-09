@@ -58,7 +58,8 @@ export function DesktopSidebar() {
                 if (
                   user?.role === "provider" &&
                   isProviderProfileRequired &&
-                  item.tab !== "ProviderHome"
+                  item.tab !== "ProviderHome" &&
+                  item.tab !== "Account"
                 ) {
                   showProviderProfileRequiredMessage();
                   return;

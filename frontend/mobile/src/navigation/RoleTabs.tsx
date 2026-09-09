@@ -36,7 +36,6 @@ const GuardedProviderBookingsScreen = withRequiredProviderProfile(
 );
 const GuardedProviderChatsScreen =
   withRequiredProviderProfile(ProviderChatsScreen);
-const GuardedAccountScreen = withRequiredProviderProfile(AccountScreen);
 
 export function RoleTabs() {
   const { user } = useAuth();
@@ -215,22 +214,12 @@ export function RoleTabs() {
 
       <Tab.Screen
         name="Account"
-        component={GuardedAccountScreen}
-        listeners={{
-          tabPress: (event) => {
-            if (user?.role === "provider" && isProviderProfileRequired) {
-              event.preventDefault();
-              showProviderProfileRequiredMessage();
-            }
-          },
-        }}
+        component={AccountScreen}
         options={{
           title: "Account",
           tabBarLabel: "Account",
           tabBarIcon: tabIcons.account,
           tabBarBadge: formatUnreadBadge(notificationUnreadCount),
-          tabBarButton:
-            user?.role === "provider" ? providerBlockedTabButton : undefined,
         }}
       />
     </Tab.Navigator>
