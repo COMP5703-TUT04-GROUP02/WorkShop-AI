@@ -1,10 +1,10 @@
 ## Jira work item(s)
 
-WS- 
+WS-<number> <work item name>
 
 ## What changed?
 
-- 
+-
 
 ## Checklist
 
