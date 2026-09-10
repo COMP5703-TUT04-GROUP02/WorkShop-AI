@@ -24,3 +24,9 @@ Tick an **If** only when that kind of change is in the PR. Leave nested boxes un
 - [ ] If business logic changed
   - [ ] I added or updated the relevant automated tests.
 - [ ] I did not commit `.env` files, JWT keys, or upload artifacts.
+
+## Test Result
+
+Write each test as a **checkbox**: what you ran or tested, the steps, and the result, then tick it. Backend PRs must attach Swagger screenshots (request path + method, and the successful response). Frontend PRs must attach screenshots of the changed pages. Skip only if there is no user-facing API or UI change.
+
+- [ ] 
