@@ -180,6 +180,59 @@ def is_same_day_time_range(start_datetime: datetime, end_datetime: datetime):
     return start_datetime.date() == end_datetime.date()
 
 
+def is_provider_open_now(
+    provider_profile_id: int,
+    db: Session,
+    now: datetime | None = None,
+):
+    """Return whether a provider is currently within their published hours.
+
+    Availability timestamps are stored without a timezone, so the API uses UTC
+    consistently when comparing the current time. A date override takes
+    precedence over the weekly schedule, including an explicit unavailable
+    override.
+    """
+    current = now or utc_now()
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    else:
+        current = current.astimezone(timezone.utc)
+
+    current_time = current.time().replace(second=0, microsecond=0)
+    availability_override = get_provider_availability_override_by_date(
+        provider_profile_id,
+        current.date(),
+        db,
+    )
+
+    if availability_override is not None:
+        if not availability_override.is_available:
+            return False
+
+        return (
+            parse_time_value(availability_override.start_time)
+            <= current_time
+            <= parse_time_value(availability_override.end_time)
+        )
+
+    availabilities = (
+        db.query(models.ProviderAvailability)
+        .filter(
+            models.ProviderAvailability.provider_profile_id == provider_profile_id,
+            models.ProviderAvailability.weekday == current.isoweekday(),
+            models.ProviderAvailability.is_available.is_(True),
+        )
+        .all()
+    )
+
+    return any(
+        parse_time_value(availability.start_time)
+        <= current_time
+        <= parse_time_value(availability.end_time)
+        for availability in availabilities
+    )
+
+
 def is_provider_available_for_datetime_range(
     provider_profile_id: int,
     start_datetime: datetime,

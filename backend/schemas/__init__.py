@@ -38,6 +38,7 @@ __all__ = [
     "HomeProviderRecommendationResponse",
     "CustomerHomeRecommendationResponseData",
     "CustomerProviderSearchResponseData",
+    "CustomerProviderDetailProviderResponse",
     "CustomerProviderDetailResponseData",
     "ProviderCertificateFileInput",
     "ProviderProfileCreate",

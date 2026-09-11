@@ -339,7 +339,7 @@ def get_provider_availability_overrides(
     db: Session = Depends(get_db),
 ):
     requested_month = parse_availability_month(month)
-    current_month = date.today().replace(day=1)
+    current_month = utc_now().date().replace(day=1)
     if requested_month < current_month:
         raise HTTPException(
             status_code=400,
@@ -409,7 +409,7 @@ def parse_availability_month(month: str):
 
 
 def validate_availability_override_date(override_date: date):
-    if override_date < date.today():
+    if override_date < utc_now().date():
         raise HTTPException(
             status_code=400,
             detail="Cannot adjust availability before today",
@@ -644,7 +644,7 @@ def get_provider_schedule_bookings(
     db: Session = Depends(get_db),
 ):
     requested_month = parse_availability_month(month)
-    current_month = date.today().replace(day=1)
+    current_month = utc_now().date().replace(day=1)
     if requested_month < current_month:
         raise HTTPException(
             status_code=400,
