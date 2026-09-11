@@ -6,6 +6,7 @@ from backend.schemas.chat import *  # noqa: F403
 from backend.schemas.booking import *  # noqa: F403
 from backend.schemas.feedback import *  # noqa: F403
 from backend.schemas.ai import *  # noqa: F403
+from backend.schemas.places import *  # noqa: F403
 
 ApiResponse[CustomerHomeRecommendationResponseData].model_rebuild()
 ApiResponse[CustomerProviderSearchResponseData].model_rebuild()
@@ -96,6 +97,7 @@ __all__ = [
     "ReviewVisibilityUpdate",
     "AIProviderRecommendRequest",
     "AIChatRequest",
+    "AIIntentResponse",
     "AIToolCallResponse",
     "AIToolErrorData",
     "AIClarificationChoiceResponse",
@@ -113,3 +115,4 @@ __all__ = [
     "AsyncTaskType",
     "AsyncTaskStatus",
 ]
+__all__ += ["PlaceSuggestion", "PlacesAutocompleteResponse", "PlaceDetailsResponse"]

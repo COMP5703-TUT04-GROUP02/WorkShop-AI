@@ -68,6 +68,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = get_int_config(
 
 GOOGLE_CLIENT_IDS = get_list_config("WORKSHOP_GOOGLE_CLIENT_IDS", [])
 APPLE_CLIENT_IDS = get_list_config("WORKSHOP_APPLE_CLIENT_IDS", [])
+GOOGLE_MAPS_API_KEY = get_config("WORKSHOP_GOOGLE_MAPS_API_KEY", "")
 APPLE_TOKEN_ISSUER = get_config(
     "WORKSHOP_APPLE_TOKEN_ISSUER",
     "https://appleid.apple.com",

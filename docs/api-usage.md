@@ -43,7 +43,7 @@ Auth: some public; /me, /logout, /refresh-token need tokens.
 
 ## Public
 
-Public providers, reviews, and portfolios.
+Public providers, reviews, portfolios, and Places lookup.
 
 Auth: none.
 
@@ -55,6 +55,10 @@ Auth: none.
 | `GET` | `/providers/{provider_id}/rating-summary` | Rating summary. | `provider_id`(path, required, integer) | - | `ApiResponse_RatingSummaryResponse_` |
 | `GET` | `/providers/{provider_id}/reviews` | Public reviews. | `provider_id`(path, required, integer)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ReviewDetailResponse__` |
 | `GET` | `/reviews/{review_id}` | Public review detail. | `review_id`(path, required, integer) | - | `ApiResponse_ReviewDetailResponse_` |
+| `GET` | `/places/autocomplete` | Search place suggestions through the server-side Google Places proxy. | `q`(query, required, string) | - | `ApiResponse_PlacesAutocompleteResponse_` |
+| `GET` | `/places/details` | Resolve a selected place ID to its address and coordinates. | `place_id`(query, required, string) | - | `ApiResponse_PlaceDetailsResponse_` |
+
+Places success payloads use `place_id` and `description` for autocomplete suggestions. `/places/details` returns `place_id`, `formatted_address`, `latitude`, and `longitude`. The Google Places key is server-only in `WORKSHOP_GOOGLE_MAPS_API_KEY`; it must not be placed in Expo environment variables. These endpoints provide street addresses. The Turkish province/city/district tree belongs to the later `/locations` work.
 
 ## Customer
 
