@@ -123,7 +123,7 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="Help"
         component={HelpScreen}
-        options={{ title: "Help" }}
+        options={{ title: "Help and Support" }}
       />
       <Stack.Screen
         name="BookingHistory"

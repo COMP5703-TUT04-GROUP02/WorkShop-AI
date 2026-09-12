@@ -156,7 +156,7 @@ export function AccountScreen() {
             />
             <MenuItem
               icon={<CircleHelp color={colors.text} size={24} />}
-              label="Help"
+              label="Help and Support"
               onPress={() => navigation.navigate("Help")}
             />
           </View>
