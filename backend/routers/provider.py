@@ -9,6 +9,7 @@ from fastapi import Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from backend import models
 from backend.auth import get_db, require_provider
+from backend.core.clock import WORKSHOP_TIMEZONE, to_workshop_datetime
 from backend.utils.booking import format_booking_detail_response
 from backend.utils.availability import (
     delete_provider_availability_override,
@@ -339,7 +340,7 @@ def get_provider_availability_overrides(
     db: Session = Depends(get_db),
 ):
     requested_month = parse_availability_month(month)
-    current_month = date.today().replace(day=1)
+    current_month = to_workshop_datetime(utc_now()).date().replace(day=1)
     if requested_month < current_month:
         raise HTTPException(
             status_code=400,
@@ -409,7 +410,7 @@ def parse_availability_month(month: str):
 
 
 def validate_availability_override_date(override_date: date):
-    if override_date < date.today():
+    if override_date < to_workshop_datetime(utc_now()).date():
         raise HTTPException(
             status_code=400,
             detail="Cannot adjust availability before today",
@@ -644,7 +645,7 @@ def get_provider_schedule_bookings(
     db: Session = Depends(get_db),
 ):
     requested_month = parse_availability_month(month)
-    current_month = date.today().replace(day=1)
+    current_month = to_workshop_datetime(utc_now()).date().replace(day=1)
     if requested_month < current_month:
         raise HTTPException(
             status_code=400,
@@ -652,8 +653,12 @@ def get_provider_schedule_bookings(
         )
 
     next_month = add_one_month(requested_month)
-    month_start = datetime.combine(requested_month, time.min, tzinfo=timezone.utc)
-    month_end = datetime.combine(next_month, time.min, tzinfo=timezone.utc)
+    month_start = datetime.combine(requested_month, time.min, tzinfo=WORKSHOP_TIMEZONE).astimezone(
+        timezone.utc
+    )
+    month_end = datetime.combine(next_month, time.min, tzinfo=WORKSHOP_TIMEZONE).astimezone(
+        timezone.utc
+    )
     provider_profile = get_provider_profile_for_user(current_user.id, db)
     bookings = (
         db.query(models.Booking)

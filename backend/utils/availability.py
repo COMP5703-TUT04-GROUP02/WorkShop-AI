@@ -1,11 +1,11 @@
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.schemas import ProviderAvailabilityOverrideUpdate
-from backend.core.clock import utc_now
+from backend.core.clock import to_workshop_datetime, utc_now
 
 
 def format_time_value(value: time | None):
@@ -177,7 +177,85 @@ def delete_provider_availability_override(
 
 
 def is_same_day_time_range(start_datetime: datetime, end_datetime: datetime):
-    return start_datetime.date() == end_datetime.date()
+    start_local = to_workshop_datetime(start_datetime)
+    end_local = to_workshop_datetime(end_datetime)
+    return start_local.date() == end_local.date()
+
+
+def _get_applicable_availability(
+    provider_profile_id: int,
+    local_datetime: datetime,
+    db: Session,
+):
+    override = get_provider_availability_override_by_date(
+        provider_profile_id,
+        local_datetime.date(),
+        db,
+    )
+    if override is not None:
+        return override, []
+
+    weekly = (
+        db.query(models.ProviderAvailability)
+        .filter(
+            models.ProviderAvailability.provider_profile_id == provider_profile_id,
+            models.ProviderAvailability.weekday == local_datetime.isoweekday(),
+            models.ProviderAvailability.is_available.is_(True),
+        )
+        .all()
+    )
+    return None, weekly
+
+
+def _is_time_inside_window(
+    current_time: time,
+    start_time: str,
+    end_time: str,
+):
+    return (
+        parse_time_value(start_time)
+        <= current_time
+        < parse_time_value(end_time)
+    )
+
+
+def is_provider_open_now(
+    provider_profile_id: int,
+    db: Session,
+    now: datetime | None = None,
+):
+    """Return whether a provider is currently within their published hours.
+
+    Published hours are civil times in the Istanbul marketplace timezone. A
+    date override takes precedence over the weekly schedule, including an
+    explicit unavailable override.
+    """
+    current = to_workshop_datetime(now or utc_now())
+    current_time = current.time().replace(second=0, microsecond=0)
+    availability_override, availabilities = _get_applicable_availability(
+        provider_profile_id,
+        current,
+        db,
+    )
+
+    if availability_override is not None:
+        if not availability_override.is_available:
+            return False
+
+        return _is_time_inside_window(
+            current_time,
+            availability_override.start_time,
+            availability_override.end_time,
+        )
+
+    return any(
+        _is_time_inside_window(
+            current_time,
+            availability.start_time,
+            availability.end_time,
+        )
+        for availability in availabilities
+    )
 
 
 def is_provider_available_for_datetime_range(
@@ -203,17 +281,20 @@ def get_provider_unavailability_reason(
     end_datetime: datetime,
     db: Session,
 ):
-    if not is_same_day_time_range(start_datetime, end_datetime):
+    start_local = to_workshop_datetime(start_datetime)
+    end_local = to_workshop_datetime(end_datetime)
+
+    if not is_same_day_time_range(start_local, end_local):
         return "Appointment must be on the same day; overnight bookings are not supported"
 
-    weekday = start_datetime.isoweekday()
-    start_time = start_datetime.time().replace(second=0, microsecond=0)
-    end_time = end_datetime.time().replace(second=0, microsecond=0)
-    date_text = start_datetime.date().isoformat()
+    weekday = start_local.isoweekday()
+    start_time = start_local.time().replace(second=0, microsecond=0)
+    end_time = end_local.time().replace(second=0, microsecond=0)
+    date_text = start_local.date().isoformat()
     requested_time_text = f"{format_time_value(start_time)}-{format_time_value(end_time)}"
-    availability_override = get_provider_availability_override_by_date(
+    availability_override, availabilities = _get_applicable_availability(
         provider_profile_id,
-        start_datetime.date(),
+        start_local,
         db,
     )
 
@@ -233,16 +314,6 @@ def get_provider_unavailability_reason(
         return (
             f"Requested time {requested_time_text} is outside provider daily hours on {date_text} ({override_time_text})"
         )
-
-    availabilities = (
-        db.query(models.ProviderAvailability)
-        .filter(
-            models.ProviderAvailability.provider_profile_id == provider_profile_id,
-            models.ProviderAvailability.weekday == weekday,
-            models.ProviderAvailability.is_available.is_(True),
-        )
-        .all()
-    )
 
     if not availabilities:
         return (

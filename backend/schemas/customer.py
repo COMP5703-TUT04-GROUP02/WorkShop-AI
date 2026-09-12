@@ -121,8 +121,13 @@ class CustomerProviderSearchResponseData(BaseModel):
     items: list[HomeProviderRecommendationResponse]
 
 
+class CustomerProviderDetailProviderResponse(ProviderProfileWithRatingResponse):
+    is_open: bool
+    is_favorited: bool
+
+
 class CustomerProviderDetailResponseData(BaseModel):
-    provider: ProviderProfileWithRatingResponse
+    provider: CustomerProviderDetailProviderResponse
     history: CustomerSearchHistoryResponse
 
 

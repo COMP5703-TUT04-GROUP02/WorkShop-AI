@@ -1,3 +1,8 @@
+from datetime import datetime, timezone
+
+from backend import models
+
+
 def test_public_providers_hide_pending_profiles(client, marketplace):
     listed = client.get("/providers", params={"service_province": "Istanbul"})
     assert listed.status_code == 200, listed.text
@@ -39,6 +44,115 @@ def test_admin_dashboard_and_favorites(client, marketplace):
     favorites = client.get("/customer/favorites", headers=customer)
     assert favorites.status_code == 200
     assert favorites.json()["data"]["total"] == 1
+
+
+def test_customer_provider_detail_exposes_open_and_favorite_state(
+    client, marketplace, monkeypatch
+):
+    import backend.utils.availability as availability_utils
+
+    provider_id = marketplace["provider_profile"]["id"]
+    customer_headers = marketplace["customer"]["headers"]
+    open_time = datetime(2026, 10, 5, 7, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(availability_utils, "utc_now", lambda: open_time)
+
+    detail = client.get(
+        f"/customer/providers/{provider_id}", headers=customer_headers
+    )
+    assert detail.status_code == 200, detail.text
+    provider = detail.json()["data"]["provider"]
+    assert provider["is_open"] is True
+    assert provider["is_favorited"] is False
+
+    added = client.post(f"/customer/favorites/{provider_id}", headers=customer_headers)
+    assert added.status_code == 200, added.text
+
+    detail = client.get(
+        f"/customer/providers/{provider_id}", headers=customer_headers
+    )
+    assert detail.json()["data"]["provider"]["is_favorited"] is True
+
+    closed_time = datetime(2026, 10, 5, 18, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(availability_utils, "utc_now", lambda: closed_time)
+    detail = client.get(
+        f"/customer/providers/{provider_id}", headers=customer_headers
+    )
+    assert detail.json()["data"]["provider"]["is_open"] is False
+
+
+def test_customer_provider_detail_honors_unavailable_date_override(
+    client, db_session, marketplace, monkeypatch
+):
+    import backend.utils.availability as availability_utils
+
+    provider_id = marketplace["provider_profile"]["id"]
+    db_session.add(
+        models.ProviderAvailabilityOverride(
+            provider_profile_id=provider_id,
+            override_date="2026-10-05",
+            start_time="08:00",
+            end_time="20:00",
+            is_available=False,
+        )
+    )
+    db_session.commit()
+
+    monkeypatch.setattr(
+        availability_utils,
+        "utc_now",
+        lambda: datetime(2026, 10, 5, 7, 0, tzinfo=timezone.utc),
+    )
+    detail = client.get(
+        f"/customer/providers/{provider_id}",
+        headers=marketplace["customer"]["headers"],
+    )
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["provider"]["is_open"] is False
+
+
+def test_customer_provider_detail_favorite_state_is_customer_specific(
+    client, marketplace
+):
+    created = client.post(
+        "/register",
+        json={
+            "name": "Second Customer",
+            "email": "second-customer@example.com",
+            "password": "Password123",
+            "role": "customer",
+        },
+    )
+    assert created.status_code == 200, created.text
+    logged_in = client.post(
+        "/login",
+        data={
+            "username": "second-customer@example.com",
+            "password": "Password123",
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert logged_in.status_code == 200, logged_in.text
+    second_customer_headers = {
+        "Authorization": f"Bearer {logged_in.json()['data']['access_token']}"
+    }
+    provider_id = marketplace["provider_profile"]["id"]
+
+    added = client.post(
+        f"/customer/favorites/{provider_id}",
+        headers=marketplace["customer"]["headers"],
+    )
+    assert added.status_code == 200, added.text
+
+    first_detail = client.get(
+        f"/customer/providers/{provider_id}",
+        headers=marketplace["customer"]["headers"],
+    )
+    second_detail = client.get(
+        f"/customer/providers/{provider_id}",
+        headers=second_customer_headers,
+    )
+    assert first_detail.json()["data"]["provider"]["is_favorited"] is True
+    assert second_detail.json()["data"]["provider"]["is_favorited"] is False
 
 
 def test_provider_dashboard_requires_provider(client, marketplace):
