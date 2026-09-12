@@ -138,6 +138,8 @@ export type ProviderPortfolio = {
 };
 
 export type ProviderRecommendation = ProviderProfile & {
+  avatar_url?: string | null;
+  is_open?: boolean;
   first_portfolio_image_url: string | null;
   recommendation_score: number;
   matched_tags: string[];

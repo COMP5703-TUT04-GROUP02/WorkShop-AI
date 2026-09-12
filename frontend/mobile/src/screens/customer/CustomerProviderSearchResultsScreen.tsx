@@ -158,6 +158,7 @@ export function CustomerProviderSearchResultsScreen({
               key={provider.id}
               onPress={(selectedProvider) => void handleOpenProvider(selectedProvider)}
               provider={provider}
+              variant="searchResult"
             />
           ))}
         </View>

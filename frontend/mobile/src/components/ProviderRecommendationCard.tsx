@@ -1,5 +1,11 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import {
+  formatProviderDistance,
+  getProviderCardImageUrl,
+  getProviderCardStatus,
+  getProviderCategoryLabel,
+} from "../features/provider-search/provider-card-display";
 import { colors, radius, spacing } from "../theme/theme";
 import type { ProviderRecommendation } from "../types/provider";
 import { resolveMediaUrl } from "../utils/media";
@@ -8,14 +14,35 @@ type ProviderRecommendationCardProps = {
   provider: ProviderRecommendation;
   onPress: (provider: ProviderRecommendation) => void;
   cardWidth?: number;
+  variant?: "recommendation" | "searchResult";
 };
 
 export function ProviderRecommendationCard({
   provider,
   onPress,
   cardWidth,
+  variant = "recommendation",
 }: ProviderRecommendationCardProps) {
-  const imageUrl = resolveMediaUrl(provider.first_portfolio_image_url);
+  const isSearchResult = variant === "searchResult";
+  const imageUrl = resolveMediaUrl(
+    isSearchResult
+      ? getProviderCardImageUrl({
+          avatarUrl: provider.avatar_url,
+          portfolioImageUrl: provider.first_portfolio_image_url,
+        })
+      : provider.first_portfolio_image_url,
+  );
+  const status = isSearchResult
+    ? getProviderCardStatus({
+        isOpen: provider.is_open,
+        isOnline: provider.is_online,
+      })
+    : {
+        label: provider.is_online ? "Online" : "Offline",
+        tone: provider.is_online ? "active" : "inactive",
+      };
+  const distance = formatProviderDistance(provider.distance_km);
+  const category = getProviderCategoryLabel(provider.tags);
 
   return (
     <Pressable
@@ -36,19 +63,22 @@ export function ProviderRecommendationCard({
           <View
             style={[
               styles.statusDot,
-              provider.is_online ? styles.statusDotOnline : styles.statusDotOffline,
+              status.tone === "active"
+                ? styles.statusDotActive
+                : styles.statusDotInactive,
             ]}
           />
-          <Text style={styles.statusText}>
-            {provider.is_online ? "Online" : "Offline"}
-          </Text>
+          <Text style={styles.statusText}>{status.label}</Text>
         </View>
         <Text style={styles.name} numberOfLines={2}>
           {provider.business_name}
         </Text>
-        <Text style={styles.tags} numberOfLines={1}>
-          {provider.tags.join(" · ")}
+        <Text style={styles.category} numberOfLines={1}>
+          {isSearchResult ? category : provider.tags.join(" · ")}
         </Text>
+        {isSearchResult && distance ? (
+          <Text style={styles.distance}>{distance}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -95,10 +125,10 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  statusDotOnline: {
+  statusDotActive: {
     backgroundColor: colors.primary,
   },
-  statusDotOffline: {
+  statusDotInactive: {
     backgroundColor: "#A0A4AE",
   },
   statusText: {
@@ -113,7 +143,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 20,
   },
-  tags: {
+  category: {
+    color: colors.mutedText,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  distance: {
     color: colors.mutedText,
     fontSize: 12,
     lineHeight: 17,
