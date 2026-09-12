@@ -34,3 +34,5 @@ export type CustomerProfilePayload = {
   default_service_longitude: number | null;
   notes: string | null;
 };
+
+export type CustomerProfilePatchPayload = Partial<CustomerProfilePayload>;

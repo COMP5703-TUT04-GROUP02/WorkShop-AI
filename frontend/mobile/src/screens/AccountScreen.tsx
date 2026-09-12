@@ -13,18 +13,13 @@ import {
   UserRound,
 } from "lucide-react-native";
 import { ReactNode, useState } from "react";
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
+import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
@@ -41,11 +36,24 @@ type MenuItemProps = {
 export function AccountScreen() {
   const { user, signOut, uploadAvatar } = useAuth();
   const isCustomer = user?.role === "customer";
+  const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
+    useProviderProfileGate();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isWebDesktop = useIsWebDesktop();
   const [message, setMessage] = useState("");
   const avatarUri = resolveMediaUrl(user?.avatar_url ?? null);
+  const lockAccountActions =
+    user?.role === "provider" && isProviderProfileRequired;
+
+  function guardAccountAction(action: () => void) {
+    if (lockAccountActions) {
+      showProviderProfileRequiredMessage();
+      return;
+    }
+
+    action();
+  }
 
   async function handlePickAvatar() {
     setMessage("");
@@ -92,7 +100,9 @@ export function AccountScreen() {
           <Pressable
             accessibilityLabel="Upload avatar"
             accessibilityRole="button"
-            onPress={() => void handlePickAvatar()}
+            onPress={() => {
+              guardAccountAction(() => void handlePickAvatar());
+            }}
             style={styles.avatarButton}
           >
             {avatarUri ? (
@@ -128,7 +138,9 @@ export function AccountScreen() {
             <MenuItem
               icon={<Pencil color={colors.text} size={24} />}
               label="Edit profile"
-              onPress={() => navigation.navigate("AccountEdit")}
+              onPress={() =>
+                guardAccountAction(() => navigation.navigate("AccountEdit"))
+              }
             />
           </View>
 
@@ -136,34 +148,50 @@ export function AccountScreen() {
             <MenuItem
               icon={<Shield color={colors.text} size={24} />}
               label="Account & security"
-              onPress={() => navigation.navigate("AccountSecurity")}
+              onPress={() =>
+                guardAccountAction(() => navigation.navigate("AccountSecurity"))
+              }
             />
             <MenuItem
               icon={<History color={colors.text} size={24} />}
               label="Booking history"
-              onPress={() => navigation.navigate("BookingHistory")}
+              onPress={() =>
+                guardAccountAction(() => navigation.navigate("BookingHistory"))
+              }
             />
             {isCustomer ? (
               <MenuItem
                 icon={<Heart color={colors.text} size={24} />}
                 label="Favourites"
-                onPress={() => navigation.navigate("CustomerFavourites")}
+                onPress={() =>
+                  guardAccountAction(() =>
+                    navigation.navigate("CustomerFavourites"),
+                  )
+                }
               />
             ) : null}
             <MenuItem
               icon={<CreditCard color={colors.text} size={24} />}
               label="Payments"
-              onPress={() => navigation.navigate("Payments")}
+              onPress={() =>
+                guardAccountAction(() => navigation.navigate("Payments"))
+              }
             />
             <MenuItem
               icon={<BellRing color={colors.text} size={24} />}
               label="Notification settings"
-              onPress={() => navigation.navigate("NotificationSettings")}
+              onPress={() =>
+                guardAccountAction(() =>
+                  navigation.navigate("NotificationSettings"),
+                )
+              }
             />
             <MenuItem
               icon={<CircleHelp color={colors.text} size={24} />}
               label="Help and Support"
-              onPress={() => navigation.navigate("Help")}
+              onPress={() =>
+                guardAccountAction(() => navigation.navigate("Help"))
+              }
             />
           </View>
 

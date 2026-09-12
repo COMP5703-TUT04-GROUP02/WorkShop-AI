@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
 import type {
   CustomerProfile,
+  CustomerProfilePatchPayload,
   CustomerProfilePayload,
   CustomerProfileUpdateResponse,
 } from "../types/customer";
@@ -44,6 +45,15 @@ export async function updateCustomerServiceProvince(serviceProvince: string) {
 
 export async function updateCustomerProfile(payload: CustomerProfilePayload) {
   const response = await apiClient.put<ApiResponse<CustomerProfileUpdateResponse>>(
+    "/customer/profile",
+    payload,
+  );
+
+  return response.data.data;
+}
+
+export async function patchCustomerProfile(payload: CustomerProfilePatchPayload) {
+  const response = await apiClient.patch<ApiResponse<CustomerProfileUpdateResponse>>(
     "/customer/profile",
     payload,
   );

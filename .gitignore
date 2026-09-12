@@ -59,6 +59,7 @@ Thumbs.db
 frontend/mobile/node_modules/
 frontend/mobile/.expo/
 frontend/mobile/dist/
+frontend/mobile/dist-*/
 frontend/mobile/web-build/
 frontend/mobile/expo-env.d.ts
 frontend/mobile/.env

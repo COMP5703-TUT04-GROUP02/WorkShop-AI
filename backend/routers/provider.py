@@ -66,6 +66,7 @@ from backend.schemas import (
     ProviderAvailabilityOverrideUpdate,
     ProviderAvailabilityUpdate,
     ProviderBookingQuoteCreate,
+    ProviderContactProfilePatch,
     ProviderContactProfileUpdate,
     ProviderCertificateFileInput,
     ProviderProfileCreate,
@@ -193,8 +194,7 @@ async def upload_provider_certificate(
         raise HTTPException(status_code=400, detail="At least one certificate file is required")
 
     upload_results = [
-        await save_certificate_upload(certificate_file)
-        for certificate_file in upload_files
+        await save_certificate_upload(certificate_file) for certificate_file in upload_files
     ]
     return success_response(
         {"files": upload_results},
@@ -258,6 +258,27 @@ def update_provider_contact_profile(
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
     profile.notes = profile_data.notes
+    db.commit()
+    db.refresh(profile)
+    return success_response(
+        {
+            "message": "Provider contact profile updated successfully",
+            "profile": format_provider_profile_response(profile),
+        }
+    )
+
+
+@router.patch("/provider/profile/contact")
+def patch_provider_contact_profile(
+    profile_data: ProviderContactProfilePatch,
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    profile = get_provider_profile_for_user(current_user.id, db)
+
+    for field, value in profile_data.model_dump(exclude_unset=True).items():
+        setattr(profile, field, value)
+
     db.commit()
     db.refresh(profile)
     return success_response(
@@ -360,9 +381,7 @@ def update_provider_availability_override(
         db,
     )
 
-    return success_response(
-        format_provider_availability_override_response(availability_override)
-    )
+    return success_response(format_provider_availability_override_response(availability_override))
 
 
 @router.delete("/provider/availability/overrides/{override_date}")
@@ -512,9 +531,7 @@ def get_provider_portfolio(
         .order_by(models.ProviderPortfolio.created_at.desc())
     )
     portfolios, total, page, page_size = paginate_query(query, page, page_size)
-    result = [
-        format_provider_portfolio_response(portfolio, db) for portfolio in portfolios
-    ]
+    result = [format_provider_portfolio_response(portfolio, db) for portfolio in portfolios]
     return build_paginated_response(result, total, page, page_size)
 
 
@@ -591,9 +608,7 @@ def get_provider_chats(
     chat_rooms, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for chat_room in chat_rooms:
-        result.append(
-            format_chat_room_response_with_unread(chat_room, db, current_user)
-        )
+        result.append(format_chat_room_response_with_unread(chat_room, db, current_user))
     return success_response(build_paginated_response(result, total, page, page_size))
 
 
@@ -657,9 +672,7 @@ def get_provider_schedule_bookings(
         .all()
     )
 
-    return success_response(
-        [format_booking_detail_response(booking, db) for booking in bookings]
-    )
+    return success_response([format_booking_detail_response(booking, db) for booking in bookings])
 
 
 @router.get("/provider/payments")

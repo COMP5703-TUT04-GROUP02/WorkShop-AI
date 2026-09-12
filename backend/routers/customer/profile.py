@@ -79,6 +79,7 @@ from backend.schemas import (
     CustomerProviderDetailResponseData,
     CustomerProviderSearchResponseData,
     CustomerProfileCreate,
+    CustomerProfilePatch,
     CustomerServiceProvinceUpdate,
     NotificationRelatedType,
     NotificationType,
@@ -94,6 +95,7 @@ from backend.schemas import (
 from backend.utils.response import success_response
 
 router = ApiRouter(tags=["Customer"])
+
 
 @router.post("/customer/profile")
 def create_customer_profile(
@@ -230,3 +232,45 @@ def update_customer_profile(
     )
 
 
+@router.patch("/customer/profile")
+def patch_customer_profile(
+    profile_data: CustomerProfilePatch,
+    current_user: models.User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    profile = (
+        db.query(models.CustomerProfile)
+        .filter(models.CustomerProfile.user_id == current_user.id)
+        .first()
+    )
+    message = "Customer profile updated successfully"
+    if not profile:
+        profile = models.CustomerProfile(
+            user_id=current_user.id,
+            phone_number="",
+            address="",
+            service_province="",
+            latitude=None,
+            longitude=None,
+            current_address=None,
+            current_latitude=None,
+            current_longitude=None,
+            default_service_address=None,
+            default_service_latitude=None,
+            default_service_longitude=None,
+            notes=None,
+        )
+        db.add(profile)
+        message = "Customer profile created successfully"
+
+    for field, value in profile_data.model_dump(exclude_unset=True).items():
+        setattr(profile, field, value)
+
+    db.commit()
+    db.refresh(profile)
+    return success_response(
+        {
+            "message": message,
+            "profile": format_customer_profile_response(profile),
+        }
+    )

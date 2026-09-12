@@ -21,7 +21,7 @@ This is a working demo, not a production deployment.
 
 - Checkout uses a mock payment gateway. The quoted amount is charged in TRY; no card processor is connected.
 - Google and Apple buttons on the sign-in screen are placeholders until OAuth client IDs are configured.
-- Address autocomplete needs a Google Maps API key. The rest of the app runs without it.
+- Address autocomplete needs a server-side Google Places API (New) key. The rest of the app runs without it.
 - Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
 
 
@@ -183,9 +183,9 @@ Copy `.env.example` and adjust as needed. The values most people change first:
 | `LLM_BASE_URL` / `LLM_MODEL`                               | Optional overrides for the provider preset                                                                                                                |
 | `EMBEDDING_*`                                              | Review vectors. Compose defaults to local TEI (`Qwen3-Embedding-0.6B`, 1024). Leave blank in Docker; uncomment the host URL only for a local API process. |
 | `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | OAuth audience checks for `/social-login`                                                                                                                 |
+| `WORKSHOP_GOOGLE_MAPS_API_KEY`                             | Server-only key for the Places API (New) proxy                                                                                                             |
 | `EXPO_PUBLIC_API_BASE_URL`                                 | API used by the Expo web/dev client                                                                                                                       |
 | `EXPO_PUBLIC_LAN_API_BASE_URL`                             | API used by Expo Go on a phone                                                                                                                            |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`                          | Place search in the location picker                                                                                                                       |
 
 
 Vector search uses Milvus plus local TEI embeddings. The recommended Docker stack starts both. A split local API process can skip them and still run bookings and chat. For review search on the host API, start TEI with `docker compose up -d tei` and uncomment the `EMBEDDING_*` host values in `.env`.
@@ -265,7 +265,7 @@ CI runs Alembic against PostgreSQL 16, Ruff (syntax and undefined-name checks), 
 Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - Branch: `<usyd-unikey>/WS-<num>-short-slug` (example: `xhua0028/WS-23-auth-api`). Omit `WS-<num>` only when there is no Jira item. No direct pushes to `main`.
-- Commit and PR title: `<type>: <description>` (example: `feat: add RS256 JWT sessions`).
+- Commit and PR title: `WS-<num> <type>: <description>` (example: `WS-23 feat: add RS256 JWT sessions`). Omit `WS-<num>` only when there is no Jira item.
 - Merge only via pull request. At least one reviewer when another maintainer is available. Only repository maintainers may merge `main`.
 - Checks when they apply: `pytest` and `ruff check backend tests`; mobile `npm run typecheck`; new Alembic revision (never edit applied ones).
 - Do not commit `.env` files, JWT keys, or upload artifacts.

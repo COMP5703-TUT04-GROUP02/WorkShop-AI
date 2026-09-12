@@ -29,6 +29,7 @@ from backend.schemas import (
     SocialLoginRequest,
     SocialLoginResponseData,
     TokenResponse,
+    UserProfilePatch,
     UserProfileUpdate,
     UserRegister,
     UserResponse,
@@ -91,11 +92,7 @@ def resolve_social_login_user(
     now = get_now()
 
     if social_account:
-        user = (
-            db.query(models.User)
-            .filter(models.User.id == social_account.user_id)
-            .first()
-        )
+        user = db.query(models.User).filter(models.User.id == social_account.user_id).first()
         if not user:
             raise HTTPException(status_code=401, detail="Linked user does not exist")
 
@@ -156,9 +153,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             detail="Admin accounts cannot be created from public registration",
         )
     validate_password_policy(user.password)
-    existing_user = (
-        db.query(models.User).filter(models.User.email == user.email).first()
-    )
+    existing_user = db.query(models.User).filter(models.User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     new_user = models.User(
@@ -209,9 +204,7 @@ def social_login(
 
 
 @router.post("/login", response_model=ApiResponse[TokenResponse])
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
-):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(form_data.username, form_data.password, db)
     access_token, refresh_token = login_user(user, db)
     return success_response(
@@ -226,9 +219,7 @@ def login(
 
 
 @router.post("/token", response_model=OAuthTokenResponse)
-def swagger_login(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
-):
+def swagger_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(form_data.username, form_data.password, db)
     access_token, refresh_token = login_user(user, db)
     return {
@@ -273,6 +264,23 @@ def update_me(
     db: Session = Depends(get_db),
 ):
     current_user.name = profile_data.name
+    db.commit()
+    db.refresh(current_user)
+    return success_response(
+        format_user_response(current_user),
+        message="User profile updated successfully",
+    )
+
+
+@router.patch("/me", response_model=ApiResponse[UserResponse])
+def patch_me(
+    profile_data: UserProfilePatch,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if profile_data.name is not None:
+        current_user.name = profile_data.name
+
     db.commit()
     db.refresh(current_user)
     return success_response(

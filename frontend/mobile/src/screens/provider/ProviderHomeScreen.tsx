@@ -2,7 +2,12 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ChevronDown, ChevronRight, Edit3, UserRound } from "lucide-react-native";
+import {
+  ChevronDown,
+  ChevronRight,
+  Edit3,
+  UserRound,
+} from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,8 +34,15 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { ProvincePickerModal } from "../../components/ProvincePickerModal";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
-import { getProviderTagLabel, PROVIDER_TAGS } from "../../constants/providerTags";
+import {
+  getProviderTagLabel,
+  PROVIDER_TAGS,
+} from "../../constants/providerTags";
 import { useAuth } from "../../context/AuthContext";
+import {
+  isProviderProfileComplete,
+  useProviderProfileGate,
+} from "../../context/ProviderProfileGateContext";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
@@ -57,59 +69,71 @@ type SelectedProviderCertificateFile = {
 
 export function ProviderHomeScreen() {
   const { user } = useAuth();
+  const { markProviderProfileCreated } = useProviderProfileGate();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [portfolios, setPortfolios] = useState<ProviderPortfolio[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewPage, setReviewPage] = useState(1);
-  const [reviewPaging, setReviewPaging] = useState<PaginatedData<Review> | null>(
-    null,
-  );
+  const [reviewPaging, setReviewPaging] =
+    useState<PaginatedData<Review> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [message, setMessage] = useState("");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isProfileMissing, setIsProfileMissing] = useState(false);
 
-  const loadHome = useCallback(async (isActive = true) => {
-    setIsLoading(true);
-    setMessage("");
+  const loadHome = useCallback(
+    async (isActive = true) => {
+      setIsLoading(true);
+      setMessage("");
 
-    try {
-      const nextProfile = await getProviderProfile();
+      try {
+        const nextProfile = await getProviderProfile();
 
-      if (!isActive) {
-        return;
+        if (!isActive) {
+          return;
+        }
+
+        const isComplete = isProviderProfileComplete(nextProfile);
+        setProfile(nextProfile);
+        setIsProfileMissing(!isComplete);
+        if (isComplete) {
+          markProviderProfileCreated();
+        }
+
+        const [portfolioPage, reviewPageData] = await Promise.all([
+          getProviderPortfolios(1, 4),
+          getProviderReviews(1, REVIEW_PAGE_SIZE),
+        ]);
+
+        if (isActive) {
+          setPortfolios(portfolioPage?.items ?? []);
+          setReviews(reviewPageData?.items ?? []);
+          setReviewPaging(reviewPageData);
+          setReviewPage(1);
+        }
+      } catch (error) {
+        if (isActive) {
+          const status = (error as { response?: { status?: number } }).response
+            ?.status;
+          setProfile(null);
+          setPortfolios([]);
+          setReviews([]);
+          setReviewPaging(null);
+          setReviewPage(1);
+          setIsProfileMissing(status === 404);
+          setMessage(status === 404 ? "" : getErrorMessage(error));
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
-
-      setProfile(nextProfile);
-
-      const [portfolioPage, reviewPageData] = await Promise.all([
-        getProviderPortfolios(1, 4),
-        getProviderReviews(1, REVIEW_PAGE_SIZE),
-      ]);
-
-      if (isActive) {
-        setPortfolios(portfolioPage?.items ?? []);
-        setReviews(reviewPageData?.items ?? []);
-        setReviewPaging(reviewPageData);
-        setReviewPage(1);
-      }
-    } catch (error) {
-      if (isActive) {
-        setProfile(null);
-        setPortfolios([]);
-        setReviews([]);
-        setReviewPaging(null);
-        setReviewPage(1);
-        setMessage(getErrorMessage(error));
-      }
-    } finally {
-      if (isActive) {
-        setIsLoading(false);
-      }
-    }
-  }, []);
+    },
+    [markProviderProfileCreated],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -144,12 +168,24 @@ export function ProviderHomeScreen() {
 
   const avatarUrl = resolveMediaUrl(user?.avatar_url ?? null);
 
-  if (!isLoading && (!profile || isEditingProfile)) {
+  if (
+    !isLoading &&
+    (isProfileMissing ||
+      !isProviderProfileComplete(profile) ||
+      isEditingProfile)
+  ) {
     return (
       <ProviderProfileForm
         initialProfile={profile}
-        onCancel={profile ? () => setIsEditingProfile(false) : undefined}
+        onCancel={
+          profile && isProviderProfileComplete(profile)
+            ? () => setIsEditingProfile(false)
+            : undefined
+        }
         onSaved={(nextProfile) => {
+          if (isProviderProfileComplete(nextProfile)) {
+            markProviderProfileCreated();
+          }
           setProfile(nextProfile);
           setIsEditingProfile(false);
           void loadHome();
@@ -162,14 +198,15 @@ export function ProviderHomeScreen() {
     <FlatList
       ListEmptyComponent={
         isLoading ? null : (
-          <Text style={styles.emptyText}>
-            {message || "No reviews yet"}
-          </Text>
+          <Text style={styles.emptyText}>{message || "No reviews yet"}</Text>
         )
       }
       ListFooterComponent={
         isLoadingMore ? (
-          <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+          <ActivityIndicator
+            color={colors.primary}
+            style={styles.footerLoader}
+          />
         ) : null
       }
       ListHeaderComponent={
@@ -212,7 +249,8 @@ export function ProviderHomeScreen() {
             <View style={styles.rejectedCard}>
               <Text style={styles.statusTitle}>Profile not approved</Text>
               <Text style={styles.statusText}>
-                {profile.verification_note || "Update your profile and resubmit for review."}
+                {profile.verification_note ||
+                  "Update your profile and resubmit for review."}
               </Text>
             </View>
           ) : null}
@@ -233,7 +271,9 @@ export function ProviderHomeScreen() {
             <ActivityIndicator color={colors.primary} />
           ) : portfolios.length > 0 ? (
             <FlatList
-              ItemSeparatorComponent={() => <View style={styles.portfolioGap} />}
+              ItemSeparatorComponent={() => (
+                <View style={styles.portfolioGap} />
+              )}
               data={portfolios}
               horizontal
               keyExtractor={(item) => String(item.id)}
@@ -422,7 +462,9 @@ function ProviderProfileForm({
 
   function removeCertificateFile(index: number) {
     setCertificateFiles((currentFiles) => {
-      const nextFiles = currentFiles.filter((_, fileIndex) => fileIndex !== index);
+      const nextFiles = currentFiles.filter(
+        (_, fileIndex) => fileIndex !== index,
+      );
       if (!nextFiles.some((file) => file.fileUrl)) {
         setCertificateUrl("");
       }
@@ -444,7 +486,9 @@ function ProviderProfileForm({
       (!certificateUrl.trim() && certificateFiles.length === 0) ||
       tags.length === 0
     ) {
-      setMessage("Fill in the required fields and choose at least one service.");
+      setMessage(
+        "Fill in the required fields and choose at least one service.",
+      );
       return;
     }
 
@@ -456,7 +500,9 @@ function ProviderProfileForm({
       !Number.isFinite(parsedServiceRadiusKm) ||
       parsedServiceRadiusKm <= 0
     ) {
-      setMessage("Enter a valid hourly rate, years of experience, and service radius.");
+      setMessage(
+        "Enter a valid hourly rate, years of experience, and service radius.",
+      );
       return;
     }
 
@@ -481,7 +527,8 @@ function ProviderProfileForm({
       );
 
       if (newCertificateFiles.length > 0) {
-        const uploadResult = await uploadProviderCertificates(newCertificateFiles);
+        const uploadResult =
+          await uploadProviderCertificates(newCertificateFiles);
         if (!uploadResult?.files?.length) {
           throw new Error("Certificate upload failed. Try again.");
         }
@@ -538,13 +585,17 @@ function ProviderProfileForm({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.formContent} style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.formContent}
+      style={styles.container}
+    >
       <View style={styles.formHeader}>
         <Text style={styles.formTitle}>
           {initialProfile ? "Edit provider profile" : "Create provider profile"}
         </Text>
         <Text style={styles.formSubtitle}>
-          Submissions go to admin review. You can display and accept bookings after approval.
+          Submissions go to admin review. You can display and accept bookings
+          after approval.
         </Text>
       </View>
 
@@ -600,7 +651,10 @@ function ProviderProfileForm({
                   accessibilityRole="button"
                   key={tag}
                   onPress={() => toggleTag(tag)}
-                  style={[styles.tagChip, isSelected ? styles.tagChipActive : null]}
+                  style={[
+                    styles.tagChip,
+                    isSelected ? styles.tagChipActive : null,
+                  ]}
                 >
                   <Text
                     style={[
@@ -653,7 +707,8 @@ function ProviderProfileForm({
         <View style={styles.fieldBlock}>
           <Text style={styles.label}>Certificate files</Text>
           <Text style={styles.fileHint}>
-            Only JPG, MP4, and PDF files are supported. Files upload automatically on submission.
+            Only JPG, MP4, and PDF files are supported. Files upload
+            automatically on submission.
           </Text>
           <View style={styles.fileActions}>
             <SecondaryButton
@@ -670,9 +725,14 @@ function ProviderProfileForm({
           {certificateFiles.length > 0 ? (
             <View style={styles.selectedFilesList}>
               {certificateFiles.map((certificateFile, index) => (
-                <View key={`${certificateFile.uri}-${index}`} style={styles.selectedFileRow}>
+                <View
+                  key={`${certificateFile.uri}-${index}`}
+                  style={styles.selectedFileRow}
+                >
                   <Text numberOfLines={1} style={styles.selectedFileText}>
-                    {certificateFile.fileUrl ? "Uploaded: " : "Pending upload: "}
+                    {certificateFile.fileUrl
+                      ? "Uploaded: "
+                      : "Pending upload: "}
                     {certificateFile.fileName}
                   </Text>
                   <Pressable
@@ -712,7 +772,11 @@ function ProviderProfileForm({
 
         <View style={styles.formActions}>
           {onCancel ? (
-            <SecondaryButton disabled={isSaving} label="Cancel" onPress={onCancel} />
+            <SecondaryButton
+              disabled={isSaving}
+              label="Cancel"
+              onPress={onCancel}
+            />
           ) : null}
           <PrimaryButton
             disabled={isSaving}
@@ -766,34 +830,44 @@ function getDefaultCertificateFileName(mimeType?: string | null) {
   return "certificate";
 }
 
-function isAllowedCertificateFile(
-  fileName: string,
-  mimeType?: string | null,
-) {
+function isAllowedCertificateFile(fileName: string, mimeType?: string | null) {
   const extension = fileName.includes(".")
     ? `.${fileName.split(".").pop()?.toLowerCase()}`
     : "";
 
   if (extension === ".jpg" || extension === ".jpeg") {
-    return !mimeType || mimeType === "image/jpeg" || mimeType === "application/octet-stream";
+    return (
+      !mimeType ||
+      mimeType === "image/jpeg" ||
+      mimeType === "application/octet-stream"
+    );
   }
 
   if (extension === ".mp4") {
-    return !mimeType || mimeType === "video/mp4" || mimeType === "application/octet-stream";
+    return (
+      !mimeType ||
+      mimeType === "video/mp4" ||
+      mimeType === "application/octet-stream"
+    );
   }
 
   if (extension === ".pdf") {
-    return !mimeType || mimeType === "application/pdf" || mimeType === "application/octet-stream";
+    return (
+      !mimeType ||
+      mimeType === "application/pdf" ||
+      mimeType === "application/octet-stream"
+    );
   }
 
   return false;
 }
 
-function getCertificateMimeType(
-  fileName: string,
-  mimeType?: string | null,
-) {
-  if (mimeType === "image/jpeg" || mimeType === "video/mp4" || mimeType === "application/pdf") {
+function getCertificateMimeType(fileName: string, mimeType?: string | null) {
+  if (
+    mimeType === "image/jpeg" ||
+    mimeType === "video/mp4" ||
+    mimeType === "application/pdf"
+  ) {
     return mimeType;
   }
 
