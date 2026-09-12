@@ -18,6 +18,9 @@ import { BookingHistoryScreen } from "../screens/BookingHistoryScreen";
 import { ChatRoomScreen } from "../screens/ChatRoomScreen";
 import { HelpScreen } from "../screens/HelpScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
+import { PaymentsScreen } from "../screens/PaymentsScreen";
+import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
 import { CustomerProviderSearchResultsScreen } from "../screens/customer/CustomerProviderSearchResultsScreen";
@@ -58,6 +61,13 @@ const GuardedBookingHistoryScreen =
   withRequiredProviderProfile(BookingHistoryScreen);
 const GuardedNotificationsScreen =
   withRequiredProviderProfile(NotificationsScreen);
+const GuardedNotificationSettingsScreen = withRequiredProviderProfile(
+  NotificationSettingsScreen,
+);
+const GuardedPaymentsScreen = withRequiredProviderProfile(PaymentsScreen);
+const GuardedCustomerFavouritesScreen = withRequiredProviderProfile(
+  CustomerFavouritesScreen,
+);
 const GuardedProviderPortfolioListScreen = withRequiredProviderProfile(
   ProviderPortfolioListScreen,
 );
@@ -164,7 +174,7 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="Help"
         component={GuardedHelpScreen}
-        options={{ title: "Help" }}
+        options={{ title: "Help and Support" }}
       />
       <Stack.Screen
         name="BookingHistory"
@@ -175,6 +185,21 @@ function AuthenticatedStack() {
         name="Notifications"
         component={GuardedNotificationsScreen}
         options={{ title: "Notifications" }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={GuardedNotificationSettingsScreen}
+        options={{ title: "Notification settings" }}
+      />
+      <Stack.Screen
+        name="Payments"
+        component={GuardedPaymentsScreen}
+        options={{ title: "Payments" }}
+      />
+      <Stack.Screen
+        name="CustomerFavourites"
+        component={GuardedCustomerFavouritesScreen}
+        options={{ title: "Favourites" }}
       />
       <Stack.Screen
         name="ProviderPortfolioList"

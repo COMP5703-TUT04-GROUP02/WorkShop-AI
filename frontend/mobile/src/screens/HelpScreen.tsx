@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from "react-native";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { colors, radius, spacing } from "../theme/theme";
 
-const TOPICS = [
+// WS-109. Copy here is placeholder English on purpose — product text is a
+// later ticket, and this is not meant to wait on it.
+const FAQ = [
   {
     title: "Find a provider",
     body: "Search by service and area, open a profile, then start a chat or send a booking request.",
@@ -18,17 +20,45 @@ const TOPICS = [
   },
 ];
 
+const CONTACT = [
+  {
+    title: "Email us",
+    body: "support@workshop.ai — demo only, replies are not monitored.",
+  },
+  {
+    title: "Live chat",
+    body: "Chat with the support team from inside the app. Coming soon.",
+  },
+];
+
 export function HelpScreen() {
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Help</Text>
-      {TOPICS.map((topic) => (
-        <View key={topic.title} style={styles.card}>
-          <Text style={styles.cardTitle}>{topic.title}</Text>
-          <Text style={styles.cardBody}>{topic.body}</Text>
+      <Text style={styles.title}>Help and Support</Text>
+
+      <Section title="FAQ" items={FAQ} />
+      <Section title="Contact us" items={CONTACT} />
+    </ScreenContainer>
+  );
+}
+
+function Section({
+  title,
+  items,
+}: {
+  title: string;
+  items: { title: string; body: string }[];
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {items.map((item) => (
+        <View key={item.title} style={styles.card}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardBody}>{item.body}</Text>
         </View>
       ))}
-    </ScreenContainer>
+    </View>
   );
 }
 
@@ -38,22 +68,32 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
   },
-  card: {
+  section: {
     gap: spacing.sm,
+  },
+  sectionTitle: {
+    color: colors.mutedText,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  card: {
+    gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
-    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
   },
   cardBody: {
     color: colors.mutedText,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
   },
 });

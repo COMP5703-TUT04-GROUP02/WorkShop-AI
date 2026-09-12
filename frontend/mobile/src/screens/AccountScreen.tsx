@@ -1,8 +1,10 @@
 import * as ImagePicker from "expo-image-picker";
 import {
-  Bell,
+  BellRing,
   ChevronRight,
   CircleHelp,
+  CreditCard,
+  Heart,
   History,
   LogOut,
   Pencil,
@@ -18,7 +20,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
-import { useRealtime } from "../context/RealtimeContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
@@ -34,9 +35,9 @@ type MenuItemProps = {
 
 export function AccountScreen() {
   const { user, signOut, uploadAvatar } = useAuth();
+  const isCustomer = user?.role === "customer";
   const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
     useProviderProfileGate();
-  const { notificationUnreadCount } = useRealtime();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isWebDesktop = useIsWebDesktop();
@@ -158,17 +159,36 @@ export function AccountScreen() {
                 guardAccountAction(() => navigation.navigate("BookingHistory"))
               }
             />
+            {isCustomer ? (
+              <MenuItem
+                icon={<Heart color={colors.text} size={24} />}
+                label="Favourites"
+                onPress={() =>
+                  guardAccountAction(() =>
+                    navigation.navigate("CustomerFavourites"),
+                  )
+                }
+              />
+            ) : null}
             <MenuItem
-              badgeCount={notificationUnreadCount}
-              icon={<Bell color={colors.text} size={24} />}
-              label="Notifications"
+              icon={<CreditCard color={colors.text} size={24} />}
+              label="Payments"
               onPress={() =>
-                guardAccountAction(() => navigation.navigate("Notifications"))
+                guardAccountAction(() => navigation.navigate("Payments"))
+              }
+            />
+            <MenuItem
+              icon={<BellRing color={colors.text} size={24} />}
+              label="Notification settings"
+              onPress={() =>
+                guardAccountAction(() =>
+                  navigation.navigate("NotificationSettings"),
+                )
               }
             />
             <MenuItem
               icon={<CircleHelp color={colors.text} size={24} />}
-              label="Help"
+              label="Help and Support"
               onPress={() =>
                 guardAccountAction(() => navigation.navigate("Help"))
               }

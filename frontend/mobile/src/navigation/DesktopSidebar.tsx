@@ -133,6 +133,9 @@ function getSidebarItems(
       "Help",
       "BookingHistory",
       "Notifications",
+      "NotificationSettings",
+      "Payments",
+      "CustomerFavourites",
     ],
   };
 
