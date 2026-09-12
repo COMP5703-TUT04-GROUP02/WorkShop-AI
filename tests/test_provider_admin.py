@@ -53,7 +53,7 @@ def test_customer_provider_detail_exposes_open_and_favorite_state(
 
     provider_id = marketplace["provider_profile"]["id"]
     customer_headers = marketplace["customer"]["headers"]
-    open_time = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
+    open_time = datetime(2026, 10, 5, 7, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(availability_utils, "utc_now", lambda: open_time)
 
     detail = client.get(
@@ -72,7 +72,7 @@ def test_customer_provider_detail_exposes_open_and_favorite_state(
     )
     assert detail.json()["data"]["provider"]["is_favorited"] is True
 
-    closed_time = datetime(2026, 10, 5, 21, 0, tzinfo=timezone.utc)
+    closed_time = datetime(2026, 10, 5, 18, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(availability_utils, "utc_now", lambda: closed_time)
     detail = client.get(
         f"/customer/providers/{provider_id}", headers=customer_headers
@@ -100,7 +100,7 @@ def test_customer_provider_detail_honors_unavailable_date_override(
     monkeypatch.setattr(
         availability_utils,
         "utc_now",
-        lambda: datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc),
+        lambda: datetime(2026, 10, 5, 7, 0, tzinfo=timezone.utc),
     )
     detail = client.get(
         f"/customer/providers/{provider_id}",

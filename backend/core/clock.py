@@ -1,10 +1,21 @@
-"""UTC helpers used by models, auth, and API serializers."""
+"""UTC helpers and marketplace timezone conversion utilities."""
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+
+WORKSHOP_TIMEZONE = ZoneInfo("Europe/Istanbul")
 
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def to_workshop_datetime(value: datetime) -> datetime:
+    """Interpret a naive value as marketplace local time and convert instants."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=WORKSHOP_TIMEZONE)
+    return value.astimezone(WORKSHOP_TIMEZONE)
 
 
 def parse_dt(value: datetime | str | None) -> datetime | None:
