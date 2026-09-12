@@ -39,6 +39,8 @@ export type RootStackParamList = {
   Help: undefined;
   BookingHistory: undefined;
   Notifications: undefined;
+  NotificationSettings: undefined;
+  CustomerFavourites: undefined;
   ProviderPortfolioList: undefined;
   ProviderPortfolioCreate: undefined;
   ProviderPortfolioDetail: {

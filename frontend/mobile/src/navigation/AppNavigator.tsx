@@ -9,6 +9,8 @@ import { BookingHistoryScreen } from "../screens/BookingHistoryScreen";
 import { ChatRoomScreen } from "../screens/ChatRoomScreen";
 import { HelpScreen } from "../screens/HelpScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
+import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
 import { CustomerProviderSearchResultsScreen } from "../screens/customer/CustomerProviderSearchResultsScreen";
@@ -132,6 +134,16 @@ function AuthenticatedStack() {
         name="Notifications"
         component={NotificationsScreen}
         options={{ title: "Notifications" }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ title: "Notification settings" }}
+      />
+      <Stack.Screen
+        name="CustomerFavourites"
+        component={CustomerFavouritesScreen}
+        options={{ title: "Favourites" }}
       />
       <Stack.Screen
         name="ProviderPortfolioList"
