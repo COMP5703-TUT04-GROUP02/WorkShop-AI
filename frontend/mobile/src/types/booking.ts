@@ -107,6 +107,11 @@ export type PaymentSummary = {
   refunded_at: string | null;
 };
 
+/** What /customer/payments and /provider/payments return: a payment plus its booking. */
+export type PaymentHistoryEntry = PaymentSummary & {
+  booking?: BookingDetail | null;
+};
+
 export type BookingPayload = {
   provider_profile_id?: number;
   chat_room_id?: number | null;

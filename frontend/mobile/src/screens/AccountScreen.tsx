@@ -3,6 +3,7 @@ import {
   BellRing,
   ChevronRight,
   CircleHelp,
+  CreditCard,
   Heart,
   History,
   LogOut,
@@ -149,6 +150,11 @@ export function AccountScreen() {
                 onPress={() => navigation.navigate("CustomerFavourites")}
               />
             ) : null}
+            <MenuItem
+              icon={<CreditCard color={colors.text} size={24} />}
+              label="Payments"
+              onPress={() => navigation.navigate("Payments")}
+            />
             <MenuItem
               icon={<BellRing color={colors.text} size={24} />}
               label="Notification settings"

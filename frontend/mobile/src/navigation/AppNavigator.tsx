@@ -10,6 +10,7 @@ import { ChatRoomScreen } from "../screens/ChatRoomScreen";
 import { HelpScreen } from "../screens/HelpScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
+import { PaymentsScreen } from "../screens/PaymentsScreen";
 import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
@@ -139,6 +140,11 @@ function AuthenticatedStack() {
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{ title: "Notification settings" }}
+      />
+      <Stack.Screen
+        name="Payments"
+        component={PaymentsScreen}
+        options={{ title: "Payments" }}
       />
       <Stack.Screen
         name="CustomerFavourites"

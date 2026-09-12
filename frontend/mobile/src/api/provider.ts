@@ -2,7 +2,11 @@ import { Platform } from "react-native";
 
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
-import type { BookingActionResponseData, BookingDetail } from "../types/booking";
+import type {
+  BookingActionResponseData,
+  BookingDetail,
+  PaymentHistoryEntry,
+} from "../types/booking";
 import type { PaginatedData } from "../types/chat";
 import type {
   ProviderAvailability,
@@ -367,6 +371,20 @@ export async function rejectProviderRefundRequest(
       timeout: 30000,
     },
   );
+
+  return response.data.data;
+}
+
+/** WS-110. The provider side of the same history: payouts they have received. */
+export async function getProviderPayments(page = 1, pageSize = 20) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<PaymentHistoryEntry>>
+  >("/provider/payments", {
+    params: {
+      page,
+      page_size: pageSize,
+    },
+  });
 
   return response.data.data;
 }
