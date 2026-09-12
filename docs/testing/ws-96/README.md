@@ -1,8 +1,13 @@
 # WS-96 — Account menu IA: test evidence
 
 Captured against a locally running API (`uvicorn backend.main:app`) on a freshly
-migrated and seeded database, signed in as `demo_customer_1@workshop.ai` and
-`demo_provider_1@workshop.ai`. Every image is a real run, not a mockup.
+migrated and seeded database, signed in as `demo_customer_1@workshop.ai` and `demo_provider_16@workshop.ai`.
+Every image is a real run, not a mockup.
+
+The provider leg uses provider **16** deliberately. The seeded payments belong to
+provider profiles 16 and 2, so signing in as `demo_provider_1` renders a correct
+but empty history — a screenshot that proves nothing. `shoot.js` now asserts the
+list is non-empty for both roles so that cannot happen again unnoticed.
 
 Subtasks covered: **WS-108** (menu IA and Favourite entry), **WS-109**
 (Help and Support), **WS-110** (Payments entry and history).
@@ -53,7 +58,10 @@ are present, matching the customer menu minus the customer-only row.
 
 ## 7. Payments — provider (WS-110)
 
-Same screen, provider wording, reading `GET /provider/payments`.
+Same screen, provider wording, reading `GET /provider/payments`. The `PAID`
+record (225.32 TRY) is the customer side of shot 2, seen from the provider —
+the counterparty column swaps from the provider's business name to the
+customer's name.
 
 ![Provider payment history](07-payments-provider.png)
 
@@ -62,8 +70,15 @@ Same screen, provider wording, reading `GET /provider/payments`.
 ## How these were captured
 
 `docs/testing/ws-96/shoot.js` drives the flows with Playwright and asserts the
-role rule rather than leaving it to the eye — it prints
-`PASS: Favourites hidden for provider`. Re-run it with the API and
+acceptance rules rather than leaving them to the eye. A clean run prints:
+
+```
+PASS: customer payment history shows records
+PASS: Favourites hidden for provider
+PASS: provider payment history shows records
+```
+
+Re-run it with the API and
 `npx expo start --web --port 8090` both up:
 
 ```bash
