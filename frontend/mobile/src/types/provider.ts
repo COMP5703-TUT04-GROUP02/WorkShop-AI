@@ -155,7 +155,7 @@ export type CustomerProviderSearchResults = {
 };
 
 export type CustomerProviderDetail = {
-  provider: ProviderProfile;
+  provider: CustomerProviderDetailProfile;
   history: {
     id: number;
     customer_id: number;
@@ -163,4 +163,26 @@ export type CustomerProviderDetail = {
     last_provider_tag: string;
     updated_at: string;
   };
+};
+
+export type CustomerProviderDetailProfile = ProviderProfile & {
+  is_open: boolean;
+  is_favorited: boolean;
+};
+
+export type FavoriteProvider = {
+  id: number;
+  customer_id: number;
+  provider_profile_id: number;
+  created_at: string;
+  provider: ProviderProfile | null;
+};
+
+export type AddFavoriteProviderResponse = {
+  message: string;
+  favorite: FavoriteProvider;
+};
+
+export type RemoveFavoriteProviderResponse = {
+  message: string;
 };
