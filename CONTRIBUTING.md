@@ -35,12 +35,14 @@ Examples:
 Format (same for commits and PR titles; **not** the branch name):
 
 ```text
-<type>: <brief description>
+WS-<num> <type>: <brief description>
 ```
 
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 
-Example: `feat: add RS256 JWT sessions`
+Example: `WS-23 feat: add RS256 JWT sessions`
+
+- If a change has no Jira item yet, omit the key: `<type>: <brief description>`.
 
 - Commit under **your own** GitHub account.
 - Prefer the GitHub noreply email so Insights attributes the commit to you.

@@ -8,7 +8,7 @@ WS-<number> <work item name>
 
 ## Checklist
 
-- [ ] The PR title follows `<type>: <description>`.
+- [ ] The PR title follows `WS-<number> <type>: <description>`.
 
 ### For Developers
 
