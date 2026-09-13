@@ -17,6 +17,7 @@ import { AuthScreen } from "../screens/AuthScreen";
 import { BookingHistoryScreen } from "../screens/BookingHistoryScreen";
 import { ChatRoomScreen } from "../screens/ChatRoomScreen";
 import { HelpScreen } from "../screens/HelpScreen";
+import { LEGAL_DOCUMENTS, LegalScreen } from "../screens/LegalScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
 import { PaymentsScreen } from "../screens/PaymentsScreen";
@@ -116,6 +117,11 @@ export function AppNavigator() {
             component={AuthScreen}
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="Legal"
+            component={LegalScreen}
+            options={legalScreenOptions}
+          />
         </Stack.Navigator>
       )}
     </NavigationContainer>
@@ -176,6 +182,13 @@ function AuthenticatedStack() {
         component={GuardedHelpScreen}
         options={{ title: "Help and Support" }}
       />
+      {/* Not gated: a provider with an incomplete profile must still be able
+          to read the terms they are asked to accept. */}
+      <Stack.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={legalScreenOptions}
+      />
       <Stack.Screen
         name="BookingHistory"
         component={GuardedBookingHistoryScreen}
@@ -218,6 +231,16 @@ function AuthenticatedStack() {
       />
     </Stack.Navigator>
   );
+}
+
+// Registered in both stacks: register happens signed out, and both roles can
+// open the same pages once signed in.
+function legalScreenOptions({
+  route,
+}: {
+  route: { params: RootStackParamList["Legal"] };
+}) {
+  return { title: LEGAL_DOCUMENTS[route.params.document].title };
 }
 
 function withRequiredProviderProfile<P extends object>(

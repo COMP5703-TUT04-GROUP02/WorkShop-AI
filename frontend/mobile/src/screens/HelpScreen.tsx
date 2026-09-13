@@ -1,6 +1,10 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { ChevronRight } from "lucide-react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ScreenContainer } from "../components/ScreenContainer";
+import type { LegalDocument, RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 
 // WS-109. Copy here is placeholder English on purpose — product text is a
@@ -31,13 +35,43 @@ const CONTACT = [
   },
 ];
 
+const LEGAL: { document: LegalDocument; title: string }[] = [
+  { document: "privacy", title: "Privacy Policy" },
+  { document: "terms", title: "Terms of Use" },
+];
+
 export function HelpScreen() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
   return (
     <ScreenContainer>
       <Text style={styles.title}>Help and Support</Text>
 
       <Section title="FAQ" items={FAQ} />
       <Section title="Contact us" items={CONTACT} />
+
+      {/* WS-90. Signed-in entry point to the same pages the register form uses. */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Legal</Text>
+        {LEGAL.map((item) => (
+          <Pressable
+            key={item.document}
+            accessibilityRole="link"
+            onPress={() =>
+              navigation.navigate("Legal", { document: item.document })
+            }
+            style={({ pressed }) => [
+              styles.card,
+              styles.linkCard,
+              pressed ? styles.linkCardPressed : null,
+            ]}
+          >
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <ChevronRight color={colors.mutedText} size={20} />
+          </Pressable>
+        ))}
+      </View>
     </ScreenContainer>
   );
 }
@@ -85,6 +119,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     padding: spacing.md,
+  },
+  linkCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  linkCardPressed: {
+    opacity: 0.7,
   },
   cardTitle: {
     color: colors.text,
