@@ -1,3 +1,5 @@
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import {
   Alert,
@@ -16,6 +18,7 @@ import { SecondaryButton } from "../components/SecondaryButton";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
+import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 import type { RegisterRequest } from "../types/auth";
 import { getErrorMessage } from "../utils/errors";
@@ -24,6 +27,8 @@ type AuthMode = "login" | "register";
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [mode, setMode] = useState<AuthMode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -174,6 +179,26 @@ export function AuthScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {/* WS-90. Signed-out entry to the legal pages. WS-92 adds the register
+            checkbox that links to the same routes. */}
+        <View style={styles.legalRow}>
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={6}
+            onPress={() => navigation.navigate("Legal", { document: "privacy" })}
+          >
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </Pressable>
+          <Text style={styles.legalDot}>·</Text>
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={6}
+            onPress={() => navigation.navigate("Legal", { document: "terms" })}
+          >
+            <Text style={styles.legalLink}>Terms of Use</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -307,5 +332,21 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 15,
     fontWeight: "600",
+  },
+  legalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  legalLink: {
+    color: colors.mutedText,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  legalDot: {
+    color: colors.mutedText,
+    fontSize: 13,
   },
 });

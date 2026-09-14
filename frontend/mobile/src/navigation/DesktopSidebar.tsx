@@ -131,6 +131,7 @@ function getSidebarItems(
       "AccountEdit",
       "AccountSecurity",
       "Help",
+      "Legal",
       "BookingHistory",
       "Notifications",
       "NotificationSettings",

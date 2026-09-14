@@ -1,5 +1,8 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
+/** WS-90. The static legal pages; WS-92's register checkbox links to them. */
+export type LegalDocument = "privacy" | "terms";
+
 export type MainTabParamList = {
   CustomerHome: undefined;
   CustomerChats: undefined;
@@ -15,6 +18,9 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
+  Legal: {
+    document: LegalDocument;
+  };
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   CustomerProviderDetail: {
     providerId: number;
