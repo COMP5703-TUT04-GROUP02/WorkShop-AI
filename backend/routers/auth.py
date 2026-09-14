@@ -11,12 +11,15 @@ from backend.auth import (
     create_password_identity,
     create_token_pair,
     ensure_user_can_login,
+    find_user_by_email,
     get_current_user,
     get_db,
     get_now,
     get_password_identity,
     hash_password,
+    normalize_email,
     revoke_refresh_token,
+    revoke_user_refresh_tokens,
     validate_password_policy,
     validate_refresh_token,
     verify_password,
@@ -53,7 +56,7 @@ router = ApiRouter(tags=["Auth"])
 
 
 def authenticate_user(email: str, password: str, db: Session):
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = find_user_by_email(db, email)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -111,14 +114,14 @@ def resolve_social_login_user(
         social_account.last_login_at = now
         return user, False, False
 
-    email = verified_identity.email or request_data.email
+    email = normalize_email(verified_identity.email or request_data.email)
     if not email:
         raise HTTPException(
             status_code=400,
             detail="Social login did not provide an email address",
         )
 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = find_user_by_email(db, email)
     is_new_user = False
 
     if user:
@@ -163,12 +166,12 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             detail="Admin accounts cannot be created from public registration",
         )
     validate_password_policy(user.password)
-    existing_user = db.query(models.User).filter(models.User.email == user.email).first()
+    existing_user = find_user_by_email(db, user.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     new_user = models.User(
         name=user.name,
-        email=user.email,
+        email=normalize_email(user.email),
         role=user.role,
         is_active=True,
         is_banned=False,
@@ -371,6 +374,7 @@ def change_password(
 
     validate_password_policy(request_data.new_password)
     identity.password_hash = hash_password(request_data.new_password)
+    revoke_user_refresh_tokens(current_user, db)
     db.commit()
     db.refresh(current_user)
     return success_response(
@@ -385,21 +389,17 @@ def change_email(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    new_email = str(request_data.new_email)
+    new_email = normalize_email(str(request_data.new_email))
     identity = get_password_identity(current_user, db)
 
-    if new_email.lower() != current_user.email.lower():
-        existing_user = (
-            db.query(models.User)
-            .filter(models.User.email == new_email, models.User.id != current_user.id)
-            .first()
-        )
-        if existing_user:
+    if new_email != normalize_email(current_user.email):
+        existing_user = find_user_by_email(db, new_email)
+        if existing_user and existing_user.id != current_user.id:
             raise HTTPException(status_code=400, detail="Email already registered")
 
         current_user.email = new_email
         if identity is not None:
-            identity.provider_subject = new_email.lower()
+            identity.provider_subject = new_email
 
     mark_email_verified(current_user, identity)
     db.commit()

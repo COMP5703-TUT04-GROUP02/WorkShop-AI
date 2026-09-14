@@ -110,6 +110,18 @@ def test_change_password_rejects_wrong_current_password(client):
     assert "password" in rejected.json()["message"].lower()
 
 
+def test_change_password_rejects_same_as_current_password(client):
+    customer = register_session(client, "same-password@example.com")
+
+    rejected = client.post(
+        "/auth/change-password",
+        json={"current_password": DEMO_PASSWORD, "new_password": DEMO_PASSWORD},
+        headers=customer["headers"],
+    )
+    assert rejected.status_code == 422
+    assert "different" in rejected.text.lower()
+
+
 def test_change_password_updates_login_credentials(client):
     register(client, email="new-password@example.com")
     headers = _auth_headers(client, "new-password@example.com")
@@ -125,6 +137,55 @@ def test_change_password_updates_login_credentials(client):
     assert old_login.status_code == 401
 
     new_login = login(client, "new-password@example.com", "Newpass12")
+    assert new_login.status_code == 200
+
+
+def test_change_password_revokes_existing_sessions(client):
+    register(client, email="revoke-session@example.com")
+    first = login(client, "revoke-session@example.com")
+    second = login(client, "revoke-session@example.com")
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    first_data = first.json()["data"]
+    second_data = second.json()["data"]
+    changed = client.post(
+        "/auth/change-password",
+        json={"current_password": DEMO_PASSWORD, "new_password": "Newpass12"},
+        headers={"Authorization": f"Bearer {first_data['access_token']}"},
+    )
+    assert changed.status_code == 200, changed.text
+
+    assert (
+        client.get(
+            "/me",
+            headers={"Authorization": f"Bearer {first_data['access_token']}"},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.get(
+            "/me",
+            headers={"Authorization": f"Bearer {second_data['access_token']}"},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            "/refresh-token",
+            json={"refresh_token": first_data["refresh_token"]},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            "/refresh-token",
+            json={"refresh_token": second_data["refresh_token"]},
+        ).status_code
+        == 401
+    )
+
+    new_login = login(client, "revoke-session@example.com", "Newpass12")
     assert new_login.status_code == 200
 
 
@@ -156,6 +217,19 @@ def test_change_email_rejects_taken_address(client):
     rejected = client.post(
         "/auth/change-email",
         json={"new_email": "taken@example.com", "code": "123456"},
+        headers=customer["headers"],
+    )
+    assert rejected.status_code == 400
+    assert "email" in rejected.json()["message"].lower()
+
+
+def test_change_email_rejects_taken_address_ignoring_case(client):
+    register(client, email="taken@example.com")
+    customer = register_session(client, "changer@example.com")
+
+    rejected = client.post(
+        "/auth/change-email",
+        json={"new_email": "Taken@Example.COM", "code": "123456"},
         headers=customer["headers"],
     )
     assert rejected.status_code == 400

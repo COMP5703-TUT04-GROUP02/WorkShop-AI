@@ -45,6 +45,18 @@ def test_duplicate_register_is_rejected(client):
     assert again.status_code == 400
 
 
+def test_register_and_login_ignore_email_case(client):
+    created = register(client, email="Case.User@Example.COM")
+    assert created.status_code == 200
+    assert created.json()["data"]["user"]["email"] == "case.user@example.com"
+
+    session = login(client, email="CASE.USER@example.com")
+    assert session.status_code == 200
+
+    again = register(client, email="case.user@EXAMPLE.com")
+    assert again.status_code == 400
+
+
 def test_logout_revokes_access_token(client):
     register(client)
     session = login(client).json()["data"]

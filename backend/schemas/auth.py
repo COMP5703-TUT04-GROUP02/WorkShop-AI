@@ -178,6 +178,12 @@ class ChangePasswordRequest(BaseModel):
             raise ValueError("Current password cannot be empty")
         return value
 
+    @model_validator(mode="after")
+    def validate_new_password_differs(self):
+        if self.new_password == self.current_password:
+            raise ValueError("New password must be different from the current password")
+        return self
+
 
 class ChangeEmailRequest(BaseModel):
     new_email: EmailStr
