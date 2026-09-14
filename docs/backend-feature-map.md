@@ -43,7 +43,7 @@ Routers are what the frontend calls.
 
 | File | Responsibility | Typical caller |
 |---|---|---|
-| `routers/auth.py` | Register, login, social login, refresh, logout, current user | Web/mobile |
+| `routers/auth.py` | Register, login, social login, refresh, logout, current user, mock verify, change password/email | Web/mobile |
 | `routers/public.py` | Public providers, reviews, portfolios, ratings | Guest / customer |
 | `routers/customer.py` | Customer profile, favorites, chat, bookings, pay, refund, complaints, reviews | customer |
 | `routers/provider.py` | Provider profile, verification, availability, portfolio, bookings, refunds | provider |
@@ -163,8 +163,11 @@ Main tables (see `models/`):
 ### Authentication
 
 ```text
-POST /register -> User
+POST /register -> User (email_verified and phone_verified start false)
 POST /login -> access_token + refresh_token
+POST /auth/verify-email or /auth/verify-phone -> any 6 digits, no SMTP/SMS
+POST /auth/change-password -> current + new password
+POST /auth/change-email -> new email + any 6 digits
 POST /social-login -> verify id_token, upsert User/SocialAccount, tokens
 POST /refresh-token -> new access_token
 ```

@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, time
 from enum import Enum
 from typing import Any, Generic, TypeVar
@@ -50,6 +51,8 @@ class UserResponse(BaseModel):
     avatar_url: str | None = None
     is_active: bool = True
     is_banned: bool = False
+    email_verified: bool = False
+    phone_verified: bool = False
     last_login_at: str | None = None
     created_at: str | None = None
 
@@ -147,6 +150,49 @@ class RefreshTokenRequest(BaseModel):
             raise ValueError("Refresh token cannot be empty")
 
         return value
+
+
+def _validate_demo_verification_code(value: str) -> str:
+    if not re.fullmatch(r"\d{6}", value or ""):
+        raise ValueError("Verification code must be exactly 6 digits")
+    return value
+
+
+class MockVerificationRequest(BaseModel):
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def validate_demo_code(cls, value):
+        return _validate_demo_verification_code(value)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+    @field_validator("current_password")
+    @classmethod
+    def validate_current_password_not_empty(cls, value):
+        if not value:
+            raise ValueError("Current password cannot be empty")
+        return value
+
+    @model_validator(mode="after")
+    def validate_new_password_differs(self):
+        if self.new_password == self.current_password:
+            raise ValueError("New password must be different from the current password")
+        return self
+
+
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def validate_demo_code(cls, value):
+        return _validate_demo_verification_code(value)
 
 
 class AdminUserStatusUpdate(BaseModel):

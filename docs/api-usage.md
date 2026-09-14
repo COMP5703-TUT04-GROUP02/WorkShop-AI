@@ -16,7 +16,7 @@
 
 ## API overview
 
-- **Auth**: login, social login, token refresh, current user (7 endpoints).
+- **Auth**: login, social login, token refresh, current user, mock verify, change password/email (11 endpoints).
 - **Public**: providers, reviews, portfolios without login (6 endpoints).
 - **Customer**: profile, favorites, chat, bookings, payments, refunds, complaints, reviews (26 endpoints).
 - **Provider**: profile, availability, portfolio, quotes, completion, refunds (19 endpoints).
@@ -39,6 +39,10 @@ Auth: some public; /me, /logout, /refresh-token need tokens.
 | `POST` | `/refresh-token` | Refresh access token. | - | `application/json` -> `RefreshTokenRequest` | `ApiResponse_TokenResponse_` |
 | `POST` | `/register` | Register. | - | `application/json` -> `UserRegister` | `ApiResponse_RegisterResponseData_` |
 | `POST` | `/social-login` | Google/Apple login; verifies id_token and returns platform tokens. | - | `application/json` -> `SocialLoginRequest` | `ApiResponse_SocialLoginResponseData_` |
+| `POST` | `/auth/verify-email` | Demo email verify. Body any 6 digits. | - | `application/json` -> `MockVerificationRequest` | `ApiResponse_UserResponse_` |
+| `POST` | `/auth/verify-phone` | Demo phone verify. Body any 6 digits. Needs a saved phone. | - | `application/json` -> `MockVerificationRequest` | `ApiResponse_UserResponse_` |
+| `POST` | `/auth/change-password` | Change password with the current password. | - | `application/json` -> `ChangePasswordRequest` | `ApiResponse_UserResponse_` |
+| `POST` | `/auth/change-email` | Change login email with any 6-digit demo code. | - | `application/json` -> `ChangeEmailRequest` | `ApiResponse_UserResponse_` |
 | `POST` | `/token` | OAuth2 password flow for Swagger Authorize. | - | `application/x-www-form-urlencoded` -> `Body_swagger_login_token_post` | `OAuthTokenResponse` |
 
 ## Public

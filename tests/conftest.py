@@ -126,7 +126,7 @@ def create_admin_session(client, db_session, email="admin@example.com", name="Ad
     )
     db_session.add(user)
     db_session.flush()
-    create_password_identity(user, DEMO_PASSWORD, db_session)
+    create_password_identity(user, DEMO_PASSWORD, db_session, verified=True)
     db_session.commit()
     db_session.refresh(user)
 

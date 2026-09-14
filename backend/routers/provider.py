@@ -29,6 +29,7 @@ from backend.utils.formatters import (
     format_user_response,
     tags_to_string,
 )
+from backend.utils.verification import apply_phone_number_change
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
 from backend.utils.provider_booking_actions import (
@@ -212,6 +213,7 @@ def update_provider_profile(
     profile = get_provider_profile_for_user(current_user.id, db)
     old_status = profile.verification_status
     next_tags = tags_to_string(profile_data.tags)
+    apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.business_name = profile_data.business_name
     profile.bio = profile_data.bio
     profile.phone_number = profile_data.phone_number
@@ -255,6 +257,7 @@ def update_provider_contact_profile(
     db: Session = Depends(get_db),
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
+    apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
@@ -277,8 +280,10 @@ def patch_provider_contact_profile(
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
 
+    previous_phone = profile.phone_number
     for field, value in profile_data.model_dump(exclude_unset=True).items():
         setattr(profile, field, value)
+    apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()
     db.refresh(profile)
