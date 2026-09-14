@@ -22,6 +22,8 @@ def test_register_and_login(client):
     assert created.json()["success"] is True
     assert created.json()["data"]["user"]["email"] == "customer@example.com"
     assert created.json()["data"]["user"]["role"] == "customer"
+    assert created.json()["data"]["user"]["email_verified"] is False
+    assert created.json()["data"]["user"]["phone_verified"] is False
 
     session = login(client)
     assert session.status_code == 200
@@ -33,6 +35,8 @@ def test_register_and_login(client):
     me = client.get("/me", headers={"Authorization": f"Bearer {data['access_token']}"})
     assert me.status_code == 200
     assert me.json()["data"]["email"] == "customer@example.com"
+    assert me.json()["data"]["email_verified"] is False
+    assert me.json()["data"]["phone_verified"] is False
 
 
 def test_duplicate_register_is_rejected(client):
@@ -97,6 +101,7 @@ def test_social_login_creates_customer(client, monkeypatch):
     data = response.json()["data"]
     assert data["is_new_user"] is True
     assert data["user"]["email"] == "google.user@example.com"
+    assert data["user"]["email_verified"] is True
     assert data["access_token"]
 
 

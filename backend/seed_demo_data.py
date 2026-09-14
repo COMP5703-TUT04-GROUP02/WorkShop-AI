@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from backend import models
 from backend.auth import create_password_identity
+from backend.utils.verification import get_user_phone_number
 from backend.constants import ALLOWED_PROVIDER_TAGS, DEMO_PASSWORD
 from backend.core.clock import utc_now
 from backend.database import SessionLocal
@@ -125,8 +126,20 @@ def ensure_password_identity(user: models.User, db):
         .first()
     )
     if existing:
+        now = utc_now()
+        if existing.verified_at is None:
+            existing.verified_at = now
+        if user.email_verified_at is None:
+            user.email_verified_at = existing.verified_at
         return existing
-    return create_password_identity(user, DEMO_PASSWORD, db)
+    return create_password_identity(user, DEMO_PASSWORD, db, verified=True)
+
+
+def ensure_seed_verified(user: models.User, db):
+    ensure_password_identity(user, db)
+    if user.phone_verified_at is None and get_user_phone_number(user, db):
+        user.phone_verified_at = utc_now()
+    return user
 
 
 def create_demo_admin(db):
@@ -143,7 +156,7 @@ def create_demo_admin(db):
         )
         db.add(user)
         db.flush()
-    ensure_password_identity(user, db)
+    ensure_seed_verified(user, db)
     return user
 
 
@@ -194,6 +207,7 @@ def create_demo_customers(db):
             )
             db.add(profile)
 
+        ensure_seed_verified(user, db)
         customers.append(user)
 
     return customers
@@ -250,6 +264,7 @@ def create_demo_providers(db, customers):
         )
         db.add(provider_profile)
         db.flush()
+        ensure_seed_verified(provider_user, db)
         created_provider_count += 1
 
         for weekday in range(1, 8):

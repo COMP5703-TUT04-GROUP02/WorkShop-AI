@@ -199,15 +199,24 @@ def get_password_identity(user: models.User, db: Session):
     )
 
 
-def create_password_identity(user: models.User, password: str, db: Session):
+def create_password_identity(
+    user: models.User,
+    password: str,
+    db: Session,
+    *,
+    verified: bool = False,
+):
+    now = get_now()
     identity = models.AuthenticationIdentity(
         user_id=user.id,
         identity_provider=EMAIL_PASSWORD_PROVIDER,
         provider_subject=user.email.lower(),
         password_hash=hash_password(password),
-        created_at=get_now(),
-        verified_at=get_now(),
+        created_at=now,
+        verified_at=now if verified else None,
     )
+    if verified:
+        user.email_verified_at = now
     db.add(identity)
     return identity
 

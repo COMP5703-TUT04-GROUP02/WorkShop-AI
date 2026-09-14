@@ -46,6 +46,7 @@ from backend.utils.customer_recommendation import (
     search_customer_providers,
 )
 from backend.utils.formatters import format_customer_profile_response
+from backend.utils.verification import apply_phone_number_change
 from backend.utils.notification import create_admin_notifications, create_notification
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
@@ -210,6 +211,7 @@ def update_customer_profile(
         db.add(profile)
         message = "Customer profile created successfully"
 
+    apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
@@ -263,8 +265,10 @@ def patch_customer_profile(
         db.add(profile)
         message = "Customer profile created successfully"
 
+    previous_phone = profile.phone_number
     for field, value in profile_data.model_dump(exclude_unset=True).items():
         setattr(profile, field, value)
+    apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()
     db.refresh(profile)

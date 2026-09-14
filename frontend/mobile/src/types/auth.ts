@@ -8,6 +8,8 @@ export type User = {
   avatar_url: string | null;
   is_active: boolean;
   is_banned: boolean;
+  email_verified: boolean;
+  phone_verified: boolean;
   last_login_at: string | null;
   created_at: string | null;
 };
