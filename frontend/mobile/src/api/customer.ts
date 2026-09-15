@@ -20,9 +20,12 @@ import type { PaginatedData } from "../types/chat";
 import type { ProviderPortfolio } from "../types/provider";
 import type { Review } from "../types/review";
 import type {
+  AddFavoriteProviderResponse,
   CustomerHomeRecommendations,
   CustomerProviderDetail,
   CustomerProviderSearchResults,
+  FavoriteProvider,
+  RemoveFavoriteProviderResponse,
 } from "../types/provider";
 
 export async function getCustomerProfile() {
@@ -82,6 +85,35 @@ export async function getCustomerProviderDetail(providerId: number) {
   const response = await apiClient.get<ApiResponse<CustomerProviderDetail>>(
     `/customer/providers/${providerId}`,
   );
+
+  return response.data.data;
+}
+
+export async function getCustomerFavourites(page = 1, pageSize = 20) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<FavoriteProvider>>
+  >("/customer/favorites", {
+    params: {
+      page,
+      page_size: pageSize,
+    },
+  });
+
+  return response.data.data;
+}
+
+export async function addCustomerFavourite(providerProfileId: number) {
+  const response = await apiClient.post<ApiResponse<AddFavoriteProviderResponse>>(
+    `/customer/favorites/${providerProfileId}`,
+  );
+
+  return response.data.data;
+}
+
+export async function removeCustomerFavourite(providerProfileId: number) {
+  const response = await apiClient.delete<
+    ApiResponse<RemoveFavoriteProviderResponse>
+  >(`/customer/favorites/${providerProfileId}`);
 
   return response.data.data;
 }

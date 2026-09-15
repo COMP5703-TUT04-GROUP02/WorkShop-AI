@@ -33,7 +33,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:favourites": "tsc --ignoreConfig src/features/favourites/favourite-state.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/favourites/__tests__/favourite-state.test.cjs"
   },
   "private": true
 }

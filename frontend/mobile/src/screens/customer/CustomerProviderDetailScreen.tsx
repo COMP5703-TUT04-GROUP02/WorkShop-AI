@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { MessageCircle, Send } from "lucide-react-native";
+import { Heart, MessageCircle, Send } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,11 +12,13 @@ import {
 } from "react-native";
 
 import {
+  addCustomerFavourite,
   createCustomerBooking,
   getCustomerProviderDetail,
   getPublicProviderPortfolios,
   getPublicProviderReviews,
   openChatWithProvider,
+  removeCustomerFavourite,
 } from "../../api/customer";
 import {
   BookingRequestModal,
@@ -26,6 +28,7 @@ import {
 } from "../../components/BookingRequestModal";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { useRealtime } from "../../context/RealtimeContext";
+import { setProviderFavouriteState } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
@@ -59,6 +62,8 @@ export function CustomerProviderDetailScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isOpeningChat, setIsOpeningChat] = useState(false);
+  const [isUpdatingFavourite, setIsUpdatingFavourite] = useState(false);
+  const [favouriteMessage, setFavouriteMessage] = useState("");
   const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [bookingError, setBookingError] = useState("");
@@ -73,6 +78,7 @@ export function CustomerProviderDetailScreen({
     async function loadProvider() {
       setIsLoading(true);
       setMessage("");
+      setFavouriteMessage("");
 
       try {
         const [nextDetail, portfolioPage, reviewPageData] = await Promise.all([
@@ -181,6 +187,37 @@ export function CustomerProviderDetailScreen({
     }
   }
 
+  async function handleToggleFavourite() {
+    const provider = detail?.provider;
+
+    if (!detail || !provider || isUpdatingFavourite) {
+      return;
+    }
+
+    setIsUpdatingFavourite(true);
+    setFavouriteMessage("");
+    try {
+      if (provider.is_favorited) {
+        await removeCustomerFavourite(provider.id);
+      } else {
+        await addCustomerFavourite(provider.id);
+      }
+
+      setDetail((currentDetail) =>
+        currentDetail
+          ? setProviderFavouriteState(
+              currentDetail,
+              !currentDetail.provider.is_favorited,
+            )
+          : currentDetail,
+      );
+    } catch (error) {
+      setFavouriteMessage(getErrorMessage(error));
+    } finally {
+      setIsUpdatingFavourite(false);
+    }
+  }
+
   function openBookingModal() {
     setBookingForm(createDefaultBookingRequestForm(detail?.provider));
     setBookingError("");
@@ -253,8 +290,16 @@ export function CustomerProviderDetailScreen({
                       <Text numberOfLines={1} style={styles.businessName}>
                         {provider.business_name}
                       </Text>
+                    </View>
+                    <View style={styles.statusRow}>
+                      <OpenStatusBadge isOpen={provider.is_open} />
                       <OnlineStatusBadge isOnline={provider.is_online} />
                     </View>
+                    {favouriteMessage ? (
+                      <Text style={styles.favouriteErrorText}>
+                        {favouriteMessage}
+                      </Text>
+                    ) : null}
                     <Text style={styles.bioText}>{provider.bio}</Text>
                     <Text style={styles.metaText}>
                       {provider.service_province} · {provider.experience_years} yrs experience
@@ -271,6 +316,37 @@ export function CustomerProviderDetailScreen({
                     </View>
                   </View>
                   <View style={styles.actionColumn}>
+                    <Pressable
+                      accessibilityLabel={
+                        provider.is_favorited
+                          ? "Remove provider from favourites"
+                          : "Add provider to favourites"
+                      }
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        busy: isUpdatingFavourite,
+                        selected: provider.is_favorited,
+                      }}
+                      disabled={isUpdatingFavourite}
+                      onPress={() => void handleToggleFavourite()}
+                      style={({ pressed }) => [
+                        styles.iconActionButton,
+                        styles.favouriteActionButton,
+                        pressed && !isUpdatingFavourite
+                          ? styles.favouriteActionButtonPressed
+                          : null,
+                        isUpdatingFavourite ? styles.actionButtonDisabled : null,
+                      ]}
+                    >
+                      <Heart
+                        color={colors.primary}
+                        fill={provider.is_favorited ? colors.primary : "transparent"}
+                        size={20}
+                      />
+                      <Text style={styles.favouriteActionText}>
+                        {provider.is_favorited ? "Saved" : "Save"}
+                      </Text>
+                    </Pressable>
                     <Pressable
                       accessibilityRole="button"
                       disabled={isOpeningChat}
@@ -381,6 +457,20 @@ function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
   );
 }
 
+function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
+  return (
+    <View style={styles.onlineBadge}>
+      <View
+        style={[
+          styles.onlineDot,
+          isOpen ? styles.onlineDotActive : styles.onlineDotInactive,
+        ]}
+      />
+      <Text style={styles.onlineText}>{isOpen ? "Open" : "Closed"}</Text>
+    </View>
+  );
+}
+
 function formatDate(value: string | null) {
   if (!value) {
     return "";
@@ -433,6 +523,11 @@ const styles = StyleSheet.create({
   businessTitleRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
+  },
+  statusRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   onlineBadge: {
@@ -499,10 +594,31 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.primary,
   },
+  favouriteActionButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.background,
+  },
+  favouriteActionButtonPressed: {
+    backgroundColor: colors.surface,
+  },
+  actionButtonDisabled: {
+    opacity: 0.55,
+  },
   iconActionText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
+  },
+  favouriteActionText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  favouriteErrorText: {
+    color: colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
   },
   sectionTitle: {
     color: colors.text,
