@@ -5,7 +5,7 @@ Booking state changes live in `utils/customer_booking_actions.py`; routers handl
 """
 
 from datetime import datetime, timezone
-from fastapi import Depends, File, Form, HTTPException, UploadFile
+from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from backend import models
@@ -140,7 +140,19 @@ def get_customer_home_recommendations(
 def search_customer_provider_profiles(
     keyword: str,
     service_province: str | None = None,
-    limit: int = 40,
+    limit: int = Query(default=40, ge=1, le=100),
+    min_price: int | None = Query(default=None, ge=0),
+    max_price: int | None = Query(default=None, ge=0),
+    min_experience: int | None = Query(default=None, ge=0),
+    latitude: float | None = Query(default=None, ge=-90, le=90),
+    longitude: float | None = Query(default=None, ge=-180, le=180),
+    max_distance_km: float | None = Query(default=None, gt=0),
+    scheduled_start_time: datetime | None = None,
+    scheduled_end_time: datetime | None = None,
+    tags: list[str] | None = Query(default=None),
+    sort_by: str | None = None,
+    min_rating: float | None = Query(default=None, ge=0, le=5),
+    is_open: bool | None = None,
     current_user: models.User = Depends(require_customer),
     db: Session = Depends(get_db),
 ):
@@ -151,6 +163,18 @@ def search_customer_provider_profiles(
             keyword,
             service_province=service_province,
             limit=limit,
+            min_price=min_price,
+            max_price=max_price,
+            min_experience=min_experience,
+            latitude=latitude,
+            longitude=longitude,
+            max_distance_km=max_distance_km,
+            scheduled_start_time=scheduled_start_time,
+            scheduled_end_time=scheduled_end_time,
+            tags=tags,
+            sort_by=sort_by,
+            min_rating=min_rating,
+            is_open=is_open,
         )
     )
 

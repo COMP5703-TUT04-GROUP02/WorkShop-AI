@@ -40,6 +40,7 @@ __all__ = [
     "CustomerSearchHistoryResponse",
     "HomeProviderRecommendationResponse",
     "CustomerHomeRecommendationResponseData",
+    "CustomerProviderSearchItemResponse",
     "CustomerProviderSearchResponseData",
     "CustomerProviderDetailProviderResponse",
     "CustomerProviderDetailResponseData",
