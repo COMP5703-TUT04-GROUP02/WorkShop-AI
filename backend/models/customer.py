@@ -17,6 +17,11 @@ class CustomerProfile(Base):
     phone_number: Mapped[str] = mapped_column(String(64), nullable=False)
     address: Mapped[str] = mapped_column(String(512), nullable=False)
     service_province: Mapped[str] = mapped_column(String(128), nullable=False)
+    service_location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("service_locations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     current_address: Mapped[str | None] = mapped_column(String(512), nullable=True)

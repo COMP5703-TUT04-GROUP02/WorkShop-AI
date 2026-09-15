@@ -320,6 +320,16 @@ other
 
 - Customer profiles may store `latitude` and `longitude` for default addresses.
 - Provider profiles may store `latitude`, `longitude`, and `service_radius_km`.
+- Service areas use the `service_locations` hierarchy: `province` → `city` →
+  `district`. Profile writes persist the selected district's
+  `service_location_id`; `service_province` is retained as a compatibility
+  projection.
+- `GET /locations` is public and read-only. Omit `parent_id` to list the 81
+  provinces; pass a location ID to list its direct children. Responses use the
+  standard success envelope and return ordered items with `id`, `code`, `name`,
+  `level`, and `parent_id`.
+- `GET /locations/{location_id}` returns one location node by its globally
+  unique ID using the same response fields.
 - Every booking must persist the service location: `service_address`, `service_latitude`, `service_longitude`.
 - Coordinates are for distance calculation; display addresses use text fields.
 - Distance filtering compares the search or booking location against provider coordinates.
@@ -362,6 +372,7 @@ Home recommendations and keyword search:
 GET /customer/home/recommendations?service_province=Istanbul
 GET /customer/home/recommendations?service_province=Istanbul&provider_tag=locksmith
 GET /customer/providers/search?keyword=locksmith Istanbul&service_province=Istanbul
+GET /providers?service_location_id=<province-or-city-or-district-id>
 ```
 
 Rules:
@@ -371,6 +382,9 @@ Rules:
 - After selecting a service category, ranking prioritizes tag match, then province and distance.
 - Opening a provider detail updates `customer_search_histories.last_provider_tag`.
 - Home search uses hard matching (no AI): tokenize input and match against `tags`, `service_province`, and `business_name`.
+- A province or city location filter includes providers in descendant districts;
+  a district filter is exact. Legacy providers without a location ID continue
+  to match legacy province searches only.
 - Empty search results return an empty list; the frontend shows "No matching providers".
 
 Scheduled time filtering on public search:

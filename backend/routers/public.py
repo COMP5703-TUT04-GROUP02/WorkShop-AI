@@ -16,6 +16,11 @@ from backend.utils.pagination import (
 )
 from backend.utils.provider import format_provider_profile_with_rating
 from backend.utils.provider_search import filter_provider_profiles
+from backend.utils.service_locations import (
+    filter_provider_query_by_location,
+    format_location_response,
+    get_location,
+)
 from backend.utils.review import (
     format_review_detail_response,
     get_provider_rating_summary as build_provider_rating_summary,
@@ -30,6 +35,8 @@ from backend.schemas import (
     ReviewDetailResponse,
     PlaceDetailsResponse,
     PlacesAutocompleteResponse,
+    ServiceLocationListResponse,
+    ServiceLocationResponse,
 )
 from backend.services.places_service import (
     autocomplete as places_autocomplete,
@@ -41,6 +48,38 @@ from backend.utils.response import success_response
 from backend.utils.router import ApiRouter
 
 router = ApiRouter(tags=["Public"])
+
+
+@router.get(
+    "/locations",
+    response_model=ApiResponse[ServiceLocationListResponse],
+)
+def get_service_locations(
+    parent_id: int | None = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+):
+    if parent_id is not None:
+        parent = db.query(models.ServiceLocation).filter(
+            models.ServiceLocation.id == parent_id
+        ).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Service location not found")
+
+    locations = (
+        db.query(models.ServiceLocation)
+        .filter(models.ServiceLocation.parent_id == parent_id)
+        .order_by(models.ServiceLocation.name.asc(), models.ServiceLocation.id.asc())
+        .all()
+    )
+    return success_response({"items": [format_location_response(item) for item in locations]})
+
+
+@router.get(
+    "/locations/{location_id}",
+    response_model=ApiResponse[ServiceLocationResponse],
+)
+def get_service_location(location_id: int, db: Session = Depends(get_db)):
+    return success_response(format_location_response(get_location(db, location_id)))
 
 
 @router.get(
@@ -85,6 +124,7 @@ def details_for_place(
 )
 def get_all_providers(
     service_province: str | None = None,
+    service_location_id: int | None = Query(default=None, gt=0),
     min_price: int | None = None,
     max_price: int | None = None,
     min_experience: int | None = None,
@@ -103,10 +143,12 @@ def get_all_providers(
         models.ProviderProfile.verification_status
         == ProviderVerificationStatus.approved
     )
-    if service_province:
-        query = query.filter(
-            models.ProviderProfile.service_province.contains(service_province)
-        )
+    query = filter_provider_query_by_location(
+        query,
+        db,
+        location_id=service_location_id,
+        province_name=service_province,
+    )
     if min_price is not None:
         query = query.filter(models.ProviderProfile.hourly_rate >= min_price)
     if max_price is not None:

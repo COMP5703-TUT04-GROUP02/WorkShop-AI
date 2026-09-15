@@ -97,6 +97,7 @@ def build_langchain_tool_context(
         "current_date": current_datetime.date().isoformat(),
         "current_datetime": current_datetime.isoformat(),
         "service_province": request_data.service_province,
+        "service_location_id": request_data.service_location_id,
         "service_address": request_data.service_address,
         "max_price": request_data.max_price,
         "latitude": request_data.latitude,
@@ -187,6 +188,7 @@ def chat_request_payload(request_data: AIChatRequest) -> dict:
     return {
         "message": request_data.message,
         "service_province": request_data.service_province,
+        "service_location_id": request_data.service_location_id,
         "service_address": getattr(request_data, "service_address", None),
         "max_price": request_data.max_price,
         "latitude": request_data.latitude,

@@ -8,6 +8,7 @@ from backend.utils.verification import get_user_phone_number
 from backend.constants import ALLOWED_PROVIDER_TAGS, DEMO_PASSWORD
 from backend.core.clock import utc_now
 from backend.database import SessionLocal
+from backend.utils.service_locations import seed_service_locations
 
 TAGS = ALLOWED_PROVIDER_TAGS
 DEFAULT_PROVINCE = "Istanbul"
@@ -160,7 +161,13 @@ def create_demo_admin(db):
     return user
 
 
-def create_demo_customers(db):
+def create_demo_customers(db, location_seeds=None):
+    location_seeds = location_seeds or seed_service_locations(db)
+    istanbul_districts = [
+        location.id
+        for code, location in location_seeds.items()
+        if code.startswith("tr-istanbul-city-")
+    ]
     customers = []
 
     for index in range(5):
@@ -195,6 +202,7 @@ def create_demo_customers(db):
                 phone_number=f"+9055500000{index + 1:02d}",
                 address=f"{index + 1} Istanbul Demo Street",
                 service_province=DEFAULT_PROVINCE,
+                service_location_id=istanbul_districts[index % len(istanbul_districts)],
                 latitude=latitude,
                 longitude=longitude,
                 current_address="Istanbul current location",
@@ -213,7 +221,13 @@ def create_demo_customers(db):
     return customers
 
 
-def create_demo_providers(db, customers):
+def create_demo_providers(db, customers, location_seeds=None):
+    location_seeds = location_seeds or seed_service_locations(db)
+    istanbul_districts = [
+        location.id
+        for code, location in location_seeds.items()
+        if code.startswith("tr-istanbul-city-")
+    ]
     created_provider_count = 0
     created_availability_count = 0
     created_booking_count = 0
@@ -251,6 +265,7 @@ def create_demo_providers(db, customers):
             phone_number=f"+9055510000{index + 1:02d}",
             address=f"{index + 1} Istanbul Provider Street",
             service_province=DEFAULT_PROVINCE,
+            service_location_id=istanbul_districts[index % len(istanbul_districts)],
             latitude=latitude,
             longitude=longitude,
             service_radius_km=random.choice([8.0, 10.0, 15.0, 20.0, 30.0]),
@@ -333,13 +348,47 @@ def create_demo_providers(db, customers):
     }
 
 
+def assign_existing_demo_locations(db, location_seeds):
+    istanbul_districts = [
+        location.id
+        for code, location in location_seeds.items()
+        if code.startswith("tr-istanbul-city-")
+    ]
+    if not istanbul_districts:
+        return
+
+    customer_profiles = (
+        db.query(models.CustomerProfile)
+        .filter(
+            models.CustomerProfile.service_province == DEFAULT_PROVINCE,
+            models.CustomerProfile.service_location_id.is_(None),
+        )
+        .order_by(models.CustomerProfile.id.asc())
+        .all()
+    )
+    provider_profiles = (
+        db.query(models.ProviderProfile)
+        .filter(
+            models.ProviderProfile.service_province == DEFAULT_PROVINCE,
+            models.ProviderProfile.service_location_id.is_(None),
+        )
+        .order_by(models.ProviderProfile.id.asc())
+        .all()
+    )
+    for index, profile in enumerate(customer_profiles):
+        profile.service_location_id = istanbul_districts[index % len(istanbul_districts)]
+    for index, profile in enumerate(provider_profiles):
+        profile.service_location_id = istanbul_districts[index % len(istanbul_districts)]
+
+
 def main():
     random.seed(20260828)
     db = SessionLocal()
 
     try:
+        location_seeds = seed_service_locations(db)
         create_demo_admin(db)
-        customers = create_demo_customers(db)
+        customers = create_demo_customers(db, location_seeds)
         existing_demo_provider = (
             db.query(models.User)
             .filter(models.User.email.like("demo_provider_%@workshop.ai"))
@@ -349,7 +398,8 @@ def main():
         if existing_demo_provider:
             print("Demo provider data already exists. Customers and admin were ensured.")
         else:
-            result = create_demo_providers(db, customers)
+            result = create_demo_providers(db, customers, location_seeds)
+        assign_existing_demo_locations(db, location_seeds)
         db.commit()
         print("Demo data inserted successfully.")
         print(result)
