@@ -114,11 +114,16 @@ class CustomerHomeRecommendationResponseData(BaseModel):
     items: list[HomeProviderRecommendationResponse]
 
 
+class CustomerProviderSearchItemResponse(HomeProviderRecommendationResponse):
+    avatar_url: str | None = None
+    is_open: bool
+
+
 class CustomerProviderSearchResponseData(BaseModel):
     keyword: str
     tokens: list[str]
     service_province: str
-    items: list[HomeProviderRecommendationResponse]
+    items: list[CustomerProviderSearchItemResponse]
 
 
 class CustomerProviderDetailProviderResponse(ProviderProfileWithRatingResponse):
