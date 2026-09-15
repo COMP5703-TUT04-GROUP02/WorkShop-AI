@@ -13,6 +13,7 @@ from backend.utils.location import (
     has_location,
     provider_can_serve_location,
 )
+from backend.utils.service_locations import filter_provider_query_by_location
 
 
 AI_RECOMMENDATION_TAG_ALIASES = {
@@ -239,16 +240,19 @@ def find_provider_candidates(
     scheduled_start_time: datetime | None,
     scheduled_end_time: datetime | None,
     db: Session,
+    service_location_id: int | None = None,
 ):
     query = db.query(models.ProviderProfile).filter(
         models.ProviderProfile.verification_status
         == ProviderVerificationStatus.approved
     )
 
-    if service_province:
-        query = query.filter(
-            models.ProviderProfile.service_province.contains(service_province)
-        )
+    query = filter_provider_query_by_location(
+        query,
+        db,
+        location_id=service_location_id,
+        province_name=service_province,
+    )
 
     if max_price is not None:
         query = query.filter(models.ProviderProfile.hourly_rate <= max_price)
@@ -478,6 +482,7 @@ def build_provider_recommendations(
     scheduled_start_time: datetime | None = None,
     scheduled_end_time: datetime | None = None,
     limit: int | None = None,
+    service_location_id: int | None = None,
 ):
     providers, distance_by_provider_id = find_provider_candidates(
         matched_tags,
@@ -489,6 +494,7 @@ def build_provider_recommendations(
         scheduled_start_time,
         scheduled_end_time,
         db,
+        service_location_id=service_location_id,
     )
 
     recommendations = []

@@ -46,6 +46,7 @@ from backend.utils.customer_recommendation import (
     search_customer_providers,
 )
 from backend.utils.formatters import format_customer_profile_response
+from backend.utils.service_locations import apply_profile_location
 from backend.utils.verification import apply_phone_number_change
 from backend.utils.notification import create_admin_notifications, create_notification
 from backend.utils.pagination import build_paginated_response, paginate_query
@@ -116,6 +117,7 @@ def create_customer_profile(
         phone_number=profile_data.phone_number,
         address=profile_data.address,
         service_province=profile_data.service_province,
+        service_location_id=profile_data.service_location_id,
         latitude=profile_data.latitude,
         longitude=profile_data.longitude,
         current_address=profile_data.current_address,
@@ -127,6 +129,7 @@ def create_customer_profile(
         notes=profile_data.notes,
     )
     db.add(new_profile)
+    apply_profile_location(db=db, profile=new_profile, location_id=profile_data.service_location_id)
     db.commit()
     db.refresh(new_profile)
     return success_response(
@@ -183,6 +186,12 @@ def update_customer_service_province(
         message = "Customer profile created with service province"
     else:
         profile.service_province = province_data.service_province
+    if province_data.service_location_id is not None:
+        apply_profile_location(
+            db=db,
+            profile=profile,
+            location_id=province_data.service_location_id,
+        )
 
     db.commit()
     db.refresh(profile)
@@ -215,6 +224,7 @@ def update_customer_profile(
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
+    profile.service_location_id = profile_data.service_location_id
     profile.latitude = profile_data.latitude
     profile.longitude = profile_data.longitude
     profile.current_address = profile_data.current_address
@@ -224,6 +234,11 @@ def update_customer_profile(
     profile.default_service_latitude = profile_data.default_service_latitude
     profile.default_service_longitude = profile_data.default_service_longitude
     profile.notes = profile_data.notes
+    apply_profile_location(
+        db=db,
+        profile=profile,
+        location_id=profile_data.service_location_id,
+    )
     db.commit()
     db.refresh(profile)
     return success_response(
@@ -266,8 +281,18 @@ def patch_customer_profile(
         message = "Customer profile created successfully"
 
     previous_phone = profile.phone_number
-    for field, value in profile_data.model_dump(exclude_unset=True).items():
-        setattr(profile, field, value)
+    updates = profile_data.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        if field != "service_location_id":
+            setattr(profile, field, value)
+    if "service_location_id" in updates:
+        profile.service_location_id = updates["service_location_id"]
+        if profile.service_location_id is not None:
+            apply_profile_location(
+                db=db,
+                profile=profile,
+                location_id=profile.service_location_id,
+            )
     apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()

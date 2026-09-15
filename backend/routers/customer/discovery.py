@@ -114,6 +114,7 @@ def format_customer_search_history_response(history: models.CustomerSearchHistor
 )
 def get_customer_home_recommendations(
     service_province: str | None = None,
+    service_location_id: int | None = Query(default=None, gt=0),
     provider_tag: str | None = None,
     limit: int = 20,
     current_user: models.User = Depends(require_customer),
@@ -127,6 +128,7 @@ def get_customer_home_recommendations(
             current_user,
             db,
             service_province=service_province,
+            service_location_id=service_location_id,
             provider_tag=provider_tag,
             limit=limit,
         )
@@ -140,6 +142,7 @@ def get_customer_home_recommendations(
 def search_customer_provider_profiles(
     keyword: str,
     service_province: str | None = None,
+    service_location_id: int | None = Query(default=None, gt=0),
     limit: int = Query(default=40, ge=1, le=100),
     min_price: int | None = Query(default=None, ge=0),
     max_price: int | None = Query(default=None, ge=0),
@@ -162,6 +165,7 @@ def search_customer_provider_profiles(
             db,
             keyword,
             service_province=service_province,
+            service_location_id=service_location_id,
             limit=limit,
             min_price=min_price,
             max_price=max_price,

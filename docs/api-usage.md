@@ -53,7 +53,9 @@ Auth: none.
 
 | Method | Path | Purpose | Params | Body | Success |
 |---|---|---|---|---|---|
-| `GET` | `/providers` | Search approved providers. | `service_province`(query, optional, string / null)<br>`min_price`(query, optional, integer / null)<br>`max_price`(query, optional, integer / null)<br>`min_experience`(query, optional, integer / null)<br>`latitude`(query, optional, number / null)<br>`longitude`(query, optional, number / null)<br>`max_distance_km`(query, optional, number / null)<br>`scheduled_start_time`(query, optional, string / null)<br>`scheduled_end_time`(query, optional, string / null)<br>`tags`(query, optional, array[string] / null)<br>`sort_by`(query, optional, string / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderProfileWithRatingResponse__` |
+| `GET` | `/locations` | List direct service-area children; omit `parent_id` for provinces. | `parent_id`(query, optional, integer / null) | - | `ApiResponse_ServiceLocationListResponse_` |
+| `GET` | `/locations/{location_id}` | Get one service-area node by ID. | `location_id`(path, required, integer) | - | `ApiResponse_ServiceLocationResponse_` |
+| `GET` | `/providers` | Search approved providers. | `service_province`(query, optional, string / null)<br>`service_location_id`(query, optional, integer / null)<br>`min_price`(query, optional, integer / null)<br>`max_price`(query, optional, integer / null)<br>`min_experience`(query, optional, integer / null)<br>`latitude`(query, optional, number / null)<br>`longitude`(query, optional, number / null)<br>`max_distance_km`(query, optional, number / null)<br>`scheduled_start_time`(query, optional, string / null)<br>`scheduled_end_time`(query, optional, string / null)<br>`tags`(query, optional, array[string] / null)<br>`sort_by`(query, optional, string / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderProfileWithRatingResponse__` |
 | `GET` | `/providers/{provider_id}` | Public provider detail. | `provider_id`(path, required, integer) | - | `ApiResponse_ProviderProfileWithRatingResponse_` |
 | `GET` | `/providers/{provider_id}/portfolio` | Public portfolio. | `provider_id`(path, required, integer)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderPortfolioResponse__` |
 | `GET` | `/providers/{provider_id}/rating-summary` | Rating summary. | `provider_id`(path, required, integer) | - | `ApiResponse_RatingSummaryResponse_` |
@@ -62,7 +64,7 @@ Auth: none.
 | `GET` | `/places/autocomplete` | Search place suggestions through the server-side Google Places proxy. | `q`(query, required, string) | - | `ApiResponse_PlacesAutocompleteResponse_` |
 | `GET` | `/places/details` | Resolve a selected place ID to its address and coordinates. | `place_id`(query, required, string) | - | `ApiResponse_PlaceDetailsResponse_` |
 
-Places success payloads use `place_id` and `description` for autocomplete suggestions. `/places/details` returns `place_id`, `formatted_address`, `latitude`, and `longitude`. The Google Places key is server-only in `WORKSHOP_GOOGLE_MAPS_API_KEY`; it must not be placed in Expo environment variables. These endpoints provide street addresses. The Turkish province/city/district tree belongs to the later `/locations` work.
+Places success payloads use `place_id` and `description` for autocomplete suggestions. `/places/details` returns `place_id`, `formatted_address`, `latitude`, and `longitude`. The Google Places key is server-only in `WORKSHOP_GOOGLE_MAPS_API_KEY`; it must not be placed in Expo environment variables. These endpoints provide street addresses. Service-area selection uses `/locations`: the root response lists 81 provinces, and passing a province/city `parent_id` lists its direct children. Profile writes persist the final district as `service_location_id`; `service_province` remains a compatibility projection.
 
 ## Customer
 
@@ -312,7 +314,8 @@ Auth: none.
 |---|---|---|---|
 | `business_name` | `string` | yes | Business Name |
 | `bio` | `string` | yes | Bio |
-| `service_province` | `string` | yes | Service Province |
+| `service_province` | `string` | yes | Compatibility province projection |
+| `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
 | `service_radius_km` | `number` | no | Service Radius Km |
@@ -330,7 +333,8 @@ Auth: none.
 | `user_id` | `integer` | yes | User Id |
 | `business_name` | `string` | yes | Business Name |
 | `bio` | `string` | yes | Bio |
-| `service_province` | `string` | yes | Service Province |
+| `service_province` | `string` | yes | Compatibility province projection |
+| `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
 | `service_radius_km` | `number` | yes | Service Radius Km |
@@ -350,7 +354,8 @@ Auth: none.
 | `user_id` | `integer` | yes | User Id |
 | `business_name` | `string` | yes | Business Name |
 | `bio` | `string` | yes | Bio |
-| `service_province` | `string` | yes | Service Province |
+| `service_province` | `string` | yes | Compatibility province projection |
+| `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
 | `service_radius_km` | `number` | yes | Service Radius Km |
@@ -372,7 +377,8 @@ Auth: none.
 |---|---|---|---|
 | `phone_number` | `string` | yes | Phone Number |
 | `address` | `string` | yes | Address |
-| `service_province` | `string` | yes | Service Province |
+| `service_province` | `string` | yes | Compatibility province projection |
+| `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
 | `notes` | `string / null` | no | Notes |
