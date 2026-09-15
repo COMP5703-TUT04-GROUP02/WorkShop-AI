@@ -10,6 +10,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend import models
@@ -188,6 +189,21 @@ def ensure_user_can_login(user: models.User):
         )
 
 
+def normalize_email(email: str | None) -> str:
+    return (email or "").strip().lower()
+
+
+def find_user_by_email(db: Session, email: str) -> models.User | None:
+    normalized = normalize_email(email)
+    if not normalized:
+        return None
+    return (
+        db.query(models.User)
+        .filter(func.lower(models.User.email) == normalized)
+        .first()
+    )
+
+
 def get_password_identity(user: models.User, db: Session):
     return (
         db.query(models.AuthenticationIdentity)
@@ -199,15 +215,24 @@ def get_password_identity(user: models.User, db: Session):
     )
 
 
-def create_password_identity(user: models.User, password: str, db: Session):
+def create_password_identity(
+    user: models.User,
+    password: str,
+    db: Session,
+    *,
+    verified: bool = False,
+):
+    now = get_now()
     identity = models.AuthenticationIdentity(
         user_id=user.id,
         identity_provider=EMAIL_PASSWORD_PROVIDER,
-        provider_subject=user.email.lower(),
+        provider_subject=normalize_email(user.email),
         password_hash=hash_password(password),
-        created_at=get_now(),
-        verified_at=get_now(),
+        created_at=now,
+        verified_at=now if verified else None,
     )
+    if verified:
+        user.email_verified_at = now
     db.add(identity)
     return identity
 
@@ -225,7 +250,7 @@ def get_user_from_token(token: str, db: Session) -> models.User:
     try:
         user_id = int(user_id)
     except (TypeError, ValueError):
-        user = db.query(models.User).filter(models.User.email == payload.get("sub")).first()
+        user = find_user_by_email(db, payload.get("sub"))
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -344,3 +369,17 @@ def revoke_refresh_token(refresh_token: str, db: Session):
     token_record.revoked_at = get_now()
     db.commit()
     return user
+
+
+def revoke_user_refresh_tokens(user: models.User, db: Session) -> int:
+    return (
+        db.query(models.RefreshToken)
+        .filter(
+            models.RefreshToken.user_id == user.id,
+            models.RefreshToken.revoked_at.is_(None),
+        )
+        .update(
+            {models.RefreshToken.revoked_at: get_now()},
+            synchronize_session=False,
+        )
+    )

@@ -16,7 +16,7 @@
 
 ## API overview
 
-- **Auth**: login, social login, token refresh, current user (7 endpoints).
+- **Auth**: login, social login, token refresh, current user, mock verify, change password/email (11 endpoints).
 - **Public**: providers, reviews, portfolios without login (6 endpoints).
 - **Customer**: profile, favorites, chat, bookings, payments, refunds, complaints, reviews (26 endpoints).
 - **Provider**: profile, availability, portfolio, quotes, completion, refunds (19 endpoints).
@@ -39,11 +39,15 @@ Auth: some public; /me, /logout, /refresh-token need tokens.
 | `POST` | `/refresh-token` | Refresh access token. | - | `application/json` -> `RefreshTokenRequest` | `ApiResponse_TokenResponse_` |
 | `POST` | `/register` | Register. | - | `application/json` -> `UserRegister` | `ApiResponse_RegisterResponseData_` |
 | `POST` | `/social-login` | Google/Apple login; verifies id_token and returns platform tokens. | - | `application/json` -> `SocialLoginRequest` | `ApiResponse_SocialLoginResponseData_` |
+| `POST` | `/auth/verify-email` | Demo email verify. Body any 6 digits. | - | `application/json` -> `MockVerificationRequest` | `ApiResponse_UserResponse_` |
+| `POST` | `/auth/verify-phone` | Demo phone verify. Body any 6 digits. Needs a saved phone. | - | `application/json` -> `MockVerificationRequest` | `ApiResponse_UserResponse_` |
+| `POST` | `/auth/change-password` | Change password with the current password. | - | `application/json` -> `ChangePasswordRequest` | `ApiResponse_UserResponse_` |
+| `POST` | `/auth/change-email` | Change login email with any 6-digit demo code. | - | `application/json` -> `ChangeEmailRequest` | `ApiResponse_UserResponse_` |
 | `POST` | `/token` | OAuth2 password flow for Swagger Authorize. | - | `application/x-www-form-urlencoded` -> `Body_swagger_login_token_post` | `OAuthTokenResponse` |
 
 ## Public
 
-Public providers, reviews, and portfolios.
+Public providers, reviews, portfolios, and Places lookup.
 
 Auth: none.
 
@@ -55,6 +59,10 @@ Auth: none.
 | `GET` | `/providers/{provider_id}/rating-summary` | Rating summary. | `provider_id`(path, required, integer) | - | `ApiResponse_RatingSummaryResponse_` |
 | `GET` | `/providers/{provider_id}/reviews` | Public reviews. | `provider_id`(path, required, integer)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ReviewDetailResponse__` |
 | `GET` | `/reviews/{review_id}` | Public review detail. | `review_id`(path, required, integer) | - | `ApiResponse_ReviewDetailResponse_` |
+| `GET` | `/places/autocomplete` | Search place suggestions through the server-side Google Places proxy. | `q`(query, required, string) | - | `ApiResponse_PlacesAutocompleteResponse_` |
+| `GET` | `/places/details` | Resolve a selected place ID to its address and coordinates. | `place_id`(query, required, string) | - | `ApiResponse_PlaceDetailsResponse_` |
+
+Places success payloads use `place_id` and `description` for autocomplete suggestions. `/places/details` returns `place_id`, `formatted_address`, `latitude`, and `longitude`. The Google Places key is server-only in `WORKSHOP_GOOGLE_MAPS_API_KEY`; it must not be placed in Expo environment variables. These endpoints provide street addresses. The Turkish province/city/district tree belongs to the later `/locations` work.
 
 ## Customer
 

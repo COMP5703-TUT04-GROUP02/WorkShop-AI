@@ -18,7 +18,10 @@ from backend.utils.booking import (
     ensure_booking_status,
     format_booking_detail_response,
 )
-from backend.utils.availability import ensure_provider_available_for_datetime_range
+from backend.utils.availability import (
+    ensure_provider_available_for_datetime_range,
+    is_provider_open_now,
+)
 from backend.utils.chat import (
     create_booking_status_chat_message,
     format_chat_message_response,
@@ -178,9 +181,22 @@ def get_customer_provider_detail(
         provider_profile,
         db,
     )
+    provider_data = format_provider_profile_with_rating(provider_profile, db)
+    provider_data.update(
+        {
+            "is_open": is_provider_open_now(provider_profile.id, db),
+            "is_favorited": db.query(models.FavoriteProvider.id)
+            .filter(
+                models.FavoriteProvider.customer_id == current_user.id,
+                models.FavoriteProvider.provider_profile_id == provider_profile.id,
+            )
+            .first()
+            is not None,
+        }
+    )
     return success_response(
         {
-            "provider": format_provider_profile_with_rating(provider_profile, db),
+            "provider": provider_data,
             "history": format_customer_search_history_response(history),
         }
     )

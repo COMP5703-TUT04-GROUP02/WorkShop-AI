@@ -35,7 +35,7 @@ Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 OPENAPI_TAGS = [
     {
         "name": "Auth",
-        "description": "Registration, login, token refresh, logout, and current user.",
+        "description": "Registration, login, token refresh, logout, mock verify, and account security.",
     },
     {
         "name": "Public",

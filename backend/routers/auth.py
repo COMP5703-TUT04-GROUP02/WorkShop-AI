@@ -1,4 +1,4 @@
-"""Auth API: register, login, social login, refresh, logout, and current user."""
+"""Auth API: register, login, social login, refresh, logout, current user, and account security."""
 
 import secrets
 
@@ -11,11 +11,15 @@ from backend.auth import (
     create_password_identity,
     create_token_pair,
     ensure_user_can_login,
+    find_user_by_email,
     get_current_user,
     get_db,
     get_now,
     get_password_identity,
+    hash_password,
+    normalize_email,
     revoke_refresh_token,
+    revoke_user_refresh_tokens,
     validate_password_policy,
     validate_refresh_token,
     verify_password,
@@ -23,6 +27,9 @@ from backend.auth import (
 from backend.schemas import (
     ApiResponse,
     AvatarUploadResponse,
+    ChangeEmailRequest,
+    ChangePasswordRequest,
+    MockVerificationRequest,
     OAuthTokenResponse,
     RefreshTokenRequest,
     RegisterResponseData,
@@ -39,12 +46,17 @@ from backend.utils.formatters import format_user_response
 from backend.utils.response import success_response
 from backend.utils.router import ApiRouter
 from backend.utils.upload import delete_local_upload, save_avatar_upload
+from backend.utils.verification import (
+    get_user_phone_number,
+    mark_email_verified,
+    mark_phone_verified,
+)
 
 router = ApiRouter(tags=["Auth"])
 
 
 def authenticate_user(email: str, password: str, db: Session):
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = find_user_by_email(db, email)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -102,14 +114,14 @@ def resolve_social_login_user(
         social_account.last_login_at = now
         return user, False, False
 
-    email = verified_identity.email or request_data.email
+    email = normalize_email(verified_identity.email or request_data.email)
     if not email:
         raise HTTPException(
             status_code=400,
             detail="Social login did not provide an email address",
         )
 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = find_user_by_email(db, email)
     is_new_user = False
 
     if user:
@@ -124,6 +136,7 @@ def resolve_social_login_user(
             is_active=True,
             is_banned=False,
             last_login_at=None,
+            email_verified_at=now,
             created_at=now,
         )
         db.add(user)
@@ -153,12 +166,12 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             detail="Admin accounts cannot be created from public registration",
         )
     validate_password_policy(user.password)
-    existing_user = db.query(models.User).filter(models.User.email == user.email).first()
+    existing_user = find_user_by_email(db, user.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     new_user = models.User(
         name=user.name,
-        email=user.email,
+        email=normalize_email(user.email),
         role=user.role,
         is_active=True,
         is_banned=False,
@@ -310,4 +323,88 @@ async def upload_me_avatar(
             "user": format_user_response(current_user),
         },
         message="Avatar uploaded successfully",
+    )
+
+
+@router.post("/auth/verify-email", response_model=ApiResponse[UserResponse])
+def verify_email(
+    request_data: MockVerificationRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    identity = get_password_identity(current_user, db)
+    mark_email_verified(current_user, identity)
+    db.commit()
+    db.refresh(current_user)
+    return success_response(
+        format_user_response(current_user),
+        message="Email verified successfully",
+    )
+
+
+@router.post("/auth/verify-phone", response_model=ApiResponse[UserResponse])
+def verify_phone(
+    request_data: MockVerificationRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if get_user_phone_number(current_user, db) is None:
+        raise HTTPException(status_code=400, detail="No phone number to verify")
+
+    mark_phone_verified(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return success_response(
+        format_user_response(current_user),
+        message="Phone verified successfully",
+    )
+
+
+@router.post("/auth/change-password", response_model=ApiResponse[UserResponse])
+def change_password(
+    request_data: ChangePasswordRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    identity = get_password_identity(current_user, db)
+    if not identity or not identity.password_hash:
+        raise HTTPException(status_code=400, detail="Password login is not available")
+    if not verify_password(request_data.current_password, identity.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    validate_password_policy(request_data.new_password)
+    identity.password_hash = hash_password(request_data.new_password)
+    revoke_user_refresh_tokens(current_user, db)
+    db.commit()
+    db.refresh(current_user)
+    return success_response(
+        format_user_response(current_user),
+        message="Password changed successfully",
+    )
+
+
+@router.post("/auth/change-email", response_model=ApiResponse[UserResponse])
+def change_email(
+    request_data: ChangeEmailRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_email = normalize_email(str(request_data.new_email))
+    identity = get_password_identity(current_user, db)
+
+    if new_email != normalize_email(current_user.email):
+        existing_user = find_user_by_email(db, new_email)
+        if existing_user and existing_user.id != current_user.id:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        current_user.email = new_email
+        if identity is not None:
+            identity.provider_subject = new_email
+
+    mark_email_verified(current_user, identity)
+    db.commit()
+    db.refresh(current_user)
+    return success_response(
+        format_user_response(current_user),
+        message="Email changed successfully",
     )

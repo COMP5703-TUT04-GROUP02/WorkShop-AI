@@ -5,7 +5,7 @@ Unauthenticated data: approved providers, public profiles, reviews, portfolios, 
 
 from datetime import datetime
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from backend import models
 from backend.auth import get_db
@@ -39,11 +39,55 @@ from backend.schemas import (
     ProviderVerificationStatus,
     RatingSummaryResponse,
     ReviewDetailResponse,
+    PlaceDetailsResponse,
+    PlacesAutocompleteResponse,
+)
+from backend.services.places_service import (
+    autocomplete as places_autocomplete,
+    enforce_rate_limit,
+    get_details as get_place_details,
+    require_places_api_key,
 )
 from backend.utils.response import success_response
 from backend.utils.router import ApiRouter
 
 router = ApiRouter(tags=["Public"])
+
+
+@router.get(
+    "/places/autocomplete",
+    response_model=ApiResponse[PlacesAutocompleteResponse],
+    responses={429: {"description": "Places rate limit exceeded"}},
+)
+def autocomplete_places(
+    request: Request,
+    q: str = Query(..., min_length=1, max_length=200),
+):
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=422, detail="Query cannot be empty")
+
+    require_places_api_key()
+    enforce_rate_limit(request.client.host if request.client else "unknown")
+    return success_response(places_autocomplete(query))
+
+
+@router.get(
+    "/places/details",
+    response_model=ApiResponse[PlaceDetailsResponse],
+    responses={429: {"description": "Places rate limit exceeded"}},
+)
+def details_for_place(
+    request: Request,
+    place_id: str = Query(..., min_length=1, max_length=256),
+):
+    selected_place_id = place_id.strip()
+    if not selected_place_id:
+        raise HTTPException(status_code=422, detail="Place ID cannot be empty")
+
+    require_places_api_key()
+    enforce_rate_limit(request.client.host if request.client else "unknown")
+    return success_response(get_place_details(selected_place_id))
 
 
 @router.get(

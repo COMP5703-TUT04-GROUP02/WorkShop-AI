@@ -8,6 +8,7 @@ import type {
 } from "../types/customer";
 import type {
   BookingCreateResponseData,
+  PaymentHistoryEntry,
   BookingActionResponseData,
   BookingDetail,
   BookingPayload,
@@ -365,6 +366,20 @@ export async function searchCustomerProviders(
       },
     },
   );
+
+  return response.data.data;
+}
+
+/** WS-110. History only — the demo has no stored card methods to manage. */
+export async function getCustomerPayments(page = 1, pageSize = 20) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<PaymentHistoryEntry>>
+  >("/customer/payments", {
+    params: {
+      page,
+      page_size: pageSize,
+    },
+  });
 
   return response.data.data;
 }

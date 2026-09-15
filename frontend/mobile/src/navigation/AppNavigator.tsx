@@ -17,7 +17,11 @@ import { AuthScreen } from "../screens/AuthScreen";
 import { BookingHistoryScreen } from "../screens/BookingHistoryScreen";
 import { ChatRoomScreen } from "../screens/ChatRoomScreen";
 import { HelpScreen } from "../screens/HelpScreen";
+import { LEGAL_DOCUMENTS, LegalScreen } from "../screens/LegalScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
+import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
+import { PaymentsScreen } from "../screens/PaymentsScreen";
+import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
 import { CustomerProviderSearchResultsScreen } from "../screens/customer/CustomerProviderSearchResultsScreen";
@@ -58,6 +62,13 @@ const GuardedBookingHistoryScreen =
   withRequiredProviderProfile(BookingHistoryScreen);
 const GuardedNotificationsScreen =
   withRequiredProviderProfile(NotificationsScreen);
+const GuardedNotificationSettingsScreen = withRequiredProviderProfile(
+  NotificationSettingsScreen,
+);
+const GuardedPaymentsScreen = withRequiredProviderProfile(PaymentsScreen);
+const GuardedCustomerFavouritesScreen = withRequiredProviderProfile(
+  CustomerFavouritesScreen,
+);
 const GuardedProviderPortfolioListScreen = withRequiredProviderProfile(
   ProviderPortfolioListScreen,
 );
@@ -105,6 +116,11 @@ export function AppNavigator() {
             name="Auth"
             component={AuthScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Legal"
+            component={LegalScreen}
+            options={legalScreenOptions}
           />
         </Stack.Navigator>
       )}
@@ -164,7 +180,14 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="Help"
         component={GuardedHelpScreen}
-        options={{ title: "Help" }}
+        options={{ title: "Help and Support" }}
+      />
+      {/* Not gated: a provider with an incomplete profile must still be able
+          to read the terms they are asked to accept. */}
+      <Stack.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={legalScreenOptions}
       />
       <Stack.Screen
         name="BookingHistory"
@@ -175,6 +198,21 @@ function AuthenticatedStack() {
         name="Notifications"
         component={GuardedNotificationsScreen}
         options={{ title: "Notifications" }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={GuardedNotificationSettingsScreen}
+        options={{ title: "Notification settings" }}
+      />
+      <Stack.Screen
+        name="Payments"
+        component={GuardedPaymentsScreen}
+        options={{ title: "Payments" }}
+      />
+      <Stack.Screen
+        name="CustomerFavourites"
+        component={GuardedCustomerFavouritesScreen}
+        options={{ title: "Favourites" }}
       />
       <Stack.Screen
         name="ProviderPortfolioList"
@@ -193,6 +231,16 @@ function AuthenticatedStack() {
       />
     </Stack.Navigator>
   );
+}
+
+// Registered in both stacks: register happens signed out, and both roles can
+// open the same pages once signed in.
+function legalScreenOptions({
+  route,
+}: {
+  route: { params: RootStackParamList["Legal"] };
+}) {
+  return { title: LEGAL_DOCUMENTS[route.params.document].title };
 }
 
 function withRequiredProviderProfile<P extends object>(

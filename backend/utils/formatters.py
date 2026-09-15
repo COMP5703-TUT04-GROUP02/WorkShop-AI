@@ -11,6 +11,8 @@ def format_user_response(user):
         "avatar_url": user.avatar_url,
         "is_active": user.is_active,
         "is_banned": user.is_banned,
+        "email_verified": user.email_verified_at is not None,
+        "phone_verified": user.phone_verified_at is not None,
         "last_login_at": user.last_login_at,
         "created_at": user.created_at,
     }
