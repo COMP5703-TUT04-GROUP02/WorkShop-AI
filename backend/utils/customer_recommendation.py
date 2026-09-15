@@ -10,6 +10,7 @@ from backend.utils.formatters import tags_to_list
 from backend.utils.location import calculate_distance_km, has_location
 from backend.utils.provider_search import (
     filter_provider_profile_list,
+    normalize_provider_sort,
     validate_provider_search_params,
 )
 from backend.utils.provider import format_provider_profile_with_rating
@@ -382,9 +383,23 @@ def search_customer_providers(
         longitude if longitude is not None else customer_longitude
     )
 
+    normalized_sort = normalize_provider_sort(sort_by)
+    filter_latitude = latitude
+    filter_longitude = longitude
+    distance_operation_requested = (
+        max_distance_km is not None
+        or normalized_sort in {"distance_asc", "distance_desc"}
+    )
+    if distance_operation_requested and not has_location(
+        filter_latitude,
+        filter_longitude,
+    ):
+        filter_latitude = effective_latitude
+        filter_longitude = effective_longitude
+
     validate_provider_search_params(
-        effective_latitude,
-        effective_longitude,
+        filter_latitude,
+        filter_longitude,
         max_distance_km,
         scheduled_start_time,
         scheduled_end_time,
@@ -443,8 +458,8 @@ def search_customer_providers(
         keyword_matches,
         db,
         tags=tags,
-        latitude=effective_latitude,
-        longitude=effective_longitude,
+        latitude=filter_latitude,
+        longitude=filter_longitude,
         max_distance_km=max_distance_km,
         scheduled_start_time=scheduled_start_time,
         scheduled_end_time=scheduled_end_time,

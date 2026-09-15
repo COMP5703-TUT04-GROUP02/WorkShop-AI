@@ -16,7 +16,7 @@ from backend.utils.location import (
     has_partial_location,
     provider_can_serve_location,
 )
-from backend.utils.pagination import paginate_list
+from backend.utils.pagination import paginate_list, paginate_query
 from backend.utils.review import get_provider_rating_summary
 
 
@@ -108,6 +108,59 @@ def filter_provider_profiles(
     existing_distance_by_provider_id: dict[int, float | None] | None = None,
     include_is_open: bool = False,
 ):
+    location_enabled, normalized_sort = validate_provider_search_params(
+        latitude,
+        longitude,
+        max_distance_km,
+        scheduled_start_time,
+        scheduled_end_time,
+        sort_by,
+    )
+    schedule_enabled = (
+        scheduled_start_time is not None and scheduled_end_time is not None
+    )
+    sql_sort_supported = {
+        None,
+        "price_asc",
+        "price_desc",
+        "experience_asc",
+        "experience_desc",
+    }
+    can_use_sql_pagination = (
+        not tags
+        and not location_enabled
+        and not schedule_enabled
+        and min_rating is None
+        and is_open is None
+        and existing_distance_by_provider_id is None
+        and not include_is_open
+        and normalized_sort in sql_sort_supported
+    )
+    if can_use_sql_pagination:
+        if normalized_sort == "price_asc":
+            query = query.order_by(models.ProviderProfile.hourly_rate.asc())
+        elif normalized_sort == "price_desc":
+            query = query.order_by(models.ProviderProfile.hourly_rate.desc())
+        elif normalized_sort == "experience_asc":
+            query = query.order_by(models.ProviderProfile.experience_years.asc())
+        elif normalized_sort == "experience_desc":
+            query = query.order_by(models.ProviderProfile.experience_years.desc())
+
+        profiles, total, normalized_page, normalized_page_size = paginate_query(
+            query,
+            page,
+            page_size,
+        )
+        return ProviderSearchResult(
+            profiles=profiles,
+            total=total,
+            page=normalized_page,
+            page_size=normalized_page_size,
+            distance_by_provider_id={},
+            is_open_by_provider_id={},
+            schedule_enabled=False,
+        )
+
     return filter_provider_profile_list(
         query.all(),
         db,
