@@ -383,8 +383,10 @@ Rules:
 - Opening a provider detail updates `customer_search_histories.last_provider_tag`.
 - Home search uses hard matching (no AI): tokenize input and match against `tags`, `service_province`, and `business_name`.
 - A province or city location filter includes providers in descendant districts;
-  a district filter is exact. Legacy providers without a location ID continue
-  to match legacy province searches only.
+  a district filter is exact for providers with a location ID. During the
+  transition, providers without a location ID are also retained when their
+  normalized legacy province matches the selected location's province; these
+  legacy rows cannot provide city/district precision until they are backfilled.
 - Empty search results return an empty list; the frontend shows "No matching providers".
 
 Scheduled time filtering on public search:

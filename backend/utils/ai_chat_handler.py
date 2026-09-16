@@ -1867,6 +1867,7 @@ def handle_rule_based_chat_fallback(
             scheduled_start_time=scheduled_start_time,
             scheduled_end_time=scheduled_end_time,
             limit=5,
+            service_location_id=request_data.service_location_id,
         )
         recommendations = {
             key: value

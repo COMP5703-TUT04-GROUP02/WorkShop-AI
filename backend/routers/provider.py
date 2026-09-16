@@ -308,6 +308,8 @@ def patch_provider_contact_profile(
                 profile=profile,
                 location_id=profile.service_location_id,
             )
+    elif "service_province" in updates:
+        profile.service_location_id = None
     apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()

@@ -47,6 +47,7 @@ from backend.utils.availability import ensure_provider_available_for_datetime_ra
 from backend.utils.location import has_location
 from backend.utils.notification import create_notification
 from backend.utils.provider import get_provider_profile_for_user
+from backend.utils.service_locations import resolve_location_context
 
 PLATFORM_CAPABILITIES = [
     "Recommend providers by service need, e.g. cleaning, childcare, elderly care, electrician, plumbing, painter, locksmith, technician, moving.",
@@ -237,11 +238,16 @@ def search_providers_tool(
         get_customer_profile_for_ai_tool(current_user, db) if current_user else None
     )
 
-    resolved_service_province = service_province or (
-        customer_profile.service_province if customer_profile else None
-    )
-    resolved_service_location_id = service_location_id or (
-        customer_profile.service_location_id if customer_profile else None
+    resolved_service_province, resolved_service_location_id = resolve_location_context(
+        db,
+        requested_province=service_province,
+        requested_location_id=service_location_id,
+        profile_province=(
+            customer_profile.service_province if customer_profile else None
+        ),
+        profile_location_id=(
+            customer_profile.service_location_id if customer_profile else None
+        ),
     )
     resolved_latitude = (
         latitude
