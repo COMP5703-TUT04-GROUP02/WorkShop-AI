@@ -43,6 +43,7 @@ from backend.utils.provider import (
     add_provider_verification_history,
     get_provider_profile_for_user,
 )
+from backend.utils.service_locations import apply_profile_location
 from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
@@ -137,6 +138,7 @@ def create_provider_profile(
         phone_number=profile.phone_number,
         address=profile.address,
         service_province=profile.service_province,
+        service_location_id=profile.service_location_id,
         latitude=profile.latitude,
         longitude=profile.longitude,
         service_radius_km=profile.service_radius_km,
@@ -150,6 +152,7 @@ def create_provider_profile(
         notes=profile.notes,
     )
     db.add(new_profile)
+    apply_profile_location(db=db, profile=new_profile, location_id=profile.service_location_id)
     db.commit()
     db.refresh(new_profile)
     replace_provider_certificate_files(new_profile, profile.certificate_files, db)
@@ -219,6 +222,7 @@ def update_provider_profile(
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
+    profile.service_location_id = profile_data.service_location_id
     profile.latitude = profile_data.latitude
     profile.longitude = profile_data.longitude
     profile.service_radius_km = profile_data.service_radius_km
@@ -228,6 +232,11 @@ def update_provider_profile(
     profile.hourly_rate = profile_data.hourly_rate
     profile.experience_years = profile_data.experience_years
     profile.notes = profile_data.notes
+    apply_profile_location(
+        db=db,
+        profile=profile,
+        location_id=profile_data.service_location_id,
+    )
     profile.verification_status = ProviderVerificationStatus.pending
     profile.verification_note = None
     add_provider_verification_history(
@@ -261,7 +270,13 @@ def update_provider_contact_profile(
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
+    profile.service_location_id = profile_data.service_location_id
     profile.notes = profile_data.notes
+    apply_profile_location(
+        db=db,
+        profile=profile,
+        location_id=profile_data.service_location_id,
+    )
     db.commit()
     db.refresh(profile)
     return success_response(
@@ -281,8 +296,20 @@ def patch_provider_contact_profile(
     profile = get_provider_profile_for_user(current_user.id, db)
 
     previous_phone = profile.phone_number
-    for field, value in profile_data.model_dump(exclude_unset=True).items():
-        setattr(profile, field, value)
+    updates = profile_data.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        if field != "service_location_id":
+            setattr(profile, field, value)
+    if "service_location_id" in updates:
+        profile.service_location_id = updates["service_location_id"]
+        if profile.service_location_id is not None:
+            apply_profile_location(
+                db=db,
+                profile=profile,
+                location_id=profile.service_location_id,
+            )
+    elif "service_province" in updates:
+        profile.service_location_id = None
     apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()

@@ -13,6 +13,11 @@ from backend.utils.provider_search import (
     normalize_provider_sort,
     validate_provider_search_params,
 )
+from backend.utils.service_locations import (
+    filter_provider_query_by_location,
+    normalize_location_name,
+    resolve_location_context,
+)
 from backend.utils.provider import format_provider_profile_with_rating
 from backend.core.clock import utc_now
 
@@ -141,7 +146,9 @@ def calculate_home_recommendation_score(
     provider_tags = tags_to_list(provider_profile.tags)
     recommendation_tag = selected_provider_tag or history_provider_tag
 
-    if provider_profile.service_province == service_province:
+    if normalize_location_name(provider_profile.service_province) == normalize_location_name(
+        service_province
+    ):
         score += 100
         reasons.append("same_province")
 
@@ -181,6 +188,7 @@ def build_customer_home_recommendations(
     current_user: models.User,
     db: Session,
     service_province: str | None = None,
+    service_location_id: int | None = None,
     provider_tag: str | None = None,
     limit: int = 20,
 ):
@@ -189,24 +197,38 @@ def build_customer_home_recommendations(
         .filter(models.CustomerProfile.user_id == current_user.id)
         .first()
     )
-    selected_province = (
-        service_province
-        or (customer_profile.service_province if customer_profile else None)
-        or "Istanbul"
+    selected_province, selected_location_id = resolve_location_context(
+        db,
+        requested_province=service_province,
+        requested_location_id=service_location_id,
+        profile_province=(
+            customer_profile.service_province if customer_profile else None
+        ),
+        profile_location_id=(
+            customer_profile.service_location_id if customer_profile else None
+        ),
     )
+    location_filter_province = selected_province
+    selected_province = selected_province or "Istanbul"
     history_provider_tag = get_customer_history_tag(current_user.id, db)
     customer_latitude, customer_longitude = get_customer_recommendation_location(
         customer_profile
     )
 
-    provider_profiles = (
+    provider_query = (
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.verification_status
             == ProviderVerificationStatus.approved
         )
-        .all()
     )
+    provider_query = filter_provider_query_by_location(
+        provider_query,
+        db,
+        location_id=selected_location_id,
+        province_name=location_filter_province,
+    )
+    provider_profiles = provider_query.all()
 
     recommendations = []
     for profile in provider_profiles:
@@ -245,6 +267,7 @@ def build_customer_home_recommendations(
 
     return {
         "service_province": selected_province,
+        "service_location_id": selected_location_id,
         "history_provider_tag": history_provider_tag,
         "items": recommendations[:limit],
     }
@@ -307,7 +330,9 @@ def score_provider_search_match(
     if not matched_any_search_field:
         return None
 
-    if provider_profile.service_province == service_province:
+    if normalize_location_name(provider_profile.service_province) == normalize_location_name(
+        service_province
+    ):
         score += 60
         reasons.append("same_province")
 
@@ -341,6 +366,7 @@ def search_customer_providers(
     db: Session,
     keyword: str,
     service_province: str | None = None,
+    service_location_id: int | None = None,
     limit: int = 40,
     min_price: int | None = None,
     max_price: int | None = None,
@@ -411,6 +437,7 @@ def search_customer_providers(
             "keyword": keyword,
             "tokens": [],
             "service_province": selected_province,
+            "service_location_id": service_location_id,
             "items": [],
         }
 
@@ -418,10 +445,12 @@ def search_customer_providers(
         models.ProviderProfile.verification_status
         == ProviderVerificationStatus.approved
     )
-    if service_province:
-        provider_query = provider_query.filter(
-            models.ProviderProfile.service_province.contains(service_province)
-        )
+    provider_query = filter_provider_query_by_location(
+        provider_query,
+        db,
+        location_id=service_location_id,
+        province_name=service_province,
+    )
     if min_price is not None:
         provider_query = provider_query.filter(
             models.ProviderProfile.hourly_rate >= min_price
@@ -518,5 +547,6 @@ def search_customer_providers(
         "keyword": keyword,
         "tokens": tokens,
         "service_province": selected_province,
+        "service_location_id": service_location_id,
         "items": results,
     }
