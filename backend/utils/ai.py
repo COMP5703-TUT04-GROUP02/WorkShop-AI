@@ -13,7 +13,10 @@ from backend.utils.location import (
     has_location,
     provider_can_serve_location,
 )
-from backend.utils.service_locations import filter_provider_query_by_location
+from backend.utils.service_locations import (
+    filter_provider_query_by_location,
+    normalize_location_name,
+)
 
 
 AI_RECOMMENDATION_TAG_ALIASES = {
@@ -403,7 +406,8 @@ def calculate_provider_match_score(
 
     if (
         service_province
-        and service_province.lower() in provider.service_province.lower()
+        and normalize_location_name(service_province)
+        in normalize_location_name(provider.service_province)
     ):
         score += 15
         reasons.append("Service province matches")

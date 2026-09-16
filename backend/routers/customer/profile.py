@@ -192,6 +192,8 @@ def update_customer_service_province(
             profile=profile,
             location_id=province_data.service_location_id,
         )
+    else:
+        profile.service_location_id = None
 
     db.commit()
     db.refresh(profile)
@@ -293,6 +295,8 @@ def patch_customer_profile(
                 profile=profile,
                 location_id=profile.service_location_id,
             )
+    elif "service_province" in updates:
+        profile.service_location_id = None
     apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()

@@ -1,13 +1,19 @@
 from collections import defaultdict
 
 from fastapi import HTTPException
-from sqlalchemy import or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Query, Session
 
 from backend import models
 from backend.location_data import iter_location_seeds
 
 VALID_LOCATION_LEVELS = {"province", "city", "district"}
+
+
+def normalize_location_name(value: str | None):
+    if value is None:
+        return None
+    return value.strip().casefold()
 
 
 def seed_service_locations(db: Session):
@@ -63,6 +69,44 @@ def get_province_for_location(db: Session, location: models.ServiceLocation):
     return get_location_chain(db, location)[0]
 
 
+def resolve_location_context(
+    db: Session,
+    *,
+    requested_province: str | None = None,
+    requested_location_id: int | None = None,
+    profile_province: str | None = None,
+    profile_location_id: int | None = None,
+):
+    """Resolve request/profile location values as one consistent context."""
+    has_explicit_province = requested_province is not None
+    resolved_province = (
+        requested_province.strip()
+        if has_explicit_province
+        else (profile_province.strip() if profile_province else None)
+    )
+    resolved_location_id = requested_location_id
+
+    if resolved_location_id is None and not has_explicit_province:
+        resolved_location_id = profile_location_id
+
+    if resolved_location_id is not None:
+        location = get_location(db, resolved_location_id)
+        location_province = get_province_for_location(db, location)
+        if (
+            has_explicit_province
+            and normalize_location_name(resolved_province)
+            != normalize_location_name(location_province.name)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="service_location_id does not belong to service_province",
+            )
+        if not has_explicit_province:
+            resolved_province = location_province.name
+
+    return resolved_province, resolved_location_id
+
+
 def location_scope_ids(db: Session, location_id: int):
     selected = get_location(db, location_id)
     locations = db.query(models.ServiceLocation).all()
@@ -113,18 +157,29 @@ def filter_provider_query_by_location(
     province_name: str | None = None,
 ):
     if location_id is not None:
+        selected = get_location(db, location_id)
+        scoped_ids = location_scope_ids(db, location_id)
+        province = get_province_for_location(db, selected)
+        normalized_province = normalize_location_name(province.name)
         return query.filter(
-            models.ProviderProfile.service_location_id.in_(
-                location_scope_ids(db, location_id)
+            or_(
+                models.ProviderProfile.service_location_id.in_(scoped_ids),
+                and_(
+                    models.ProviderProfile.service_location_id.is_(None),
+                    func.lower(func.trim(models.ProviderProfile.service_province))
+                    == normalized_province,
+                ),
             )
         )
 
     if province_name:
+        normalized_province_name = normalize_location_name(province_name)
         province = (
             db.query(models.ServiceLocation)
             .filter(
                 models.ServiceLocation.level == "province",
-                models.ServiceLocation.name == province_name,
+                func.lower(func.trim(models.ServiceLocation.name))
+                == normalized_province_name,
             )
             .first()
         )
@@ -135,11 +190,18 @@ def filter_provider_query_by_location(
                     models.ProviderProfile.service_location_id.in_(scoped_ids),
                     (
                         models.ProviderProfile.service_location_id.is_(None)
-                        & models.ProviderProfile.service_province.contains(province_name)
+                        & (
+                            func.lower(func.trim(models.ProviderProfile.service_province))
+                            == normalized_province_name
+                        )
                     ),
                 )
             )
-        return query.filter(models.ProviderProfile.service_province.contains(province_name))
+        return query.filter(
+            func.lower(func.trim(models.ProviderProfile.service_province)).contains(
+                normalized_province_name
+            )
+        )
 
     return query
 
@@ -152,9 +214,18 @@ def profile_matches_location(
     province_name: str | None = None,
 ):
     if location_id is not None:
-        return profile.service_location_id in location_scope_ids(db, location_id)
+        selected = get_location(db, location_id)
+        if profile.service_location_id in location_scope_ids(db, location_id):
+            return True
+        return (
+            profile.service_location_id is None
+            and normalize_location_name(profile.service_province)
+            == normalize_location_name(get_province_for_location(db, selected).name)
+        )
     if province_name:
-        return province_name.lower() in profile.service_province.lower()
+        return normalize_location_name(province_name) in normalize_location_name(
+            profile.service_province
+        )
     return True
 
 

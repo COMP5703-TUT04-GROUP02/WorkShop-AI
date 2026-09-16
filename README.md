@@ -119,8 +119,12 @@ postgresql+psycopg://workshop:workshop@127.0.0.1:5436/workshop
 
 ```bash
 alembic upgrade head
+python -m backend.seed_locations
 python -m backend.seed_demo_data
 ```
+
+`backend.seed_locations` loads the required Turkish service-area reference
+data. Demo users and providers remain optional and are seeded separately.
 
 
 
