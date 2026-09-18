@@ -261,7 +261,8 @@ async def update_pending_booking(
             "message": "Booking updated successfully",
             "booking": format_booking_detail_response(booking, db),
             "chat_message": formatted_chat_message,
-        }
+        },
+        message="Booking updated successfully",
     )
 
 
