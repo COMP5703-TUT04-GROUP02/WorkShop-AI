@@ -83,9 +83,18 @@ def auth_header(token: str) -> dict[str, str]:
 
 
 def register(client, email="customer@example.com", password=DEMO_PASSWORD, role="customer", name="Test User"):
+    first_name, last_name = name.split(" ", 1)
     return client.post(
         "/register",
-        json={"name": name, "email": email, "password": password, "role": role},
+        json={
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "password": password,
+            "confirm_password": password,
+            "tos_accepted": True,
+            "role": role,
+        },
     )
 
 

@@ -6,6 +6,9 @@ def format_user_response(user):
     return {
         "id": user.id,
         "name": user.name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "tos_accepted_at": user.tos_accepted_at,
         "email": user.email,
         "role": user.role,
         "avatar_url": user.avatar_url,

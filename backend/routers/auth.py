@@ -170,7 +170,10 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     new_user = models.User(
-        name=user.name,
+        name=f"{user.first_name} {user.last_name}",
+        first_name=user.first_name,
+        last_name=user.last_name,
+        tos_accepted_at=get_now(),
         email=normalize_email(user.email),
         role=user.role,
         is_active=True,
@@ -277,6 +280,8 @@ def update_me(
     db: Session = Depends(get_db),
 ):
     current_user.name = profile_data.name
+    current_user.first_name = None
+    current_user.last_name = None
     db.commit()
     db.refresh(current_user)
     return success_response(
@@ -293,6 +298,21 @@ def patch_me(
 ):
     if profile_data.name is not None:
         current_user.name = profile_data.name
+        current_user.first_name = None
+        current_user.last_name = None
+    elif profile_data.first_name is not None or profile_data.last_name is not None:
+        first_name = profile_data.first_name or current_user.first_name
+        last_name = profile_data.last_name or current_user.last_name
+        if not first_name or not last_name:
+            raise HTTPException(
+                status_code=422,
+                detail="Both first_name and last_name are required to establish a split name",
+            )
+        if len(f"{first_name} {last_name}") > 255:
+            raise HTTPException(status_code=422, detail="Combined name is too long")
+        current_user.first_name = first_name
+        current_user.last_name = last_name
+        current_user.name = f"{first_name} {last_name}"
 
     db.commit()
     db.refresh(current_user)
