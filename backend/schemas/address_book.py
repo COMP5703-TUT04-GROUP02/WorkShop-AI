@@ -33,7 +33,7 @@ class CustomerAddressUpdate(BaseModel):
     @classmethod
     def trim_label(cls, value: str | None) -> str | None:
         if value is None:
-            return value
+            raise ValueError("Label cannot be null")
         value = value.strip()
         if not value:
             raise ValueError("Label cannot be empty")

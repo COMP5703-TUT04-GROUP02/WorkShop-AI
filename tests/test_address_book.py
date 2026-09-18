@@ -114,6 +114,14 @@ def test_address_book_rejects_hand_typed_coordinates_and_bad_service_location(cl
         ).status_code
         == 422
     )
+    missing_longitude = address("No Longitude", place_id="place-no-longitude")
+    del missing_longitude["longitude"]
+    assert (
+        client.post(
+            "/customer/addresses", json=missing_longitude, headers=customer["headers"]
+        ).status_code
+        == 422
+    )
 
     bad_location = client.post(
         "/customer/addresses",
@@ -121,3 +129,16 @@ def test_address_book_rejects_hand_typed_coordinates_and_bad_service_location(cl
         headers=customer["headers"],
     )
     assert bad_location.status_code == 422
+
+
+def test_address_book_patch_rejects_null_or_blank_label(client):
+    customer = register_session(client, "address-label-validation@example.com")
+    created = client.post("/customer/addresses", json=address(), headers=customer["headers"])
+    address_id = created.json()["data"]["id"]
+    for label in (None, "   "):
+        response = client.patch(
+            f"/customer/addresses/{address_id}",
+            json={"label": label},
+            headers=customer["headers"],
+        )
+        assert response.status_code == 422, response.text
