@@ -221,6 +221,7 @@ def format_booking_response(booking):
         "customer_id": booking.customer_id,
         "provider_profile_id": booking.provider_profile_id,
         "chat_room_id": booking.chat_room_id,
+        "title": booking.title,
         "service_description": booking.service_description,
         "service_address": booking.service_address,
         "service_latitude": booking.service_latitude,

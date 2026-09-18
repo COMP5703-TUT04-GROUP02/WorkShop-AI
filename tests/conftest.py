@@ -228,6 +228,7 @@ def marketplace(client, db_session):
 def create_booking(client, customer_headers, provider_profile_id, **extra):
     payload = {
         "provider_profile_id": str(provider_profile_id),
+        "title": extra.get("title", "Booking request"),
         "service_description": extra.get(
             "service_description", "Kitchen pipe leak, needs on-site repair"
         ),

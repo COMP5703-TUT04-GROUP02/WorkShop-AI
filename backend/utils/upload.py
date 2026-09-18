@@ -141,6 +141,36 @@ def validate_booking_attachment_metadata(file: UploadFile):
     )
 
 
+def validate_booking_attachments(files: list[UploadFile] | None) -> None:
+    files = [file for file in files or [] if file.filename]
+    if len(files) > 7:
+        raise HTTPException(status_code=422, detail="A booking can include at most 7 attachments")
+    image_count = 0
+    video_count = 0
+    for file in files:
+        original_filename = get_safe_original_filename(file)
+        extension = Path(original_filename).suffix.lower()
+        content_type = file.content_type or "application/octet-stream"
+        if extension in {".jpg", ".jpeg", ".png"} and content_type.startswith("image/"):
+            image_count += 1
+            limit = 2 * 1024 * 1024
+        elif extension in {".mp4", ".mov"} and content_type.startswith("video/"):
+            video_count += 1
+            limit = 10 * 1024 * 1024
+        else:
+            raise HTTPException(status_code=422, detail="Booking attachments must be images or videos")
+        current_position = file.file.tell()
+        file.file.seek(0, 2)
+        size = file.file.tell()
+        file.file.seek(current_position)
+        if size > limit:
+            raise HTTPException(status_code=422, detail="Booking attachment exceeds its size limit")
+    if image_count > 5:
+        raise HTTPException(status_code=422, detail="A booking can include at most 5 images")
+    if video_count > 2:
+        raise HTTPException(status_code=422, detail="A booking can include at most 2 videos")
+
+
 def validate_chat_attachment_metadata(file: UploadFile):
     return validate_file_metadata(
         file,
