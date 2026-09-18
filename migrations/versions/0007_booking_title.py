@@ -12,7 +12,7 @@ depends_on = None
 def upgrade() -> None:
     columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("bookings")}
     if "title" not in columns:
-        op.add_column("bookings", sa.Column("title", sa.String(length=255), nullable=True))
+        op.add_column("bookings", sa.Column("title", sa.Text(), nullable=True))
         op.execute("UPDATE bookings SET title = 'Booking' WHERE title IS NULL")
         with op.batch_alter_table("bookings") as batch_op:
             batch_op.alter_column("title", nullable=False, server_default=None)

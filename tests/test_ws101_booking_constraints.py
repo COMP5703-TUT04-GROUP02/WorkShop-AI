@@ -6,6 +6,10 @@ from fastapi import HTTPException, UploadFile
 from starlette.datastructures import Headers
 
 from backend.core.clock import to_workshop_datetime
+from backend import models
+from backend.core.clock import utc_now
+from backend.utils import customer_booking_actions
+from backend.routers.customer import bookings as booking_router
 from backend.schemas.booking import BookingCreate, BookingUpdate
 from backend.utils.upload import validate_booking_attachments
 
@@ -65,3 +69,112 @@ def test_booking_create_and_update_time_contract_normalizes_naive_and_aware_inpu
     aware = to_workshop_datetime(datetime.fromisoformat("2026-10-05T07:00:00+00:00"))
     assert naive.isoformat() == "2026-10-05T10:00:00+03:00"
     assert aware.isoformat() == "2026-10-05T10:00:00+03:00"
+
+    BookingCreate(
+        provider_profile_id=1,
+        title="Mixed time",
+        service_description="Repair",
+        service_address="Address",
+        service_latitude=41,
+        service_longitude=29,
+        scheduled_start_time=datetime(2026, 10, 5, 10),
+        scheduled_end_time=datetime.fromisoformat("2026-10-05T08:00:00+00:00"),
+    )
+
+
+@pytest.mark.anyio
+async def test_create_and_update_write_normalized_times_with_external_side_effects_stubbed(
+    db_session, monkeypatch
+):
+    customer = models.User(name="Booking Customer", email="ws101-customer@example.com", role="customer")
+    provider_user = models.User(name="Booking Provider", email="ws101-provider@example.com", role="provider")
+    db_session.add_all([customer, provider_user])
+    db_session.flush()
+    provider = models.ProviderProfile(
+        user_id=provider_user.id,
+        business_name="WS101 Provider",
+        bio="Provider",
+        service_province="Istanbul",
+        tags="plumbing",
+        certificate_name="Certificate",
+        certificate_url="https://example.com/cert",
+        hourly_rate=100,
+        experience_years=1,
+        verification_status="approved",
+    )
+    db_session.add(provider)
+    db_session.flush()
+
+    def fake_chat_room(customer_id, provider_profile_id, db):
+        room = models.ChatRoom(
+            customer_id=customer_id,
+            provider_profile_id=provider_profile_id,
+            created_at=utc_now(),
+        )
+        db.add(room)
+        db.flush()
+        return room
+
+    def fake_chat_message(room, booking, sender_id, db, attachments):
+        message = models.ChatMessage(
+            chat_room_id=room.id,
+            sender_id=sender_id,
+            message="Booking created",
+            message_type="text",
+            created_at=utc_now(),
+        )
+        db.add(message)
+        db.flush()
+        return message
+
+    async def no_push(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(customer_booking_actions, "ensure_provider_available_for_datetime_range", lambda *args: None)
+    monkeypatch.setattr(customer_booking_actions, "get_or_create_chat_room", fake_chat_room)
+    monkeypatch.setattr(customer_booking_actions, "create_booking_chat_message", fake_chat_message)
+    monkeypatch.setattr(customer_booking_actions, "add_booking_status_history", lambda *args: None)
+    monkeypatch.setattr(customer_booking_actions, "create_notification", lambda *args: None)
+    monkeypatch.setattr(customer_booking_actions, "push_chat_message_to_room_members", no_push)
+    monkeypatch.setattr(customer_booking_actions, "format_booking_detail_response", lambda booking, db: {"scheduled_start_time": booking.scheduled_start_time, "title": booking.title})
+    monkeypatch.setattr(customer_booking_actions, "format_chat_room_response_with_unread", lambda *args: {})
+    monkeypatch.setattr(customer_booking_actions, "format_chat_message_response", lambda *args: {})
+
+    create_data = BookingCreate(
+        provider_profile_id=provider.id,
+        title="Initial booking",
+        service_description="Repair",
+        service_address="Address",
+        service_latitude=41,
+        service_longitude=29,
+        scheduled_start_time=datetime(2026, 10, 5, 10),
+        scheduled_end_time=datetime.fromisoformat("2026-10-05T08:00:00+00:00"),
+    )
+    result = await customer_booking_actions.create_customer_booking_action(
+        create_data, customer, db_session
+    )
+    booking = db_session.query(models.Booking).one()
+    assert booking.scheduled_start_time == datetime(2026, 10, 5, 10)
+    assert result["booking"]["title"] == "Initial booking"
+
+    monkeypatch.setattr(booking_router, "ensure_provider_available_for_datetime_range", lambda *args: None)
+    monkeypatch.setattr(booking_router, "create_booking_status_chat_message", lambda *args: None)
+    monkeypatch.setattr(booking_router, "add_booking_status_history", lambda *args: None)
+    updated = await booking_router.update_pending_booking(
+        booking.id,
+        BookingUpdate(
+            title="Updated booking",
+            service_description="Repair",
+            service_address="Address",
+            service_latitude=41,
+            service_longitude=29,
+            scheduled_start_time=datetime.fromisoformat("2026-10-05T07:00:00+00:00"),
+            scheduled_end_time=datetime.fromisoformat("2026-10-05T08:00:00+00:00"),
+        ),
+        customer,
+        db_session,
+    )
+    db_session.refresh(booking)
+    assert booking.title == "Updated booking"
+    assert booking.scheduled_start_time == datetime(2026, 10, 5, 10)
+    assert updated["data"]["booking"]["title"] == "Updated booking"

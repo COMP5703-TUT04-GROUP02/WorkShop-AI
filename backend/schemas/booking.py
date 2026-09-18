@@ -17,6 +17,7 @@ from backend.schemas.auth import UserResponse
 from backend.schemas.chat import ChatMessageResponse, ChatRoomResponse
 from backend.schemas.common import *  # noqa: F403
 from backend.schemas.provider import ProviderProfileResponse
+from backend.core.clock import to_workshop_datetime
 
 class BookingAttachmentResponse(BaseModel):
     id: int
@@ -81,7 +82,9 @@ class BookingCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_range(self):
-        if self.scheduled_end_time <= self.scheduled_start_time:
+        start = to_workshop_datetime(self.scheduled_start_time)
+        end = to_workshop_datetime(self.scheduled_end_time)
+        if end <= start:
             raise ValueError("Scheduled end time must be after scheduled start time")
 
         return self
@@ -134,7 +137,9 @@ class BookingUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_time_range(self):
-        if self.scheduled_end_time <= self.scheduled_start_time:
+        start = to_workshop_datetime(self.scheduled_start_time)
+        end = to_workshop_datetime(self.scheduled_end_time)
+        if end <= start:
             raise ValueError("Scheduled end time must be after scheduled start time")
 
         return self
