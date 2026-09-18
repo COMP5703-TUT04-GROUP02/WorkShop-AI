@@ -12,6 +12,7 @@ from backend.utils import customer_booking_actions
 from backend.routers.customer import bookings as booking_router
 from backend.schemas.booking import BookingCreate, BookingUpdate
 from backend.utils.upload import validate_booking_attachments
+from backend.utils.formatters import format_booking_response
 
 
 def upload(filename: str, content_type: str, size: int = 1) -> UploadFile:
@@ -155,6 +156,8 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
     )
     booking = db_session.query(models.Booking).one()
     assert booking.scheduled_start_time == datetime(2026, 10, 5, 10)
+    reloaded_response = format_booking_response(booking)
+    assert reloaded_response["scheduled_start_time"].isoformat() == "2026-10-05T10:00:00+03:00"
     assert result["booking"]["title"] == "Initial booking"
 
     monkeypatch.setattr(booking_router, "ensure_provider_available_for_datetime_range", lambda *args: None)
@@ -177,4 +180,5 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
     db_session.refresh(booking)
     assert booking.title == "Updated booking"
     assert booking.scheduled_start_time == datetime(2026, 10, 5, 10)
+    assert format_booking_response(booking)["scheduled_start_time"].isoformat() == "2026-10-05T10:00:00+03:00"
     assert updated["data"]["booking"]["title"] == "Updated booking"

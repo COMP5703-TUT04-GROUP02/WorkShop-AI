@@ -1,4 +1,5 @@
 from backend.constants import ALLOWED_PROVIDER_TAGS
+from backend.core.clock import to_workshop_datetime
 from backend.services.redis_service import is_user_online
 
 
@@ -230,8 +231,8 @@ def format_booking_response(booking):
         "customer_current_latitude": booking.customer_current_latitude,
         "customer_current_longitude": booking.customer_current_longitude,
         "booking_at": booking.booking_at,
-        "scheduled_start_time": booking.scheduled_start_time,
-        "scheduled_end_time": booking.scheduled_end_time,
+        "scheduled_start_time": to_workshop_datetime(booking.scheduled_start_time),
+        "scheduled_end_time": to_workshop_datetime(booking.scheduled_end_time),
         "completed_at": booking.completed_at,
         "total_amount": booking.total_amount,
         "quote_amount": booking.quote_amount,
