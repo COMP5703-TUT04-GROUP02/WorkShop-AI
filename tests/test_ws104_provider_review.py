@@ -127,6 +127,9 @@ def test_legacy_admin_review_updates_all_statuses(client, db_session, monkeypatc
     assert approved_profile["identity_verification_status"] == "approved"
     assert approved_profile["qualification_verification_status"] == "approved"
     assert approved_profile["verification_status"] == "approved"
+    visible = client.get("/providers")
+    assert visible.status_code == 200
+    assert profile["id"] in [item["id"] for item in visible.json()["data"]["items"]]
     rejected = client.put(
         f"/admin/providers/{profile['id']}/verification",
         json={"verification_status": "rejected", "verification_note": "legacy reject"},
@@ -137,6 +140,9 @@ def test_legacy_admin_review_updates_all_statuses(client, db_session, monkeypatc
     assert rejected_profile["identity_verification_status"] == "rejected"
     assert rejected_profile["qualification_verification_status"] == "rejected"
     assert rejected_profile["verification_status"] == "rejected"
+    hidden = client.get("/providers")
+    assert hidden.status_code == 200
+    assert profile["id"] not in [item["id"] for item in hidden.json()["data"]["items"]]
 
 
 def test_identity_rejection_revokes_market_access_and_profile_update_resubmits(client, db_session, monkeypatch):
