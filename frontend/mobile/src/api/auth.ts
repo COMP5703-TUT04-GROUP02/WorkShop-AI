@@ -110,6 +110,47 @@ export async function uploadCurrentUserAvatar(payload: {
   return unwrapData(response);
 }
 
+/** WS-85. Mock verification: the backend accepts any six digits. */
+export async function verifyEmail(code: string) {
+  const response = await apiClient.post<ApiResponse<User>>("/auth/verify-email", {
+    code,
+  });
+
+  return unwrapData(response);
+}
+
+/** WS-85. Fails with a clear message when the profile has no phone number. */
+export async function verifyPhone(code: string) {
+  const response = await apiClient.post<ApiResponse<User>>("/auth/verify-phone", {
+    code,
+  });
+
+  return unwrapData(response);
+}
+
+/** WS-88. The backend revokes every refresh token on success. */
+export async function changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const response = await apiClient.post<ApiResponse<User>>("/auth/change-password", {
+    current_password: payload.currentPassword,
+    new_password: payload.newPassword,
+  });
+
+  return unwrapData(response);
+}
+
+/** WS-88. Confirmed with the same six-digit demo code as WS-85. */
+export async function changeEmail(payload: { newEmail: string; code: string }) {
+  const response = await apiClient.post<ApiResponse<User>>("/auth/change-email", {
+    new_email: payload.newEmail,
+    code: payload.code,
+  });
+
+  return unwrapData(response);
+}
+
 export async function logoutByRefreshToken(refreshToken: string) {
   await apiClient.post("/logout", {
     refresh_token: refreshToken,
