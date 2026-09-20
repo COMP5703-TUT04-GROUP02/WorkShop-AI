@@ -2,7 +2,11 @@ export type UserRole = "customer" | "provider" | "admin";
 
 export type User = {
   id: number;
+  /** The joined display name chat and bookings read. */
   name: string;
+  /** WS-91. Absent until that backend merges. */
+  first_name?: string | null;
+  last_name?: string | null;
   email: string;
   role: UserRole;
   avatar_url: string | null;
@@ -36,4 +40,6 @@ export type RegisterRequest = {
 
 export type UserProfilePatchPayload = {
   name?: string;
+  first_name?: string;
+  last_name?: string;
 };
