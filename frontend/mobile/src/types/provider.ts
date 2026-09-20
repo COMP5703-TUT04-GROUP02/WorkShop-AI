@@ -158,7 +158,13 @@ export type CustomerProviderSearchResults = {
   tokens: string[];
   service_province: string;
   service_location_id: number | null;
-  items: ProviderRecommendation[];
+  items: CustomerProviderSearchItem[];
+};
+
+export type CustomerProviderSearchItem = ProviderRecommendation & {
+  avatar_url: string | null;
+  distance_km: number | null;
+  is_open: boolean;
 };
 
 export type CustomerProviderDetail = {
