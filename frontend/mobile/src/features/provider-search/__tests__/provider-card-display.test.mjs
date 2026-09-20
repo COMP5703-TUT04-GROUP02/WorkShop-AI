@@ -35,7 +35,7 @@ test("provider card uses opening state when the search API supplies it", () => {
   });
 });
 
-test("provider card preserves explicitly labelled presence before WS-77 lands", () => {
+test("recommendation cards still fall back to online presence", () => {
   assert.deepEqual(getProviderCardStatus({ isOnline: true }), {
     label: "Online",
     tone: "active",

@@ -153,7 +153,14 @@ export type CustomerProviderSearchResults = {
   keyword: string;
   tokens: string[];
   service_province: string;
-  items: ProviderRecommendation[];
+  service_location_id: number | null;
+  items: CustomerProviderSearchItem[];
+};
+
+export type CustomerProviderSearchItem = ProviderRecommendation & {
+  avatar_url: string | null;
+  distance_km: number | null;
+  is_open: boolean;
 };
 
 export type CustomerProviderDetail = {
