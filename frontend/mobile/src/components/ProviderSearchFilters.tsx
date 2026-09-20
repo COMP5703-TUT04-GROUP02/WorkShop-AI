@@ -118,7 +118,7 @@ export function ProviderSearchFilters({
         <View style={styles.priceRow}>
           <TextInput
             accessibilityLabel="Minimum hourly price"
-            inputMode="decimal"
+            inputMode="numeric"
             onChangeText={(text) => update("minPrice", text)}
             placeholder="Minimum"
             placeholderTextColor={colors.mutedText}
@@ -128,7 +128,7 @@ export function ProviderSearchFilters({
           <Text style={styles.priceSeparator}>to</Text>
           <TextInput
             accessibilityLabel="Maximum hourly price"
-            inputMode="decimal"
+            inputMode="numeric"
             onChangeText={(text) => update("maxPrice", text)}
             placeholder="Maximum"
             placeholderTextColor={colors.mutedText}
@@ -139,11 +139,23 @@ export function ProviderSearchFilters({
       </FilterSection>
 
       <FilterSection label="Availability">
-        <FilterChip
-          active={value.openNowOnly}
-          label="Open now"
-          onPress={() => update("openNowOnly", !value.openNowOnly)}
-        />
+        <View style={styles.chipRow}>
+          <FilterChip
+            active={value.availability === "any"}
+            label="Any"
+            onPress={() => update("availability", "any")}
+          />
+          <FilterChip
+            active={value.availability === "open"}
+            label="Open"
+            onPress={() => update("availability", "open")}
+          />
+          <FilterChip
+            active={value.availability === "closed"}
+            label="Closed"
+            onPress={() => update("availability", "closed")}
+          />
+        </View>
       </FilterSection>
 
       <FilterSection label="Sort by">

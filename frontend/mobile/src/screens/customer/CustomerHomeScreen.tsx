@@ -152,6 +152,7 @@ export function CustomerHomeScreen() {
       serviceProvince: selectedProvince,
       serviceLocationId: selectedLocationId ?? undefined,
       serviceAreaLabel: selectedAreaLabel,
+      category: selectedTag || undefined,
     });
   }
 
