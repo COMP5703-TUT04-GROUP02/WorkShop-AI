@@ -10,30 +10,16 @@ import {
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getProviderProfile } from "../api/provider";
-import type { ProviderProfile } from "../types/provider";
+import { isQualificationApproved } from "../utils/providerVerification";
 import { useAuth } from "./AuthContext";
 
-const PROVIDER_PROFILE_REQUIRED_MESSAGE = "Please complete your profile first.";
-
-export function isProviderProfileComplete(profile: ProviderProfile | null) {
-  if (!profile) {
-    return false;
-  }
-
-  return Boolean(
-    profile.business_name?.trim() &&
-    profile.service_province?.trim() &&
-    profile.bio?.trim() &&
-    profile.tags?.length &&
-    Number.isFinite(profile.experience_years) &&
-    profile.certificate_files?.length &&
-    Number.isFinite(profile.service_radius_km) &&
-    profile.address?.trim() &&
-    profile.phone_number?.trim() &&
-    profile.latitude !== null &&
-    profile.longitude !== null,
-  );
-}
+/**
+ * WS-105. The gate used to open as soon as the big profile form was filled in.
+ * Admin approval of the qualification step is what unlocks the app now, so a
+ * complete but unreviewed profile stays locked.
+ */
+const PROVIDER_PROFILE_REQUIRED_MESSAGE =
+  "An admin needs to approve your qualification first. Start with identity verification on Home.";
 
 type ProviderProfileGateContextValue = {
   hasProviderProfile: boolean | null;
@@ -66,7 +52,7 @@ export function ProviderProfileGateProvider({
 
     try {
       const profile = await getProviderProfile();
-      setHasProviderProfile(isProviderProfileComplete(profile));
+      setHasProviderProfile(isQualificationApproved(profile));
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response
         ?.status;
@@ -115,7 +101,7 @@ export function ProviderProfileGateProvider({
       >
         <View style={styles.overlay}>
           <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>Profile required</Text>
+            <Text style={styles.dialogTitle}>Verification required</Text>
             <Text style={styles.dialogMessage}>
               {PROVIDER_PROFILE_REQUIRED_MESSAGE}
             </Text>

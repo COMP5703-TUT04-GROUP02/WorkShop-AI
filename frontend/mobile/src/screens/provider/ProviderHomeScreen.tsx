@@ -39,12 +39,17 @@ import {
   PROVIDER_TAGS,
 } from "../../constants/providerTags";
 import { useAuth } from "../../context/AuthContext";
-import {
-  isProviderProfileComplete,
-  useProviderProfileGate,
-} from "../../context/ProviderProfileGateContext";
+import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
+import {
+  canApplyForQualification,
+  describeStatus,
+  getIdentityStatus,
+  getQualificationStatus,
+  isQualificationApproved,
+  type VerificationStatus,
+} from "../../utils/providerVerification";
 import type { PaginatedData } from "../../types/chat";
 import type {
   ProviderPortfolio,
@@ -96,13 +101,31 @@ export function ProviderHomeScreen() {
           return;
         }
 
-        const isComplete = isProviderProfileComplete(nextProfile);
         setProfile(nextProfile);
-        setIsProfileMissing(!isComplete);
-        if (isComplete) {
+        setIsProfileMissing(false);
+
+        // WS-105: a filled-in form no longer unlocks anything; only an
+        // approved qualification does.
+        if (isQualificationApproved(nextProfile)) {
           markProviderProfileCreated();
         }
+      } catch (error) {
+        if (isActive) {
+          const status = (error as { response?: { status?: number } }).response
+            ?.status;
+          setProfile(null);
+          setIsProfileMissing(status === 404);
+          setMessage(status === 404 ? "" : getErrorMessage(error));
+          setIsLoading(false);
+        }
 
+        return;
+      }
+
+      // WS-104 answers 403 for portfolios and reviews until the qualification
+      // is approved. That is expected here, not a failure: the provider still
+      // needs to see their verification status and get to the entry points.
+      try {
         const [portfolioPage, reviewPageData] = await Promise.all([
           getProviderPortfolios(1, 4),
           getProviderReviews(1, REVIEW_PAGE_SIZE),
@@ -118,13 +141,11 @@ export function ProviderHomeScreen() {
         if (isActive) {
           const status = (error as { response?: { status?: number } }).response
             ?.status;
-          setProfile(null);
           setPortfolios([]);
           setReviews([]);
           setReviewPaging(null);
           setReviewPage(1);
-          setIsProfileMissing(status === 404);
-          setMessage(status === 404 ? "" : getErrorMessage(error));
+          setMessage(status === 403 ? "" : getErrorMessage(error));
         }
       } finally {
         if (isActive) {
@@ -168,22 +189,13 @@ export function ProviderHomeScreen() {
 
   const avatarUrl = resolveMediaUrl(user?.avatar_url ?? null);
 
-  if (
-    !isLoading &&
-    (isProfileMissing ||
-      !isProviderProfileComplete(profile) ||
-      isEditingProfile)
-  ) {
+  if (!isLoading && (isProfileMissing || isEditingProfile)) {
     return (
       <ProviderProfileForm
         initialProfile={profile}
-        onCancel={
-          profile && isProviderProfileComplete(profile)
-            ? () => setIsEditingProfile(false)
-            : undefined
-        }
+        onCancel={profile ? () => setIsEditingProfile(false) : undefined}
         onSaved={(nextProfile) => {
-          if (isProviderProfileComplete(nextProfile)) {
+          if (isQualificationApproved(nextProfile)) {
             markProviderProfileCreated();
           }
           setProfile(nextProfile);
@@ -236,24 +248,11 @@ export function ProviderHomeScreen() {
             </Pressable>
           </View>
 
-          {profile?.verification_status === "pending" ? (
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>Profile under review</Text>
-              <Text style={styles.statusText}>
-                This notice disappears once admin approves your profile.
-              </Text>
-            </View>
-          ) : null}
-
-          {profile?.verification_status === "rejected" ? (
-            <View style={styles.rejectedCard}>
-              <Text style={styles.statusTitle}>Profile not approved</Text>
-              <Text style={styles.statusText}>
-                {profile.verification_note ||
-                  "Update your profile and resubmit for review."}
-              </Text>
-            </View>
-          ) : null}
+          <VerificationCard
+            note={profile?.verification_note ?? null}
+            onOpenForm={() => setIsEditingProfile(true)}
+            profile={profile}
+          />
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Portfolios</Text>
@@ -800,6 +799,111 @@ function ProviderProfileForm({
   );
 }
 
+/**
+ * WS-105. Two independent steps, in order: identity, then qualification.
+ * Everything else stays locked until an admin approves the qualification.
+ */
+function VerificationCard({
+  note,
+  onOpenForm,
+  profile,
+}: {
+  note: string | null;
+  onOpenForm: () => void;
+  profile: ProviderProfile | null;
+}) {
+  const identity = getIdentityStatus(profile);
+  const qualification = getQualificationStatus(profile);
+  const unlocked = qualification === "approved";
+
+  return (
+    <View style={styles.verificationCard}>
+      <View style={styles.verificationHeader}>
+        <Text style={styles.statusTitle}>Verification</Text>
+        <Text style={styles.verificationHint}>
+          {unlocked
+            ? "Approved. You appear in listings and can accept bookings."
+            : "Schedule, bookings, chats and portfolios unlock once an admin approves your qualification."}
+        </Text>
+      </View>
+
+      <VerificationStep
+        actionLabel={identity === "approved" ? null : "Identity details"}
+        description={
+          identity === "approved"
+            ? "Your identity has been approved."
+            : identity === "rejected"
+              ? note || "Update your details and submit again."
+              : "Submit your real name and contact details for review."
+        }
+        onPress={onOpenForm}
+        status={identity}
+        title="1 · Identity"
+      />
+
+      <VerificationStep
+        actionLabel={canApplyForQualification(profile) ? "Apply for qualification" : null}
+        description={
+          identity !== "approved"
+            ? "Available once your identity is approved."
+            : qualification === "approved"
+              ? "Your qualification has been approved."
+              : qualification === "rejected"
+                ? note || "Update your certificates and submit again."
+                : "Submit your certificates and business details for review."
+        }
+        onPress={onOpenForm}
+        status={identity === "approved" ? qualification : "pending"}
+        title="2 · Qualification"
+      />
+    </View>
+  );
+}
+
+function VerificationStep({
+  actionLabel,
+  description,
+  onPress,
+  status,
+  title,
+}: {
+  actionLabel: string | null;
+  description: string;
+  onPress: () => void;
+  status: VerificationStatus;
+  title: string;
+}) {
+  return (
+    <View style={styles.verificationStep}>
+      <View style={styles.verificationStepHeader}>
+        <Text style={styles.verificationStepTitle}>{title}</Text>
+        <View
+          style={[
+            styles.verificationPill,
+            status === "approved" ? styles.verificationPillApproved : null,
+            status === "rejected" ? styles.verificationPillRejected : null,
+          ]}
+        >
+          <Text style={styles.verificationPillText}>{describeStatus(status)}</Text>
+        </View>
+      </View>
+      <Text style={styles.statusText}>{description}</Text>
+      {actionLabel ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.verificationAction,
+            pressed ? styles.verificationActionPressed : null,
+          ]}
+        >
+          <Text style={styles.verificationActionText}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function ReviewRow({ review }: { review: Review }) {
   return (
     <View style={styles.reviewCard}>
@@ -1100,6 +1204,75 @@ const styles = StyleSheet.create({
   businessText: {
     color: colors.mutedText,
     fontSize: 14,
+  },
+  verificationCard: {
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  verificationHeader: {
+    gap: spacing.xs,
+  },
+  verificationHint: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  verificationStep: {
+    gap: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  verificationStepHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  verificationStepTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  verificationPill: {
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  verificationPillApproved: {
+    backgroundColor: "#E7F6F0",
+  },
+  verificationPillRejected: {
+    backgroundColor: "#FDEEEE",
+  },
+  verificationPillText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  verificationAction: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  verificationActionPressed: {
+    opacity: 0.7,
+  },
+  verificationActionText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   statusCard: {
     gap: spacing.xs,
