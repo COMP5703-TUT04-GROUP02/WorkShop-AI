@@ -43,6 +43,7 @@ from backend.utils.provider import (
     add_provider_verification_history,
     get_provider_profile_for_user,
     require_provider_qualification_approved,
+    require_provider_identity_approved,
 )
 from backend.utils.service_locations import apply_profile_location
 from backend.utils.refund import (
@@ -197,7 +198,7 @@ async def upload_provider_certificate(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
-    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    require_provider_identity_approved(get_provider_profile_for_user(current_user.id, db))
     upload_files = list(files or [])
     if file is not None:
         upload_files.append(file)
@@ -338,6 +339,7 @@ def get_provider_availability(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availabilities = get_provider_availabilities(provider_profile.id, db)
     return success_response(
         {
@@ -391,6 +393,7 @@ def get_provider_availability_overrides(
         )
 
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availability_overrides = get_provider_availability_overrides_by_month(
         provider_profile.id,
         month,

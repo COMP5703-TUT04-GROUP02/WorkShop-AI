@@ -84,3 +84,12 @@ def require_provider_qualification_approved(profile: models.ProviderProfile):
             status_code=403,
             detail="Provider qualification approval is required for this action",
         )
+
+
+def require_provider_identity_approved(profile: models.ProviderProfile):
+    status = getattr(profile, "identity_verification_status", profile.verification_status)
+    if status != "approved":
+        raise HTTPException(
+            status_code=403,
+            detail="Provider identity approval is required for this action",
+        )

@@ -304,7 +304,7 @@ def update_provider_verification(
     add_provider_verification_history(
         profile,
         old_status,
-        profile.verification_status,
+        new_status,
         profile.verification_note,
         current_user,
         db,

@@ -33,7 +33,9 @@ def test_approved_qualification_unlocks_gate():
     require_provider_qualification_approved(profile)
 
 
-def test_admin_reviews_identity_then_qualification_independently(client, db_session):
+def test_admin_reviews_identity_then_qualification_independently(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
     provider = register_session(client, "ws104-provider@example.com", role="provider", name="WS Provider")
     admin = create_admin_session(client, db_session, email="ws104-admin@example.com")
     profile = create_provider_profile(client, provider["headers"])
@@ -81,3 +83,35 @@ def test_invalid_entity_type_is_rejected_by_real_route(client):
     }
     response = client.post("/provider/profile", json=payload, headers=provider["headers"])
     assert response.status_code == 422
+
+
+def test_identity_gate_allows_certificate_but_qualification_gate_locks_schedule(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
+    provider = register_session(client, "ws104-gates@example.com", role="provider", name="Gate Provider")
+    admin = create_admin_session(client, db_session, email="ws104-gates-admin@example.com")
+    profile = create_provider_profile(client, provider["headers"])
+    blocked = client.get("/provider/availability", headers=provider["headers"])
+    assert blocked.status_code == 403
+    identity = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "approved", "verification_note": "identity", "verification_step": "identity"},
+        headers=admin["headers"],
+    )
+    assert identity.status_code == 200
+    upload = client.post(
+        "/provider/certificates/upload",
+        files={"file": ("proof.pdf", b"proof", "application/pdf")},
+        headers=provider["headers"],
+    )
+    assert upload.status_code != 403
+    still_blocked = client.get("/provider/availability", headers=provider["headers"])
+    assert still_blocked.status_code == 403
+    qualification = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "approved", "verification_note": "qualification", "verification_step": "qualification"},
+        headers=admin["headers"],
+    )
+    assert qualification.status_code == 200
+    unlocked = client.get("/provider/availability", headers=provider["headers"])
+    assert unlocked.status_code == 200
