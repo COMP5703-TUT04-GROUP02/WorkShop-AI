@@ -1,4 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
+import { Check } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import {
@@ -30,9 +31,12 @@ export function AuthScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [mode, setMode] = useState<AuthMode>("login");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [role, setRole] = useState<RegisterRequest["role"]>("customer");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,17 +56,53 @@ export function AuthScreen() {
     );
   }
 
+  // WS-92. Checked here as well as on the server so a typo or an unticked box
+  // never costs a round trip, and the message points at the field to fix.
+  function findRegisterProblem() {
+    if (!firstName.trim() || !lastName.trim()) {
+      return "Enter your first name and last name.";
+    }
+
+    if (password !== confirmPassword) {
+      return "The passwords do not match.";
+    }
+
+    if (!termsAccepted) {
+      return "Please accept the Terms of Use to continue.";
+    }
+
+    return "";
+  }
+
   async function handleSubmit() {
     setErrorMessage("");
+
+    if (isRegisterMode) {
+      const problem = findRegisterProblem();
+
+      if (problem) {
+        setErrorMessage(problem);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
       if (isRegisterMode) {
+        const first = firstName.trim();
+        const last = lastName.trim();
+
         await signUp({
-          name: name.trim(),
+          first_name: first,
+          last_name: last,
           email: email.trim(),
           password,
+          confirm_password: confirmPassword,
+          tos_accepted: termsAccepted,
           role,
+          // Names are stored as typed: FDS C-R05 says not to uppercase on save.
+          name: `${first} ${last}`.trim(),
         });
       } else {
         await signIn(email.trim(), password);
@@ -111,13 +151,22 @@ export function AuthScreen() {
 
         <View style={[styles.form, isWebDesktop ? styles.formDesktop : null]}>
           {isRegisterMode ? (
-            <TextField
-              autoCapitalize="words"
-              label="Name"
-              onChangeText={setName}
-              placeholder="Your name"
-              value={name}
-            />
+            <>
+              <TextField
+                autoCapitalize="words"
+                label="First name"
+                onChangeText={setFirstName}
+                placeholder="Your first name"
+                value={firstName}
+              />
+              <TextField
+                autoCapitalize="words"
+                label="Last name"
+                onChangeText={setLastName}
+                placeholder="Your last name"
+                value={lastName}
+              />
+            </>
           ) : null}
 
           <TextField
@@ -135,6 +184,48 @@ export function AuthScreen() {
             secureTextEntry
             value={password}
           />
+
+          {isRegisterMode ? (
+            <TextField
+              label="Confirm password"
+              onChangeText={setConfirmPassword}
+              placeholder="Repeat your password"
+              secureTextEntry
+              value={confirmPassword}
+            />
+          ) : null}
+
+          {isRegisterMode ? (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsAccepted }}
+              onPress={() => setTermsAccepted((accepted) => !accepted)}
+              style={styles.termsRow}
+            >
+              <View style={[styles.checkbox, termsAccepted ? styles.checkboxChecked : null]}>
+                {termsAccepted ? <Check color="#FFFFFF" size={14} /> : null}
+              </View>
+              <Text style={styles.termsText}>
+                I accept the{" "}
+                <Text
+                  accessibilityRole="link"
+                  onPress={() => navigation.navigate("Legal", { document: "terms" })}
+                  style={styles.termsLink}
+                >
+                  Terms of Use
+                </Text>{" "}
+                and the{" "}
+                <Text
+                  accessibilityRole="link"
+                  onPress={() => navigation.navigate("Legal", { document: "privacy" })}
+                  style={styles.termsLink}
+                >
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
+            </Pressable>
+          ) : null}
 
           {isRegisterMode ? (
             <View style={styles.roleBlock}>
@@ -290,6 +381,36 @@ const styles = StyleSheet.create({
   },
   roleBlock: {
     gap: spacing.sm,
+  },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  termsText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: colors.primary,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   fieldLabel: {
     color: colors.text,
