@@ -31,7 +31,7 @@ import {
 } from "../../api/provider";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
-import { ProvincePickerModal } from "../../components/ProvincePickerModal";
+import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import {
@@ -52,6 +52,7 @@ import type {
   ProviderProfilePayload,
 } from "../../types/provider";
 import type { Review } from "../../types/review";
+import type { ServiceAreaSelection } from "../../types/location";
 import { getErrorMessage } from "../../utils/errors";
 import { resolveMediaUrl } from "../../utils/media";
 
@@ -328,6 +329,12 @@ function ProviderProfileForm({
   const [serviceProvince, setServiceProvince] = useState(
     initialProfile?.service_province || DEFAULT_SERVICE_PROVINCE,
   );
+  const [serviceLocationId, setServiceLocationId] = useState<number | null>(
+    initialProfile?.service_location_id ?? null,
+  );
+  const [serviceAreaLabel, setServiceAreaLabel] = useState(
+    initialProfile?.service_province || DEFAULT_SERVICE_PROVINCE,
+  );
   const [tags, setTags] = useState<string[]>(initialProfile?.tags ?? []);
   const [hourlyRate, setHourlyRate] = useState(
     initialProfile?.hourly_rate ? String(initialProfile.hourly_rate) : "",
@@ -482,6 +489,7 @@ function ProviderProfileForm({
       !bio.trim() ||
       !phoneNumber.trim() ||
       !address.trim() ||
+      !serviceLocationId ||
       !certificateName.trim() ||
       (!certificateUrl.trim() && certificateFiles.length === 0) ||
       tags.length === 0
@@ -556,6 +564,7 @@ function ProviderProfileForm({
         phone_number: phoneNumber.trim(),
         address: address.trim(),
         service_province: serviceProvince,
+        service_location_id: serviceLocationId,
         latitude: initialProfile?.latitude ?? DEFAULT_LATITUDE,
         longitude: initialProfile?.longitude ?? DEFAULT_LONGITUDE,
         service_radius_km: parsedServiceRadiusKm,
@@ -629,13 +638,13 @@ function ProviderProfileForm({
         />
 
         <View style={styles.fieldBlock}>
-          <Text style={styles.label}>Service province</Text>
+          <Text style={styles.label}>Service area</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => setIsProvincePickerVisible(true)}
             style={styles.provinceButton}
           >
-            <Text style={styles.provinceText}>{serviceProvince}</Text>
+            <Text style={styles.provinceText}>{serviceAreaLabel}</Text>
             <ChevronDown color={colors.mutedText} size={20} />
           </Pressable>
         </View>
@@ -764,7 +773,7 @@ function ProviderProfileForm({
 
         <View style={styles.locationHint}>
           <Text style={styles.locationHintText}>
-            Default location: Istanbul 41.0082, 28.9784
+            Service district: {serviceAreaLabel}
           </Text>
         </View>
 
@@ -787,13 +796,23 @@ function ProviderProfileForm({
         </View>
       </View>
 
-      <ProvincePickerModal
+      <LocationCascadePickerModal
         onClose={() => setIsProvincePickerVisible(false)}
-        onSelect={(province) => {
-          setServiceProvince(province);
+        onSelect={(selection) => {
+          setServiceProvince(selection.serviceProvince);
+          setServiceLocationId(selection.serviceLocationId);
+          setServiceAreaLabel(selection.label);
           setIsProvincePickerVisible(false);
         }}
-        value={serviceProvince}
+        value={
+          serviceLocationId
+            ? ({
+                serviceLocationId,
+                serviceProvince,
+                label: serviceAreaLabel,
+              } satisfies ServiceAreaSelection)
+            : null
+        }
         visible={isProvincePickerVisible}
       />
     </ScrollView>

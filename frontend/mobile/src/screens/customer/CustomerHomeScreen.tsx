@@ -18,13 +18,14 @@ import {
   updateCustomerServiceProvince,
 } from "../../api/customer";
 import { PlaceholderPanel } from "../../components/PlaceholderPanel";
+import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
 import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
-import { ProvincePickerModal } from "../../components/ProvincePickerModal";
 import { useRealtime } from "../../context/RealtimeContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { ProviderRecommendation } from "../../types/provider";
+import type { ServiceAreaSelection } from "../../types/location";
 import {
   DEFAULT_PROVIDER_TAG,
   getProviderTagLabel,
@@ -38,6 +39,8 @@ export function CustomerHomeScreen() {
   const [keyword, setKeyword] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedProvince, setSelectedProvince] = useState("Istanbul");
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const [selectedAreaLabel, setSelectedAreaLabel] = useState("Istanbul");
   const [isProvinceModalVisible, setIsProvinceModalVisible] = useState(false);
   const [provinceMessage, setProvinceMessage] = useState("");
   const [isSavingProvince, setIsSavingProvince] = useState(false);
@@ -58,6 +61,8 @@ export function CustomerHomeScreen() {
       .then((profile) => {
         if (isMounted && profile?.service_province) {
           setSelectedProvince(profile.service_province);
+          setSelectedLocationId(profile.service_location_id);
+          setSelectedAreaLabel(profile.service_province);
         }
       })
       .catch(() => undefined);
@@ -74,6 +79,7 @@ export function CustomerHomeScreen() {
       const data = await getCustomerHomeRecommendations(
         selectedProvince,
         selectedTag,
+        selectedLocationId ?? undefined,
       );
       setHistoryProviderTag(data?.history_provider_tag ?? DEFAULT_PROVIDER_TAG);
       setRecommendations(data?.items ?? []);
@@ -82,7 +88,7 @@ export function CustomerHomeScreen() {
     } finally {
       setIsLoadingRecommendations(false);
     }
-  }, [selectedProvince, selectedTag]);
+  }, [selectedLocationId, selectedProvince, selectedTag]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,14 +117,19 @@ export function CustomerHomeScreen() {
     return unsubscribe;
   }, [subscribe]);
 
-  async function handleSelectProvince(province: string) {
-    setSelectedProvince(province);
+  async function handleSelectServiceArea(selection: ServiceAreaSelection) {
+    setSelectedProvince(selection.serviceProvince);
+    setSelectedLocationId(selection.serviceLocationId);
+    setSelectedAreaLabel(selection.label);
     setIsProvinceModalVisible(false);
     setProvinceMessage("Saving area...");
     setIsSavingProvince(true);
 
     try {
-      await updateCustomerServiceProvince(province);
+      await updateCustomerServiceProvince(
+        selection.serviceProvince,
+        selection.serviceLocationId,
+      );
       setProvinceMessage("Service area saved.");
     } catch {
       setProvinceMessage("Couldn't save service area. Try again.");
@@ -139,6 +150,8 @@ export function CustomerHomeScreen() {
     navigation.navigate("CustomerProviderSearchResults", {
       keyword: searchText,
       serviceProvince: selectedProvince,
+      serviceLocationId: selectedLocationId ?? undefined,
+      serviceAreaLabel: selectedAreaLabel,
     });
   }
 
@@ -165,7 +178,7 @@ export function CustomerHomeScreen() {
         >
           <MapPin color={colors.primary} size={20} />
           <Text style={styles.provinceButtonText} numberOfLines={1}>
-            {selectedProvince}
+            {selectedAreaLabel}
           </Text>
           <ChevronDown color={colors.mutedText} size={17} />
         </Pressable>
@@ -187,7 +200,7 @@ export function CustomerHomeScreen() {
       <Text style={styles.provinceStatusText} numberOfLines={2}>
         {isSavingProvince
           ? "Saving area..."
-          : provinceMessage || selectedProvince}
+          : provinceMessage || selectedAreaLabel}
       </Text>
 
       <View style={styles.header}>
@@ -236,7 +249,7 @@ export function CustomerHomeScreen() {
           </Text>
           <Text style={styles.historyText}>
             {selectedTag
-              ? selectedProvince
+              ? selectedAreaLabel
               : `Based on ${getProviderTagLabel(historyProviderTag).toLowerCase()}`}
           </Text>
         </View>
@@ -262,17 +275,25 @@ export function CustomerHomeScreen() {
             title={selectedTag ? "No providers found" : "No recommendations yet"}
             description={
               selectedTag
-                ? `No ${getProviderTagLabel(selectedTag).toLowerCase()} providers in ${selectedProvince}.`
-                : `No recommendations in ${selectedProvince} yet.`
+                ? `No ${getProviderTagLabel(selectedTag).toLowerCase()} providers in ${selectedAreaLabel}.`
+                : `No recommendations in ${selectedAreaLabel} yet.`
             }
           />
         )}
       </View>
 
-      <ProvincePickerModal
+      <LocationCascadePickerModal
         onClose={() => setIsProvinceModalVisible(false)}
-        onSelect={handleSelectProvince}
-        value={selectedProvince}
+        onSelect={(selection) => void handleSelectServiceArea(selection)}
+        value={
+          selectedLocationId
+            ? {
+                serviceLocationId: selectedLocationId,
+                serviceProvince: selectedProvince,
+                label: selectedAreaLabel,
+              }
+            : null
+        }
         visible={isProvinceModalVisible}
       />
     </ScreenContainer>

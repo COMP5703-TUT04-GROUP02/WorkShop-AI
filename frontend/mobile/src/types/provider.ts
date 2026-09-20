@@ -6,6 +6,7 @@ export type ProviderProfile = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
   service_radius_km: number;
@@ -39,6 +40,7 @@ export type ProviderContactProfilePayload = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   notes: string | null;
 };
 
@@ -56,6 +58,7 @@ export type ProviderProfilePayload = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
   service_radius_km: number;
@@ -143,6 +146,7 @@ export type ProviderRecommendation = ProviderProfile & {
 
 export type CustomerHomeRecommendations = {
   service_province: string;
+  service_location_id: number | null;
   history_provider_tag: string;
   items: ProviderRecommendation[];
 };
@@ -151,6 +155,7 @@ export type CustomerProviderSearchResults = {
   keyword: string;
   tokens: string[];
   service_province: string;
+  service_location_id: number | null;
   items: ProviderRecommendation[];
 };
 

@@ -35,11 +35,15 @@ export async function getCustomerProfile() {
   return response.data.data;
 }
 
-export async function updateCustomerServiceProvince(serviceProvince: string) {
+export async function updateCustomerServiceProvince(
+  serviceProvince: string,
+  serviceLocationId: number,
+) {
   const response = await apiClient.put<ApiResponse<CustomerProfileUpdateResponse>>(
     "/customer/profile/service-province",
     {
       service_province: serviceProvince,
+      service_location_id: serviceLocationId,
     },
   );
 
@@ -67,12 +71,14 @@ export async function patchCustomerProfile(payload: CustomerProfilePatchPayload)
 export async function getCustomerHomeRecommendations(
   serviceProvince: string,
   providerTag?: string,
+  serviceLocationId?: number,
 ) {
   const response = await apiClient.get<ApiResponse<CustomerHomeRecommendations>>(
     "/customer/home/recommendations",
     {
       params: {
         service_province: serviceProvince,
+        service_location_id: serviceLocationId,
         provider_tag: providerTag || undefined,
       },
     },
@@ -388,6 +394,7 @@ export async function getPublicProviderReviews(
 export async function searchCustomerProviders(
   keyword: string,
   serviceProvince: string,
+  serviceLocationId?: number,
 ) {
   const response = await apiClient.get<ApiResponse<CustomerProviderSearchResults>>(
     "/customer/providers/search",
@@ -395,6 +402,7 @@ export async function searchCustomerProviders(
       params: {
         keyword,
         service_province: serviceProvince,
+        service_location_id: serviceLocationId,
       },
     },
   );

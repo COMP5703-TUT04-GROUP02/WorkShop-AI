@@ -16,13 +16,14 @@ import {
   patchProviderContactProfile,
 } from "../api/provider";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { ProvincePickerModal } from "../components/ProvincePickerModal";
+import { LocationCascadePickerModal } from "../components/LocationCascadePickerModal";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
 import type { ProviderProfile } from "../types/provider";
+import type { ServiceAreaSelection } from "../types/location";
 
 const DEFAULT_SERVICE_PROVINCE = "Istanbul";
 
@@ -31,6 +32,7 @@ type AccountFormValues = {
   phoneNumber: string;
   address: string;
   serviceProvince: string;
+  serviceLocationId: number | null;
   notes: string;
 };
 
@@ -42,6 +44,7 @@ function toFormValues(
     phone_number?: string | null;
     address?: string | null;
     service_province?: string | null;
+    service_location_id?: number | null;
     notes?: string | null;
   } | null,
 ): AccountFormValues {
@@ -50,6 +53,7 @@ function toFormValues(
     phoneNumber: profile?.phone_number ?? "",
     address: profile?.address ?? "",
     serviceProvince: profile?.service_province || DEFAULT_SERVICE_PROVINCE,
+    serviceLocationId: profile?.service_location_id ?? null,
     notes: profile?.notes ?? "",
   };
 }
@@ -62,6 +66,10 @@ export function AccountEditScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [address, setAddress] = useState("");
   const [serviceProvince, setServiceProvince] = useState(
+    DEFAULT_SERVICE_PROVINCE,
+  );
+  const [serviceLocationId, setServiceLocationId] = useState<number | null>(null);
+  const [serviceAreaLabel, setServiceAreaLabel] = useState(
     DEFAULT_SERVICE_PROVINCE,
   );
   const [notes, setNotes] = useState("");
@@ -92,6 +100,8 @@ export function AccountEditScreen() {
         setPhoneNumber(fallbackValues.phoneNumber);
         setAddress(fallbackValues.address);
         setServiceProvince(fallbackValues.serviceProvince);
+        setServiceLocationId(fallbackValues.serviceLocationId);
+        setServiceAreaLabel(fallbackValues.serviceProvince);
         setNotes(fallbackValues.notes);
         setInitialValues(fallbackValues);
 
@@ -104,6 +114,8 @@ export function AccountEditScreen() {
               setPhoneNumber(nextValues.phoneNumber);
               setAddress(nextValues.address);
               setServiceProvince(nextValues.serviceProvince);
+              setServiceLocationId(nextValues.serviceLocationId);
+              setServiceAreaLabel(nextValues.serviceProvince);
               setNotes(nextValues.notes);
               setInitialValues(nextValues);
             }
@@ -118,6 +130,8 @@ export function AccountEditScreen() {
               setPhoneNumber(nextValues.phoneNumber);
               setAddress(nextValues.address);
               setServiceProvince(nextValues.serviceProvince);
+              setServiceLocationId(nextValues.serviceLocationId);
+              setServiceAreaLabel(nextValues.serviceProvince);
               setNotes(nextValues.notes);
               setInitialValues(nextValues);
             }
@@ -125,6 +139,8 @@ export function AccountEditScreen() {
         } catch {
           if (isActive) {
             setServiceProvince(DEFAULT_SERVICE_PROVINCE);
+            setServiceLocationId(null);
+            setServiceAreaLabel(DEFAULT_SERVICE_PROVINCE);
           }
         } finally {
           if (isActive) {
@@ -155,6 +171,7 @@ export function AccountEditScreen() {
       phoneNumber: trimmedPhone,
       address: trimmedAddress,
       serviceProvince,
+      serviceLocationId,
       notes: trimmedNotes,
     };
     const savedValues = initialValues ?? toFormValues(user.name);
@@ -169,8 +186,12 @@ export function AccountEditScreen() {
     if (addressChanged) {
       profilePatch.address = currentValues.address;
     }
-    if (currentValues.serviceProvince !== savedValues.serviceProvince) {
+    if (
+      currentValues.serviceProvince !== savedValues.serviceProvince ||
+      currentValues.serviceLocationId !== savedValues.serviceLocationId
+    ) {
       profilePatch.service_province = currentValues.serviceProvince;
+      profilePatch.service_location_id = currentValues.serviceLocationId;
     }
     if (currentValues.notes !== savedValues.notes.trim()) {
       profilePatch.notes = currentValues.notes || null;
@@ -258,13 +279,13 @@ export function AccountEditScreen() {
                 />
 
                 <View style={styles.fieldBlock}>
-                  <Text style={styles.label}>Service province</Text>
+                  <Text style={styles.label}>Service area</Text>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => setIsProvincePickerVisible(true)}
                     style={styles.provinceButton}
                   >
-                    <Text style={styles.provinceText}>{serviceProvince}</Text>
+                    <Text style={styles.provinceText}>{serviceAreaLabel}</Text>
                     <ChevronDown color={colors.mutedText} size={20} />
                   </Pressable>
                 </View>
@@ -308,13 +329,23 @@ export function AccountEditScreen() {
         )}
       </View>
 
-      <ProvincePickerModal
+      <LocationCascadePickerModal
         onClose={() => setIsProvincePickerVisible(false)}
-        onSelect={(province) => {
-          setServiceProvince(province);
+        onSelect={(selection) => {
+          setServiceProvince(selection.serviceProvince);
+          setServiceLocationId(selection.serviceLocationId);
+          setServiceAreaLabel(selection.label);
           setIsProvincePickerVisible(false);
         }}
-        value={serviceProvince}
+        value={
+          serviceLocationId
+            ? ({
+                serviceLocationId,
+                serviceProvince,
+                label: serviceAreaLabel,
+              } satisfies ServiceAreaSelection)
+            : null
+        }
         visible={isProvincePickerVisible}
       />
     </ScreenContainer>

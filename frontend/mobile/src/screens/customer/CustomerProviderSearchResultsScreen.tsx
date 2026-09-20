@@ -30,7 +30,12 @@ export function CustomerProviderSearchResultsScreen({
   navigation,
   route,
 }: CustomerProviderSearchResultsScreenProps) {
-  const { keyword, serviceProvince } = route.params;
+  const {
+    keyword,
+    serviceProvince,
+    serviceLocationId,
+    serviceAreaLabel = serviceProvince,
+  } = route.params;
   const { subscribe } = useRealtime();
   const [results, setResults] = useState<ProviderRecommendation[]>([]);
   const [tokens, setTokens] = useState<string[]>([]);
@@ -47,7 +52,11 @@ export function CustomerProviderSearchResultsScreen({
       setMessage("");
 
       try {
-        const data = await searchCustomerProviders(keyword, serviceProvince);
+        const data = await searchCustomerProviders(
+          keyword,
+          serviceProvince,
+          serviceLocationId,
+        );
 
         if (!isMounted) {
           return;
@@ -72,7 +81,7 @@ export function CustomerProviderSearchResultsScreen({
     return () => {
       isMounted = false;
     };
-  }, [keyword, serviceProvince]);
+  }, [keyword, serviceLocationId, serviceProvince]);
 
   useEffect(() => {
     const unsubscribe = subscribe((data) => {
@@ -122,7 +131,7 @@ export function CustomerProviderSearchResultsScreen({
         <View style={styles.headerText}>
           <Text style={styles.title}>Search results</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
-            {serviceProvince} · {keyword}
+            {serviceAreaLabel} · {keyword}
           </Text>
         </View>
       </View>
