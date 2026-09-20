@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 from starlette.datastructures import Headers
 
-from backend.core.clock import to_workshop_datetime
+from backend.core.clock import WORKSHOP_TIMEZONE, to_workshop_datetime
 from backend import models
 from backend.core.clock import utc_now
 from backend.utils import customer_booking_actions
@@ -157,7 +157,9 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
         create_data, customer, db_session
     )
     booking = db_session.query(models.Booking).one()
-    assert booking.scheduled_start_time == datetime(2026, 10, 5, 10)
+    assert to_workshop_datetime(booking.scheduled_start_time) == datetime(
+        2026, 10, 5, 10, tzinfo=WORKSHOP_TIMEZONE
+    )
     reloaded_response = format_booking_response(booking)
     assert reloaded_response["scheduled_start_time"].isoformat() == "2026-10-05T10:00:00+03:00"
     assert result["booking"]["title"] == "Initial booking"
@@ -181,6 +183,8 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
     )
     db_session.refresh(booking)
     assert booking.title == "Updated booking"
-    assert booking.scheduled_start_time == datetime(2026, 10, 5, 10)
+    assert to_workshop_datetime(booking.scheduled_start_time) == datetime(
+        2026, 10, 5, 10, tzinfo=WORKSHOP_TIMEZONE
+    )
     assert format_booking_response(booking)["scheduled_start_time"].isoformat() == "2026-10-05T10:00:00+03:00"
     assert updated["data"]["booking"]["title"] == "Updated booking"
