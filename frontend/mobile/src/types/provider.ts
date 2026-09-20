@@ -17,6 +17,10 @@ export type ProviderProfile = {
   experience_years: number;
   verification_status: string;
   verification_note: string | null;
+  /** WS-104. Absent until that branch merges; the helpers fall back. */
+  entity_type?: string;
+  identity_verification_status?: string;
+  qualification_verification_status?: string;
   notes: string | null;
   is_online: boolean;
   average_rating?: number | null;
