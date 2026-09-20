@@ -223,29 +223,10 @@ def update_provider_profile(
     profile = get_provider_profile_for_user(current_user.id, db)
     old_identity_status = profile.identity_verification_status
     old_qualification_status = profile.qualification_verification_status
-    existing_certificate_files = (
-        db.query(models.ProviderCertificateFile)
-        .filter(models.ProviderCertificateFile.provider_profile_id == profile.id)
-        .order_by(models.ProviderCertificateFile.sort_order.asc(), models.ProviderCertificateFile.id.asc())
-        .all()
-    )
-    existing_certificate_signature = [
-        (item.file_url, item.original_file_name, item.content_type, item.media_type)
-        for item in existing_certificate_files
-    ]
-    submitted_certificate_signature = [
-        (item.file_url, item.original_file_name, item.content_type, item.media_type)
-        for item in profile_data.certificate_files
-    ]
     identity_changed = any(
         (
             profile.entity_type != profile_data.entity_type,
             profile.business_name != profile_data.business_name,
-            profile.phone_number != profile_data.phone_number,
-            profile.address != profile_data.address,
-            profile.certificate_name != profile_data.certificate_name,
-            profile.certificate_url != profile_data.certificate_url,
-            existing_certificate_signature != submitted_certificate_signature,
         )
     )
     next_tags = tags_to_string(profile_data.tags)
@@ -291,7 +272,8 @@ def update_provider_profile(
         verification_step=history_step,
     )
 
-    replace_provider_certificate_files(profile, profile_data.certificate_files, db)
+    if "certificate_files" in profile_data.model_fields_set:
+        replace_provider_certificate_files(profile, profile_data.certificate_files, db)
     db.commit()
     db.refresh(profile)
     return success_response(
