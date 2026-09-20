@@ -175,7 +175,7 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="AccountSecurity"
         component={GuardedAccountSecurityScreen}
-        options={{ title: "Sign-in" }}
+        options={{ title: "Account and Security" }}
       />
       <Stack.Screen
         name="Help"

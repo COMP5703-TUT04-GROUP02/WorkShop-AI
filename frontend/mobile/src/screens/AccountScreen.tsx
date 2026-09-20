@@ -147,7 +147,7 @@ export function AccountScreen() {
           <View style={styles.menuCard}>
             <MenuItem
               icon={<Shield color={colors.text} size={24} />}
-              label="Account & security"
+              label="Account and Security"
               onPress={() =>
                 guardAccountAction(() => navigation.navigate("AccountSecurity"))
               }
