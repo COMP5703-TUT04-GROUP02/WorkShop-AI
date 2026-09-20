@@ -4,12 +4,11 @@
 // and WS-99 / WS-100 own hanging it on register and booking. For capture only,
 // a temporary Account row opens it; that row is not part of the commit.
 //
-// MODE=unconfigured  the real state of this machine: no Places key, so the
-//                    backend answers 503 and the picker shows that message.
-// MODE=stubbed       the Google call is stubbed locally so the suggestion ->
-//                    details -> coordinates path can be seen end to end. The
-//                    app still goes through GET /places/autocomplete and
-//                    GET /places/details.
+// MODE=live         (default) a real Places API key is configured, so the
+//                    suggestions and coordinates come from Google through our
+//                    own proxy.
+// MODE=unconfigured  no key: the backend answers 503 and the picker shows that
+//                    message. Kept because that is what a fresh clone sees.
 const { chromium } = require("playwright");
 
 const APP = "http://localhost:8090";
@@ -17,7 +16,7 @@ const OUT = __dirname;
 const PASSWORD = "Demo1234";
 const CUSTOMER = "demo_customer_1@workshop.ai";
 const ACCOUNT_TAB = /^Account/;
-const MODE = process.env.MODE === "unconfigured" ? "unconfigured" : "stubbed";
+const MODE = process.env.MODE === "unconfigured" ? "unconfigured" : "live";
 
 const visible = (page, text) =>
   page.getByText(text, { exact: true }).locator("visible=true").first();
@@ -75,7 +74,7 @@ async function shot(page, name) {
     if (url.includes("maps.googleapis.com")) placesCalls.push(`DIRECT:${url}`);
   });
 
-  await field(page, "Start typing an address").fill("Istanbul");
+  await field(page, "Start typing an address").fill("Taksim");
   await page.waitForTimeout(3000);
 
   if (MODE === "unconfigured") {
@@ -86,22 +85,41 @@ async function shot(page, name) {
     );
     await shot(page, "03-places-not-configured");
   } else {
+    // Google's wording changes, so match the shape of a real result rather
+    // than one exact string.
+    const suggestion = page
+      .getByText(/Taksim.*(Türkiye|Turkiye)/)
+      .locator("visible=true")
+      .first();
     check(
-      await isShown(page, "Taksim Square, Beyoglu, Istanbul, Turkiye"),
-      "typing shows suggestions from /places/autocomplete",
-      "no suggestions appeared",
+      (await suggestion.count()) > 0,
+      "typing shows live suggestions from /places/autocomplete",
+      "no suggestions came back from the proxy",
     );
     await shot(page, "01-suggestions");
 
-    await visible(page, "Taksim Square, Beyoglu, Istanbul, Turkiye").click();
+    const chosen = (await suggestion.textContent()) ?? "";
+    await suggestion.click();
     await page.waitForTimeout(2500);
+
+    const coordinates = page
+      .getByText(/^-?\d+\.\d{6}, -?\d+\.\d{6}$/)
+      .locator("visible=true")
+      .first();
     check(
-      await isShown(page, "41.036945, 28.985139"),
-      "picking a suggestion fills coordinates from /places/details",
+      (await coordinates.count()) > 0,
+      `picking "${chosen.slice(0, 40)}…" filled coordinates from /places/details (${(
+        await coordinates.textContent()
+      )?.trim()})`,
       "coordinates were not filled from the details call",
     );
     check(
-      await isShown(page, "Taksim Square, Beyoglu, 34435 Istanbul, Turkiye"),
+      await page
+        .getByText(/Taksim/)
+        .locator("visible=true")
+        .first()
+        .isVisible()
+        .catch(() => false),
       "the chosen place's formatted address is shown",
       "the formatted address is missing",
     );
