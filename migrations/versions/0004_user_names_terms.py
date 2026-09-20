@@ -6,7 +6,7 @@ Existing name-only and social-login records remain valid with NULL split fields.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0004_user_registration_names_terms"
+revision = "0004_user_names_terms"
 down_revision = "0003_service_locations"
 branch_labels = None
 depends_on = None

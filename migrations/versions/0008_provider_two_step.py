@@ -3,7 +3,7 @@
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0008_provider_two_step_verification"
+revision = "0008_provider_two_step"
 down_revision = "0007_booking_title"
 branch_labels = None
 depends_on = None
