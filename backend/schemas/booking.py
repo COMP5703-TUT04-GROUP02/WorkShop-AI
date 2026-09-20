@@ -17,6 +17,7 @@ from backend.schemas.auth import UserResponse
 from backend.schemas.chat import ChatMessageResponse, ChatRoomResponse
 from backend.schemas.common import *  # noqa: F403
 from backend.schemas.provider import ProviderProfileResponse
+from backend.core.clock import to_workshop_datetime
 
 class BookingAttachmentResponse(BaseModel):
     id: int
@@ -32,6 +33,7 @@ class BookingAttachmentResponse(BaseModel):
 class BookingCreate(BaseModel):
     provider_profile_id: int
     chat_room_id: int | None = None
+    title: str
     service_description: str
     service_address: str
     service_latitude: float = Field(ge=-90, le=90)
@@ -68,14 +70,27 @@ class BookingCreate(BaseModel):
 
         return value
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Field cannot be empty")
+        if len(value.split()) > 30:
+            raise ValueError("Title must contain at most 30 words")
+        return value
+
     @model_validator(mode="after")
     def validate_time_range(self):
-        if self.scheduled_end_time <= self.scheduled_start_time:
+        start = to_workshop_datetime(self.scheduled_start_time)
+        end = to_workshop_datetime(self.scheduled_end_time)
+        if end <= start:
             raise ValueError("Scheduled end time must be after scheduled start time")
 
         return self
 
 class BookingUpdate(BaseModel):
+    title: str
     service_description: str
     service_address: str
     service_latitude: float = Field(ge=-90, le=90)
@@ -110,9 +125,21 @@ class BookingUpdate(BaseModel):
 
         return value
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Field cannot be empty")
+        if len(value.split()) > 30:
+            raise ValueError("Title must contain at most 30 words")
+        return value
+
     @model_validator(mode="after")
     def validate_time_range(self):
-        if self.scheduled_end_time <= self.scheduled_start_time:
+        start = to_workshop_datetime(self.scheduled_start_time)
+        end = to_workshop_datetime(self.scheduled_end_time)
+        if end <= start:
             raise ValueError("Scheduled end time must be after scheduled start time")
 
         return self
@@ -134,6 +161,7 @@ class BookingBaseResponse(BaseModel):
     customer_id: int
     provider_profile_id: int
     chat_room_id: int | None = None
+    title: str
     service_description: str
     service_address: str
     service_latitude: float

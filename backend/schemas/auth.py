@@ -29,23 +29,38 @@ class SocialAuthProvider(str, Enum):
 
 
 class UserRegister(BaseModel):
-    name: str
+    first_name: str
+    last_name: str
     email: EmailStr
     password: str = Field(min_length=8)
+    confirm_password: str
+    tos_accepted: bool = Field(strict=True)
     role: UserRole
 
-    @field_validator("name")
+    @field_validator("first_name", "last_name")
     @classmethod
     def validate_name_not_empty(cls, value):
         if not value.strip():
             raise ValueError("Name cannot be empty")
+        return value.strip()
 
-        return value
+    @model_validator(mode="after")
+    def validate_confirmation_and_terms(self):
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+        if not self.tos_accepted:
+            raise ValueError("Terms must be accepted")
+        if len(f"{self.first_name} {self.last_name}") > 255:
+            raise ValueError("Combined name is too long")
+        return self
 
 
 class UserResponse(BaseModel):
     id: int
     name: str
+    first_name: str | None = None
+    last_name: str | None = None
+    tos_accepted_at: datetime | None = None
     email: str
     role: UserRole
     avatar_url: str | None = None
@@ -71,8 +86,10 @@ class UserProfileUpdate(BaseModel):
 
 class UserProfilePatch(BaseModel):
     name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
-    @field_validator("name")
+    @field_validator("name", "first_name", "last_name")
     @classmethod
     def validate_name_not_empty(cls, value):
         if value is None:
@@ -82,6 +99,14 @@ class UserProfilePatch(BaseModel):
             raise ValueError("Name cannot be empty")
 
         return value.strip()
+
+    @model_validator(mode="after")
+    def validate_name_source(self):
+        if self.name is not None and (self.first_name is not None or self.last_name is not None):
+            raise ValueError("Use name or split name fields, not both")
+        if self.name is not None and len(self.name) > 255:
+            raise ValueError("Name is too long")
+        return self
 
 
 class AvatarUploadResponse(BaseModel):

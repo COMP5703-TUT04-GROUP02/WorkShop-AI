@@ -153,6 +153,7 @@ def test_unapproved_provider_cannot_be_booked(client):
         "/bookings",
         data={
             "provider_profile_id": str(profile["id"]),
+            "title": "Tap repair",
             "service_description": "Tap repair",
             "service_address": "Kadikoy, Istanbul",
             "service_latitude": "40.990",
