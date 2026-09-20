@@ -19,12 +19,26 @@ Three providers stand for the three states:
 so these screenshots also prove the gate reads the **new** fields rather than
 the old one.
 
-## 1. Identity under review — nothing is unlocked
+## 1. Identity under review — qualification is Locked
 
-Step 2 is visible but not actionable: qualification review cannot start until
-identity is approved, which is the backend's rule too.
+Step 2 reads **Locked**, not "Under review": nothing has been submitted to an
+admin yet, and it offers no action. Reviews still render even though portfolios
+answer 403, because the two lists are fetched independently.
 
 ![Identity pending](01-identity-pending.png)
+
+## 1b. The lock covers working surfaces only
+
+Account and Security, Help and Support and Payments all open while the
+qualification is unapproved — a provider waiting for review can still change a
+password or read help. Only schedule, bookings, chats and portfolios are gated.
+
+![Payments open for an unapproved provider](05-account-still-open.png)
+
+The Payments screen opens; the **backend** then refuses the data for an
+unapproved provider (`Provider qualification approval is required for this
+action`) and the screen shows that message. That refusal is WS-104's rule, not
+this gate.
 
 ## 2. A complete profile no longer opens the app
 
@@ -33,7 +47,10 @@ to unlock the tabs; now the tab explains what is actually needed.
 
 ![Verification required dialog](04-tab-locked.png)
 
-## 3. Identity approved — qualification can be applied for
+## 3. Identity approved — the qualification is with an admin
+
+The pill reads **Under review** and the action is **Update submission**: the
+step has started, so offering to "apply" would be wrong.
 
 ![Identity approved](02-identity-approved.png)
 
@@ -66,9 +83,13 @@ A clean run prints:
 PASS: Provider Home shows the verification card
 PASS: identity is the first step and is actionable
 PASS: qualification waits for identity
+PASS: the blocked qualification step reads Locked and offers no action
 PASS: a complete profile no longer unlocks the tabs
+PASS: Account and Security stays open while the qualification is unapproved
+PASS: Help and Support stays open while the qualification is unapproved
+PASS: Payments stays open while the qualification is unapproved
 PASS: an approved identity is shown as approved
-PASS: qualification can be applied for once identity is approved
+PASS: an in-review qualification offers Update submission, not Apply
 PASS: an approved qualification says the account is live
 PASS: an approved provider reaches the Schedule tab
 ALL CHECKS PASSED

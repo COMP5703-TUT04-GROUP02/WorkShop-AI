@@ -12,6 +12,13 @@ import type { ProviderProfile } from "../types/provider";
  */
 export type VerificationStatus = "approved" | "pending" | "rejected";
 
+/**
+ * Qualification review cannot start before identity is approved, so that step
+ * is neither approved nor under review — it has not begun. "pending" would
+ * read as "an admin is looking at it", which is not true yet.
+ */
+export type StepState = VerificationStatus | "locked";
+
 function normalise(value: string | null | undefined): VerificationStatus {
   if (value === "approved" || value === "rejected") {
     return value;
@@ -44,22 +51,45 @@ export function getQualificationStatus(
   );
 }
 
+export function getQualificationStepState(
+  profile: ProviderProfile | null,
+): StepState {
+  if (getIdentityStatus(profile) !== "approved") {
+    return "locked";
+  }
+
+  return getQualificationStatus(profile);
+}
+
 export function isQualificationApproved(profile: ProviderProfile | null) {
   return getQualificationStatus(profile) === "approved";
 }
 
-/** Qualification review cannot start until identity is approved. */
-export function canApplyForQualification(profile: ProviderProfile | null) {
-  return (
-    getIdentityStatus(profile) === "approved" &&
-    getQualificationStatus(profile) !== "approved"
-  );
-}
-
-export function describeStatus(status: VerificationStatus) {
+export function describeStatus(status: StepState) {
   if (status === "approved") {
     return "Approved";
   }
 
-  return status === "rejected" ? "Not approved" : "Under review";
+  if (status === "rejected") {
+    return "Not approved";
+  }
+
+  return status === "locked" ? "Locked" : "Under review";
+}
+
+/**
+ * The backend cannot tell "never submitted" from "submitted and waiting", so
+ * the action says what it does to an existing submission rather than implying
+ * the step has not started.
+ */
+export function describeStepAction(state: StepState, step: "identity" | "qualification") {
+  if (state === "approved" || state === "locked") {
+    return null;
+  }
+
+  if (state === "rejected") {
+    return "Resubmit";
+  }
+
+  return step === "identity" ? "Identity details" : "Update submission";
 }

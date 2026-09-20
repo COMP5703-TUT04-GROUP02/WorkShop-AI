@@ -43,12 +43,11 @@ import { useProviderProfileGate } from "../../context/ProviderProfileGateContext
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import {
-  canApplyForQualification,
   describeStatus,
+  describeStepAction,
   getIdentityStatus,
-  getQualificationStatus,
-  isQualificationApproved,
-  type VerificationStatus,
+  getQualificationStepState,
+  type StepState,
 } from "../../utils/providerVerification";
 import type { PaginatedData } from "../../types/chat";
 import type {
@@ -74,7 +73,7 @@ type SelectedProviderCertificateFile = {
 
 export function ProviderHomeScreen() {
   const { user } = useAuth();
-  const { markProviderProfileCreated } = useProviderProfileGate();
+  const { refreshProviderProfileStatus } = useProviderProfileGate();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -105,10 +104,10 @@ export function ProviderHomeScreen() {
         setIsProfileMissing(false);
 
         // WS-105: a filled-in form no longer unlocks anything; only an
-        // approved qualification does.
-        if (isQualificationApproved(nextProfile)) {
-          markProviderProfileCreated();
-        }
+        // approved qualification does. Re-reading the status instead of only
+        // marking it created means an approval that was revoked locks again
+        // without waiting for a remount.
+        void refreshProviderProfileStatus();
       } catch (error) {
         if (isActive) {
           const status = (error as { response?: { status?: number } }).response
@@ -122,38 +121,49 @@ export function ProviderHomeScreen() {
         return;
       }
 
-      // WS-104 answers 403 for portfolios and reviews until the qualification
-      // is approved. That is expected here, not a failure: the provider still
-      // needs to see their verification status and get to the entry points.
-      try {
-        const [portfolioPage, reviewPageData] = await Promise.all([
-          getProviderPortfolios(1, 4),
-          getProviderReviews(1, REVIEW_PAGE_SIZE),
-        ]);
+      // WS-104 answers 403 for portfolios until the qualification is approved.
+      // Reviews are not gated the same way, so the two are fetched separately:
+      // one refusal must not empty the other list.
+      const [portfolioResult, reviewResult] = await Promise.allSettled([
+        getProviderPortfolios(1, 4),
+        getProviderReviews(1, REVIEW_PAGE_SIZE),
+      ]);
 
-        if (isActive) {
-          setPortfolios(portfolioPage?.items ?? []);
-          setReviews(reviewPageData?.items ?? []);
-          setReviewPaging(reviewPageData);
-          setReviewPage(1);
-        }
-      } catch (error) {
-        if (isActive) {
-          const status = (error as { response?: { status?: number } }).response
-            ?.status;
-          setPortfolios([]);
-          setReviews([]);
-          setReviewPaging(null);
-          setReviewPage(1);
-          setMessage(status === 403 ? "" : getErrorMessage(error));
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+      if (!isActive) {
+        return;
       }
+
+      if (portfolioResult.status === "fulfilled") {
+        setPortfolios(portfolioResult.value?.items ?? []);
+      } else {
+        setPortfolios([]);
+      }
+
+      if (reviewResult.status === "fulfilled") {
+        setReviews(reviewResult.value?.items ?? []);
+        setReviewPaging(reviewResult.value ?? null);
+        setReviewPage(1);
+      } else {
+        setReviews([]);
+        setReviewPaging(null);
+        setReviewPage(1);
+      }
+
+      // A 403 before approval is expected; anything else is worth showing.
+      const unexpected = [portfolioResult, reviewResult].find(
+        (result) =>
+          result.status === "rejected" &&
+          (result.reason as { response?: { status?: number } })?.response
+            ?.status !== 403,
+      );
+      setMessage(
+        unexpected && unexpected.status === "rejected"
+          ? getErrorMessage(unexpected.reason)
+          : "",
+      );
+      setIsLoading(false);
     },
-    [markProviderProfileCreated],
+    [refreshProviderProfileStatus],
   );
 
   useFocusEffect(
@@ -195,9 +205,7 @@ export function ProviderHomeScreen() {
         initialProfile={profile}
         onCancel={profile ? () => setIsEditingProfile(false) : undefined}
         onSaved={(nextProfile) => {
-          if (isQualificationApproved(nextProfile)) {
-            markProviderProfileCreated();
-          }
+          void refreshProviderProfileStatus();
           setProfile(nextProfile);
           setIsEditingProfile(false);
           void loadHome();
@@ -813,7 +821,7 @@ function VerificationCard({
   profile: ProviderProfile | null;
 }) {
   const identity = getIdentityStatus(profile);
-  const qualification = getQualificationStatus(profile);
+  const qualification = getQualificationStepState(profile);
   const unlocked = qualification === "approved";
 
   return (
@@ -828,7 +836,7 @@ function VerificationCard({
       </View>
 
       <VerificationStep
-        actionLabel={identity === "approved" ? null : "Identity details"}
+        actionLabel={describeStepAction(identity, "identity")}
         description={
           identity === "approved"
             ? "Your identity has been approved."
@@ -842,18 +850,18 @@ function VerificationCard({
       />
 
       <VerificationStep
-        actionLabel={canApplyForQualification(profile) ? "Apply for qualification" : null}
+        actionLabel={describeStepAction(qualification, "qualification")}
         description={
-          identity !== "approved"
+          qualification === "locked"
             ? "Available once your identity is approved."
             : qualification === "approved"
               ? "Your qualification has been approved."
               : qualification === "rejected"
                 ? note || "Update your certificates and submit again."
-                : "Submit your certificates and business details for review."
+                : "Your certificates and business details are with an admin."
         }
         onPress={onOpenForm}
-        status={identity === "approved" ? qualification : "pending"}
+        status={qualification}
         title="2 · Qualification"
       />
     </View>
@@ -870,7 +878,7 @@ function VerificationStep({
   actionLabel: string | null;
   description: string;
   onPress: () => void;
-  status: VerificationStatus;
+  status: StepState;
   title: string;
 }) {
   return (
@@ -882,6 +890,7 @@ function VerificationStep({
             styles.verificationPill,
             status === "approved" ? styles.verificationPillApproved : null,
             status === "rejected" ? styles.verificationPillRejected : null,
+            status === "locked" ? styles.verificationPillLocked : null,
           ]}
         >
           <Text style={styles.verificationPillText}>{describeStatus(status)}</Text>
@@ -1250,6 +1259,9 @@ const styles = StyleSheet.create({
   },
   verificationPillRejected: {
     backgroundColor: "#FDEEEE",
+  },
+  verificationPillLocked: {
+    backgroundColor: colors.surface,
   },
   verificationPillText: {
     color: colors.text,

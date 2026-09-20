@@ -56,7 +56,14 @@ export function ProviderProfileGateProvider({
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response
         ?.status;
-      setHasProviderProfile(status === 404 ? false : true);
+
+      // No profile yet means nothing is approved. Any other failure (offline,
+      // a 500) says nothing about approval, and this flag now locks the
+      // provider's working tabs — so keep whatever was last known instead of
+      // unlocking on an error.
+      if (status === 404) {
+        setHasProviderProfile(false);
+      }
     }
   }, [user?.role]);
 

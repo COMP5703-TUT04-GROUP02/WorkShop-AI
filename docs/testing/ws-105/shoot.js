@@ -74,6 +74,14 @@ async function signIn(page, email) {
     "qualification waits for identity",
     "qualification was offered before identity approval",
   );
+  // Review: a step that cannot start must not read as "an admin is looking at
+  // it", and must not offer an action.
+  check(
+    (await isShown(pendingPage, "Locked")) &&
+      !(await isShown(pendingPage, "Apply for qualification")),
+    "the blocked qualification step reads Locked and offers no action",
+    "the blocked step still showed a review status or an action",
+  );
   await shot(pendingPage, CASES[0].shot);
 
   // The old gate opened as soon as the profile form was filled in. This
@@ -90,6 +98,32 @@ async function signIn(page, email) {
     "the tab opened without an approved qualification",
   );
   await shot(pendingPage, "04-tab-locked");
+
+  // Review: the gate covers a provider's working surfaces only. Account has to
+  // stay usable while they wait — a password change cannot need approval.
+  await pendingPage.getByRole("button", { name: "OK", exact: true }).click();
+  await pendingPage.waitForTimeout(800);
+  for (const [row, marker] of [
+    ["Account and Security", "Change password"],
+    ["Help and Support", "Contact us"],
+    ["Payments", "Payments customers have made for your bookings."],
+  ]) {
+    await pendingPage
+      .getByRole("button", { name: ACCOUNT_TAB })
+      .locator("visible=true")
+      .first()
+      .click();
+    await pendingPage.waitForTimeout(1800);
+    await visible(pendingPage, row).click();
+    await pendingPage.waitForTimeout(2200);
+    check(
+      (await isShown(pendingPage, marker)) &&
+        !(await isShown(pendingPage, "Verification required")),
+      `${row} stays open while the qualification is unapproved`,
+      `${row} was blocked by the qualification gate`,
+    );
+  }
+  await shot(pendingPage, "05-account-still-open");
   await pendingPage.close();
 
   // --- 2. Identity approved: qualification becomes actionable.
@@ -100,10 +134,13 @@ async function signIn(page, email) {
     "an approved identity is shown as approved",
     "the approved identity is not reflected",
   );
+  // Review: once it is genuinely with an admin, the action updates a
+  // submission rather than claiming to start one.
   check(
-    await isShown(identityPage, "Apply for qualification"),
-    "qualification can be applied for once identity is approved",
-    "the qualification entry did not appear",
+    (await isShown(identityPage, "Update submission")) &&
+      (await isShown(identityPage, "Under review")),
+    "an in-review qualification offers Update submission, not Apply",
+    "the in-review qualification still offered to apply",
   );
   await shot(identityPage, CASES[1].shot);
   await identityPage.close();
