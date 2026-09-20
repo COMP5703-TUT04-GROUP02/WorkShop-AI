@@ -221,9 +221,33 @@ def update_provider_profile(
     db: Session = Depends(get_db),
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
-    if getattr(profile, "identity_verification_status", profile.verification_status) != "approved":
-        raise HTTPException(status_code=403, detail="Identity approval is required before applying for qualification")
-    old_status = profile.verification_status
+    old_identity_status = profile.identity_verification_status
+    old_qualification_status = profile.qualification_verification_status
+    existing_certificate_files = (
+        db.query(models.ProviderCertificateFile)
+        .filter(models.ProviderCertificateFile.provider_profile_id == profile.id)
+        .order_by(models.ProviderCertificateFile.sort_order.asc(), models.ProviderCertificateFile.id.asc())
+        .all()
+    )
+    existing_certificate_signature = [
+        (item.file_url, item.original_file_name, item.content_type, item.media_type)
+        for item in existing_certificate_files
+    ]
+    submitted_certificate_signature = [
+        (item.file_url, item.original_file_name, item.content_type, item.media_type)
+        for item in profile_data.certificate_files
+    ]
+    identity_changed = any(
+        (
+            profile.entity_type != profile_data.entity_type,
+            profile.business_name != profile_data.business_name,
+            profile.phone_number != profile_data.phone_number,
+            profile.address != profile_data.address,
+            profile.certificate_name != profile_data.certificate_name,
+            profile.certificate_url != profile_data.certificate_url,
+            existing_certificate_signature != submitted_certificate_signature,
+        )
+    )
     next_tags = tags_to_string(profile_data.tags)
     apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.business_name = profile_data.business_name
@@ -246,17 +270,25 @@ def update_provider_profile(
         profile=profile,
         location_id=profile_data.service_location_id,
     )
-    profile.verification_status = ProviderVerificationStatus.pending
+    if old_identity_status != ProviderVerificationStatus.approved or identity_changed:
+        profile.identity_verification_status = ProviderVerificationStatus.pending
+        history_step = "identity"
+        history_old_status = old_identity_status
+    else:
+        history_step = "qualification"
+        history_old_status = old_qualification_status
     profile.qualification_verification_status = ProviderVerificationStatus.pending
+    profile.verification_status = ProviderVerificationStatus.pending
     profile.entity_type = profile_data.entity_type
     profile.verification_note = None
     add_provider_verification_history(
         profile,
-        old_status,
-        profile.verification_status,
+        history_old_status,
+        ProviderVerificationStatus.pending,
         "Provider updated profile and submitted for verification",
         current_user,
         db,
+        verification_step=history_step,
     )
 
     replace_provider_certificate_files(profile, profile_data.certificate_files, db)

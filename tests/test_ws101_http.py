@@ -24,6 +24,8 @@ def _provider(db_session, client):
         hourly_rate=100,
         experience_years=1,
         verification_status="approved",
+        identity_verification_status="approved",
+        qualification_verification_status="approved",
     )
     db_session.add(profile)
     db_session.commit()

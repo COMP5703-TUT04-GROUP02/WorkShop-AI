@@ -39,12 +39,6 @@ def test_admin_reviews_identity_then_qualification_independently(client, db_sess
     provider = register_session(client, "ws104-provider@example.com", role="provider", name="WS Provider")
     admin = create_admin_session(client, db_session, email="ws104-admin@example.com")
     profile = create_provider_profile(client, provider["headers"])
-    no_step = client.put(
-        f"/admin/providers/{profile['id']}/verification",
-        json={"verification_status": "approved", "verification_note": "legacy"},
-        headers=admin["headers"],
-    )
-    assert no_step.status_code == 422
     qualification_first = client.put(
         f"/admin/providers/{profile['id']}/verification",
         json={"verification_status": "approved", "verification_note": "not yet", "verification_step": "qualification"},
@@ -115,3 +109,114 @@ def test_identity_gate_allows_certificate_but_qualification_gate_locks_schedule(
     assert qualification.status_code == 200
     unlocked = client.get("/provider/availability", headers=provider["headers"])
     assert unlocked.status_code == 200
+
+
+def test_legacy_admin_review_updates_all_statuses(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
+    provider = register_session(client, "ws104-legacy@example.com", role="provider", name="Legacy Provider")
+    admin = create_admin_session(client, db_session, email="ws104-legacy-admin@example.com")
+    profile = create_provider_profile(client, provider["headers"])
+    approved = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "approved", "verification_note": "legacy approve"},
+        headers=admin["headers"],
+    )
+    assert approved.status_code == 200
+    approved_profile = approved.json()["data"]["profile"]
+    assert approved_profile["identity_verification_status"] == "approved"
+    assert approved_profile["qualification_verification_status"] == "approved"
+    assert approved_profile["verification_status"] == "approved"
+    rejected = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "rejected", "verification_note": "legacy reject"},
+        headers=admin["headers"],
+    )
+    assert rejected.status_code == 200
+    rejected_profile = rejected.json()["data"]["profile"]
+    assert rejected_profile["identity_verification_status"] == "rejected"
+    assert rejected_profile["qualification_verification_status"] == "rejected"
+    assert rejected_profile["verification_status"] == "rejected"
+
+
+def test_identity_rejection_revokes_market_access_and_profile_update_resubmits(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
+    provider = register_session(client, "ws104-resubmit@example.com", role="provider", name="Retry Provider")
+    admin = create_admin_session(client, db_session, email="ws104-resubmit-admin@example.com")
+    profile = create_provider_profile(client, provider["headers"])
+    legacy_approve = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "approved", "verification_note": "initial approval"},
+        headers=admin["headers"],
+    )
+    assert legacy_approve.status_code == 200
+    rejected = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "rejected", "verification_note": "identity mismatch", "verification_step": "identity"},
+        headers=admin["headers"],
+    )
+    assert rejected.status_code == 200
+    rejected_profile = rejected.json()["data"]["profile"]
+    assert rejected_profile["identity_verification_status"] == "rejected"
+    assert rejected_profile["qualification_verification_status"] == "rejected"
+    assert rejected_profile["verification_status"] == "rejected"
+    public = client.get("/providers")
+    assert profile["id"] not in [item["id"] for item in public.json()["data"]["items"]]
+    update_payload = {
+        "entity_type": "organisation",
+        "business_name": "Corrected Business",
+        "bio": profile["bio"],
+        "phone_number": profile["phone_number"],
+        "address": profile["address"],
+        "service_province": profile["service_province"],
+        "latitude": profile["latitude"],
+        "longitude": profile["longitude"],
+        "service_radius_km": profile["service_radius_km"],
+        "tags": profile["tags"],
+        "certificate_name": profile["certificate_name"],
+        "certificate_url": profile["certificate_url"],
+        "hourly_rate": profile["hourly_rate"],
+        "experience_years": profile["experience_years"],
+    }
+    resubmitted = client.put("/provider/profile", json=update_payload, headers=provider["headers"])
+    assert resubmitted.status_code == 200, resubmitted.text
+    resubmitted_profile = resubmitted.json()["data"]["profile"]
+    assert resubmitted_profile["identity_verification_status"] == "pending"
+    assert resubmitted_profile["qualification_verification_status"] == "pending"
+    assert resubmitted_profile["verification_status"] == "pending"
+    history = client.get(
+        f"/admin/providers/{profile['id']}/verification-history", headers=admin["headers"]
+    ).json()["data"]["items"]
+    assert history[-1]["verification_step"] == "identity"
+    assert history[-1]["old_status"] == "rejected"
+    assert history[-1]["new_status"] == "pending"
+
+
+def test_changing_approved_entity_type_requires_new_identity_review(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
+    provider = register_session(client, "ws104-entity@example.com", role="provider", name="Entity Provider")
+    admin = create_admin_session(client, db_session, email="ws104-entity-admin@example.com")
+    profile = create_provider_profile(client, provider["headers"])
+    approved = client.put(
+        f"/admin/providers/{profile['id']}/verification",
+        json={"verification_status": "approved", "verification_note": "legacy approve"},
+        headers=admin["headers"],
+    )
+    assert approved.status_code == 200
+    payload = {
+        "entity_type": "organisation", "business_name": profile["business_name"], "bio": profile["bio"],
+        "phone_number": profile["phone_number"], "address": profile["address"],
+        "service_province": profile["service_province"], "latitude": profile["latitude"],
+        "longitude": profile["longitude"], "service_radius_km": profile["service_radius_km"],
+        "tags": profile["tags"], "certificate_name": profile["certificate_name"],
+        "certificate_url": profile["certificate_url"], "hourly_rate": profile["hourly_rate"],
+        "experience_years": profile["experience_years"],
+    }
+    updated = client.put("/provider/profile", json=payload, headers=provider["headers"])
+    assert updated.status_code == 200, updated.text
+    result = updated.json()["data"]["profile"]
+    assert result["identity_verification_status"] == "pending"
+    assert result["qualification_verification_status"] == "pending"
+    assert result["verification_status"] == "pending"

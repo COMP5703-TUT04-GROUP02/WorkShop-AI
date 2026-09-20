@@ -217,7 +217,9 @@ def approve_provider(client, admin_headers, provider_profile_id):
 
 
 @pytest.fixture
-def marketplace(client, db_session):
+def marketplace(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
     customer = register_session(
         client, "customer@example.com", role="customer", name="Ayla Customer"
     )

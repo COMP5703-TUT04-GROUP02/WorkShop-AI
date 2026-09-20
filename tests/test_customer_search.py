@@ -41,6 +41,8 @@ def add_approved_provider(
         hourly_rate=hourly_rate,
         experience_years=5,
         verification_status="approved",
+        identity_verification_status="approved",
+        qualification_verification_status="approved",
     )
     db_session.add(profile)
     db_session.commit()
