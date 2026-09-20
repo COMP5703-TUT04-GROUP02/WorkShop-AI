@@ -194,11 +194,22 @@ def set_week_availability(client, headers):
 
 
 def approve_provider(client, admin_headers, provider_profile_id):
-    response = client.put(
+    identity = client.put(
         f"/admin/providers/{provider_profile_id}/verification",
         json={
             "verification_status": "approved",
             "verification_note": "Documents checked",
+            "verification_step": "identity",
+        },
+        headers=admin_headers,
+    )
+    assert identity.status_code == 200, identity.text
+    response = client.put(
+        f"/admin/providers/{provider_profile_id}/verification",
+        json={
+            "verification_status": "approved",
+            "verification_note": "Qualifications checked",
+            "verification_step": "qualification",
         },
         headers=admin_headers,
     )

@@ -195,7 +195,9 @@ async def upload_provider_certificate(
     files: list[UploadFile] | None = File(default=None),
     file: UploadFile | None = File(default=None),
     current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     upload_files = list(files or [])
     if file is not None:
         upload_files.append(file)
@@ -544,6 +546,7 @@ def get_provider_portfolio_item(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     portfolio = (
         db.query(models.ProviderPortfolio)
         .filter(
@@ -570,6 +573,7 @@ def get_provider_portfolio(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = (
         db.query(models.ProviderPortfolio)
         .filter(models.ProviderPortfolio.provider_profile_id == provider_profile.id)
@@ -646,6 +650,7 @@ def get_provider_chats(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = (
         db.query(models.ChatRoom)
         .filter(models.ChatRoom.provider_profile_id == provider_profile.id)
@@ -667,6 +672,7 @@ def get_provider_bookings(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = db.query(models.Booking).filter(
         models.Booking.provider_profile_id == provider_profile.id
     )
@@ -689,6 +695,8 @@ def get_provider_schedule_bookings(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     requested_month = parse_availability_month(month)
     current_month = to_workshop_datetime(utc_now()).date().replace(day=1)
     if requested_month < current_month:
@@ -704,7 +712,6 @@ def get_provider_schedule_bookings(
     month_end = datetime.combine(next_month, time.min, tzinfo=WORKSHOP_TIMEZONE).astimezone(
         timezone.utc
     )
-    provider_profile = get_provider_profile_for_user(current_user.id, db)
     bookings = (
         db.query(models.Booking)
         .filter(
@@ -734,6 +741,7 @@ def get_provider_payments(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = db.query(models.Payment).filter(
         models.Payment.provider_profile_id == provider_profile.id
     )
@@ -756,6 +764,7 @@ def get_provider_refund_requests(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = db.query(models.RefundRequest).filter(
         models.RefundRequest.provider_profile_id == provider_profile.id
     )
@@ -775,6 +784,7 @@ async def approve_refund_request(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await approve_provider_refund_request_action(
             refund_request_id,
@@ -791,6 +801,7 @@ async def reject_refund_request(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await reject_provider_refund_request_action(
             refund_request_id,
@@ -826,6 +837,7 @@ async def reject_booking(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await reject_provider_booking_action(
             booking_id,
@@ -843,6 +855,7 @@ async def complete_booking(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await complete_provider_booking_action(
             booking_id,

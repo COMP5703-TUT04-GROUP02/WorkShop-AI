@@ -33,7 +33,7 @@ from backend.utils.notification import (
     get_notification_unread_count,
 )
 from backend.utils.pagination import build_paginated_response, paginate_query
-from backend.utils.provider import get_provider_profile_for_user
+from backend.utils.provider import get_provider_profile_for_user, require_provider_qualification_approved
 from backend.services.redis_service import (
     decrement_notification_unread_count,
     set_notification_unread_count,
@@ -63,6 +63,12 @@ from backend.core.clock import utc_now
 router = ApiRouter(tags=["Shared"])
 
 
+def _gate_provider_chat(current_user, chat_room, db):
+    if current_user.role == "provider":
+        profile = get_provider_profile_for_user(current_user.id, db)
+        require_provider_qualification_approved(profile)
+
+
 @router.get(
     "/chats/{chat_room_id}/messages",
     response_model=ApiResponse[PaginatedData[ChatMessageResponse]],
@@ -77,6 +83,7 @@ def get_chat_messages(
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
     ensure_chat_room_member(chat_room, current_user, db)
+    _gate_provider_chat(current_user, chat_room, db)
     mark_chat_room_messages_as_read(chat_room, current_user, db)
     db.commit()
 
@@ -106,6 +113,7 @@ async def upload_chat_attachment(
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
     ensure_chat_room_member(chat_room, current_user, db)
+    _gate_provider_chat(current_user, chat_room, db)
     upload_result = await save_chat_attachment_upload(chat_room.id, file)
     attachment = models.ChatMessageAttachment(
         chat_room_id=chat_room.id,
@@ -139,6 +147,7 @@ def delete_unsent_chat_attachment(
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
     ensure_chat_room_member(chat_room, current_user, db)
+    _gate_provider_chat(current_user, chat_room, db)
     attachment = (
         db.query(models.ChatMessageAttachment)
         .filter(
@@ -181,6 +190,7 @@ async def send_chat_message(
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
     ensure_chat_room_member(chat_room, current_user, db)
+    _gate_provider_chat(current_user, chat_room, db)
     attachments = get_pending_chat_attachments_or_400(
         message_data.attachment_ids,
         chat_room,

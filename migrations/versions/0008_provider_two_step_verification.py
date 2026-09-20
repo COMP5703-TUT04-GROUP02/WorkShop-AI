@@ -31,6 +31,9 @@ def upgrade() -> None:
     op.execute(
         "UPDATE provider_profiles SET qualification_verification_status = CASE WHEN verification_status = 'approved' THEN 'approved' ELSE 'pending' END"
     )
+    with op.batch_alter_table("provider_profiles") as batch_op:
+        for name in ("entity_type", "identity_verification_status", "qualification_verification_status"):
+            batch_op.alter_column(name, nullable=False, server_default="personal" if name == "entity_type" else "pending")
     history_columns = {
         column["name"] for column in inspector.get_columns("provider_verification_histories")
     }
@@ -42,6 +45,8 @@ def upgrade() -> None:
         op.execute(
             "UPDATE provider_verification_histories SET verification_step = 'qualification' WHERE verification_step IS NULL"
         )
+        with op.batch_alter_table("provider_verification_histories") as batch_op:
+            batch_op.alter_column("verification_step", nullable=False, server_default="qualification")
 
 
 def downgrade() -> None:

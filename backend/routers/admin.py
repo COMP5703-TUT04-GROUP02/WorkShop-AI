@@ -284,18 +284,21 @@ def update_provider_verification(
     if not profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
     step = verification_data.verification_step
+    if step not in {"identity", "qualification"}:
+        raise HTTPException(
+            status_code=422,
+            detail="verification_step must be explicitly set to identity or qualification",
+        )
     if step == "identity":
         old_status = profile.identity_verification_status
-        profile.identity_verification_status = verification_data.verification_status
-    elif step == "qualification":
+        new_status = verification_data.verification_status
+        profile.identity_verification_status = new_status
+    else:
         if profile.identity_verification_status != ProviderVerificationStatus.approved:
             raise HTTPException(status_code=400, detail="Identity approval is required before qualification review")
         old_status = profile.qualification_verification_status
-        profile.qualification_verification_status = verification_data.verification_status
-    else:
-        old_status = profile.verification_status
-        profile.identity_verification_status = verification_data.verification_status
-        profile.qualification_verification_status = verification_data.verification_status
+        new_status = verification_data.verification_status
+        profile.qualification_verification_status = new_status
     profile.verification_status = profile.qualification_verification_status
     profile.verification_note = verification_data.verification_note
     add_provider_verification_history(
@@ -305,24 +308,25 @@ def update_provider_verification(
         profile.verification_note,
         current_user,
         db,
-        verification_step=step or "qualification",
+        verification_step=step,
     )
-    if old_status != profile.verification_status:
-        if profile.verification_status == ProviderVerificationStatus.approved:
+    if old_status != new_status:
+        if new_status == ProviderVerificationStatus.approved:
             create_notification(
                 profile.user_id,
-                "Provider profile approved",
-                "Your provider profile was approved. You can now appear in listings and accept bookings.",
+                f"Provider {step} approved",
+                f"Your provider {step} review was approved."
+                + (" You can now appear in listings and accept bookings." if step == "qualification" else ""),
                 NotificationType.provider_profile_approved,
                 NotificationRelatedType.provider_profile,
                 profile.id,
                 db,
             )
-        elif profile.verification_status == ProviderVerificationStatus.rejected:
+        elif new_status == ProviderVerificationStatus.rejected:
             create_notification(
                 profile.user_id,
-                "Provider profile rejected",
-                f"Your provider profile was rejected. Reason: {verification_data.verification_note}",
+                f"Provider {step} rejected",
+                f"Your provider {step} review was rejected. Reason: {verification_data.verification_note}",
                 NotificationType.provider_profile_rejected,
                 NotificationRelatedType.provider_profile,
                 profile.id,
