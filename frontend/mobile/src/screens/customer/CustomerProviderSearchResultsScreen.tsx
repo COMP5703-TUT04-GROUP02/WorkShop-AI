@@ -15,8 +15,14 @@ import {
 } from "../../api/customer";
 import { PlaceholderPanel } from "../../components/PlaceholderPanel";
 import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
+import { ProviderSearchFilters } from "../../components/ProviderSearchFilters";
 import { useRealtime } from "../../context/RealtimeContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
+import {
+  buildProviderSearchParams,
+  createDefaultSearchFilters,
+  type ProviderSearchFilters as ProviderSearchFilterValues,
+} from "../../features/provider-search/search-filter-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { ProviderRecommendation } from "../../types/provider";
@@ -30,10 +36,16 @@ export function CustomerProviderSearchResultsScreen({
   navigation,
   route,
 }: CustomerProviderSearchResultsScreenProps) {
-  const { keyword, serviceProvince } = route.params;
+  const { category, keyword, serviceProvince } = route.params;
   const { subscribe } = useRealtime();
   const [results, setResults] = useState<ProviderRecommendation[]>([]);
   const [tokens, setTokens] = useState<string[]>([]);
+  const [draftFilters, setDraftFilters] = useState<ProviderSearchFilterValues>(
+    () => createDefaultSearchFilters(category),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<ProviderSearchFilterValues>(
+    () => createDefaultSearchFilters(category),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [gridWidth, setGridWidth] = useState(0);
@@ -47,7 +59,11 @@ export function CustomerProviderSearchResultsScreen({
       setMessage("");
 
       try {
-        const data = await searchCustomerProviders(keyword, serviceProvince);
+        const data = await searchCustomerProviders(
+          keyword,
+          serviceProvince,
+          buildProviderSearchParams(appliedFilters),
+        );
 
         if (!isMounted) {
           return;
@@ -58,6 +74,7 @@ export function CustomerProviderSearchResultsScreen({
       } catch {
         if (isMounted) {
           setResults([]);
+          setTokens([]);
           setMessage("Search failed. Try again.");
         }
       } finally {
@@ -72,7 +89,7 @@ export function CustomerProviderSearchResultsScreen({
     return () => {
       isMounted = false;
     };
-  }, [keyword, serviceProvince]);
+  }, [appliedFilters, keyword, serviceProvince]);
 
   useEffect(() => {
     const unsubscribe = subscribe((data) => {
@@ -107,6 +124,16 @@ export function CustomerProviderSearchResultsScreen({
     }
   }
 
+  function handleApplyFilters() {
+    setAppliedFilters({ ...draftFilters });
+  }
+
+  function handleClearFilters() {
+    const clearedFilters = createDefaultSearchFilters();
+    setDraftFilters(clearedFilters);
+    setAppliedFilters(clearedFilters);
+  }
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -126,6 +153,14 @@ export function CustomerProviderSearchResultsScreen({
           </Text>
         </View>
       </View>
+
+      <ProviderSearchFilters
+        isApplying={isLoading}
+        onApply={handleApplyFilters}
+        onChange={setDraftFilters}
+        onClear={handleClearFilters}
+        value={draftFilters}
+      />
 
       {tokens.length > 0 ? (
         <Text style={styles.tokenText}>Keywords: {tokens.join(" / ")}</Text>

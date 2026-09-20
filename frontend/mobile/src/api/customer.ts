@@ -19,6 +19,7 @@ import type { ChatRoom } from "../types/chat";
 import type { PaginatedData } from "../types/chat";
 import type { ProviderPortfolio } from "../types/provider";
 import type { Review } from "../types/review";
+import type { ProviderSearchQueryParams } from "../features/provider-search/search-filter-state";
 import type {
   AddFavoriteProviderResponse,
   CustomerHomeRecommendations,
@@ -388,6 +389,7 @@ export async function getPublicProviderReviews(
 export async function searchCustomerProviders(
   keyword: string,
   serviceProvince: string,
+  filters: ProviderSearchQueryParams = {},
 ) {
   const response = await apiClient.get<ApiResponse<CustomerProviderSearchResults>>(
     "/customer/providers/search",
@@ -395,6 +397,7 @@ export async function searchCustomerProviders(
       params: {
         keyword,
         service_province: serviceProvince,
+        ...filters,
       },
     },
   );

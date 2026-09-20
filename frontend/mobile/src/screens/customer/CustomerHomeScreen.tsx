@@ -139,6 +139,7 @@ export function CustomerHomeScreen() {
     navigation.navigate("CustomerProviderSearchResults", {
       keyword: searchText,
       serviceProvince: selectedProvince,
+      category: selectedTag || undefined,
     });
   }
 
