@@ -140,7 +140,7 @@ def get_all_providers(
     db: Session = Depends(get_db),
 ):
     query = db.query(models.ProviderProfile).filter(
-        models.ProviderProfile.verification_status
+        models.ProviderProfile.qualification_verification_status
         == ProviderVerificationStatus.approved
     )
     query = filter_provider_query_by_location(
@@ -199,7 +199,7 @@ def get_provider_by_id(provider_id: int, db: Session = Depends(get_db)):
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -220,7 +220,7 @@ def get_provider_reviews(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -256,7 +256,7 @@ def get_provider_public_portfolio(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -293,7 +293,7 @@ def get_provider_public_portfolio_item(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -326,7 +326,7 @@ def get_provider_rating_summary(provider_id: int, db: Session = Depends(get_db))
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()

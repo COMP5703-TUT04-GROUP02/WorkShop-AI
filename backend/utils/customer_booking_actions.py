@@ -79,7 +79,7 @@ async def create_customer_booking_action(
     )
     if not provider_profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
-    if provider_profile.verification_status != "approved":
+    if getattr(provider_profile, "qualification_verification_status", provider_profile.verification_status) != "approved":
         raise HTTPException(
             status_code=400, detail="Provider is not approved for bookings"
         )

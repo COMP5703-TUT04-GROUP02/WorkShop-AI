@@ -33,6 +33,7 @@ class ProviderCertificateFileInput(BaseModel):
 
 
 class ProviderProfileCreate(BaseModel):
+    entity_type: str = "personal"
     business_name: str
     bio: str
     phone_number: str = ""
@@ -49,6 +50,13 @@ class ProviderProfileCreate(BaseModel):
     hourly_rate: int = Field(gt=0)
     experience_years: int = Field(ge=0)
     notes: str | None = None
+
+    @field_validator("entity_type")
+    @classmethod
+    def validate_entity_type(cls, value):
+        if value not in {"personal", "organisation"}:
+            raise ValueError("entity_type must be personal or organisation")
+        return value
 
     @field_validator(
         "business_name",
@@ -146,6 +154,9 @@ class ProviderProfileResponse(BaseModel):
     hourly_rate: int
     experience_years: int
     verification_status: ProviderVerificationStatus
+    entity_type: str = "personal"
+    identity_verification_status: ProviderVerificationStatus = ProviderVerificationStatus.pending
+    qualification_verification_status: ProviderVerificationStatus = ProviderVerificationStatus.pending
     verification_note: str | None = None
     notes: str | None = None
     is_online: bool = False
@@ -161,6 +172,14 @@ class ProviderProfileWithRatingResponse(ProviderProfileResponse):
 class ProviderVerificationUpdate(BaseModel):
     verification_status: ProviderVerificationStatus
     verification_note: str
+    verification_step: str | None = None
+
+    @field_validator("verification_step")
+    @classmethod
+    def validate_verification_step(cls, value):
+        if value is not None and value not in {"identity", "qualification"}:
+            raise ValueError("verification_step must be identity or qualification")
+        return value
 
 
 class ProviderPortfolioVerificationUpdate(BaseModel):

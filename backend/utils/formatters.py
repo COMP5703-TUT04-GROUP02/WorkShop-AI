@@ -114,6 +114,13 @@ def format_provider_profile_response(profile, db=None):
         "hourly_rate": profile.hourly_rate,
         "experience_years": profile.experience_years,
         "verification_status": profile.verification_status,
+        "entity_type": getattr(profile, "entity_type", "personal"),
+        "identity_verification_status": getattr(
+            profile, "identity_verification_status", profile.verification_status
+        ),
+        "qualification_verification_status": getattr(
+            profile, "qualification_verification_status", profile.verification_status
+        ),
         "verification_note": profile.verification_note,
         "notes": profile.notes,
         "is_online": is_user_online(profile.user_id),

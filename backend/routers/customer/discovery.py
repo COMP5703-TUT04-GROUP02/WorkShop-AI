@@ -196,7 +196,7 @@ def get_customer_provider_detail(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -243,7 +243,7 @@ def add_favorite_provider(
     )
     if not provider_profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
-    if provider_profile.verification_status != "approved":
+    if provider_profile.qualification_verification_status != "approved":
         raise HTTPException(
             status_code=400, detail="Only approved providers can be favorited"
         )
@@ -319,6 +319,15 @@ def open_chat_with_provider(
     current_user: models.User = Depends(require_customer),
     db: Session = Depends(get_db),
 ):
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.id == provider_profile_id)
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+    if provider_profile.qualification_verification_status != "approved":
+        raise HTTPException(status_code=403, detail="Provider qualification approval is required")
     return success_response(
         create_chat_room_tool(provider_profile_id, current_user, db)
     )

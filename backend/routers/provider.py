@@ -42,6 +42,7 @@ from backend.utils.provider_booking_actions import (
 from backend.utils.provider import (
     add_provider_verification_history,
     get_provider_profile_for_user,
+    require_provider_qualification_approved,
 )
 from backend.utils.service_locations import apply_profile_location
 from backend.utils.refund import (
@@ -133,6 +134,7 @@ def create_provider_profile(
         raise HTTPException(status_code=400, detail="Provider profile already exists")
     new_profile = models.ProviderProfile(
         user_id=current_user.id,
+        entity_type=profile.entity_type,
         business_name=profile.business_name,
         bio=profile.bio,
         phone_number=profile.phone_number,
@@ -148,6 +150,8 @@ def create_provider_profile(
         hourly_rate=profile.hourly_rate,
         experience_years=profile.experience_years,
         verification_status=ProviderVerificationStatus.pending,
+        identity_verification_status=ProviderVerificationStatus.pending,
+        qualification_verification_status=ProviderVerificationStatus.pending,
         verification_note=None,
         notes=profile.notes,
     )
@@ -214,6 +218,8 @@ def update_provider_profile(
     db: Session = Depends(get_db),
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
+    if getattr(profile, "identity_verification_status", profile.verification_status) != "approved":
+        raise HTTPException(status_code=403, detail="Identity approval is required before applying for qualification")
     old_status = profile.verification_status
     next_tags = tags_to_string(profile_data.tags)
     apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
@@ -238,6 +244,8 @@ def update_provider_profile(
         location_id=profile_data.service_location_id,
     )
     profile.verification_status = ProviderVerificationStatus.pending
+    profile.qualification_verification_status = ProviderVerificationStatus.pending
+    profile.entity_type = profile_data.entity_type
     profile.verification_note = None
     add_provider_verification_history(
         profile,
@@ -346,6 +354,7 @@ def update_provider_availability(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availabilities = replace_provider_availabilities(
         provider_profile.id,
         availability_data.availabilities,
@@ -407,6 +416,7 @@ def update_provider_availability_override(
     validate_availability_override_date(override_date)
 
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availability_override = upsert_provider_availability_override(
         provider_profile.id,
         override_date,
@@ -426,6 +436,7 @@ def remove_provider_availability_override(
     validate_availability_override_date(override_date)
 
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     delete_provider_availability_override(provider_profile.id, override_date, db)
 
     return success_response({"message": "Availability override removed successfully"})
@@ -479,6 +490,7 @@ async def create_provider_portfolio(
 
     clean_description = description.strip() if description else None
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     uploaded_media = []
 
     for file in media_files:
@@ -596,6 +608,7 @@ def delete_provider_portfolio(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     portfolio = (
         db.query(models.ProviderPortfolio)
         .filter(
@@ -795,6 +808,7 @@ async def quote_booking(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await quote_provider_booking_action(
             booking_id,

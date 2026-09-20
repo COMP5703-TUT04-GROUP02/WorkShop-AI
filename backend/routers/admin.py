@@ -283,8 +283,20 @@ def update_provider_verification(
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
-    old_status = profile.verification_status
-    profile.verification_status = verification_data.verification_status
+    step = verification_data.verification_step
+    if step == "identity":
+        old_status = profile.identity_verification_status
+        profile.identity_verification_status = verification_data.verification_status
+    elif step == "qualification":
+        if profile.identity_verification_status != ProviderVerificationStatus.approved:
+            raise HTTPException(status_code=400, detail="Identity approval is required before qualification review")
+        old_status = profile.qualification_verification_status
+        profile.qualification_verification_status = verification_data.verification_status
+    else:
+        old_status = profile.verification_status
+        profile.identity_verification_status = verification_data.verification_status
+        profile.qualification_verification_status = verification_data.verification_status
+    profile.verification_status = profile.qualification_verification_status
     profile.verification_note = verification_data.verification_note
     add_provider_verification_history(
         profile,
@@ -293,6 +305,7 @@ def update_provider_verification(
         profile.verification_note,
         current_user,
         db,
+        verification_step=step or "qualification",
     )
     if old_status != profile.verification_status:
         if profile.verification_status == ProviderVerificationStatus.approved:
@@ -358,6 +371,7 @@ def get_provider_verification_history(
                 "changed_by_user_id": history.changed_by_user_id,
                 "old_status": history.old_status,
                 "new_status": history.new_status,
+                "verification_step": getattr(history, "verification_step", "qualification"),
                 "note": history.note,
                 "changed_at": history.changed_at,
             }

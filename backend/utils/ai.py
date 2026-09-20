@@ -246,7 +246,7 @@ def find_provider_candidates(
     service_location_id: int | None = None,
 ):
     query = db.query(models.ProviderProfile).filter(
-        models.ProviderProfile.verification_status
+        models.ProviderProfile.qualification_verification_status
         == ProviderVerificationStatus.approved
     )
 
