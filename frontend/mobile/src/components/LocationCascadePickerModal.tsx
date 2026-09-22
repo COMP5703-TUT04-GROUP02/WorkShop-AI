@@ -1,5 +1,5 @@
-import { Check, MapPin, X } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { Check, MapPin, Search, X } from "lucide-react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -18,7 +19,9 @@ import {
   chooseCity,
   chooseDistrict,
   chooseProvince,
+  createLatestRequestGate,
   EMPTY_LOCATION_CASCADE,
+  filterServiceLocations,
   getCompletedLocation,
   type LocationCascadeState,
 } from "../features/locations/location-cascade-state";
@@ -49,6 +52,11 @@ export function LocationCascadePickerModal({
   const [districts, setDistricts] = useState<ServiceLocation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [provinceKeyword, setProvinceKeyword] = useState("");
+  const [cityKeyword, setCityKeyword] = useState("");
+  const [districtKeyword, setDistrictKeyword] = useState("");
+  const cityRequests = useRef(createLatestRequestGate()).current;
+  const districtRequests = useRef(createLatestRequestGate()).current;
   const completedLocation = useMemo(
     () => getCompletedLocation(cascade),
     [cascade],
@@ -62,8 +70,13 @@ export function LocationCascadePickerModal({
     let isActive = true;
 
     async function initialise() {
+      cityRequests.invalidate();
+      districtRequests.invalidate();
       setIsLoading(true);
       setMessage("");
+      setProvinceKeyword("");
+      setCityKeyword("");
+      setDistrictKeyword("");
 
       try {
         const nextProvinces = await getServiceLocations();
@@ -105,31 +118,49 @@ export function LocationCascadePickerModal({
 
     return () => {
       isActive = false;
+      cityRequests.invalidate();
+      districtRequests.invalidate();
     };
-  }, [value?.serviceLocationId, visible]);
+  }, [cityRequests, districtRequests, value?.serviceLocationId, visible]);
 
   async function handleProvince(province: ServiceLocation) {
+    const requestId = cityRequests.begin();
+    districtRequests.invalidate();
     setCascade((current) => chooseProvince(current, province));
     setCities([]);
     setDistricts([]);
+    setCityKeyword("");
+    setDistrictKeyword("");
     setMessage("");
 
     try {
-      setCities(await getServiceLocations(province.id));
+      const nextCities = await getServiceLocations(province.id);
+      if (cityRequests.isLatest(requestId)) {
+        setCities(nextCities);
+      }
     } catch {
-      setMessage("Couldn't load cities. Try again.");
+      if (cityRequests.isLatest(requestId)) {
+        setMessage("Couldn't load cities. Try again.");
+      }
     }
   }
 
   async function handleCity(city: ServiceLocation) {
+    const requestId = districtRequests.begin();
     setCascade((current) => chooseCity(current, city));
     setDistricts([]);
+    setDistrictKeyword("");
     setMessage("");
 
     try {
-      setDistricts(await getServiceLocations(city.id));
+      const nextDistricts = await getServiceLocations(city.id);
+      if (districtRequests.isLatest(requestId)) {
+        setDistricts(nextDistricts);
+      }
     } catch {
-      setMessage("Couldn't load districts. Try again.");
+      if (districtRequests.isLatest(requestId)) {
+        setMessage("Couldn't load districts. Try again.");
+      }
     }
   }
 
@@ -170,6 +201,8 @@ export function LocationCascadePickerModal({
               <LocationLevel
                 label="Province"
                 locations={provinces}
+                keyword={provinceKeyword}
+                onKeywordChange={setProvinceKeyword}
                 onSelect={(location) => void handleProvince(location)}
                 selectedId={cascade.province?.id ?? null}
               />
@@ -177,6 +210,8 @@ export function LocationCascadePickerModal({
                 emptyText="Select a province first"
                 label="City"
                 locations={cities}
+                keyword={cityKeyword}
+                onKeywordChange={setCityKeyword}
                 onSelect={(location) => void handleCity(location)}
                 selectedId={cascade.city?.id ?? null}
               />
@@ -184,6 +219,8 @@ export function LocationCascadePickerModal({
                 emptyText="Select a city first"
                 label="District"
                 locations={districts}
+                keyword={districtKeyword}
+                onKeywordChange={setDistrictKeyword}
                 onSelect={handleDistrict}
                 selectedId={cascade.district?.id ?? null}
               />
@@ -193,6 +230,7 @@ export function LocationCascadePickerModal({
           {message ? <Text style={styles.errorText}>{message}</Text> : null}
 
           <Pressable
+            accessibilityState={{ disabled: !completedLocation }}
             accessibilityRole="button"
             disabled={!completedLocation}
             onPress={() => completedLocation && onSelect(completedLocation)}
@@ -214,44 +252,76 @@ export function LocationCascadePickerModal({
 function LocationLevel({
   label,
   locations,
+  keyword,
+  onKeywordChange,
   selectedId,
   onSelect,
   emptyText = "No options available",
 }: {
   label: string;
   locations: ServiceLocation[];
+  keyword: string;
+  onKeywordChange: (keyword: string) => void;
   selectedId: number | null;
   onSelect: (location: ServiceLocation) => void;
   emptyText?: string;
 }) {
+  const filteredLocations = filterServiceLocations(locations, keyword);
+
   return (
     <View style={styles.level}>
       <Text style={styles.levelLabel}>{label}</Text>
       {locations.length > 0 ? (
-        <View style={styles.optionGrid}>
-          {locations.map((location) => {
-            const isSelected = location.id === selectedId;
+        <>
+          <View style={styles.searchBox}>
+            <Search color={colors.mutedText} size={17} />
+            <TextInput
+              accessibilityLabel={`Search ${label.toLowerCase()}`}
+              autoCapitalize="none"
+              onChangeText={onKeywordChange}
+              placeholder={`Search ${label.toLowerCase()}`}
+              placeholderTextColor={colors.mutedText}
+              style={styles.searchInput}
+              value={keyword}
+            />
+          </View>
+          {filteredLocations.length > 0 ? (
+            <View style={styles.optionGrid}>
+              {filteredLocations.map((location) => {
+                const isSelected = location.id === selectedId;
 
-            return (
-              <Pressable
-                accessibilityRole="button"
-                key={location.id}
-                onPress={() => onSelect(location)}
-                style={[styles.option, isSelected ? styles.optionSelected : null]}
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    isSelected ? styles.optionTextSelected : null,
-                  ]}
-                >
-                  {location.name}
-                </Text>
-                {isSelected ? <Check color={colors.primary} size={16} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
+                return (
+                  <Pressable
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityRole="button"
+                    key={location.id}
+                    onPress={() => onSelect(location)}
+                    style={[
+                      styles.option,
+                      isSelected ? styles.optionSelected : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        isSelected ? styles.optionTextSelected : null,
+                      ]}
+                    >
+                      {location.name}
+                    </Text>
+                    {isSelected ? (
+                      <Check color={colors.primary} size={16} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>
+              No matching {label.toLowerCase()}
+            </Text>
+          )}
+        </>
       ) : (
         <Text style={styles.emptyText}>{emptyText}</Text>
       )}
@@ -322,6 +392,23 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: "700",
+  },
+  searchBox: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    paddingVertical: spacing.sm,
   },
   optionGrid: {
     flexDirection: "row",

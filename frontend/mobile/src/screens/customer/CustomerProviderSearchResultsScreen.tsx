@@ -97,8 +97,10 @@ export function CustomerProviderSearchResultsScreen({
         const data = await searchCustomerProviders(
           keyword,
           serviceProvince,
-          serviceLocationId,
-          buildProviderSearchParams(appliedFilters),
+          {
+            service_location_id: serviceLocationId,
+            ...buildProviderSearchParams(appliedFilters),
+          },
         );
 
         if (!isMounted) {

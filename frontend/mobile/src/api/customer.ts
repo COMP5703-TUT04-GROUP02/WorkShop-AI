@@ -395,8 +395,7 @@ export async function getPublicProviderReviews(
 export async function searchCustomerProviders(
   keyword: string,
   serviceProvince: string,
-  serviceLocationId?: number,
-  filters: ProviderSearchQueryParams = {},
+  params: ProviderSearchQueryParams & { service_location_id?: number } = {},
 ) {
   const response = await apiClient.get<ApiResponse<CustomerProviderSearchResults>>(
     "/customer/providers/search",
@@ -404,8 +403,7 @@ export async function searchCustomerProviders(
       params: {
         keyword,
         service_province: serviceProvince,
-        service_location_id: serviceLocationId,
-        ...filters,
+        ...params,
       },
     },
   );

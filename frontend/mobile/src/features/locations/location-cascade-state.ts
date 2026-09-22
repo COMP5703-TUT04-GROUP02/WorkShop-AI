@@ -15,6 +15,47 @@ export const EMPTY_LOCATION_CASCADE: LocationCascadeState = {
   district: null,
 };
 
+export function filterServiceLocations(
+  locations: ServiceLocation[],
+  keyword: string,
+) {
+  const query = normalizeLocationSearchText(keyword.trim());
+  if (!query) {
+    return locations;
+  }
+
+  return locations.filter((location) =>
+    normalizeLocationSearchText(`${location.name} ${location.code}`).includes(
+      query,
+    ),
+  );
+}
+
+function normalizeLocationSearchText(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ıİ]/g, "i")
+    .toLowerCase();
+}
+
+export function createLatestRequestGate() {
+  let latestRequestId = 0;
+
+  return {
+    begin() {
+      latestRequestId += 1;
+      return latestRequestId;
+    },
+    invalidate() {
+      latestRequestId += 1;
+    },
+    isLatest(requestId: number) {
+      return requestId === latestRequestId;
+    },
+  };
+}
+
 export function chooseProvince(
   _current: LocationCascadeState,
   province: ServiceLocation,
