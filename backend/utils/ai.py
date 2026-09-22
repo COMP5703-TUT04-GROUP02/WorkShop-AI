@@ -111,14 +111,10 @@ def normalize_ai_recommendation_tags(tags: list[str] | None, query: str = ""):
     query_text = query.lower()
 
     for raw_tag in tags or []:
-        clean_tag = raw_tag.strip()
+        clean_tag = raw_tag.strip().lower()
 
         for standard_tag, aliases in AI_RECOMMENDATION_TAG_ALIASES.items():
-            if (
-                clean_tag == standard_tag
-                or clean_tag in aliases
-                or clean_tag.lower() in query_text
-            ):
+            if clean_tag == standard_tag or clean_tag in aliases:
                 if standard_tag not in normalized_tags:
                     normalized_tags.append(standard_tag)
                 break
