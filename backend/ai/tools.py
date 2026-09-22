@@ -47,6 +47,7 @@ from backend.utils.availability import ensure_provider_available_for_datetime_ra
 from backend.utils.location import has_location
 from backend.utils.notification import create_notification
 from backend.utils.provider import get_provider_profile_for_user
+from backend.utils.service_locations import resolve_location_context
 
 PLATFORM_CAPABILITIES = [
     "Recommend providers by service need, e.g. cleaning, childcare, elderly care, electrician, plumbing, painter, locksmith, technician, moving.",
@@ -184,6 +185,7 @@ def search_providers_tool(
     scheduled_start_time=None,
     scheduled_end_time=None,
     limit: int | None = 5,
+    service_location_id: int | None = None,
 ):
     normalized_service_tags = normalize_ai_recommendation_tags(
         service_tags,
@@ -195,6 +197,7 @@ def search_providers_tool(
             "resolved_need": {
                 "service_tags": [],
                 "service_province": service_province,
+                "service_location_id": service_location_id,
                 "max_price": max_price,
                 "budget_preference": budget_preference,
                 "latitude": latitude,
@@ -211,6 +214,7 @@ def search_providers_tool(
             },
             "query": query,
             "service_province": service_province,
+            "service_location_id": service_location_id,
             "max_price": max_price,
             "latitude": latitude,
             "longitude": longitude,
@@ -234,8 +238,16 @@ def search_providers_tool(
         get_customer_profile_for_ai_tool(current_user, db) if current_user else None
     )
 
-    resolved_service_province = service_province or (
-        customer_profile.service_province if customer_profile else None
+    resolved_service_province, resolved_service_location_id = resolve_location_context(
+        db,
+        requested_province=service_province,
+        requested_location_id=service_location_id,
+        profile_province=(
+            customer_profile.service_province if customer_profile else None
+        ),
+        profile_location_id=(
+            customer_profile.service_location_id if customer_profile else None
+        ),
     )
     resolved_latitude = (
         latitude
@@ -270,6 +282,7 @@ def search_providers_tool(
         scheduled_start_time=scheduled_start_time,
         scheduled_end_time=scheduled_end_time,
         limit=limit,
+        service_location_id=resolved_service_location_id,
     )
 
     return {
@@ -277,6 +290,7 @@ def search_providers_tool(
             "service_tags": normalized_service_tags,
             "normalized_service_tags": normalized_service_tags,
             "service_province": resolved_service_province,
+            "service_location_id": resolved_service_location_id,
             "max_price": max_price,
             "budget_preference": budget_preference,
             "latitude": resolved_latitude,
@@ -539,6 +553,7 @@ def prepare_create_booking_action_tool(
     booking_data = BookingCreate(
         provider_profile_id=provider_profile_id,
         chat_room_id=chat_room_id,
+        title=" ".join(service_description.split()[:30]),
         service_description=service_description,
         service_address=service_address,
         service_latitude=service_latitude,
@@ -587,6 +602,7 @@ def prepare_create_booking_action_tool(
     payload = {
         "provider_profile_id": booking_data.provider_profile_id,
         "chat_room_id": booking_data.chat_room_id,
+        "title": booking_data.title,
         "service_description": booking_data.service_description,
         "service_address": booking_data.service_address,
         "service_latitude": booking_data.service_latitude,

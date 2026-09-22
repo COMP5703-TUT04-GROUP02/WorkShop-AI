@@ -1,4 +1,5 @@
 from backend.constants import ALLOWED_PROVIDER_TAGS
+from backend.core.clock import to_workshop_datetime
 from backend.services.redis_service import is_user_online
 
 
@@ -6,6 +7,9 @@ def format_user_response(user):
     return {
         "id": user.id,
         "name": user.name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "tos_accepted_at": user.tos_accepted_at,
         "email": user.email,
         "role": user.role,
         "avatar_url": user.avatar_url,
@@ -99,6 +103,7 @@ def format_provider_profile_response(profile, db=None):
         "phone_number": profile.phone_number,
         "address": profile.address,
         "service_province": profile.service_province,
+        "service_location_id": profile.service_location_id,
         "latitude": profile.latitude,
         "longitude": profile.longitude,
         "service_radius_km": profile.service_radius_km,
@@ -109,6 +114,13 @@ def format_provider_profile_response(profile, db=None):
         "hourly_rate": profile.hourly_rate,
         "experience_years": profile.experience_years,
         "verification_status": profile.verification_status,
+        "entity_type": getattr(profile, "entity_type", "personal"),
+        "identity_verification_status": getattr(
+            profile, "identity_verification_status", profile.verification_status
+        ),
+        "qualification_verification_status": getattr(
+            profile, "qualification_verification_status", profile.verification_status
+        ),
         "verification_note": profile.verification_note,
         "notes": profile.notes,
         "is_online": is_user_online(profile.user_id),
@@ -122,6 +134,7 @@ def format_customer_profile_response(profile):
         "phone_number": profile.phone_number,
         "address": profile.address,
         "service_province": profile.service_province,
+        "service_location_id": profile.service_location_id,
         "latitude": profile.latitude,
         "longitude": profile.longitude,
         "current_address": profile.current_address,
@@ -216,6 +229,7 @@ def format_booking_response(booking):
         "customer_id": booking.customer_id,
         "provider_profile_id": booking.provider_profile_id,
         "chat_room_id": booking.chat_room_id,
+        "title": booking.title,
         "service_description": booking.service_description,
         "service_address": booking.service_address,
         "service_latitude": booking.service_latitude,
@@ -224,8 +238,8 @@ def format_booking_response(booking):
         "customer_current_latitude": booking.customer_current_latitude,
         "customer_current_longitude": booking.customer_current_longitude,
         "booking_at": booking.booking_at,
-        "scheduled_start_time": booking.scheduled_start_time,
-        "scheduled_end_time": booking.scheduled_end_time,
+        "scheduled_start_time": to_workshop_datetime(booking.scheduled_start_time),
+        "scheduled_end_time": to_workshop_datetime(booking.scheduled_end_time),
         "completed_at": booking.completed_at,
         "total_amount": booking.total_amount,
         "quote_amount": booking.quote_amount,

@@ -18,6 +18,7 @@ from backend.schemas.common import *  # noqa: F403
 class AIProviderRecommendRequest(BaseModel):
     query: str
     service_province: str | None = None
+    service_location_id: int | None = Field(default=None, gt=0)
     max_price: float | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
@@ -54,6 +55,7 @@ class AIProviderRecommendRequest(BaseModel):
 class AIChatRequest(BaseModel):
     message: str
     service_province: str | None = None
+    service_location_id: int | None = Field(default=None, gt=0)
     service_address: str | None = None
     max_price: float | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
@@ -197,6 +199,7 @@ class AIChatResponseData(BaseModel):
     intent: AIIntentResponse | dict[str, Any]
     answer: str
     service_province: str | None = None
+    service_location_id: int | None = None
     service_address: str | None = None
     max_price: float | None = None
     latitude: float | None = None

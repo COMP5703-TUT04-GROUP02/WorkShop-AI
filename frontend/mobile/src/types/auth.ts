@@ -2,7 +2,11 @@ export type UserRole = "customer" | "provider" | "admin";
 
 export type User = {
   id: number;
+  /** The joined display name chat and bookings read. */
   name: string;
+  /** WS-91. Absent until that backend merges. */
+  first_name?: string | null;
+  last_name?: string | null;
   email: string;
   role: UserRole;
   avatar_url: string | null;
@@ -28,12 +32,23 @@ export type TokenResponse = {
 };
 
 export type RegisterRequest = {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   password: string;
+  confirm_password: string;
+  tos_accepted: boolean;
   role: Exclude<UserRole, "admin">;
+  /**
+   * WS-92. The joined display name, which chat and bookings still read.
+   * WS-91 builds it on the server and ignores this field; until that lands,
+   * today's /register still requires it. Both backends accept the payload.
+   */
+  name: string;
 };
 
 export type UserProfilePatchPayload = {
   name?: string;
+  first_name?: string;
+  last_name?: string;
 };

@@ -44,31 +44,11 @@ export type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const GuardedCustomerProviderDetailScreen = withRequiredProviderProfile(
-  CustomerProviderDetailScreen,
-);
-const GuardedCustomerProviderSearchResultsScreen = withRequiredProviderProfile(
-  CustomerProviderSearchResultsScreen,
-);
-const GuardedCustomerProviderPortfolioDetailScreen =
-  withRequiredProviderProfile(CustomerProviderPortfolioDetailScreen);
+// WS-105: the qualification gate covers a provider's working surfaces only —
+// chats and portfolios here, schedule and bookings in RoleTabs. Account,
+// security, help, payments, notifications and booking history stay open while
+// a provider waits for review.
 const GuardedChatRoomScreen = withRequiredProviderProfile(ChatRoomScreen);
-const GuardedAccountEditScreen = withRequiredProviderProfile(AccountEditScreen);
-const GuardedAccountSecurityScreen = withRequiredProviderProfile(
-  AccountSecurityScreen,
-);
-const GuardedHelpScreen = withRequiredProviderProfile(HelpScreen);
-const GuardedBookingHistoryScreen =
-  withRequiredProviderProfile(BookingHistoryScreen);
-const GuardedNotificationsScreen =
-  withRequiredProviderProfile(NotificationsScreen);
-const GuardedNotificationSettingsScreen = withRequiredProviderProfile(
-  NotificationSettingsScreen,
-);
-const GuardedPaymentsScreen = withRequiredProviderProfile(PaymentsScreen);
-const GuardedCustomerFavouritesScreen = withRequiredProviderProfile(
-  CustomerFavouritesScreen,
-);
 const GuardedProviderPortfolioListScreen = withRequiredProviderProfile(
   ProviderPortfolioListScreen,
 );
@@ -147,17 +127,17 @@ function AuthenticatedStack() {
       />
       <Stack.Screen
         name="CustomerProviderDetail"
-        component={GuardedCustomerProviderDetailScreen}
+        component={CustomerProviderDetailScreen}
         options={{ title: "Provider" }}
       />
       <Stack.Screen
         name="CustomerProviderSearchResults"
-        component={GuardedCustomerProviderSearchResultsScreen}
+        component={CustomerProviderSearchResultsScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CustomerProviderPortfolioDetail"
-        component={GuardedCustomerProviderPortfolioDetailScreen}
+        component={CustomerProviderPortfolioDetailScreen}
         options={{ title: "Portfolio" }}
       />
       <Stack.Screen
@@ -169,17 +149,17 @@ function AuthenticatedStack() {
       />
       <Stack.Screen
         name="AccountEdit"
-        component={GuardedAccountEditScreen}
+        component={AccountEditScreen}
         options={{ title: "Edit profile" }}
       />
       <Stack.Screen
         name="AccountSecurity"
-        component={GuardedAccountSecurityScreen}
-        options={{ title: "Sign-in" }}
+        component={AccountSecurityScreen}
+        options={{ title: "Account and Security" }}
       />
       <Stack.Screen
         name="Help"
-        component={GuardedHelpScreen}
+        component={HelpScreen}
         options={{ title: "Help and Support" }}
       />
       {/* Not gated: a provider with an incomplete profile must still be able
@@ -191,27 +171,27 @@ function AuthenticatedStack() {
       />
       <Stack.Screen
         name="BookingHistory"
-        component={GuardedBookingHistoryScreen}
+        component={BookingHistoryScreen}
         options={{ title: "Booking history" }}
       />
       <Stack.Screen
         name="Notifications"
-        component={GuardedNotificationsScreen}
+        component={NotificationsScreen}
         options={{ title: "Notifications" }}
       />
       <Stack.Screen
         name="NotificationSettings"
-        component={GuardedNotificationSettingsScreen}
+        component={NotificationSettingsScreen}
         options={{ title: "Notification settings" }}
       />
       <Stack.Screen
         name="Payments"
-        component={GuardedPaymentsScreen}
+        component={PaymentsScreen}
         options={{ title: "Payments" }}
       />
       <Stack.Screen
         name="CustomerFavourites"
-        component={GuardedCustomerFavouritesScreen}
+        component={CustomerFavouritesScreen}
         options={{ title: "Favourites" }}
       />
       <Stack.Screen

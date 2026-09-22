@@ -43,8 +43,12 @@ from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
 )
-from backend.utils.upload import delete_local_upload, save_booking_attachment_upload
-from backend.core.clock import utc_now
+from backend.utils.upload import (
+    delete_local_upload,
+    save_booking_attachment_upload,
+    validate_booking_attachments,
+)
+from backend.core.clock import to_workshop_datetime, utc_now
 
 
 async def create_customer_booking_action(
@@ -64,6 +68,10 @@ async def create_customer_booking_action(
             status_code=403, detail="Only customers can create bookings"
         )
 
+    validate_booking_attachments(attachments)
+    scheduled_start_time = to_workshop_datetime(booking_data.scheduled_start_time)
+    scheduled_end_time = to_workshop_datetime(booking_data.scheduled_end_time)
+
     provider_profile = (
         db.query(models.ProviderProfile)
         .filter(models.ProviderProfile.id == booking_data.provider_profile_id)
@@ -71,15 +79,15 @@ async def create_customer_booking_action(
     )
     if not provider_profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
-    if provider_profile.verification_status != "approved":
+    if getattr(provider_profile, "qualification_verification_status", provider_profile.verification_status) != "approved":
         raise HTTPException(
             status_code=400, detail="Provider is not approved for bookings"
         )
 
     ensure_provider_available_for_datetime_range(
         provider_profile.id,
-        booking_data.scheduled_start_time,
-        booking_data.scheduled_end_time,
+        scheduled_start_time,
+        scheduled_end_time,
         db,
     )
 
@@ -114,6 +122,7 @@ async def create_customer_booking_action(
             customer_id=current_user.id,
             provider_profile_id=booking_data.provider_profile_id,
             chat_room_id=chat_room.id,
+            title=booking_data.title,
             service_description=booking_data.service_description,
             service_address=booking_data.service_address,
             service_latitude=booking_data.service_latitude,
@@ -122,8 +131,8 @@ async def create_customer_booking_action(
             customer_current_latitude=booking_data.customer_current_latitude,
             customer_current_longitude=booking_data.customer_current_longitude,
             booking_at=utc_now(),
-            scheduled_start_time=booking_data.scheduled_start_time,
-            scheduled_end_time=booking_data.scheduled_end_time,
+            scheduled_start_time=scheduled_start_time,
+            scheduled_end_time=scheduled_end_time,
             completed_at=None,
             total_amount=Decimal("0.00"),
             quote_amount=None,

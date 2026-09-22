@@ -19,7 +19,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
-import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
@@ -36,24 +35,12 @@ type MenuItemProps = {
 export function AccountScreen() {
   const { user, signOut, uploadAvatar } = useAuth();
   const isCustomer = user?.role === "customer";
-  const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
-    useProviderProfileGate();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isWebDesktop = useIsWebDesktop();
   const [message, setMessage] = useState("");
   const avatarUri = resolveMediaUrl(user?.avatar_url ?? null);
-  const lockAccountActions =
-    user?.role === "provider" && isProviderProfileRequired;
 
-  function guardAccountAction(action: () => void) {
-    if (lockAccountActions) {
-      showProviderProfileRequiredMessage();
-      return;
-    }
-
-    action();
-  }
 
   async function handlePickAvatar() {
     setMessage("");
@@ -101,7 +88,7 @@ export function AccountScreen() {
             accessibilityLabel="Upload avatar"
             accessibilityRole="button"
             onPress={() => {
-              guardAccountAction(() => void handlePickAvatar());
+              void handlePickAvatar();
             }}
             style={styles.avatarButton}
           >
@@ -139,7 +126,7 @@ export function AccountScreen() {
               icon={<Pencil color={colors.text} size={24} />}
               label="Edit profile"
               onPress={() =>
-                guardAccountAction(() => navigation.navigate("AccountEdit"))
+                navigation.navigate("AccountEdit")
               }
             />
           </View>
@@ -147,16 +134,16 @@ export function AccountScreen() {
           <View style={styles.menuCard}>
             <MenuItem
               icon={<Shield color={colors.text} size={24} />}
-              label="Account & security"
+              label="Account and Security"
               onPress={() =>
-                guardAccountAction(() => navigation.navigate("AccountSecurity"))
+                navigation.navigate("AccountSecurity")
               }
             />
             <MenuItem
               icon={<History color={colors.text} size={24} />}
               label="Booking history"
               onPress={() =>
-                guardAccountAction(() => navigation.navigate("BookingHistory"))
+                navigation.navigate("BookingHistory")
               }
             />
             {isCustomer ? (
@@ -164,9 +151,7 @@ export function AccountScreen() {
                 icon={<Heart color={colors.text} size={24} />}
                 label="Favourites"
                 onPress={() =>
-                  guardAccountAction(() =>
-                    navigation.navigate("CustomerFavourites"),
-                  )
+                  navigation.navigate("CustomerFavourites")
                 }
               />
             ) : null}
@@ -174,23 +159,21 @@ export function AccountScreen() {
               icon={<CreditCard color={colors.text} size={24} />}
               label="Payments"
               onPress={() =>
-                guardAccountAction(() => navigation.navigate("Payments"))
+                navigation.navigate("Payments")
               }
             />
             <MenuItem
               icon={<BellRing color={colors.text} size={24} />}
               label="Notification settings"
               onPress={() =>
-                guardAccountAction(() =>
-                  navigation.navigate("NotificationSettings"),
-                )
+                navigation.navigate("NotificationSettings")
               }
             />
             <MenuItem
               icon={<CircleHelp color={colors.text} size={24} />}
               label="Help and Support"
               onPress={() =>
-                guardAccountAction(() => navigation.navigate("Help"))
+                navigation.navigate("Help")
               }
             />
           </View>

@@ -6,6 +6,7 @@ export type ProviderProfile = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
   service_radius_km: number;
@@ -17,6 +18,10 @@ export type ProviderProfile = {
   experience_years: number;
   verification_status: string;
   verification_note: string | null;
+  /** WS-104. Absent until that branch merges; the helpers fall back. */
+  entity_type?: string;
+  identity_verification_status?: string;
+  qualification_verification_status?: string;
   notes: string | null;
   is_online: boolean;
   average_rating?: number | null;
@@ -39,6 +44,7 @@ export type ProviderContactProfilePayload = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   notes: string | null;
 };
 
@@ -56,6 +62,7 @@ export type ProviderProfilePayload = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
   service_radius_km: number;
@@ -135,6 +142,8 @@ export type ProviderPortfolio = {
 };
 
 export type ProviderRecommendation = ProviderProfile & {
+  avatar_url?: string | null;
+  is_open?: boolean;
   first_portfolio_image_url: string | null;
   recommendation_score: number;
   matched_tags: string[];
@@ -143,6 +152,7 @@ export type ProviderRecommendation = ProviderProfile & {
 
 export type CustomerHomeRecommendations = {
   service_province: string;
+  service_location_id: number | null;
   history_provider_tag: string;
   items: ProviderRecommendation[];
 };
@@ -151,11 +161,18 @@ export type CustomerProviderSearchResults = {
   keyword: string;
   tokens: string[];
   service_province: string;
-  items: ProviderRecommendation[];
+  service_location_id: number | null;
+  items: CustomerProviderSearchItem[];
+};
+
+export type CustomerProviderSearchItem = ProviderRecommendation & {
+  avatar_url: string | null;
+  distance_km: number | null;
+  is_open: boolean;
 };
 
 export type CustomerProviderDetail = {
-  provider: ProviderProfile;
+  provider: CustomerProviderDetailProfile;
   history: {
     id: number;
     customer_id: number;
@@ -163,4 +180,26 @@ export type CustomerProviderDetail = {
     last_provider_tag: string;
     updated_at: string;
   };
+};
+
+export type CustomerProviderDetailProfile = ProviderProfile & {
+  is_open: boolean;
+  is_favorited: boolean;
+};
+
+export type FavoriteProvider = {
+  id: number;
+  customer_id: number;
+  provider_profile_id: number;
+  created_at: string;
+  provider: ProviderProfile | null;
+};
+
+export type AddFavoriteProviderResponse = {
+  message: string;
+  favorite: FavoriteProvider;
+};
+
+export type RemoveFavoriteProviderResponse = {
+  message: string;
 };

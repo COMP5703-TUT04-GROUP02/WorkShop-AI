@@ -59,6 +59,7 @@ def add_provider_verification_history(
     note: str | None,
     current_user: models.User,
     db: Session,
+    verification_step: str = "qualification",
 ):
     history = models.ProviderVerificationHistory(
         provider_profile_id=profile.id,
@@ -67,6 +68,28 @@ def add_provider_verification_history(
         new_status=new_status,
         note=note,
         changed_at=utc_now(),
+        verification_step=verification_step,
     )
 
     db.add(history)
+
+
+def require_provider_qualification_approved(profile: models.ProviderProfile):
+    """Raise unless the provider has passed the customer-facing qualification gate."""
+    status = getattr(profile, "qualification_verification_status", None)
+    if status is None:
+        status = profile.verification_status
+    if status != "approved":
+        raise HTTPException(
+            status_code=403,
+            detail="Provider qualification approval is required for this action",
+        )
+
+
+def require_provider_identity_approved(profile: models.ProviderProfile):
+    status = getattr(profile, "identity_verification_status", profile.verification_status)
+    if status != "approved":
+        raise HTTPException(
+            status_code=403,
+            detail="Provider identity approval is required for this action",
+        )

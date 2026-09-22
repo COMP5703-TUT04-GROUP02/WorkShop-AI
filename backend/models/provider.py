@@ -19,6 +19,11 @@ class ProviderProfile(Base):
     phone_number: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     address: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     service_province: Mapped[str] = mapped_column(String(128), nullable=False)
+    service_location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("service_locations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     service_radius_km: Mapped[float] = mapped_column(Float, nullable=False, default=10.0)
@@ -28,6 +33,13 @@ class ProviderProfile(Base):
     hourly_rate: Mapped[int] = mapped_column(Integer, nullable=False)
     experience_years: Mapped[int] = mapped_column(Integer, nullable=False)
     verification_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending"
+    )
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False, default="personal")
+    identity_verification_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending"
+    )
+    qualification_verification_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="pending"
     )
     verification_note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -151,4 +163,7 @@ class ProviderVerificationHistory(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     changed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    verification_step: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="qualification"
     )

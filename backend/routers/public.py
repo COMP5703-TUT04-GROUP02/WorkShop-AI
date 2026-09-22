@@ -9,24 +9,18 @@ from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from backend import models
 from backend.auth import get_db
-from backend.utils.formatters import (
-    format_provider_portfolio_response,
-    normalize_provider_tags,
-    tags_to_list,
-)
-from backend.utils.availability import is_provider_available_for_datetime_range
-from backend.utils.location import (
-    calculate_distance_km,
-    has_location,
-    has_partial_location,
-    provider_can_serve_location,
-)
+from backend.utils.formatters import format_provider_portfolio_response
 from backend.utils.pagination import (
     build_paginated_response,
-    paginate_list,
     paginate_query,
 )
 from backend.utils.provider import format_provider_profile_with_rating
+from backend.utils.provider_search import filter_provider_profiles
+from backend.utils.service_locations import (
+    filter_provider_query_by_location,
+    format_location_response,
+    get_location,
+)
 from backend.utils.review import (
     format_review_detail_response,
     get_provider_rating_summary as build_provider_rating_summary,
@@ -41,6 +35,8 @@ from backend.schemas import (
     ReviewDetailResponse,
     PlaceDetailsResponse,
     PlacesAutocompleteResponse,
+    ServiceLocationListResponse,
+    ServiceLocationResponse,
 )
 from backend.services.places_service import (
     autocomplete as places_autocomplete,
@@ -52,6 +48,38 @@ from backend.utils.response import success_response
 from backend.utils.router import ApiRouter
 
 router = ApiRouter(tags=["Public"])
+
+
+@router.get(
+    "/locations",
+    response_model=ApiResponse[ServiceLocationListResponse],
+)
+def get_service_locations(
+    parent_id: int | None = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+):
+    if parent_id is not None:
+        parent = db.query(models.ServiceLocation).filter(
+            models.ServiceLocation.id == parent_id
+        ).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Service location not found")
+
+    locations = (
+        db.query(models.ServiceLocation)
+        .filter(models.ServiceLocation.parent_id == parent_id)
+        .order_by(models.ServiceLocation.name.asc(), models.ServiceLocation.id.asc())
+        .all()
+    )
+    return success_response({"items": [format_location_response(item) for item in locations]})
+
+
+@router.get(
+    "/locations/{location_id}",
+    response_model=ApiResponse[ServiceLocationResponse],
+)
+def get_service_location(location_id: int, db: Session = Depends(get_db)):
+    return success_response(format_location_response(get_location(db, location_id)))
 
 
 @router.get(
@@ -96,6 +124,7 @@ def details_for_place(
 )
 def get_all_providers(
     service_province: str | None = None,
+    service_location_id: int | None = Query(default=None, gt=0),
     min_price: int | None = None,
     max_price: int | None = None,
     min_experience: int | None = None,
@@ -110,141 +139,55 @@ def get_all_providers(
     page_size: int = 20,
     db: Session = Depends(get_db),
 ):
-    if has_partial_location(latitude, longitude):
-        raise HTTPException(
-            status_code=400,
-            detail="Latitude and longitude must be provided together",
-        )
-
-    location_enabled = has_location(latitude, longitude)
-
-    if max_distance_km is not None and not location_enabled:
-        raise HTTPException(
-            status_code=400,
-            detail="max_distance_km requires latitude and longitude",
-        )
-
-    if sort_by in ["distance_asc", "distance_desc"] and not location_enabled:
-        raise HTTPException(
-            status_code=400,
-            detail="Distance sorting requires latitude and longitude",
-        )
-
-    if (scheduled_start_time is None) != (scheduled_end_time is None):
-        raise HTTPException(
-            status_code=400,
-            detail="scheduled_start_time and scheduled_end_time must be provided together",
-        )
-
-    if scheduled_start_time is not None and scheduled_end_time <= scheduled_start_time:
-        raise HTTPException(
-            status_code=400,
-            detail="scheduled_end_time must be after scheduled_start_time",
-        )
-
-    schedule_enabled = (
-        scheduled_start_time is not None and scheduled_end_time is not None
-    )
-
     query = db.query(models.ProviderProfile).filter(
-        models.ProviderProfile.verification_status
+        models.ProviderProfile.qualification_verification_status
         == ProviderVerificationStatus.approved
     )
-    if service_province:
-        query = query.filter(
-            models.ProviderProfile.service_province.contains(service_province)
-        )
+    query = filter_provider_query_by_location(
+        query,
+        db,
+        location_id=service_location_id,
+        province_name=service_province,
+    )
     if min_price is not None:
         query = query.filter(models.ProviderProfile.hourly_rate >= min_price)
     if max_price is not None:
         query = query.filter(models.ProviderProfile.hourly_rate <= max_price)
     if min_experience is not None:
         query = query.filter(models.ProviderProfile.experience_years >= min_experience)
-    if sort_by == "price_asc":
-        query = query.order_by(models.ProviderProfile.hourly_rate.asc())
-    if sort_by == "price_desc":
-        query = query.order_by(models.ProviderProfile.hourly_rate.desc())
-    if sort_by == "experience_desc":
-        query = query.order_by(models.ProviderProfile.experience_years.desc())
-    if sort_by == "experience_asc":
-        query = query.order_by(models.ProviderProfile.experience_years.asc())
 
-    distance_by_provider_id = {}
-    needs_python_filter = bool(tags) or location_enabled or schedule_enabled
-
-    if needs_python_filter:
-        profiles = query.all()
-
-        if tags:
-            requested_tags = normalize_provider_tags(tags)
-            if not requested_tags:
-                return success_response(
-                    build_paginated_response([], 0, page, page_size)
-                )
-            profiles = [
-                profile
-                for profile in profiles
-                if all((tag in tags_to_list(profile.tags) for tag in requested_tags))
-            ]
-
-        if schedule_enabled:
-            profiles = [
-                profile
-                for profile in profiles
-                if is_provider_available_for_datetime_range(
-                    profile.id,
-                    scheduled_start_time,
-                    scheduled_end_time,
-                    db,
-                )
-            ]
-
-        if location_enabled:
-            location_filtered_profiles = []
-
-            for profile in profiles:
-                if not has_location(profile.latitude, profile.longitude):
-                    continue
-
-                distance_km = calculate_distance_km(
-                    latitude,
-                    longitude,
-                    profile.latitude,
-                    profile.longitude,
-                )
-
-                if not provider_can_serve_location(profile, distance_km):
-                    continue
-
-                if max_distance_km is not None and distance_km > max_distance_km:
-                    continue
-
-                distance_by_provider_id[profile.id] = distance_km
-                location_filtered_profiles.append(profile)
-
-            profiles = location_filtered_profiles
-
-            if sort_by == "distance_asc":
-                profiles.sort(key=lambda profile: distance_by_provider_id[profile.id])
-            if sort_by == "distance_desc":
-                profiles.sort(
-                    key=lambda profile: distance_by_provider_id[profile.id],
-                    reverse=True,
-                )
-
-        profiles, total, page, page_size = paginate_list(profiles, page, page_size)
-    else:
-        profiles, total, page, page_size = paginate_query(query, page, page_size)
+    search_result = filter_provider_profiles(
+        query,
+        db,
+        tags=tags,
+        latitude=latitude,
+        longitude=longitude,
+        max_distance_km=max_distance_km,
+        scheduled_start_time=scheduled_start_time,
+        scheduled_end_time=scheduled_end_time,
+        sort_by=sort_by,
+        page=page,
+        page_size=page_size,
+    )
 
     result = []
-    for profile in profiles:
+    for profile in search_result.profiles:
         provider_result = format_provider_profile_with_rating(profile, db)
-        if profile.id in distance_by_provider_id:
-            provider_result["distance_km"] = distance_by_provider_id[profile.id]
-        if schedule_enabled:
+        if profile.id in search_result.distance_by_provider_id:
+            provider_result["distance_km"] = search_result.distance_by_provider_id[
+                profile.id
+            ]
+        if search_result.schedule_enabled:
             provider_result["is_available_for_requested_time"] = True
         result.append(provider_result)
-    return success_response(build_paginated_response(result, total, page, page_size))
+    return success_response(
+        build_paginated_response(
+            result,
+            search_result.total,
+            search_result.page,
+            search_result.page_size,
+        )
+    )
 
 
 @router.get(
@@ -256,7 +199,7 @@ def get_provider_by_id(provider_id: int, db: Session = Depends(get_db)):
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -277,7 +220,7 @@ def get_provider_reviews(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -313,7 +256,7 @@ def get_provider_public_portfolio(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -350,7 +293,7 @@ def get_provider_public_portfolio_item(
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()
@@ -383,7 +326,7 @@ def get_provider_rating_summary(provider_id: int, db: Session = Depends(get_db))
         db.query(models.ProviderProfile)
         .filter(
             models.ProviderProfile.id == provider_id,
-            models.ProviderProfile.verification_status
+            models.ProviderProfile.qualification_verification_status
             == ProviderVerificationStatus.approved,
         )
         .first()

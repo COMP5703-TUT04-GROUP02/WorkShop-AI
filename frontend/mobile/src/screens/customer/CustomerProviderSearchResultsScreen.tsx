@@ -10,16 +10,28 @@ import {
 } from "react-native";
 
 import {
+  getCustomerProfile,
   getCustomerProviderDetail,
   searchCustomerProviders,
 } from "../../api/customer";
 import { PlaceholderPanel } from "../../components/PlaceholderPanel";
 import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
+import { ProviderSearchFilters } from "../../components/ProviderSearchFilters";
 import { useRealtime } from "../../context/RealtimeContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
+import {
+  buildProviderSearchParams,
+  createDefaultSearchFilters,
+  hasCustomerSearchCoordinates,
+  restoreInitialSearchFilters,
+  type ProviderSearchFilters as ProviderSearchFilterValues,
+} from "../../features/provider-search/search-filter-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
-import type { ProviderRecommendation } from "../../types/provider";
+import type {
+  CustomerProviderSearchItem,
+  ProviderRecommendation,
+} from "../../types/provider";
 
 type CustomerProviderSearchResultsScreenProps = NativeStackScreenProps<
   RootStackParamList,
@@ -30,14 +42,49 @@ export function CustomerProviderSearchResultsScreen({
   navigation,
   route,
 }: CustomerProviderSearchResultsScreenProps) {
-  const { keyword, serviceProvince } = route.params;
+  const {
+    category,
+    keyword,
+    serviceProvince,
+    serviceLocationId,
+    serviceAreaLabel = serviceProvince,
+  } = route.params;
   const { subscribe } = useRealtime();
-  const [results, setResults] = useState<ProviderRecommendation[]>([]);
+  const [results, setResults] = useState<CustomerProviderSearchItem[]>([]);
   const [tokens, setTokens] = useState<string[]>([]);
+  const [draftFilters, setDraftFilters] = useState<ProviderSearchFilterValues>(
+    () => createDefaultSearchFilters(category),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<ProviderSearchFilterValues>(
+    () => createDefaultSearchFilters(category),
+  );
   const [isLoading, setIsLoading] = useState(true);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(true);
+  const [hasDistanceLocation, setHasDistanceLocation] = useState(false);
   const [message, setMessage] = useState("");
   const [gridWidth, setGridWidth] = useState(0);
   const recommendationLayout = getRecommendationLayout(gridWidth);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getCustomerProfile()
+      .then((profile) => {
+        if (isMounted) {
+          setHasDistanceLocation(hasCustomerSearchCoordinates(profile));
+        }
+      })
+      .catch(() => {
+        if (isMounted) setHasDistanceLocation(false);
+      })
+      .finally(() => {
+        if (isMounted) setIsCheckingLocation(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -47,7 +94,12 @@ export function CustomerProviderSearchResultsScreen({
       setMessage("");
 
       try {
-        const data = await searchCustomerProviders(keyword, serviceProvince);
+        const data = await searchCustomerProviders(
+          keyword,
+          serviceProvince,
+          serviceLocationId,
+          buildProviderSearchParams(appliedFilters),
+        );
 
         if (!isMounted) {
           return;
@@ -58,6 +110,7 @@ export function CustomerProviderSearchResultsScreen({
       } catch {
         if (isMounted) {
           setResults([]);
+          setTokens([]);
           setMessage("Search failed. Try again.");
         }
       } finally {
@@ -72,7 +125,7 @@ export function CustomerProviderSearchResultsScreen({
     return () => {
       isMounted = false;
     };
-  }, [keyword, serviceProvince]);
+  }, [appliedFilters, keyword, serviceLocationId, serviceProvince]);
 
   useEffect(() => {
     const unsubscribe = subscribe((data) => {
@@ -107,6 +160,16 @@ export function CustomerProviderSearchResultsScreen({
     }
   }
 
+  function handleApplyFilters() {
+    setAppliedFilters({ ...draftFilters });
+  }
+
+  function handleClearFilters() {
+    const clearedFilters = restoreInitialSearchFilters(category);
+    setDraftFilters(clearedFilters);
+    setAppliedFilters(clearedFilters);
+  }
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -122,10 +185,24 @@ export function CustomerProviderSearchResultsScreen({
         <View style={styles.headerText}>
           <Text style={styles.title}>Search results</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
-            {serviceProvince} · {keyword}
+            {serviceAreaLabel} · {keyword}
           </Text>
         </View>
       </View>
+
+      <ProviderSearchFilters
+        distanceDisabledReason={
+          isCheckingLocation
+            ? "Checking your saved location..."
+            : "Add coordinates to your profile to use distance filters."
+        }
+        distanceEnabled={hasDistanceLocation}
+        isApplying={isLoading}
+        onApply={handleApplyFilters}
+        onChange={setDraftFilters}
+        onClear={handleClearFilters}
+        value={draftFilters}
+      />
 
       {tokens.length > 0 ? (
         <Text style={styles.tokenText}>Keywords: {tokens.join(" / ")}</Text>
@@ -149,6 +226,7 @@ export function CustomerProviderSearchResultsScreen({
               key={provider.id}
               onPress={(selectedProvider) => void handleOpenProvider(selectedProvider)}
               provider={provider}
+              variant="searchResult"
             />
           ))}
         </View>
@@ -163,7 +241,7 @@ export function CustomerProviderSearchResultsScreen({
 }
 
 function updateProviderOnline(
-  providers: ProviderRecommendation[],
+  providers: CustomerProviderSearchItem[],
   userId: number,
   isOnline: boolean,
 ) {

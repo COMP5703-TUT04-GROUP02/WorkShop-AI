@@ -116,9 +116,12 @@ def test_customer_provider_detail_favorite_state_is_customer_specific(
     created = client.post(
         "/register",
         json={
-            "name": "Second Customer",
+            "first_name": "Second",
+            "last_name": "Customer",
             "email": "second-customer@example.com",
             "password": "Password123",
+            "confirm_password": "Password123",
+            "tos_accepted": True,
             "role": "customer",
         },
     )

@@ -42,7 +42,10 @@ from backend.utils.provider_booking_actions import (
 from backend.utils.provider import (
     add_provider_verification_history,
     get_provider_profile_for_user,
+    require_provider_qualification_approved,
+    require_provider_identity_approved,
 )
+from backend.utils.service_locations import apply_profile_location
 from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
@@ -132,11 +135,13 @@ def create_provider_profile(
         raise HTTPException(status_code=400, detail="Provider profile already exists")
     new_profile = models.ProviderProfile(
         user_id=current_user.id,
+        entity_type=profile.entity_type,
         business_name=profile.business_name,
         bio=profile.bio,
         phone_number=profile.phone_number,
         address=profile.address,
         service_province=profile.service_province,
+        service_location_id=profile.service_location_id,
         latitude=profile.latitude,
         longitude=profile.longitude,
         service_radius_km=profile.service_radius_km,
@@ -146,10 +151,13 @@ def create_provider_profile(
         hourly_rate=profile.hourly_rate,
         experience_years=profile.experience_years,
         verification_status=ProviderVerificationStatus.pending,
+        identity_verification_status=ProviderVerificationStatus.pending,
+        qualification_verification_status=ProviderVerificationStatus.pending,
         verification_note=None,
         notes=profile.notes,
     )
     db.add(new_profile)
+    apply_profile_location(db=db, profile=new_profile, location_id=profile.service_location_id)
     db.commit()
     db.refresh(new_profile)
     replace_provider_certificate_files(new_profile, profile.certificate_files, db)
@@ -188,7 +196,9 @@ async def upload_provider_certificate(
     files: list[UploadFile] | None = File(default=None),
     file: UploadFile | None = File(default=None),
     current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
 ):
+    require_provider_identity_approved(get_provider_profile_for_user(current_user.id, db))
     upload_files = list(files or [])
     if file is not None:
         upload_files.append(file)
@@ -211,7 +221,14 @@ def update_provider_profile(
     db: Session = Depends(get_db),
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
-    old_status = profile.verification_status
+    old_identity_status = profile.identity_verification_status
+    old_qualification_status = profile.qualification_verification_status
+    identity_changed = any(
+        (
+            profile.entity_type != profile_data.entity_type,
+            profile.business_name != profile_data.business_name,
+        )
+    )
     next_tags = tags_to_string(profile_data.tags)
     apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.business_name = profile_data.business_name
@@ -219,6 +236,7 @@ def update_provider_profile(
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
+    profile.service_location_id = profile_data.service_location_id
     profile.latitude = profile_data.latitude
     profile.longitude = profile_data.longitude
     profile.service_radius_km = profile_data.service_radius_km
@@ -228,18 +246,34 @@ def update_provider_profile(
     profile.hourly_rate = profile_data.hourly_rate
     profile.experience_years = profile_data.experience_years
     profile.notes = profile_data.notes
+    apply_profile_location(
+        db=db,
+        profile=profile,
+        location_id=profile_data.service_location_id,
+    )
+    if old_identity_status != ProviderVerificationStatus.approved or identity_changed:
+        profile.identity_verification_status = ProviderVerificationStatus.pending
+        history_step = "identity"
+        history_old_status = old_identity_status
+    else:
+        history_step = "qualification"
+        history_old_status = old_qualification_status
+    profile.qualification_verification_status = ProviderVerificationStatus.pending
     profile.verification_status = ProviderVerificationStatus.pending
+    profile.entity_type = profile_data.entity_type
     profile.verification_note = None
     add_provider_verification_history(
         profile,
-        old_status,
-        profile.verification_status,
+        history_old_status,
+        ProviderVerificationStatus.pending,
         "Provider updated profile and submitted for verification",
         current_user,
         db,
+        verification_step=history_step,
     )
 
-    replace_provider_certificate_files(profile, profile_data.certificate_files, db)
+    if "certificate_files" in profile_data.model_fields_set:
+        replace_provider_certificate_files(profile, profile_data.certificate_files, db)
     db.commit()
     db.refresh(profile)
     return success_response(
@@ -261,7 +295,13 @@ def update_provider_contact_profile(
     profile.phone_number = profile_data.phone_number
     profile.address = profile_data.address
     profile.service_province = profile_data.service_province
+    profile.service_location_id = profile_data.service_location_id
     profile.notes = profile_data.notes
+    apply_profile_location(
+        db=db,
+        profile=profile,
+        location_id=profile_data.service_location_id,
+    )
     db.commit()
     db.refresh(profile)
     return success_response(
@@ -281,8 +321,20 @@ def patch_provider_contact_profile(
     profile = get_provider_profile_for_user(current_user.id, db)
 
     previous_phone = profile.phone_number
-    for field, value in profile_data.model_dump(exclude_unset=True).items():
-        setattr(profile, field, value)
+    updates = profile_data.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        if field != "service_location_id":
+            setattr(profile, field, value)
+    if "service_location_id" in updates:
+        profile.service_location_id = updates["service_location_id"]
+        if profile.service_location_id is not None:
+            apply_profile_location(
+                db=db,
+                profile=profile,
+                location_id=profile.service_location_id,
+            )
+    elif "service_province" in updates:
+        profile.service_location_id = None
     apply_phone_number_change(current_user, previous_phone, profile.phone_number)
 
     db.commit()
@@ -301,6 +353,7 @@ def get_provider_availability(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availabilities = get_provider_availabilities(provider_profile.id, db)
     return success_response(
         {
@@ -319,6 +372,7 @@ def update_provider_availability(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availabilities = replace_provider_availabilities(
         provider_profile.id,
         availability_data.availabilities,
@@ -353,6 +407,7 @@ def get_provider_availability_overrides(
         )
 
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availability_overrides = get_provider_availability_overrides_by_month(
         provider_profile.id,
         month,
@@ -380,6 +435,7 @@ def update_provider_availability_override(
     validate_availability_override_date(override_date)
 
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     availability_override = upsert_provider_availability_override(
         provider_profile.id,
         override_date,
@@ -399,6 +455,7 @@ def remove_provider_availability_override(
     validate_availability_override_date(override_date)
 
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     delete_provider_availability_override(provider_profile.id, override_date, db)
 
     return success_response({"message": "Availability override removed successfully"})
@@ -452,6 +509,7 @@ async def create_provider_portfolio(
 
     clean_description = description.strip() if description else None
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     uploaded_media = []
 
     for file in media_files:
@@ -505,6 +563,7 @@ def get_provider_portfolio_item(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     portfolio = (
         db.query(models.ProviderPortfolio)
         .filter(
@@ -531,6 +590,7 @@ def get_provider_portfolio(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = (
         db.query(models.ProviderPortfolio)
         .filter(models.ProviderPortfolio.provider_profile_id == provider_profile.id)
@@ -569,6 +629,7 @@ def delete_provider_portfolio(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     portfolio = (
         db.query(models.ProviderPortfolio)
         .filter(
@@ -606,6 +667,7 @@ def get_provider_chats(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = (
         db.query(models.ChatRoom)
         .filter(models.ChatRoom.provider_profile_id == provider_profile.id)
@@ -627,6 +689,7 @@ def get_provider_bookings(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = db.query(models.Booking).filter(
         models.Booking.provider_profile_id == provider_profile.id
     )
@@ -649,6 +712,8 @@ def get_provider_schedule_bookings(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     requested_month = parse_availability_month(month)
     current_month = to_workshop_datetime(utc_now()).date().replace(day=1)
     if requested_month < current_month:
@@ -664,7 +729,6 @@ def get_provider_schedule_bookings(
     month_end = datetime.combine(next_month, time.min, tzinfo=WORKSHOP_TIMEZONE).astimezone(
         timezone.utc
     )
-    provider_profile = get_provider_profile_for_user(current_user.id, db)
     bookings = (
         db.query(models.Booking)
         .filter(
@@ -694,6 +758,7 @@ def get_provider_payments(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = db.query(models.Payment).filter(
         models.Payment.provider_profile_id == provider_profile.id
     )
@@ -716,6 +781,7 @@ def get_provider_refund_requests(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = db.query(models.RefundRequest).filter(
         models.RefundRequest.provider_profile_id == provider_profile.id
     )
@@ -735,6 +801,7 @@ async def approve_refund_request(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await approve_provider_refund_request_action(
             refund_request_id,
@@ -751,6 +818,7 @@ async def reject_refund_request(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await reject_provider_refund_request_action(
             refund_request_id,
@@ -768,6 +836,7 @@ async def quote_booking(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await quote_provider_booking_action(
             booking_id,
@@ -785,6 +854,7 @@ async def reject_booking(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await reject_provider_booking_action(
             booking_id,
@@ -802,6 +872,7 @@ async def complete_booking(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
     return success_response(
         await complete_provider_booking_action(
             booking_id,

@@ -31,7 +31,7 @@ import {
 } from "../../api/provider";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
-import { ProvincePickerModal } from "../../components/ProvincePickerModal";
+import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import {
@@ -39,12 +39,16 @@ import {
   PROVIDER_TAGS,
 } from "../../constants/providerTags";
 import { useAuth } from "../../context/AuthContext";
-import {
-  isProviderProfileComplete,
-  useProviderProfileGate,
-} from "../../context/ProviderProfileGateContext";
+import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
+import {
+  describeStatus,
+  describeStepAction,
+  getIdentityStatus,
+  getQualificationStepState,
+  type StepState,
+} from "../../utils/providerVerification";
 import type { PaginatedData } from "../../types/chat";
 import type {
   ProviderPortfolio,
@@ -52,6 +56,7 @@ import type {
   ProviderProfilePayload,
 } from "../../types/provider";
 import type { Review } from "../../types/review";
+import type { ServiceAreaSelection } from "../../types/location";
 import { getErrorMessage } from "../../utils/errors";
 import { resolveMediaUrl } from "../../utils/media";
 
@@ -69,7 +74,7 @@ type SelectedProviderCertificateFile = {
 
 export function ProviderHomeScreen() {
   const { user } = useAuth();
-  const { markProviderProfileCreated } = useProviderProfileGate();
+  const { refreshProviderProfileStatus } = useProviderProfileGate();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -96,43 +101,70 @@ export function ProviderHomeScreen() {
           return;
         }
 
-        const isComplete = isProviderProfileComplete(nextProfile);
         setProfile(nextProfile);
-        setIsProfileMissing(!isComplete);
-        if (isComplete) {
-          markProviderProfileCreated();
-        }
+        setIsProfileMissing(false);
 
-        const [portfolioPage, reviewPageData] = await Promise.all([
-          getProviderPortfolios(1, 4),
-          getProviderReviews(1, REVIEW_PAGE_SIZE),
-        ]);
-
-        if (isActive) {
-          setPortfolios(portfolioPage?.items ?? []);
-          setReviews(reviewPageData?.items ?? []);
-          setReviewPaging(reviewPageData);
-          setReviewPage(1);
-        }
+        // WS-105: a filled-in form no longer unlocks anything; only an
+        // approved qualification does. Re-reading the status instead of only
+        // marking it created means an approval that was revoked locks again
+        // without waiting for a remount.
+        void refreshProviderProfileStatus();
       } catch (error) {
         if (isActive) {
           const status = (error as { response?: { status?: number } }).response
             ?.status;
           setProfile(null);
-          setPortfolios([]);
-          setReviews([]);
-          setReviewPaging(null);
-          setReviewPage(1);
           setIsProfileMissing(status === 404);
           setMessage(status === 404 ? "" : getErrorMessage(error));
-        }
-      } finally {
-        if (isActive) {
           setIsLoading(false);
         }
+
+        return;
       }
+
+      // WS-104 answers 403 for portfolios until the qualification is approved.
+      // Reviews are not gated the same way, so the two are fetched separately:
+      // one refusal must not empty the other list.
+      const [portfolioResult, reviewResult] = await Promise.allSettled([
+        getProviderPortfolios(1, 4),
+        getProviderReviews(1, REVIEW_PAGE_SIZE),
+      ]);
+
+      if (!isActive) {
+        return;
+      }
+
+      if (portfolioResult.status === "fulfilled") {
+        setPortfolios(portfolioResult.value?.items ?? []);
+      } else {
+        setPortfolios([]);
+      }
+
+      if (reviewResult.status === "fulfilled") {
+        setReviews(reviewResult.value?.items ?? []);
+        setReviewPaging(reviewResult.value ?? null);
+        setReviewPage(1);
+      } else {
+        setReviews([]);
+        setReviewPaging(null);
+        setReviewPage(1);
+      }
+
+      // A 403 before approval is expected; anything else is worth showing.
+      const unexpected = [portfolioResult, reviewResult].find(
+        (result) =>
+          result.status === "rejected" &&
+          (result.reason as { response?: { status?: number } })?.response
+            ?.status !== 403,
+      );
+      setMessage(
+        unexpected && unexpected.status === "rejected"
+          ? getErrorMessage(unexpected.reason)
+          : "",
+      );
+      setIsLoading(false);
     },
-    [markProviderProfileCreated],
+    [refreshProviderProfileStatus],
   );
 
   useFocusEffect(
@@ -168,24 +200,13 @@ export function ProviderHomeScreen() {
 
   const avatarUrl = resolveMediaUrl(user?.avatar_url ?? null);
 
-  if (
-    !isLoading &&
-    (isProfileMissing ||
-      !isProviderProfileComplete(profile) ||
-      isEditingProfile)
-  ) {
+  if (!isLoading && (isProfileMissing || isEditingProfile)) {
     return (
       <ProviderProfileForm
         initialProfile={profile}
-        onCancel={
-          profile && isProviderProfileComplete(profile)
-            ? () => setIsEditingProfile(false)
-            : undefined
-        }
+        onCancel={profile ? () => setIsEditingProfile(false) : undefined}
         onSaved={(nextProfile) => {
-          if (isProviderProfileComplete(nextProfile)) {
-            markProviderProfileCreated();
-          }
+          void refreshProviderProfileStatus();
           setProfile(nextProfile);
           setIsEditingProfile(false);
           void loadHome();
@@ -236,24 +257,11 @@ export function ProviderHomeScreen() {
             </Pressable>
           </View>
 
-          {profile?.verification_status === "pending" ? (
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>Profile under review</Text>
-              <Text style={styles.statusText}>
-                This notice disappears once admin approves your profile.
-              </Text>
-            </View>
-          ) : null}
-
-          {profile?.verification_status === "rejected" ? (
-            <View style={styles.rejectedCard}>
-              <Text style={styles.statusTitle}>Profile not approved</Text>
-              <Text style={styles.statusText}>
-                {profile.verification_note ||
-                  "Update your profile and resubmit for review."}
-              </Text>
-            </View>
-          ) : null}
+          <VerificationCard
+            note={profile?.verification_note ?? null}
+            onOpenForm={() => setIsEditingProfile(true)}
+            profile={profile}
+          />
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Portfolios</Text>
@@ -326,6 +334,12 @@ function ProviderProfileForm({
   );
   const [address, setAddress] = useState(initialProfile?.address ?? "");
   const [serviceProvince, setServiceProvince] = useState(
+    initialProfile?.service_province || DEFAULT_SERVICE_PROVINCE,
+  );
+  const [serviceLocationId, setServiceLocationId] = useState<number | null>(
+    initialProfile?.service_location_id ?? null,
+  );
+  const [serviceAreaLabel, setServiceAreaLabel] = useState(
     initialProfile?.service_province || DEFAULT_SERVICE_PROVINCE,
   );
   const [tags, setTags] = useState<string[]>(initialProfile?.tags ?? []);
@@ -482,6 +496,7 @@ function ProviderProfileForm({
       !bio.trim() ||
       !phoneNumber.trim() ||
       !address.trim() ||
+      !serviceLocationId ||
       !certificateName.trim() ||
       (!certificateUrl.trim() && certificateFiles.length === 0) ||
       tags.length === 0
@@ -556,6 +571,7 @@ function ProviderProfileForm({
         phone_number: phoneNumber.trim(),
         address: address.trim(),
         service_province: serviceProvince,
+        service_location_id: serviceLocationId,
         latitude: initialProfile?.latitude ?? DEFAULT_LATITUDE,
         longitude: initialProfile?.longitude ?? DEFAULT_LONGITUDE,
         service_radius_km: parsedServiceRadiusKm,
@@ -629,13 +645,13 @@ function ProviderProfileForm({
         />
 
         <View style={styles.fieldBlock}>
-          <Text style={styles.label}>Service province</Text>
+          <Text style={styles.label}>Service area</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => setIsProvincePickerVisible(true)}
             style={styles.provinceButton}
           >
-            <Text style={styles.provinceText}>{serviceProvince}</Text>
+            <Text style={styles.provinceText}>{serviceAreaLabel}</Text>
             <ChevronDown color={colors.mutedText} size={20} />
           </Pressable>
         </View>
@@ -764,7 +780,7 @@ function ProviderProfileForm({
 
         <View style={styles.locationHint}>
           <Text style={styles.locationHintText}>
-            Default location: Istanbul 41.0082, 28.9784
+            Service district: {serviceAreaLabel}
           </Text>
         </View>
 
@@ -787,16 +803,132 @@ function ProviderProfileForm({
         </View>
       </View>
 
-      <ProvincePickerModal
+      <LocationCascadePickerModal
         onClose={() => setIsProvincePickerVisible(false)}
-        onSelect={(province) => {
-          setServiceProvince(province);
+        onSelect={(selection) => {
+          setServiceProvince(selection.serviceProvince);
+          setServiceLocationId(selection.serviceLocationId);
+          setServiceAreaLabel(selection.label);
           setIsProvincePickerVisible(false);
         }}
-        value={serviceProvince}
+        value={
+          serviceLocationId
+            ? ({
+                serviceLocationId,
+                serviceProvince,
+                label: serviceAreaLabel,
+              } satisfies ServiceAreaSelection)
+            : null
+        }
         visible={isProvincePickerVisible}
       />
     </ScrollView>
+  );
+}
+
+/**
+ * WS-105. Two independent steps, in order: identity, then qualification.
+ * Everything else stays locked until an admin approves the qualification.
+ */
+function VerificationCard({
+  note,
+  onOpenForm,
+  profile,
+}: {
+  note: string | null;
+  onOpenForm: () => void;
+  profile: ProviderProfile | null;
+}) {
+  const identity = getIdentityStatus(profile);
+  const qualification = getQualificationStepState(profile);
+  const unlocked = qualification === "approved";
+
+  return (
+    <View style={styles.verificationCard}>
+      <View style={styles.verificationHeader}>
+        <Text style={styles.statusTitle}>Verification</Text>
+        <Text style={styles.verificationHint}>
+          {unlocked
+            ? "Approved. You appear in listings and can accept bookings."
+            : "Schedule, bookings, chats and portfolios unlock once an admin approves your qualification."}
+        </Text>
+      </View>
+
+      <VerificationStep
+        actionLabel={describeStepAction(identity, "identity")}
+        description={
+          identity === "approved"
+            ? "Your identity has been approved."
+            : identity === "rejected"
+              ? note || "Update your details and submit again."
+              : "Submit your real name and contact details for review."
+        }
+        onPress={onOpenForm}
+        status={identity}
+        title="1 · Identity"
+      />
+
+      <VerificationStep
+        actionLabel={describeStepAction(qualification, "qualification")}
+        description={
+          qualification === "locked"
+            ? "Available once your identity is approved."
+            : qualification === "approved"
+              ? "Your qualification has been approved."
+              : qualification === "rejected"
+                ? note || "Update your certificates and submit again."
+                : "Your certificates and business details are with an admin."
+        }
+        onPress={onOpenForm}
+        status={qualification}
+        title="2 · Qualification"
+      />
+    </View>
+  );
+}
+
+function VerificationStep({
+  actionLabel,
+  description,
+  onPress,
+  status,
+  title,
+}: {
+  actionLabel: string | null;
+  description: string;
+  onPress: () => void;
+  status: StepState;
+  title: string;
+}) {
+  return (
+    <View style={styles.verificationStep}>
+      <View style={styles.verificationStepHeader}>
+        <Text style={styles.verificationStepTitle}>{title}</Text>
+        <View
+          style={[
+            styles.verificationPill,
+            status === "approved" ? styles.verificationPillApproved : null,
+            status === "rejected" ? styles.verificationPillRejected : null,
+            status === "locked" ? styles.verificationPillLocked : null,
+          ]}
+        >
+          <Text style={styles.verificationPillText}>{describeStatus(status)}</Text>
+        </View>
+      </View>
+      <Text style={styles.statusText}>{description}</Text>
+      {actionLabel ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.verificationAction,
+            pressed ? styles.verificationActionPressed : null,
+          ]}
+        >
+          <Text style={styles.verificationActionText}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -1100,6 +1232,78 @@ const styles = StyleSheet.create({
   businessText: {
     color: colors.mutedText,
     fontSize: 14,
+  },
+  verificationCard: {
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  verificationHeader: {
+    gap: spacing.xs,
+  },
+  verificationHint: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  verificationStep: {
+    gap: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  verificationStepHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  verificationStepTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  verificationPill: {
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  verificationPillApproved: {
+    backgroundColor: "#E7F6F0",
+  },
+  verificationPillRejected: {
+    backgroundColor: "#FDEEEE",
+  },
+  verificationPillLocked: {
+    backgroundColor: colors.surface,
+  },
+  verificationPillText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  verificationAction: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  verificationActionPressed: {
+    opacity: 0.7,
+  },
+  verificationActionText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   statusCard: {
     gap: spacing.xs,

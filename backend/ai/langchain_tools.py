@@ -61,6 +61,10 @@ class SearchProvidersToolInput(BaseModel):
         ),
     )
     service_province: str | None = Field(default=None, description="Service province/region")
+    service_location_id: int | None = Field(
+        default=None,
+        description="Selected province, city, or district location ID",
+    )
     max_price: float | None = Field(default=None, description="Maximum budget")
     budget_preference: str | None = Field(
         default=None,
@@ -211,6 +215,7 @@ def build_langchain_tools(current_user: models.User, db: Session):
         query: str,
         service_tags: list[str] | None = None,
         service_province: str | None = None,
+        service_location_id: int | None = None,
         max_price: float | None = None,
         budget_preference: str | None = None,
         latitude: float | None = None,
@@ -225,6 +230,7 @@ def build_langchain_tools(current_user: models.User, db: Session):
                 query=query,
                 service_tags=service_tags or [],
                 service_province=service_province,
+                service_location_id=service_location_id,
                 max_price=max_price,
                 budget_preference=budget_preference,
                 current_user=current_user,

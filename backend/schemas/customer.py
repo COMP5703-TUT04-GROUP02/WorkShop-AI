@@ -21,6 +21,7 @@ class CustomerProfileCreate(BaseModel):
     phone_number: str
     address: str
     service_province: str
+    service_location_id: int | None = Field(default=None, gt=0)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     current_address: str | None = None
@@ -53,6 +54,7 @@ class CustomerProfilePatch(BaseModel):
     phone_number: str | None = None
     address: str | None = None
     service_province: str | None = None
+    service_location_id: int | None = Field(default=None, gt=0)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     current_address: str | None = None
@@ -83,6 +85,7 @@ class CustomerProfilePatch(BaseModel):
 
 class CustomerServiceProvinceUpdate(BaseModel):
     service_province: str
+    service_location_id: int | None = Field(default=None, gt=0)
 
     @field_validator("service_province")
     @classmethod
@@ -110,15 +113,22 @@ class HomeProviderRecommendationResponse(ProviderProfileWithRatingResponse):
 
 class CustomerHomeRecommendationResponseData(BaseModel):
     service_province: str
+    service_location_id: int | None = None
     history_provider_tag: str
     items: list[HomeProviderRecommendationResponse]
+
+
+class CustomerProviderSearchItemResponse(HomeProviderRecommendationResponse):
+    avatar_url: str | None = None
+    is_open: bool
 
 
 class CustomerProviderSearchResponseData(BaseModel):
     keyword: str
     tokens: list[str]
     service_province: str
-    items: list[HomeProviderRecommendationResponse]
+    service_location_id: int | None = None
+    items: list[CustomerProviderSearchItemResponse]
 
 
 class CustomerProviderDetailProviderResponse(ProviderProfileWithRatingResponse):

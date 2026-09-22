@@ -30,6 +30,8 @@ from backend.models.provider import (
     ProviderProfile,
     ProviderVerificationHistory,
 )
+from backend.models.location import ServiceLocation
+from backend.models.address_book import CustomerAddress
 from backend.models.user import (
     AuthenticationIdentity,
     RefreshToken,
@@ -68,5 +70,7 @@ __all__ = [
     "RefundRequestStatusHistory",
     "Review",
     "SocialAccount",
+    "ServiceLocation",
+    "CustomerAddress",
     "User",
 ]

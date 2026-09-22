@@ -2,21 +2,30 @@ import * as Location from "expo-location";
 import { LocateFixed, MapPin, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 
-import { GOOGLE_MAPS_API_KEY } from "../config/env";
+import { getPlaceDetails, searchPlaces } from "../api/places";
 import { colors, radius, spacing } from "../theme/theme";
-import type { SelectedLocation } from "../types/location";
+import type { PlaceSuggestion, SelectedLocation } from "../types/location";
+import { getErrorMessage } from "../utils/errors";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 
+/**
+ * WS-72. One picker for web, iOS and Android, backed only by our /places
+ * proxy — no Google script, no window.google, no platform fork.
+ *
+ * Coordinates can no longer be typed: they come from a chosen suggestion or
+ * from the device, so a saved location always has a real point on the map.
+ */
 type LocationPickerModalProps = {
   visible: boolean;
   value: SelectedLocation | null;
@@ -24,51 +33,8 @@ type LocationPickerModalProps = {
   onConfirm: (location: SelectedLocation) => void;
 };
 
-type GooglePlaceSuggestion = {
-  placeId: string;
-  description: string;
-};
-
-let googleMapsScriptPromise: Promise<void> | null = null;
-
-function loadGoogleMapsScript() {
-  if (Platform.OS !== "web" || !GOOGLE_MAPS_API_KEY) {
-    return Promise.resolve();
-  }
-
-  if (window.google?.maps?.places) {
-    return Promise.resolve();
-  }
-
-  if (googleMapsScriptPromise) {
-    return googleMapsScriptPromise;
-  }
-
-  googleMapsScriptPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>(
-      "script[data-workshop-google-maps]",
-    );
-
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve());
-      existingScript.addEventListener("error", () =>
-        reject(new Error("Google Maps failed to load")),
-      );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.async = true;
-    script.defer = true;
-    script.dataset.workshopGoogleMaps = "true";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-CN`;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Google Maps failed to load"));
-    document.head.appendChild(script);
-  });
-
-  return googleMapsScriptPromise;
-}
+const SEARCH_DEBOUNCE_MS = 350;
+const MAX_SUGGESTIONS = 5;
 
 export function LocationPickerModal({
   visible,
@@ -76,115 +42,98 @@ export function LocationPickerModal({
   onClose,
   onConfirm,
 }: LocationPickerModalProps) {
-  const [label, setLabel] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [selected, setSelected] = useState<SelectedLocation | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [isGoogleReady, setIsGoogleReady] = useState(false);
-  const [suggestions, setSuggestions] = useState<GooglePlaceSuggestion[]>([]);
-  const autocompleteServiceRef =
-    useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Typing fires a request per keystroke otherwise, and the proxy is rate
+  // limited. Only the newest search is allowed to land.
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!visible) {
       return;
     }
 
-    setLabel(value?.label ?? "");
-    setLatitude(
-      value?.latitude === null || value?.latitude === undefined
-        ? ""
-        : String(value.latitude),
-    );
-    setLongitude(
-      value?.longitude === null || value?.longitude === undefined
-        ? ""
-        : String(value.longitude),
-    );
-    setErrorMessage("");
+    setQuery(value?.label ?? "");
+    setSelected(value ?? null);
     setSuggestions([]);
+    setErrorMessage("");
   }, [visible, value]);
 
   useEffect(() => {
-    if (!visible) {
-      return;
-    }
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      searchController.current?.abort();
+    };
+  }, []);
 
-    loadGoogleMapsScript()
-      .then(() => {
-        if (Platform.OS !== "web" || !window.google?.maps?.places) {
-          setIsGoogleReady(false);
-          return;
-        }
+  function handleQueryChange(nextQuery: string) {
+    setQuery(nextQuery);
+    setErrorMessage("");
 
-        autocompleteServiceRef.current =
-          new window.google.maps.places.AutocompleteService();
-        const mapDiv = document.createElement("div");
-        placesServiceRef.current = new window.google.maps.places.PlacesService(
-          mapDiv,
-        );
-        setIsGoogleReady(true);
-      })
-      .catch(() => {
-        setIsGoogleReady(false);
-      });
-  }, [visible]);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchController.current?.abort();
 
-  function handleLabelChange(nextLabel: string) {
-    setLabel(nextLabel);
-
-    if (!isGoogleReady || !autocompleteServiceRef.current || !nextLabel.trim()) {
+    const trimmed = nextQuery.trim();
+    if (!trimmed) {
       setSuggestions([]);
+      setIsSearching(false);
       return;
     }
 
-    autocompleteServiceRef.current.getPlacePredictions(
-      {
-        input: nextLabel,
-        types: ["geocode"],
-      },
-      (predictions: google.maps.places.AutocompletePrediction[] | null) => {
-        setSuggestions(
-          (predictions ?? []).slice(0, 5).map((prediction) => ({
-            placeId: prediction.place_id,
-            description: prediction.description,
-          })),
-        );
-      },
-    );
+    setIsSearching(true);
+    searchTimer.current = setTimeout(() => {
+      const controller = new AbortController();
+      searchController.current = controller;
+
+      searchPlaces(trimmed, controller.signal)
+        .then((results) => {
+          setSuggestions(results.slice(0, MAX_SUGGESTIONS));
+          setIsSearching(false);
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setSuggestions([]);
+          setIsSearching(false);
+          setErrorMessage(getErrorMessage(error));
+        });
+    }, SEARCH_DEBOUNCE_MS);
   }
 
-  function selectGoogleSuggestion(suggestion: GooglePlaceSuggestion) {
-    if (!placesServiceRef.current) {
-      return;
+  async function handleSelectSuggestion(suggestion: PlaceSuggestion) {
+    setIsResolving(true);
+    setErrorMessage("");
+
+    try {
+      const details = await getPlaceDetails(suggestion.place_id);
+
+      if (!details) {
+        setErrorMessage("Could not read this address. Try another one.");
+        return;
+      }
+
+      setSelected({
+        label: details.formatted_address || suggestion.description,
+        latitude: details.latitude,
+        longitude: details.longitude,
+        placeId: details.place_id,
+      });
+      setQuery(details.formatted_address || suggestion.description);
+      setSuggestions([]);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsResolving(false);
     }
-
-    placesServiceRef.current.getDetails(
-      {
-        placeId: suggestion.placeId,
-        fields: ["formatted_address", "geometry", "name"],
-      },
-      (
-        place: google.maps.places.PlaceResult | null,
-        status: google.maps.places.PlacesServiceStatus | string,
-      ) => {
-        if (status !== window.google.maps.places.PlacesServiceStatus.OK) {
-          setErrorMessage("Couldn't read this address. Try another one.");
-          return;
-        }
-
-        const lat = place?.geometry?.location?.lat();
-        const lng = place?.geometry?.location?.lng();
-
-        setLabel(place?.formatted_address || place?.name || suggestion.description);
-        setLatitude(typeof lat === "number" ? lat.toFixed(6) : "");
-        setLongitude(typeof lng === "number" ? lng.toFixed(6) : "");
-        setSuggestions([]);
-        setErrorMessage("");
-      },
-    );
   }
 
   async function useCurrentLocation() {
@@ -195,60 +144,37 @@ export function LocationPickerModal({
       const permission = await Location.requestForegroundPermissionsAsync();
 
       if (permission.status !== "granted") {
-        setErrorMessage("Location access denied. Enter it manually.");
+        setErrorMessage("Location access denied. Search for the address instead.");
         return;
       }
 
       const currentLocation = await Location.getCurrentPositionAsync({});
-      const nextLatitude = currentLocation.coords.latitude;
-      const nextLongitude = currentLocation.coords.longitude;
-
-      setLatitude(nextLatitude.toFixed(6));
-      setLongitude(nextLongitude.toFixed(6));
-      setLabel((currentLabel) => currentLabel || "Current location");
+      setSelected({
+        label: "Current location",
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+        placeId: null,
+      });
+      setQuery("Current location");
+      setSuggestions([]);
     } catch {
-      setErrorMessage("Couldn't get your location. Enter it manually.");
+      setErrorMessage("Could not get your location. Search for the address instead.");
     } finally {
       setIsLocating(false);
     }
   }
 
   function handleConfirm() {
-    const parsedLatitude = latitude.trim() ? Number(latitude) : null;
-    const parsedLongitude = longitude.trim() ? Number(longitude) : null;
-
-    if (!label.trim()) {
-      setErrorMessage("Enter a location name or address.");
+    if (!selected) {
+      setErrorMessage("Pick a suggestion or use your current location.");
       return;
     }
 
-    if (
-      parsedLatitude !== null &&
-      (Number.isNaN(parsedLatitude) || parsedLatitude < -90 || parsedLatitude > 90)
-    ) {
-      setErrorMessage("Latitude must be between -90 and 90.");
-      return;
-    }
-
-    if (
-      parsedLongitude !== null &&
-      (Number.isNaN(parsedLongitude) ||
-        parsedLongitude < -180 ||
-        parsedLongitude > 180)
-    ) {
-      setErrorMessage("Longitude must be between -180 and 180.");
-      return;
-    }
-
-    onConfirm({
-      label: label.trim(),
-      latitude: parsedLatitude,
-      longitude: parsedLongitude,
-    });
+    onConfirm(selected);
   }
 
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+    <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.header}>
@@ -266,89 +192,83 @@ export function LocationPickerModal({
             </Pressable>
           </View>
 
-          <View style={styles.mapPreview}>
+          <View style={styles.preview}>
             <MapPin color={colors.primary} size={34} />
-            <Text style={styles.mapTitle}>
-              {label.trim() || "No location selected"}
+            <Text style={styles.previewTitle}>
+              {selected?.label ?? "No location selected"}
             </Text>
-            <Text style={styles.mapText}>
-              {latitude && longitude
-                ? `${latitude}, ${longitude}`
-                : "Use your location or enter an address"}
+            <Text style={styles.previewText}>
+              {selected
+                ? `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`
+                : "Search for an address or use your current location"}
             </Text>
           </View>
 
           <View style={styles.form}>
             <Text style={styles.label}>Address</Text>
             <TextInput
-              onChangeText={handleLabelChange}
-              placeholder="e.g. Building A"
+              autoCorrect={false}
+              onChangeText={handleQueryChange}
+              placeholder="Start typing an address"
               placeholderTextColor={colors.mutedText}
               style={styles.input}
-              value={label}
+              value={query}
             />
 
-            {suggestions.length > 0 ? (
-              <View style={styles.suggestionList}>
-                {suggestions.map((suggestion) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={suggestion.placeId}
-                    onPress={() => selectGoogleSuggestion(suggestion)}
-                    style={styles.suggestionItem}
-                  >
-                    <MapPin color={colors.mutedText} size={16} />
-                    <Text style={styles.suggestionText}>
-                      {suggestion.description}
-                    </Text>
-                  </Pressable>
-                ))}
+            {isSearching || isResolving ? (
+              <View style={styles.searchingRow}>
+                <ActivityIndicator color={colors.primary} size="small" />
+                <Text style={styles.searchingText}>
+                  {isResolving ? "Reading the address…" : "Searching…"}
+                </Text>
               </View>
             ) : null}
 
-            <View style={styles.coordinateRow}>
-              <View style={styles.coordinateField}>
-                <Text style={styles.label}>Latitude</Text>
-                <TextInput
-                  keyboardType="decimal-pad"
-                  onChangeText={setLatitude}
-                  placeholder="-33.8688"
-                  placeholderTextColor={colors.mutedText}
-                  style={styles.input}
-                  value={latitude}
-                />
-              </View>
-              <View style={styles.coordinateField}>
-                <Text style={styles.label}>Longitude</Text>
-                <TextInput
-                  keyboardType="decimal-pad"
-                  onChangeText={setLongitude}
-                  placeholder="151.2093"
-                  placeholderTextColor={colors.mutedText}
-                  style={styles.input}
-                  value={longitude}
-                />
-              </View>
-            </View>
-          </View>
+            {suggestions.length > 0 ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                style={styles.suggestionList}
+              >
+                {suggestions.map((suggestion) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={suggestion.place_id}
+                    onPress={() => void handleSelectSuggestion(suggestion)}
+                    style={({ pressed }) => [
+                      styles.suggestionItem,
+                      pressed ? styles.suggestionItemPressed : null,
+                    ]}
+                  >
+                    <MapPin color={colors.mutedText} size={16} />
+                    <Text style={styles.suggestionText}>{suggestion.description}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
 
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+            {errorMessage ? (
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            ) : null}
+          </View>
 
           <View style={styles.actions}>
             <SecondaryButton
               disabled={isLocating}
-              label={isLocating ? "Locating..." : "Use current location"}
-              onPress={useCurrentLocation}
+              label={isLocating ? "Locating…" : "Use current location"}
+              onPress={() => void useCurrentLocation()}
             />
-            <PrimaryButton label="Confirm location" onPress={handleConfirm} />
+            <PrimaryButton
+              disabled={!selected}
+              label="Confirm location"
+              onPress={handleConfirm}
+            />
           </View>
 
-          <View style={styles.tipRow}>
-            <LocateFixed color={colors.mutedText} size={16} />
-            <Text style={styles.tipText}>
-              {isGoogleReady
-                ? "Choose a suggestion to fill in coordinates."
-                : "Enter the address and coordinates."}
+          <View style={styles.hintRow}>
+            <LocateFixed color={colors.mutedText} size={14} />
+            <Text style={styles.hintText}>
+              Addresses come from the Workshop AI places service, so the map point
+              is always exact.
             </Text>
           </View>
         </View>
@@ -361,63 +281,54 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.24)",
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheet: {
-    maxHeight: "92%",
     gap: spacing.md,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
     backgroundColor: colors.background,
     padding: spacing.lg,
+    maxHeight: "90%",
   },
   header: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
   },
   subtitle: {
-    marginTop: spacing.xs,
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 13,
+    marginTop: 2,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
+    padding: spacing.xs,
   },
-  mapPreview: {
-    minHeight: 190,
+  preview: {
     alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
-  mapTitle: {
+  previewTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
   },
-  mapText: {
+  previewText: {
     color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
     textAlign: "center",
   },
   form: {
@@ -429,43 +340,43 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    minHeight: 46,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  suggestionList: {
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-  suggestionItem: {
-    minHeight: 44,
+  searchingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  },
+  searchingText: {
+    color: colors.mutedText,
+    fontSize: 13,
+  },
+  suggestionList: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    maxHeight: 220,
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  suggestionItemPressed: {
+    backgroundColor: colors.surface,
   },
   suggestionText: {
-    flex: 1,
     color: colors.text,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  coordinateRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  coordinateField: {
     flex: 1,
-    gap: spacing.sm,
+    fontSize: 14,
   },
   errorText: {
     color: colors.danger,
@@ -475,15 +386,15 @@ const styles = StyleSheet.create({
   actions: {
     gap: spacing.sm,
   },
-  tipRow: {
+  hintRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
+    alignItems: "flex-start",
+    gap: spacing.xs,
   },
-  tipText: {
-    flex: 1,
+  hintText: {
     color: colors.mutedText,
-    fontSize: 13,
-    lineHeight: 18,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

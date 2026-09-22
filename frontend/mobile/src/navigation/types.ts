@@ -29,6 +29,9 @@ export type RootStackParamList = {
   CustomerProviderSearchResults: {
     keyword: string;
     serviceProvince: string;
+    serviceLocationId?: number;
+    serviceAreaLabel?: string;
+    category?: string;
   };
   CustomerProviderPortfolioDetail: {
     providerId: number;

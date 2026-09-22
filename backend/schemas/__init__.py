@@ -7,6 +7,8 @@ from backend.schemas.booking import *  # noqa: F403
 from backend.schemas.feedback import *  # noqa: F403
 from backend.schemas.ai import *  # noqa: F403
 from backend.schemas.places import *  # noqa: F403
+from backend.schemas.location import *  # noqa: F403
+from backend.schemas.address_book import *  # noqa: F403
 
 ApiResponse[CustomerHomeRecommendationResponseData].model_rebuild()
 ApiResponse[CustomerProviderSearchResponseData].model_rebuild()
@@ -40,6 +42,7 @@ __all__ = [
     "CustomerSearchHistoryResponse",
     "HomeProviderRecommendationResponse",
     "CustomerHomeRecommendationResponseData",
+    "CustomerProviderSearchItemResponse",
     "CustomerProviderSearchResponseData",
     "CustomerProviderDetailProviderResponse",
     "CustomerProviderDetailResponseData",
@@ -118,5 +121,11 @@ __all__ = [
     "AIActionConfirmRequest",
     "AsyncTaskType",
     "AsyncTaskStatus",
+    "ServiceLocationLevel",
+    "ServiceLocationResponse",
+    "ServiceLocationListResponse",
+    "CustomerAddressCreate",
+    "CustomerAddressUpdate",
+    "CustomerAddressResponse",
 ]
 __all__ += ["PlaceSuggestion", "PlacesAutocompleteResponse", "PlaceDetailsResponse"]

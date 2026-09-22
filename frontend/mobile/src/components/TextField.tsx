@@ -19,6 +19,7 @@ type TextFieldProps = {
   autoCapitalize?: TextInputProps["autoCapitalize"];
   multiline?: boolean;
   numberOfLines?: number;
+  maxLength?: number;
 };
 
 export function TextField({
@@ -31,6 +32,7 @@ export function TextField({
   autoCapitalize = "none",
   multiline = false,
   numberOfLines,
+  maxLength,
 }: TextFieldProps) {
   return (
     <View style={styles.container}>
@@ -39,6 +41,7 @@ export function TextField({
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
         keyboardType={keyboardType}
+        maxLength={maxLength}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedText}
