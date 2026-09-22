@@ -14,6 +14,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Status | Meaning |
 | --- | --- |
 | To Do | Requirement is pending implementation or confirmation. |
+| Partially Done | Some required behavior is implemented and connected, while other behavior in the same requirement remains outstanding. |
 | Done | Requirement has been implemented, fixed, or temporarily closed based on the latest note. |
 | Needs Confirmation | Requirement detail or expected behavior still needs confirmation. |
 
@@ -22,20 +23,21 @@ This document summarizes the current functional gaps and improvement requirement
 | ID | Status | Priority | User Role | Feature Area | Summary |
 | --- | --- | --- | --- | --- | --- |
 | REQ-01 | To Do | P1 | Customer, Provider | Login | Integrate Google and Apple quick login. |
-| REQ-02 | To Do | P0 | Customer, Provider | Registration | Improve registration with confirm password, separated names, email verification, address validation, and required agreements. |
+| REQ-02 | Partially Done | P0 | Customer, Provider | Registration | Improve registration with confirm password, separated names, email verification, address validation, and required agreements. |
 | REQ-03 | To Do | P0 | Customer | Home Search Results | Add filtering and sorting to provider search results. |
-| REQ-04 | To Do | P0 | Customer | Home Search Results | Improve provider result cards with richer provider information, sorting, and filters. |
-| REQ-05 | To Do | P1 | Customer | Service Area | Refine service area granularity from province level to province, city, and district/suburb level. |
-| REQ-06 | To Do | P0 | Customer | Provider Profile | Show business operating status and support favorite providers. |
-| REQ-07 | To Do | P0 | Customer, Provider | Booking / Request Form | Add request title, attachments, clearer preferred time window semantics, and improved service address selection. |
-| REQ-08 | To Do | P0 | Customer | Account / Edit Profile | Improve customer profile fields, phone verification, default suburb, and service address management. |
+| REQ-04 | Partially Done | P0 | Customer | Home Search Results | Improve provider result cards with richer provider information, sorting, and filters. |
+| REQ-05 | Partially Done | P1 | Customer | Service Area | Refine service area granularity from province level to province, city, and district/suburb level. |
+| REQ-06 | Done | P0 | Customer | Provider Profile | Show business operating status and support favorite providers. |
+| REQ-07 | Partially Done | P0 | Customer, Provider | Booking / Request Form | Add request title, attachments, clearer preferred time window semantics, and improved service address selection. |
+| REQ-08 | Partially Done | P0 | Customer | Account / Edit Profile | Improve customer profile fields, phone verification, default suburb, and service address management. |
 | REQ-09 | Done | P0 | Customer | Session / Authentication | Investigate frequent refresh/session expiry issue. Temporarily not reproduced as of 2026-09-09. |
-| REQ-10 | To Do | P0 | Customer, Provider | Account & Security | Add change password, change email, and correct page title. |
-| REQ-11A | To Do | P0 | Customer, Provider | Account / Notifications | Separate notifications from notification settings. |
-| REQ-11B | To Do | P1 | Customer, Provider | Account | Add Payments, Legal, Help and Support, FAQ, Contact Us, and Language settings. |
-| REQ-12 | To Do | P0 | Customer | Account | Add a Favorite Providers page. |
-| REQ-13 | To Do | P0 | Provider | Provider Home / Verification | Redesign provider real-name verification, qualification verification, and business operation settings. |
-| REQ-14 | Partially Done | P0 | Customer, Provider | Edit Profile | Fix profile update behavior and clarify restrictions before provider verification. |
+| REQ-10 | Done | P0 | Customer, Provider | Account & Security | Add change password, change email, and correct page title. |
+| REQ-11A | Partially Done | P0 | Customer, Provider | Account / Notifications | Separate notifications from notification settings. |
+| REQ-11B | Partially Done | P1 | Customer, Provider | Account | Add Payments, Legal, Help and Support, FAQ, Contact Us, and Language settings. |
+| REQ-12 | Done | P0 | Customer | Account | Add a Favorite Providers page. |
+| REQ-13 | Partially Done | P0 | Provider | Provider Home / Verification | Redesign provider real-name verification, qualification verification, and business operation settings. |
+| REQ-14 | Done | P0 | Customer, Provider | Edit Profile | Fix profile update behavior and clarify restrictions before provider verification. |
+| REQ-15 | To Do | P1 | Customer, Provider | Account / Payments | Add payment-method management, payment details, provider payment filters, and a payout-account entry while preserving the existing payment-history functionality. |
 
 ## 4. Detailed Requirements
 
@@ -68,7 +70,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer, Provider |
 | Feature Area | Registration |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
@@ -81,6 +83,20 @@ This document summarizes the current functional gaps and improvement requirement
 - Integrate a map/address API so users can type partial address information and select from recommended address results.
 - Users must only be allowed to select an address returned by the recommendation API.
 - Add required checkboxes for agreements such as Terms of Service and Privacy Policy.
+
+**Implementation Review — 2026-09-22**
+
+- Done in the connected frontend:
+  - Confirm password validation
+  - Separate First Name and Last Name fields
+  - Required Terms of Use and Privacy Policy acceptance
+  - Links to the Terms of Use and Privacy Policy pages
+- Remaining:
+  - Email verification as part of the registration journey
+  - Required address collection during registration
+  - Recommended-address-only selection and validation
+- Needs confirmation:
+  - This document requests uppercase name storage, while the current frontend references FDS rule `C-R05` and intentionally preserves the user's entered casing.
 
 **Reference Screenshot**
 
@@ -127,7 +143,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer |
 | Feature Area | Home Search Results |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
@@ -148,6 +164,20 @@ This document summarizes the current functional gaps and improvement requirement
   - Price
   - Category
 
+**Implementation Review — 2026-09-22**
+
+- Done in the connected frontend:
+  - Provider portfolio/cover image
+  - Provider business name
+  - Provider category tags
+  - Provider online/offline status
+- Remaining:
+  - Provider avatar on the result card
+  - Distance
+  - Open/closed business status on the result card
+  - Price and rating presentation
+  - Customer-facing sorting and filtering controls
+
 **Reference Screenshot**
 
 ![Provider result card screenshot](Images_attachments/image%2010.png)
@@ -162,12 +192,17 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P1 |
 | User Role | Customer |
 | Feature Area | User Service Area |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
 - The current service area is only stored or selected at province/state level.
 - Refine the service area structure to support province/state, city, and district/suburb level.
+
+**Implementation Review — 2026-09-22**
+
+- The backend supports hierarchical service-location data.
+- The connected Customer frontend still selects and saves only a province, so the city and district/suburb journey remains outstanding.
 
 **Reference Screenshot**
 
@@ -183,12 +218,17 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer |
 | Feature Area | Provider Profile |
-| Status | To Do |
+| Status | Done |
 
 **Requirements**
 
 - Display provider business operating status, shown as open or closed.
 - Add a Favorite Provider feature so customers can save providers.
+
+**Implementation Review — 2026-09-22**
+
+- Provider detail displays open/closed operating status.
+- Customers can add and remove providers from favorites, and the state is synchronized with the Favorite Providers page.
 
 **Reference Screenshot**
 
@@ -204,7 +244,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer, Provider |
 | Feature Area | Booking / Request Form |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
@@ -223,6 +263,12 @@ This document summarizes the current functional gaps and improvement requirement
   - User selects a saved service address from their profile.
   - User uses their current location directly.
 
+**Implementation Review — 2026-09-22**
+
+- Booking creation, booking times, service-address fields, and backend attachment/title contracts exist.
+- The connected booking-request frontend does not yet expose the required title, request attachments, saved addresses, current-location selection, or map-recommended address selection.
+- The current frontend still presents start and end values as scheduled times rather than explicitly as a preferred time window.
+
 **Reference Screenshot**
 
 ![Booking form screenshot](Images_attachments/image%2018.png)
@@ -237,7 +283,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer |
 | Feature Area | Customer / Account / Edit Profile |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
@@ -250,6 +296,19 @@ This document summarizes the current functional gaps and improvement requirement
   - Editing up to 5 service addresses.
   - Displaying the default address by default.
   - Adding a service address by typing an address and selecting a map API recommended address.
+
+**Implementation Review — 2026-09-22**
+
+- Done in the connected frontend:
+  - Separate First Name and Last Name fields
+  - Independent profile-field updates
+  - Phone number, address, and service-province editing
+- Remaining:
+  - Verified phone-number update journey
+  - Default Suburb replacement for Service Province
+  - Dedicated saved Service Address management
+  - Up to five saved service addresses
+  - Map-recommended address selection
 
 **Reference Screenshots**
 
@@ -294,13 +353,19 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer, Provider |
 | Feature Area | Customer / Account / Account & Security |
-| Status | To Do |
+| Status | Done |
 
 **Requirements**
 
 - Add Change Password.
 - Add Change Email.
 - Update the page title to `Account & Security`.
+
+**Implementation Review — 2026-09-22**
+
+- Change Password and Change Email are connected to backend actions.
+- Email and phone verification controls are available on the Account and Security page.
+- The page is exposed from the Account area for both Customer and Provider users.
 
 **Reference Screenshot**
 
@@ -316,7 +381,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer, Provider |
 | Feature Area | Account / Notifications |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
@@ -324,6 +389,14 @@ This document summarizes the current functional gaps and improvement requirement
 - Notification display should be moved into a separate notification page or entry point, rather than being buried under Account in a way that hurts the user experience.
 - The original `Account / Notifications` module should be repurposed as `Notification Settings`.
 - `Notification Settings` should allow users to control push notification preferences.
+
+**Implementation Review — 2026-09-22**
+
+- Done in the connected frontend:
+  - Notification inbox is a separate page and can be opened from the notification icon.
+  - Account contains a separate Notification Settings entry.
+- Remaining:
+  - Notification Settings controls are still a placeholder and do not yet save push or email preferences.
 
 **Reference Screenshot**
 
@@ -339,16 +412,30 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P1 |
 | User Role | Customer, Provider |
 | Feature Area | Account |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
-- Add a `Payments` entry so users can manage payment methods and view payment history.
+- Add a `Payments` entry under Account for both Customer and Provider users.
+- Detailed role-specific payment requirements are defined in `REQ-15`.
 - Add a `Legal` entry for Privacy Policy and Terms of Service.
 - Rename `Help` to `Help and Support`.
 - Add `FAQ` under Help and Support.
 - Add `Contact Us` under Help and Support.
 - Add a `Language` setting so users can change the application language.
+
+**Implementation Review — 2026-09-22**
+
+- Done in the connected frontend:
+  - Payments entry and role-specific payment history
+  - Privacy Policy and Terms of Use pages
+  - Help renamed to Help and Support
+  - FAQ content
+  - Contact Us content
+- Remaining:
+  - Direct Account-level Legal entry; Legal pages are currently linked through Help and Support and authentication flows
+  - Language setting
+  - Payment methods and payment details, tracked under `REQ-15`
 
 **Reference Screenshots**
 
@@ -366,12 +453,17 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer |
 | Feature Area | Customer / Account |
-| Status | To Do |
+| Status | Done |
 
 **Requirements**
 
 - Add a `Favorite Providers` page or account entry.
 - Display providers that the customer has saved or favorited.
+
+**Implementation Review — 2026-09-22**
+
+- Customer Account contains a Favorites entry.
+- The page lists saved providers, opens provider details, and supports removing a provider from favorites.
 
 **Reference Screenshot**
 
@@ -387,7 +479,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Provider |
 | Feature Area | Provider / Home / Business Verification |
-| Status | To Do |
+| Status | Partially Done |
 
 **Requirements**
 
@@ -415,6 +507,18 @@ This document summarizes the current functional gaps and improvement requirement
 4. Provider can then apply for qualification/business verification.
 5. Full provider functionality is unlocked after required verification is completed.
 
+**Implementation Review — 2026-09-22**
+
+- Done in the connected frontend:
+  - Separate identity and qualification verification steps
+  - Clear approved, pending, rejected, and locked states
+  - Identity-before-qualification ordering
+  - Provider feature gating until qualification approval
+  - Individual/organization support in the backend contract
+- Remaining:
+  - Complete individual/organization selection in the connected Provider form
+  - Separate Business Operation Settings area for price and service area
+
 **Original Project Screenshots**
 
 ![Provider verification screenshot 1](Images_attachments/image%2015.png)
@@ -439,7 +543,7 @@ This document summarizes the current functional gaps and improvement requirement
 | Priority | P0 |
 | User Role | Customer, Provider |
 | Feature Area | Edit Profile |
-| Status | Partially Done |
+| Status | Done |
 
 **Issues**
 
@@ -451,12 +555,130 @@ This document summarizes the current functional gaps and improvement requirement
 
 - Profile update behavior was modified on 2026-09-10.
 - Remaining requirement: define or implement the rule that unverified providers cannot perform any operation before completing required information verification.
+- As of 2026-09-22, profile fields can be updated independently and provider schedule, bookings, chats, and portfolios are gated until qualification approval.
 
 **Reference Screenshots**
 
 ![Edit profile screenshot 1](Images_attachments/image%202.png)
 
 ![Edit profile screenshot 2](Images_attachments/image.png)
+
+---
+
+### REQ-15: Customer and Provider Payments Experience
+
+| Field | Details |
+| --- | --- |
+| Original ID | New |
+| Priority | P1 |
+| User Role | Customer, Provider |
+| Feature Area | Account / Payments |
+| Status | To Do |
+
+**Existing Functionality — Done**
+
+- A shared `Payments` entry exists under Account for Customer and Provider users.
+- Customers can view payment records associated with their bookings.
+- Providers can view customer payment records associated with their bookings.
+- The shared Payments page displays role-specific content.
+
+**Shared Navigation Requirements**
+
+- Keep `Payments` as an Account-level entry for both Customer and Provider users.
+- Display role-specific content from the existing shared Payments route.
+- Do not introduce Payments as an additional primary navigation tab.
+
+**Customer Information Architecture**
+
+```text
+Customer
+└── Account
+    └── Payments
+        ├── Payment Methods
+        │   └── Add / Edit Payment Method
+        └── Payment History
+            └── Payment Detail
+```
+
+- Checkout remains part of the booking journey:
+
+```text
+Customer
+└── Bookings
+    └── Booking Detail
+        └── Checkout
+            └── Select Payment Method
+```
+
+**Customer Payment Requirements — To Do**
+
+- Allow customers to view available payment methods.
+- Allow customers to add, remove, and select a default payment method.
+- Allow customers to switch payment methods during checkout.
+- Display only masked payment-method information.
+- Do not display or store full card numbers or card security codes in the application UI.
+- Add payment-history filters:
+  - All
+  - Pending
+  - Paid
+  - Refunded
+  - Failed
+- Add a Payment Detail page containing:
+  - Payment ID
+  - Booking ID and link to Booking Detail
+  - Provider
+  - Service or booking summary
+  - Amount and currency
+  - Masked payment method
+  - Payment status
+  - Created, paid, and refunded dates when applicable
+- Checkout must display the booking summary, quoted amount, currency, selected payment method, and final payment amount before confirmation.
+- Payment processing, success, and failure states must be visually distinguishable.
+
+**Provider Information Architecture**
+
+```text
+Provider
+└── Account
+    └── Payments
+        ├── Customer Payments
+        │   └── Transaction Detail
+        └── Payout Account
+```
+
+**Provider Payment Requirements — To Do**
+
+- Present the Provider payment list as `Customer Payments`.
+- Allow Provider users to filter customer payments by:
+  - All
+  - Pending
+  - Paid
+  - Refunded
+  - Failed
+- Each customer-payment item should display:
+  - Payment amount and currency
+  - Booking or service summary
+  - Customer name
+  - Payment status
+  - Created, paid, and refunded dates when applicable
+- Add a Transaction Detail page containing the same payment facts and a link to the associated Booking Detail page.
+- Add a `Payout Account` entry under Provider Payments.
+- Payout Account may collect or display the provider's future payout-destination information, subject to the selected payment provider and security design.
+
+**Commercial Scope Boundary**
+
+- Do not display or define:
+  - Platform fees
+  - Commission rates
+  - Provider net earnings
+  - Available or withdrawable balances
+  - Withdrawal fees
+  - Settlement or payout schedules
+- These items require a separate confirmed commercial and settlement model.
+
+**Reference Prototype**
+
+- Customer and Provider Payments prototype to be maintained as an editable Draw.io artifact under `docs/ui/`.
 
 ## 5. Cross-Feature Dependencies and Open Items
 
@@ -469,6 +691,8 @@ This document summarizes the current functional gaps and improvement requirement
 | Notifications | Notification display and notification settings should be separated into different user journeys. |
 | Provider Verification | Real-name verification, qualification/business verification, and business operation settings should be separated but connected by clear unlock rules. |
 | Media Uploads | Booking/request attachments require clear limits, upload validation, storage rules, preview behavior, and error messages. |
+| Name Handling | Registration currently preserves entered name casing according to FDS rule `C-R05`, while `REQ-02` requests uppercase database storage. The authoritative rule must be confirmed before changing name normalization. |
+| Payments | Customer checkout, payment methods, payment history, provider customer-payment filters, refunds, and booking status must share one payment record and status model. Payout Account integration depends on the selected payment provider and security design. |
 
 ## 6. Recommended Implementation Order
 
@@ -479,3 +703,4 @@ This document summarizes the current functional gaps and improvement requirement
 | 3 | REQ-03, REQ-04, REQ-06, REQ-12 | Provider discovery and favorites should be implemented as one connected customer experience. |
 | 4 | REQ-13, REQ-14 | Provider verification controls provider access and operation permissions. |
 | 5 | REQ-11A, REQ-11B, REQ-05, REQ-01 | These improve account structure, localization, service-area precision, and login convenience. |
+| 6 | REQ-15 | Extend the existing Payments entry after booking, refund, authentication, and Account navigation behavior are stable. |
