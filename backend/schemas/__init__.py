@@ -50,6 +50,7 @@ __all__ = [
     "ProviderProfileCreate",
     "ProviderContactProfileUpdate",
     "ProviderContactProfilePatch",
+    "ProviderOperatingSettingsPatch",
     "ProviderVerificationStatus",
     "ProviderProfileResponse",
     "ProviderProfileWithRatingResponse",
