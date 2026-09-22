@@ -20,3 +20,19 @@ export type PlaceDetails = {
   latitude: number;
   longitude: number;
 };
+
+export type ServiceLocationLevel = "province" | "city" | "district";
+
+export type ServiceLocation = {
+  id: number;
+  parent_id: number | null;
+  code: string;
+  name: string;
+  level: ServiceLocationLevel;
+};
+
+export type ServiceAreaSelection = {
+  serviceLocationId: number;
+  serviceProvince: string;
+  label: string;
+};
