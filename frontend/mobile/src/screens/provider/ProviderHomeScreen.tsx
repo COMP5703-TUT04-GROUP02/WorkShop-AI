@@ -8,7 +8,7 @@ import {
   Edit3,
   UserRound,
 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +29,7 @@ import {
   uploadProviderCertificates,
   updateProviderProfile,
 } from "../../api/provider";
+import { getServiceAreaSelection } from "../../api/locations";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
@@ -53,6 +54,7 @@ import type {
 } from "../../types/provider";
 import type { Review } from "../../types/review";
 import type { ServiceAreaSelection } from "../../types/location";
+import { createLatestRequestGate } from "../../features/locations/location-cascade-state";
 import { getErrorMessage } from "../../utils/errors";
 import { resolveMediaUrl } from "../../utils/media";
 
@@ -82,6 +84,7 @@ export function ProviderHomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [message, setMessage] = useState("");
+
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isProfileMissing, setIsProfileMissing] = useState(false);
 
@@ -229,6 +232,7 @@ export function ProviderHomeScreen() {
               </Text>
             </View>
             <Pressable
+              accessibilityLabel="Edit provider profile"
               accessibilityRole="button"
               onPress={() => setIsEditingProfile(true)}
               style={styles.editButton}
@@ -384,6 +388,30 @@ function ProviderProfileForm({
   const [isProvincePickerVisible, setIsProvincePickerVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const locationHydration = useRef(createLatestRequestGate()).current;
+
+  useEffect(() => {
+    let isActive = true;
+    const locationId = initialProfile?.service_location_id;
+    const requestId = locationHydration.begin();
+
+    if (locationId) {
+      getServiceAreaSelection(locationId)
+        .then((selection) => {
+          if (isActive && locationHydration.isLatest(requestId)) {
+            setServiceProvince(selection.serviceProvince);
+            setServiceLocationId(selection.serviceLocationId);
+            setServiceAreaLabel(selection.label);
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      isActive = false;
+      locationHydration.invalidate();
+    };
+  }, [initialProfile?.service_location_id, locationHydration]);
 
   function toggleTag(tag: string) {
     setTags((currentTags) =>
@@ -799,6 +827,7 @@ function ProviderProfileForm({
       <LocationCascadePickerModal
         onClose={() => setIsProvincePickerVisible(false)}
         onSelect={(selection) => {
+          locationHydration.invalidate();
           setServiceProvince(selection.serviceProvince);
           setServiceLocationId(selection.serviceLocationId);
           setServiceAreaLabel(selection.label);

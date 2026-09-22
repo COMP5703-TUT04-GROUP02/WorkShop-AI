@@ -55,7 +55,7 @@ export function CustomerProviderSearchResultsScreen({
         const data = await searchCustomerProviders(
           keyword,
           serviceProvince,
-          serviceLocationId,
+          { service_location_id: serviceLocationId },
         );
 
         if (!isMounted) {

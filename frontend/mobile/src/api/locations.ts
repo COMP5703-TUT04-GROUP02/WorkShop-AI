@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
-import type { ServiceLocation } from "../types/location";
+import type { ServiceAreaSelection, ServiceLocation } from "../types/location";
 
 type ServiceLocationList = {
   items: ServiceLocation[];
@@ -44,4 +44,16 @@ export async function getServiceLocationPath(locationId: number) {
   }
 
   return { province, city, district };
+}
+
+export async function getServiceAreaSelection(
+  locationId: number,
+): Promise<ServiceAreaSelection> {
+  const path = await getServiceLocationPath(locationId);
+
+  return {
+    serviceLocationId: path.district.id,
+    serviceProvince: path.province.name,
+    label: [path.province.name, path.city.name, path.district.name].join(" / "),
+  };
 }

@@ -15,6 +15,7 @@ import {
   getProviderProfile,
   patchProviderContactProfile,
 } from "../api/provider";
+import { getServiceAreaSelection } from "../api/locations";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { LocationCascadePickerModal } from "../components/LocationCascadePickerModal";
 import { ScreenContainer } from "../components/ScreenContainer";
@@ -106,34 +107,39 @@ export function AccountEditScreen() {
         setInitialValues(fallbackValues);
 
         try {
-          if (user.role === "customer") {
-            const profile = await getCustomerProfile();
+          const profile =
+            user.role === "customer"
+              ? await getCustomerProfile()
+              : user.role === "provider"
+                ? await getProviderProfile()
+                : null;
 
-            if (isActive && profile) {
-              const nextValues = toFormValues(user.name, profile);
-              setPhoneNumber(nextValues.phoneNumber);
-              setAddress(nextValues.address);
-              setServiceProvince(nextValues.serviceProvince);
-              setServiceLocationId(nextValues.serviceLocationId);
-              setServiceAreaLabel(nextValues.serviceProvince);
-              setNotes(nextValues.notes);
-              setInitialValues(nextValues);
+          if (isActive && profile) {
+            const nextValues = toFormValues(user.name, profile);
+            if (user.role === "provider") {
+              setProviderProfile(profile as ProviderProfile);
             }
-          }
+            setPhoneNumber(nextValues.phoneNumber);
+            setAddress(nextValues.address);
+            setServiceProvince(nextValues.serviceProvince);
+            setServiceLocationId(nextValues.serviceLocationId);
+            setServiceAreaLabel(nextValues.serviceProvince);
+            setNotes(nextValues.notes);
+            setInitialValues(nextValues);
 
-          if (user.role === "provider") {
-            const profile = await getProviderProfile();
-
-            if (isActive && profile) {
-              const nextValues = toFormValues(user.name, profile);
-              setProviderProfile(profile);
-              setPhoneNumber(nextValues.phoneNumber);
-              setAddress(nextValues.address);
-              setServiceProvince(nextValues.serviceProvince);
-              setServiceLocationId(nextValues.serviceLocationId);
-              setServiceAreaLabel(nextValues.serviceProvince);
-              setNotes(nextValues.notes);
-              setInitialValues(nextValues);
+            if (nextValues.serviceLocationId) {
+              try {
+                const selection = await getServiceAreaSelection(
+                  nextValues.serviceLocationId,
+                );
+                if (isActive) {
+                  setServiceProvince(selection.serviceProvince);
+                  setServiceLocationId(selection.serviceLocationId);
+                  setServiceAreaLabel(selection.label);
+                }
+              } catch {
+                // Keep the province fallback when an older saved location is invalid.
+              }
             }
           }
         } catch {

@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronDown, MapPin, Search } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +17,7 @@ import {
   getCustomerProviderDetail,
   updateCustomerServiceProvince,
 } from "../../api/customer";
+import { getServiceAreaSelection } from "../../api/locations";
 import { PlaceholderPanel } from "../../components/PlaceholderPanel";
 import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
 import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
@@ -26,6 +27,7 @@ import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { ProviderRecommendation } from "../../types/provider";
 import type { ServiceAreaSelection } from "../../types/location";
+import { createLatestRequestGate } from "../../features/locations/location-cascade-state";
 import {
   DEFAULT_PROVIDER_TAG,
   getProviderTagLabel,
@@ -52,25 +54,54 @@ export function CustomerHomeScreen() {
   >([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [recommendationWidth, setRecommendationWidth] = useState(0);
+  const profileHydration = useRef(createLatestRequestGate()).current;
   const recommendationLayout = getRecommendationLayout(recommendationWidth);
 
   useEffect(() => {
     let isMounted = true;
+    const requestId = profileHydration.begin();
 
-    getCustomerProfile()
-      .then((profile) => {
-        if (isMounted && profile?.service_province) {
-          setSelectedProvince(profile.service_province);
-          setSelectedLocationId(profile.service_location_id);
-          setSelectedAreaLabel(profile.service_province);
+    async function loadProfile() {
+      try {
+        const profile = await getCustomerProfile();
+        if (
+          !isMounted ||
+          !profileHydration.isLatest(requestId) ||
+          !profile?.service_province
+        ) {
+          return;
         }
-      })
-      .catch(() => undefined);
+
+        setSelectedProvince(profile.service_province);
+        setSelectedLocationId(profile.service_location_id);
+        setSelectedAreaLabel(profile.service_province);
+
+        if (profile.service_location_id) {
+          try {
+            const selection = await getServiceAreaSelection(
+              profile.service_location_id,
+            );
+            if (isMounted && profileHydration.isLatest(requestId)) {
+              setSelectedProvince(selection.serviceProvince);
+              setSelectedLocationId(selection.serviceLocationId);
+              setSelectedAreaLabel(selection.label);
+            }
+          } catch {
+            // Keep the province fallback when an older saved location is invalid.
+          }
+        }
+      } catch {
+        // Keep the default area when the profile is unavailable.
+      }
+    }
+
+    void loadProfile();
 
     return () => {
       isMounted = false;
+      profileHydration.invalidate();
     };
-  }, []);
+  }, [profileHydration]);
 
   const loadRecommendations = useCallback(async () => {
     setIsLoadingRecommendations(true);
@@ -118,6 +149,7 @@ export function CustomerHomeScreen() {
   }, [subscribe]);
 
   async function handleSelectServiceArea(selection: ServiceAreaSelection) {
+    profileHydration.invalidate();
     setSelectedProvince(selection.serviceProvince);
     setSelectedLocationId(selection.serviceLocationId);
     setSelectedAreaLabel(selection.label);

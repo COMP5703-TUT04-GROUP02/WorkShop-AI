@@ -5,6 +5,8 @@ const {
   chooseCity,
   chooseDistrict,
   chooseProvince,
+  createLatestRequestGate,
+  filterServiceLocations,
   getCompletedLocation,
 } = require("../../../../.test-build/features/locations/location-cascade-state.js");
 
@@ -88,4 +90,26 @@ test("province or city selections alone cannot be submitted", () => {
     }),
     null,
   );
+});
+
+test("location search filters names and codes case-insensitively", () => {
+  const locations = [istanbul, ankara];
+
+  assert.deepEqual(filterServiceLocations(locations, "ANK"), [ankara]);
+  assert.deepEqual(filterServiceLocations(locations, "tr-istan"), [istanbul]);
+  assert.deepEqual(filterServiceLocations(locations, "İSTANBUL"), [istanbul]);
+  assert.deepEqual(filterServiceLocations(locations, "ıstanbul"), [istanbul]);
+  assert.deepEqual(filterServiceLocations(locations, "   "), locations);
+});
+
+test("only the latest asynchronous location request stays current", () => {
+  const gate = createLatestRequestGate();
+  const firstRequest = gate.begin();
+  const secondRequest = gate.begin();
+
+  assert.equal(gate.isLatest(firstRequest), false);
+  assert.equal(gate.isLatest(secondRequest), true);
+
+  gate.invalidate();
+  assert.equal(gate.isLatest(secondRequest), false);
 });
