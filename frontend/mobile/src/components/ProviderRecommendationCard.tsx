@@ -1,10 +1,10 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { getProviderTagLabel } from "../constants/providerTags";
 import {
   formatProviderDistance,
   getProviderCardImageUrl,
   getProviderCardStatus,
-  getProviderCategoryLabel,
 } from "../features/provider-search/provider-card-display";
 import { colors, radius, spacing } from "../theme/theme";
 import type { ProviderRecommendation } from "../types/provider";
@@ -42,7 +42,7 @@ export function ProviderRecommendationCard({
         tone: provider.is_online ? "active" : "inactive",
       };
   const distance = formatProviderDistance(provider.distance_km);
-  const category = getProviderCategoryLabel(provider.tags);
+  const category = getProviderTagLabel(provider.tags[0] ?? "other");
 
   return (
     <Pressable

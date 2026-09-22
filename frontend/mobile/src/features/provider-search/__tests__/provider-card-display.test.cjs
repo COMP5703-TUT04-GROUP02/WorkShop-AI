@@ -1,12 +1,11 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+const assert = require("node:assert/strict");
+const test = require("node:test");
 
-import {
+const {
   formatProviderDistance,
   getProviderCardImageUrl,
   getProviderCardStatus,
-  getProviderCategoryLabel,
-} from "../provider-card-display.ts";
+} = require("../../../../.test-build/provider-card-display.js");
 
 test("provider card prefers the account avatar over portfolio media", () => {
   assert.equal(
@@ -42,9 +41,7 @@ test("recommendation cards still fall back to online presence", () => {
   });
 });
 
-test("provider card formats distance and the primary category for display", () => {
+test("provider card formats API-provided distance for display", () => {
   assert.equal(formatProviderDistance(2.46), "2.5 km away");
   assert.equal(formatProviderDistance(null), null);
-  assert.equal(getProviderCategoryLabel(["elderly_care", "cleaning"]), "Elderly care");
-  assert.equal(getProviderCategoryLabel([]), "Other");
 });

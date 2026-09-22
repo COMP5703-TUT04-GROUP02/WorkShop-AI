@@ -33,6 +33,22 @@ const SORT_QUERY_VALUES: Record<
   highestRating: "highest_rating",
 };
 
+const SORT_SUMMARY_LABELS: Record<ProviderSearchSort, string> = {
+  recommended: "Recommended",
+  nearest: "Nearest",
+  lowestPrice: "Lowest price",
+  highestRating: "Highest rating",
+};
+
+type CustomerSearchCoordinateProfile = {
+  current_latitude: number | null;
+  current_longitude: number | null;
+  default_service_latitude: number | null;
+  default_service_longitude: number | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
 export function createDefaultSearchFilters(
   initialCategory: string | null = null,
 ): ProviderSearchFilters {
@@ -45,6 +61,30 @@ export function createDefaultSearchFilters(
     availability: "any",
     sort: "recommended",
   };
+}
+
+export function restoreInitialSearchFilters(initialCategory?: string | null) {
+  return createDefaultSearchFilters(initialCategory);
+}
+
+export function hasCustomerSearchCoordinates(
+  profile: CustomerSearchCoordinateProfile | null | undefined,
+) {
+  if (!profile) return false;
+
+  return [
+    [profile.current_latitude, profile.current_longitude],
+    [profile.default_service_latitude, profile.default_service_longitude],
+    [profile.latitude, profile.longitude],
+  ].some(([latitude, longitude]) => latitude != null && longitude != null);
+}
+
+export function getSearchFilterSummary(filters: ProviderSearchFilters) {
+  const activeCount = countActiveSearchFilters(filters);
+  if (activeCount === 0) return "All providers · Recommended";
+
+  const filterLabel = activeCount === 1 ? "filter" : "filters";
+  return `${activeCount} ${filterLabel} · ${SORT_SUMMARY_LABELS[filters.sort]}`;
 }
 
 export function countActiveSearchFilters(filters: ProviderSearchFilters) {

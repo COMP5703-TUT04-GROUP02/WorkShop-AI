@@ -1,10 +1,12 @@
-import { SlidersHorizontal } from "lucide-react-native";
+import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react-native";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { getProviderTagLabel, PROVIDER_TAGS } from "../constants/providerTags";
 import {
   countActiveSearchFilters,
+  getSearchFilterSummary,
   getSearchFilterValidationError,
   type ProviderSearchFilters as ProviderSearchFilterValues,
   type ProviderSearchSort,
@@ -18,6 +20,8 @@ type ProviderSearchFiltersProps = {
   onApply: () => void;
   onClear: () => void;
   isApplying?: boolean;
+  distanceEnabled?: boolean;
+  distanceDisabledReason?: string;
 };
 
 const DISTANCE_OPTIONS = [5, 10, 25, 50] as const;
@@ -35,8 +39,12 @@ export function ProviderSearchFilters({
   onApply,
   onClear,
   isApplying = false,
+  distanceEnabled = true,
+  distanceDisabledReason,
 }: ProviderSearchFiltersProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const activeCount = countActiveSearchFilters(value);
+  const summary = getSearchFilterSummary(value);
   const validationError = getSearchFilterValidationError(value);
   const applyDisabled = isApplying || validationError !== null;
 
@@ -47,150 +55,188 @@ export function ProviderSearchFilters({
     onChange({ ...value, [key]: nextValue });
   }
 
+  function handleApply() {
+    onApply();
+    setIsExpanded(false);
+  }
+
   return (
     <View style={styles.panel}>
-      <View style={styles.header}>
-        <View style={styles.headingRow}>
-          <SlidersHorizontal color={colors.text} size={20} />
-          <Text style={styles.title}>Filter and sort</Text>
-          {activeCount > 0 ? (
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>{activeCount}</Text>
-            </View>
-          ) : null}
-        </View>
-        <SecondaryButton
-          disabled={activeCount === 0 || isApplying}
-          label="Clear"
-          onPress={onClear}
-        />
-      </View>
-
-      <FilterSection label="Category">
-        <View style={styles.chipRow}>
-          {PROVIDER_TAGS.map((tag) => (
-            <FilterChip
-              active={value.category === tag}
-              key={tag}
-              label={getProviderTagLabel(tag)}
-              onPress={() => update("category", value.category === tag ? null : tag)}
-            />
-          ))}
-        </View>
-      </FilterSection>
-
-      <View style={styles.twoColumnRow}>
-        <FilterSection label="Maximum distance">
-          <View style={styles.chipRow}>
-            {DISTANCE_OPTIONS.map((distance) => (
-              <FilterChip
-                active={value.maxDistanceKm === distance}
-                key={distance}
-                label={`${distance} km`}
-                onPress={() =>
-                  update(
-                    "maxDistanceKm",
-                    value.maxDistanceKm === distance ? null : distance,
-                  )
-                }
-              />
-            ))}
-          </View>
-        </FilterSection>
-
-        <FilterSection label="Minimum rating">
-          <View style={styles.chipRow}>
-            {RATING_OPTIONS.map((rating) => (
-              <FilterChip
-                active={value.minRating === rating}
-                key={rating}
-                label={`${rating}+ stars`}
-                onPress={() =>
-                  update("minRating", value.minRating === rating ? null : rating)
-                }
-              />
-            ))}
-          </View>
-        </FilterSection>
-      </View>
-
-      <FilterSection label="Hourly price">
-        <View style={styles.priceRow}>
-          <TextInput
-            accessibilityLabel="Minimum hourly price"
-            inputMode="numeric"
-            onChangeText={(text) => update("minPrice", text)}
-            placeholder="Minimum"
-            placeholderTextColor={colors.mutedText}
-            style={styles.priceInput}
-            value={value.minPrice}
-          />
-          <Text style={styles.priceSeparator}>to</Text>
-          <TextInput
-            accessibilityLabel="Maximum hourly price"
-            inputMode="numeric"
-            onChangeText={(text) => update("maxPrice", text)}
-            placeholder="Maximum"
-            placeholderTextColor={colors.mutedText}
-            style={styles.priceInput}
-            value={value.maxPrice}
-          />
-        </View>
-      </FilterSection>
-
-      <FilterSection label="Availability">
-        <View style={styles.chipRow}>
-          <FilterChip
-            active={value.availability === "any"}
-            label="Any"
-            onPress={() => update("availability", "any")}
-          />
-          <FilterChip
-            active={value.availability === "open"}
-            label="Open"
-            onPress={() => update("availability", "open")}
-          />
-          <FilterChip
-            active={value.availability === "closed"}
-            label="Closed"
-            onPress={() => update("availability", "closed")}
-          />
-        </View>
-      </FilterSection>
-
-      <FilterSection label="Sort by">
-        <View style={styles.chipRow}>
-          {SORT_OPTIONS.map((option) => (
-            <FilterChip
-              active={value.sort === option.value}
-              key={option.value}
-              label={option.label}
-              onPress={() => update("sort", option.value)}
-            />
-          ))}
-        </View>
-      </FilterSection>
-
-      {validationError ? (
-        <Text accessibilityRole="alert" style={styles.errorText}>
-          {validationError}
-        </Text>
-      ) : null}
-
       <Pressable
         accessibilityRole="button"
-        disabled={applyDisabled}
-        onPress={onApply}
+        accessibilityState={{ expanded: isExpanded }}
+        onPress={() => setIsExpanded((current) => !current)}
         style={({ pressed }) => [
-          styles.applyButton,
-          pressed && !applyDisabled ? styles.applyButtonPressed : null,
-          applyDisabled ? styles.disabled : null,
+          styles.collapsedBar,
+          pressed ? styles.collapsedBarPressed : null,
         ]}
       >
-        <Text style={styles.applyText}>
-          {isApplying ? "Applying..." : "Apply filters"}
-        </Text>
+        <SlidersHorizontal color={colors.text} size={20} />
+        <View style={styles.collapsedText}>
+          <View style={styles.headingRow}>
+            <Text style={styles.title}>Filter and sort</Text>
+            {activeCount > 0 ? (
+              <View style={styles.countBadge}>
+                <Text style={styles.countText}>{activeCount}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.summaryText} numberOfLines={1}>
+            {summary}
+          </Text>
+        </View>
+        {isExpanded ? (
+          <ChevronUp color={colors.mutedText} size={20} />
+        ) : (
+          <ChevronDown color={colors.mutedText} size={20} />
+        )}
       </Pressable>
+
+      {isExpanded ? (
+        <>
+          <View style={styles.actionsRow}>
+            <Text style={styles.expandedLabel}>Refine results</Text>
+            <SecondaryButton
+              disabled={activeCount === 0 || isApplying}
+              label="Clear"
+              onPress={onClear}
+            />
+          </View>
+
+          <FilterSection label="Category">
+            <View style={styles.chipRow}>
+              {PROVIDER_TAGS.map((tag) => (
+                <FilterChip
+                  active={value.category === tag}
+                  key={tag}
+                  label={getProviderTagLabel(tag)}
+                  onPress={() =>
+                    update("category", value.category === tag ? null : tag)
+                  }
+                />
+              ))}
+            </View>
+          </FilterSection>
+
+          <View style={styles.twoColumnRow}>
+            <FilterSection label="Maximum distance">
+              <View style={styles.chipRow}>
+                {DISTANCE_OPTIONS.map((distance) => (
+                  <FilterChip
+                    active={value.maxDistanceKm === distance}
+                    disabled={!distanceEnabled}
+                    key={distance}
+                    label={`${distance} km`}
+                    onPress={() =>
+                      update(
+                        "maxDistanceKm",
+                        value.maxDistanceKm === distance ? null : distance,
+                      )
+                    }
+                  />
+                ))}
+              </View>
+              {!distanceEnabled && distanceDisabledReason ? (
+                <Text style={styles.helperText}>{distanceDisabledReason}</Text>
+              ) : null}
+            </FilterSection>
+
+            <FilterSection label="Minimum rating">
+              <View style={styles.chipRow}>
+                {RATING_OPTIONS.map((rating) => (
+                  <FilterChip
+                    active={value.minRating === rating}
+                    key={rating}
+                    label={`${rating}+ stars`}
+                    onPress={() =>
+                      update("minRating", value.minRating === rating ? null : rating)
+                    }
+                  />
+                ))}
+              </View>
+            </FilterSection>
+          </View>
+
+          <FilterSection label="Hourly price">
+            <View style={styles.priceRow}>
+              <TextInput
+                accessibilityLabel="Minimum hourly price"
+                inputMode="numeric"
+                onChangeText={(text) => update("minPrice", text)}
+                placeholder="Minimum"
+                placeholderTextColor={colors.mutedText}
+                style={styles.priceInput}
+                value={value.minPrice}
+              />
+              <Text style={styles.priceSeparator}>to</Text>
+              <TextInput
+                accessibilityLabel="Maximum hourly price"
+                inputMode="numeric"
+                onChangeText={(text) => update("maxPrice", text)}
+                placeholder="Maximum"
+                placeholderTextColor={colors.mutedText}
+                style={styles.priceInput}
+                value={value.maxPrice}
+              />
+            </View>
+          </FilterSection>
+
+          <FilterSection label="Availability">
+            <View style={styles.chipRow}>
+              <FilterChip
+                active={value.availability === "any"}
+                label="Any"
+                onPress={() => update("availability", "any")}
+              />
+              <FilterChip
+                active={value.availability === "open"}
+                label="Open"
+                onPress={() => update("availability", "open")}
+              />
+              <FilterChip
+                active={value.availability === "closed"}
+                label="Closed"
+                onPress={() => update("availability", "closed")}
+              />
+            </View>
+          </FilterSection>
+
+          <FilterSection label="Sort by">
+            <View style={styles.chipRow}>
+              {SORT_OPTIONS.map((option) => (
+                <FilterChip
+                  active={value.sort === option.value}
+                  disabled={option.value === "nearest" && !distanceEnabled}
+                  key={option.value}
+                  label={option.label}
+                  onPress={() => update("sort", option.value)}
+                />
+              ))}
+            </View>
+          </FilterSection>
+
+          {validationError ? (
+            <Text accessibilityRole="alert" style={styles.errorText}>
+              {validationError}
+            </Text>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={applyDisabled}
+            onPress={handleApply}
+            style={({ pressed }) => [
+              styles.applyButton,
+              pressed && !applyDisabled ? styles.applyButtonPressed : null,
+              applyDisabled ? styles.disabled : null,
+            ]}
+          >
+            <Text style={styles.applyText}>
+              {isApplying ? "Applying..." : "Apply filters"}
+            </Text>
+          </Pressable>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -208,17 +254,24 @@ function FilterChip({
   active,
   label,
   onPress,
+  disabled = false,
 }: {
   active: boolean;
   label: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      accessibilityState={{ disabled, selected: active }}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.chip, active ? styles.chipActive : null]}
+      style={[
+        styles.chip,
+        active ? styles.chipActive : null,
+        disabled ? styles.disabled : null,
+      ]}
     >
       <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
         {label}
@@ -236,17 +289,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
-  header: {
+  collapsedBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.md,
   },
+  collapsedBarPressed: { opacity: 0.72 },
+  collapsedText: { flex: 1, minWidth: 0, gap: spacing.xs },
   headingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
   },
+  summaryText: { color: colors.mutedText, fontSize: 13 },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  expandedLabel: { color: colors.text, fontSize: 14, fontWeight: "700" },
   title: { color: colors.text, fontSize: 18, fontWeight: "700" },
   countBadge: {
     minWidth: 24,
@@ -300,5 +362,6 @@ const styles = StyleSheet.create({
   applyButtonPressed: { backgroundColor: colors.primaryPressed },
   applyText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   errorText: { color: colors.danger, fontSize: 13, lineHeight: 18 },
+  helperText: { color: colors.mutedText, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: 0.55 },
 });

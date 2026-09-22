@@ -1,13 +1,16 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+const assert = require("node:assert/strict");
+const test = require("node:test");
 
-import {
+const {
   buildProviderSearchParams,
   countActiveSearchFilters,
   createDefaultSearchFilters,
+  getSearchFilterSummary,
   getSearchFilterValidationError,
+  hasCustomerSearchCoordinates,
   parseOptionalNonNegativeInteger,
-} from "../search-filter-state.ts";
+  restoreInitialSearchFilters,
+} = require("../../../../.test-build/search-filter-state.js");
 
 test("search filters map to the WS-77 query contract", () => {
   assert.deepEqual(
@@ -91,6 +94,59 @@ test("a category selected on Home seeds the result-page category filter", () => 
 
   assert.equal(filters.category, "plumbing");
   assert.equal(countActiveSearchFilters(filters), 1);
+});
+
+test("clearing restores the category carried over from Home", () => {
+  assert.deepEqual(restoreInitialSearchFilters("plumbing"), {
+    category: "plumbing",
+    maxDistanceKm: null,
+    minPrice: "",
+    maxPrice: "",
+    minRating: null,
+    availability: "any",
+    sort: "recommended",
+  });
+});
+
+test("distance controls require one complete customer coordinate pair", () => {
+  assert.equal(hasCustomerSearchCoordinates(null), false);
+  assert.equal(
+    hasCustomerSearchCoordinates({
+      current_latitude: 41,
+      current_longitude: null,
+      default_service_latitude: null,
+      default_service_longitude: null,
+      latitude: null,
+      longitude: null,
+    }),
+    false,
+  );
+  assert.equal(
+    hasCustomerSearchCoordinates({
+      current_latitude: null,
+      current_longitude: null,
+      default_service_latitude: 0,
+      default_service_longitude: 0,
+      latitude: null,
+      longitude: null,
+    }),
+    true,
+  );
+});
+
+test("collapsed filter summary reports the active count and sort", () => {
+  assert.equal(
+    getSearchFilterSummary(createDefaultSearchFilters()),
+    "All providers · Recommended",
+  );
+  assert.equal(
+    getSearchFilterSummary({
+      ...createDefaultSearchFilters("plumbing"),
+      maxDistanceKm: 10,
+      sort: "nearest",
+    }),
+    "3 filters · Nearest",
+  );
 });
 
 test("active filter count treats price range and sort as separate controls", () => {

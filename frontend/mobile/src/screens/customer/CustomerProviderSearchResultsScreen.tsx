@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import {
+  getCustomerProfile,
   getCustomerProviderDetail,
   searchCustomerProviders,
 } from "../../api/customer";
@@ -21,11 +22,16 @@ import { ScreenContainer } from "../../components/ScreenContainer";
 import {
   buildProviderSearchParams,
   createDefaultSearchFilters,
+  hasCustomerSearchCoordinates,
+  restoreInitialSearchFilters,
   type ProviderSearchFilters as ProviderSearchFilterValues,
 } from "../../features/provider-search/search-filter-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
-import type { ProviderRecommendation } from "../../types/provider";
+import type {
+  CustomerProviderSearchItem,
+  ProviderRecommendation,
+} from "../../types/provider";
 
 type CustomerProviderSearchResultsScreenProps = NativeStackScreenProps<
   RootStackParamList,
@@ -44,7 +50,7 @@ export function CustomerProviderSearchResultsScreen({
     serviceAreaLabel = serviceProvince,
   } = route.params;
   const { subscribe } = useRealtime();
-  const [results, setResults] = useState<ProviderRecommendation[]>([]);
+  const [results, setResults] = useState<CustomerProviderSearchItem[]>([]);
   const [tokens, setTokens] = useState<string[]>([]);
   const [draftFilters, setDraftFilters] = useState<ProviderSearchFilterValues>(
     () => createDefaultSearchFilters(category),
@@ -53,9 +59,32 @@ export function CustomerProviderSearchResultsScreen({
     () => createDefaultSearchFilters(category),
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(true);
+  const [hasDistanceLocation, setHasDistanceLocation] = useState(false);
   const [message, setMessage] = useState("");
   const [gridWidth, setGridWidth] = useState(0);
   const recommendationLayout = getRecommendationLayout(gridWidth);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getCustomerProfile()
+      .then((profile) => {
+        if (isMounted) {
+          setHasDistanceLocation(hasCustomerSearchCoordinates(profile));
+        }
+      })
+      .catch(() => {
+        if (isMounted) setHasDistanceLocation(false);
+      })
+      .finally(() => {
+        if (isMounted) setIsCheckingLocation(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -136,7 +165,7 @@ export function CustomerProviderSearchResultsScreen({
   }
 
   function handleClearFilters() {
-    const clearedFilters = createDefaultSearchFilters();
+    const clearedFilters = restoreInitialSearchFilters(category);
     setDraftFilters(clearedFilters);
     setAppliedFilters(clearedFilters);
   }
@@ -162,6 +191,12 @@ export function CustomerProviderSearchResultsScreen({
       </View>
 
       <ProviderSearchFilters
+        distanceDisabledReason={
+          isCheckingLocation
+            ? "Checking your saved location..."
+            : "Add coordinates to your profile to use distance filters."
+        }
+        distanceEnabled={hasDistanceLocation}
         isApplying={isLoading}
         onApply={handleApplyFilters}
         onChange={setDraftFilters}
@@ -206,7 +241,7 @@ export function CustomerProviderSearchResultsScreen({
 }
 
 function updateProviderOnline(
-  providers: ProviderRecommendation[],
+  providers: CustomerProviderSearchItem[],
   userId: number,
   isOnline: boolean,
 ) {

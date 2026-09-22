@@ -37,11 +37,3 @@ export function formatProviderDistance(distanceKm?: number | null) {
   if (distanceKm == null || !Number.isFinite(distanceKm)) return null;
   return `${distanceKm.toFixed(1)} km away`;
 }
-
-export function getProviderCategoryLabel(tags: string[]) {
-  const primaryTag = tags[0];
-  if (!primaryTag) return "Other";
-
-  const normalizedTag = primaryTag.replaceAll("_", " ");
-  return normalizedTag.charAt(0).toUpperCase() + normalizedTag.slice(1);
-}
