@@ -25,6 +25,7 @@ import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavourites
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
 import { CustomerProviderSearchResultsScreen } from "../screens/customer/CustomerProviderSearchResultsScreen";
+import { ProviderOperatingSettingsScreen } from "../screens/provider/ProviderOperatingSettingsScreen";
 import { ProviderPortfolioCreateScreen } from "../screens/provider/ProviderPortfolioCreateScreen";
 import { ProviderPortfolioDetailScreen } from "../screens/provider/ProviderPortfolioDetailScreen";
 import { ProviderPortfolioListScreen } from "../screens/provider/ProviderPortfolioListScreen";
@@ -57,6 +58,11 @@ const GuardedProviderPortfolioCreateScreen = withRequiredProviderProfile(
 );
 const GuardedProviderPortfolioDetailScreen = withRequiredProviderProfile(
   ProviderPortfolioDetailScreen,
+);
+// WS-107: the Account menu only shows the row once the qualification is
+// approved; guarding the route as well keeps a deep link from walking past it.
+const GuardedProviderOperatingSettingsScreen = withRequiredProviderProfile(
+  ProviderOperatingSettingsScreen,
 );
 
 const navigationTheme = {
@@ -193,6 +199,11 @@ function AuthenticatedStack() {
         name="CustomerFavourites"
         component={CustomerFavouritesScreen}
         options={{ title: "Favourites" }}
+      />
+      <Stack.Screen
+        name="ProviderOperatingSettings"
+        component={GuardedProviderOperatingSettingsScreen}
+        options={{ title: "Operating settings" }}
       />
       <Stack.Screen
         name="ProviderPortfolioList"

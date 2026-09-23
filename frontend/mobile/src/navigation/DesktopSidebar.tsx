@@ -137,6 +137,7 @@ function getSidebarItems(
       "NotificationSettings",
       "Payments",
       "CustomerFavourites",
+      "ProviderOperatingSettings",
     ],
   };
 

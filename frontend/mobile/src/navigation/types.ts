@@ -51,6 +51,7 @@ export type RootStackParamList = {
   NotificationSettings: undefined;
   Payments: undefined;
   CustomerFavourites: undefined;
+  ProviderOperatingSettings: undefined;
   ProviderPortfolioList: undefined;
   ProviderPortfolioCreate: undefined;
   ProviderPortfolioDetail: {

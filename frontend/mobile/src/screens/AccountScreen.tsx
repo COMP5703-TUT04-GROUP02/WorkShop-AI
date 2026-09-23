@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Shield,
+  SlidersHorizontal,
   UserRound,
 } from "lucide-react-native";
 import { ReactNode, useState } from "react";
@@ -19,6 +20,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
+import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
@@ -34,7 +36,12 @@ type MenuItemProps = {
 
 export function AccountScreen() {
   const { user, signOut, uploadAvatar } = useAuth();
+  const { isProviderProfileRequired } = useProviderProfileGate();
   const isCustomer = user?.role === "customer";
+  // WS-107. The row only appears once an admin has approved the qualification;
+  // before that there is nothing the provider can usefully set.
+  const canSetOperatingSettings =
+    user?.role === "provider" && !isProviderProfileRequired;
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isWebDesktop = useIsWebDesktop();
@@ -153,6 +160,13 @@ export function AccountScreen() {
                 onPress={() =>
                   navigation.navigate("CustomerFavourites")
                 }
+              />
+            ) : null}
+            {canSetOperatingSettings ? (
+              <MenuItem
+                icon={<SlidersHorizontal color={colors.text} size={24} />}
+                label="Operating settings"
+                onPress={() => navigation.navigate("ProviderOperatingSettings")}
               />
             ) : null}
             <MenuItem

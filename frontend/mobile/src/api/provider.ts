@@ -16,6 +16,8 @@ import type {
   ProviderContactProfilePatchPayload,
   ProviderContactProfilePayload,
   ProviderContactProfileUpdateResponse,
+  ProviderOperatingSettingsPayload,
+  ProviderOperatingSettingsResponse,
   ProviderPortfolio,
   ProviderProfileMutationResponse,
   ProviderProfilePayload,
@@ -109,6 +111,21 @@ export async function patchProviderContactProfile(
   const response = await apiClient.patch<
     ApiResponse<ProviderContactProfileUpdateResponse>
   >("/provider/profile/contact", payload);
+
+  return response.data.data;
+}
+
+/**
+ * WS-107. Price, service area and radius only. It leaves the verification
+ * statuses alone, so saving here does not send the profile back to review the
+ * way the full profile update does.
+ */
+export async function patchProviderOperatingSettings(
+  payload: ProviderOperatingSettingsPayload,
+) {
+  const response = await apiClient.patch<
+    ApiResponse<ProviderOperatingSettingsResponse>
+  >("/provider/profile/operating-settings", payload);
 
   return response.data.data;
 }

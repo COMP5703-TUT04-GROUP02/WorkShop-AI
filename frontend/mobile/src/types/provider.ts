@@ -86,6 +86,21 @@ export type ProviderProfileMutationResponse = {
   profile: ProviderProfile;
 };
 
+/**
+ * WS-107. A partial update: the endpoint takes one or more of these and
+ * rejects nulls, so only the fields the provider actually changed are sent.
+ */
+export type ProviderOperatingSettingsPayload = {
+  hourly_rate?: number;
+  service_location_id?: number;
+  service_radius_km?: number;
+};
+
+export type ProviderOperatingSettingsResponse = {
+  message: string;
+  profile: ProviderProfile;
+};
+
 export type ProviderAvailability = {
   id: number;
   provider_profile_id: number;
