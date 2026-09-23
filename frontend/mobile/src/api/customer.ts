@@ -1,6 +1,8 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
 import type {
+  CustomerAddress,
+  CustomerAddressPayload,
   CustomerProfile,
   CustomerProfilePatchPayload,
   CustomerProfilePayload,
@@ -423,6 +425,19 @@ export async function getCustomerPayments(page = 1, pageSize = 20) {
       page_size: pageSize,
     },
   });
+
+  return response.data.data;
+}
+
+/**
+ * WS-99. Register asks for a service location; this is where it lands, so a
+ * new customer starts with one saved address instead of an empty book.
+ */
+export async function createCustomerAddress(payload: CustomerAddressPayload) {
+  const response = await apiClient.post<ApiResponse<CustomerAddress>>(
+    "/customer/addresses",
+    payload,
+  );
 
   return response.data.data;
 }

@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { Check } from "lucide-react-native";
+import { Check, MapPin } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 
+import { LocationPickerModal } from "../components/LocationPickerModal";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RoleSegmentedControl } from "../components/RoleSegmentedControl";
 import { SecondaryButton } from "../components/SecondaryButton";
@@ -21,7 +22,9 @@ import { useAuth } from "../context/AuthContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
+import { createCustomerAddress } from "../api/customer";
 import type { RegisterRequest } from "../types/auth";
+import type { SelectedLocation } from "../types/location";
 import { getErrorMessage } from "../utils/errors";
 
 type AuthMode = "login" | "register";
@@ -37,6 +40,8 @@ export function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [serviceLocation, setServiceLocation] = useState<SelectedLocation | null>(null);
+  const [isLocationPickerVisible, setIsLocationPickerVisible] = useState(false);
   const [role, setRole] = useState<RegisterRequest["role"]>("customer");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +74,12 @@ export function AuthScreen() {
 
     if (!termsAccepted) {
       return "Please accept the Terms of Use to continue.";
+    }
+
+    // WS-99: a device fix is not a recommended place, and the address book
+    // needs the place_id that only a chosen suggestion carries.
+    if (!serviceLocation?.placeId) {
+      return "Pick your service location from the suggestions.";
     }
 
     return "";
@@ -104,6 +115,24 @@ export function AuthScreen() {
           // Names are stored as typed: FDS C-R05 says not to uppercase on save.
           name: `${first} ${last}`.trim(),
         });
+
+        // The register endpoint does not take a location, so the chosen place
+        // is saved right after sign-up. A failure here must not undo an
+        // account that already exists: the address list (WS-93) can add it.
+        if (role === "customer" && serviceLocation?.placeId) {
+          try {
+            await createCustomerAddress({
+              label: "Home",
+              place_id: serviceLocation.placeId,
+              formatted_address: serviceLocation.label,
+              latitude: serviceLocation.latitude,
+              longitude: serviceLocation.longitude,
+              is_default: true,
+            });
+          } catch {
+            // Ignored on purpose: the account is created and the user is in.
+          }
+        }
       } else {
         await signIn(email.trim(), password);
       }
@@ -193,6 +222,31 @@ export function AuthScreen() {
               secureTextEntry
               value={confirmPassword}
             />
+          ) : null}
+
+          {isRegisterMode ? (
+            <View style={styles.roleBlock}>
+              <Text style={styles.fieldLabel}>Service location</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setIsLocationPickerVisible(true)}
+                style={({ pressed }) => [
+                  styles.locationButton,
+                  pressed ? styles.locationButtonPressed : null,
+                ]}
+              >
+                <MapPin color={colors.mutedText} size={18} />
+                <Text
+                  numberOfLines={2}
+                  style={[
+                    styles.locationText,
+                    serviceLocation ? null : styles.locationPlaceholder,
+                  ]}
+                >
+                  {serviceLocation?.label ?? "Search for your address"}
+                </Text>
+              </Pressable>
+            </View>
           ) : null}
 
           {isRegisterMode ? (
@@ -291,6 +345,17 @@ export function AuthScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <LocationPickerModal
+        onClose={() => setIsLocationPickerVisible(false)}
+        onConfirm={(next) => {
+          setServiceLocation(next);
+          setIsLocationPickerVisible(false);
+          setErrorMessage("");
+        }}
+        value={serviceLocation}
+        visible={isLocationPickerVisible}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -381,6 +446,28 @@ const styles = StyleSheet.create({
   },
   roleBlock: {
     gap: spacing.sm,
+  },
+  locationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 46,
+  },
+  locationButtonPressed: {
+    backgroundColor: colors.surface,
+  },
+  locationText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 15,
+  },
+  locationPlaceholder: {
+    color: colors.mutedText,
   },
   termsRow: {
     flexDirection: "row",

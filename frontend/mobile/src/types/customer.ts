@@ -38,3 +38,20 @@ export type CustomerProfilePayload = {
 };
 
 export type CustomerProfilePatchPayload = Partial<CustomerProfilePayload>;
+
+/** WS-98 / WS-99. What the address book stores, and what the picker produces. */
+export type CustomerAddressPayload = {
+  label: string;
+  place_id: string;
+  formatted_address: string;
+  latitude: number;
+  longitude: number;
+  service_location_id?: number | null;
+  is_default?: boolean;
+};
+
+export type CustomerAddress = CustomerAddressPayload & {
+  id: number;
+  customer_id: number;
+  is_default: boolean;
+};
