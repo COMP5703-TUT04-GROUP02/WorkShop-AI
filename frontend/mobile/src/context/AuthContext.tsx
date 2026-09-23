@@ -27,7 +27,7 @@ type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (payload: RegisterRequest) => Promise<void>;
+  signUp: (payload: RegisterRequest) => Promise<User>;
   signOut: () => Promise<void>;
   updateUserProfile: (payload: { name: string }) => Promise<User>;
   patchUserProfile: (payload: UserProfilePatchPayload) => Promise<User>;
@@ -117,6 +117,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(payload: RegisterRequest) {
     const data = await registerUser(payload);
     await saveSession(data.access_token, data.refresh_token, data.user);
+
+    // Returned so the caller can finish work that needs the new user id: the
+    // register form saves the picked place against it (WS-99).
+    return data.user;
   }
 
   async function signOut() {

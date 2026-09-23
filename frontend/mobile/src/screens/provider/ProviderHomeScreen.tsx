@@ -8,7 +8,7 @@ import {
   Edit3,
   UserRound,
 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -32,6 +32,7 @@ import {
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
+import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import {
@@ -56,14 +57,19 @@ import type {
   ProviderProfilePayload,
 } from "../../types/provider";
 import type { Review } from "../../types/review";
-import type { ServiceAreaSelection } from "../../types/location";
+import type {
+  SelectedLocation,
+  ServiceAreaSelection,
+} from "../../types/location";
 import { getErrorMessage } from "../../utils/errors";
 import { resolveMediaUrl } from "../../utils/media";
+import {
+  clearPendingProviderPlace,
+  readPendingProviderPlace,
+} from "../../utils/pendingProviderPlace";
 
 const REVIEW_PAGE_SIZE = 10;
 const DEFAULT_SERVICE_PROVINCE = "Istanbul";
-const DEFAULT_LATITUDE = 41.0082;
-const DEFAULT_LONGITUDE = 28.9784;
 
 type SelectedProviderCertificateFile = {
   uri: string;
@@ -333,6 +339,20 @@ function ProviderProfileForm({
     initialProfile?.phone_number ?? "",
   );
   const [address, setAddress] = useState(initialProfile?.address ?? "");
+  // WS-99 review. The street address is a real Google place, not free text, so
+  // it always arrives with the coordinates a customer is measured against.
+  const [placePoint, setPlacePoint] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(
+    initialProfile?.latitude != null && initialProfile?.longitude != null
+      ? {
+          latitude: initialProfile.latitude,
+          longitude: initialProfile.longitude,
+        }
+      : null,
+  );
+  const [isAddressPickerVisible, setIsAddressPickerVisible] = useState(false);
   const [serviceProvince, setServiceProvince] = useState(
     initialProfile?.service_province || DEFAULT_SERVICE_PROVINCE,
   );
@@ -391,6 +411,38 @@ function ProviderProfileForm({
   const [isProvincePickerVisible, setIsProvincePickerVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  // WS-99 review. A provider picks their place on the register form, where
+  // there is no profile to put it in yet. This is that profile, so the place
+  // is read back here and dropped once it has been sent.
+  useEffect(() => {
+    if (initialProfile || userId === null) {
+      return;
+    }
+
+    let isActive = true;
+
+    async function loadChosenPlace() {
+      const place = await readPendingProviderPlace(userId as number);
+
+      if (!isActive || !place) {
+        return;
+      }
+
+      setAddress((current) => current || place.address);
+      setPlacePoint((current) =>
+        current ?? { latitude: place.latitude, longitude: place.longitude },
+      );
+    }
+
+    void loadChosenPlace();
+
+    return () => {
+      isActive = false;
+    };
+  }, [initialProfile, userId]);
 
   function toggleTag(tag: string) {
     setTags((currentTags) =>
@@ -507,6 +559,15 @@ function ProviderProfileForm({
       return;
     }
 
+    // WS-99 review. The place from the register form may be gone (another
+    // device, cleared storage), so it is asked for again rather than falling
+    // back to a city-centre guess.
+    if (!placePoint) {
+      setMessage("Search for your business address and pick it from the suggestions.");
+      setIsAddressPickerVisible(true);
+      return;
+    }
+
     if (
       !Number.isFinite(parsedHourlyRate) ||
       parsedHourlyRate <= 0 ||
@@ -572,8 +633,8 @@ function ProviderProfileForm({
         address: address.trim(),
         service_province: serviceProvince,
         service_location_id: serviceLocationId,
-        latitude: initialProfile?.latitude ?? DEFAULT_LATITUDE,
-        longitude: initialProfile?.longitude ?? DEFAULT_LONGITUDE,
+        latitude: placePoint.latitude,
+        longitude: placePoint.longitude,
         service_radius_km: parsedServiceRadiusKm,
         tags,
         certificate_name: certificateName.trim(),
@@ -589,6 +650,10 @@ function ProviderProfileForm({
         : await createProviderProfile(payload);
 
       if (result?.profile) {
+        if (!initialProfile && userId !== null) {
+          await clearPendingProviderPlace(userId);
+        }
+
         onSaved(result.profile);
       }
 
@@ -637,12 +702,23 @@ function ProviderProfileForm({
           placeholder="Phone number"
           value={phoneNumber}
         />
-        <TextField
-          label="Address"
-          onChangeText={setAddress}
-          placeholder="Business address"
-          value={address}
-        />
+        <View style={styles.fieldBlock}>
+          <Text style={styles.label}>Address</Text>
+          <Pressable
+            accessibilityLabel="Business address"
+            accessibilityRole="button"
+            onPress={() => setIsAddressPickerVisible(true)}
+            style={styles.provinceButton}
+          >
+            <Text
+              numberOfLines={2}
+              style={address ? styles.provinceText : styles.addressPlaceholder}
+            >
+              {address || "Search for your business address"}
+            </Text>
+            <ChevronRight color={colors.mutedText} size={20} />
+          </Pressable>
+        </View>
 
         <View style={styles.fieldBlock}>
           <Text style={styles.label}>Service area</Text>
@@ -802,6 +878,31 @@ function ProviderProfileForm({
           />
         </View>
       </View>
+
+      <LocationPickerModal
+        onClose={() => setIsAddressPickerVisible(false)}
+        onConfirm={(place: SelectedLocation) => {
+          setAddress(place.label);
+          setPlacePoint({
+            latitude: place.latitude,
+            longitude: place.longitude,
+          });
+          setIsAddressPickerVisible(false);
+          setMessage("");
+        }}
+        requirePlaceId
+        value={
+          placePoint && address
+            ? ({
+                label: address,
+                latitude: placePoint.latitude,
+                longitude: placePoint.longitude,
+                placeId: null,
+              } satisfies SelectedLocation)
+            : null
+        }
+        visible={isAddressPickerVisible}
+      />
 
       <LocationCascadePickerModal
         onClose={() => setIsProvincePickerVisible(false)}
@@ -1128,8 +1229,14 @@ const styles = StyleSheet.create({
   },
   provinceText: {
     color: colors.text,
+    flex: 1,
     fontSize: 16,
     fontWeight: "700",
+  },
+  addressPlaceholder: {
+    color: colors.mutedText,
+    flex: 1,
+    fontSize: 16,
   },
   tagGrid: {
     flexDirection: "row",

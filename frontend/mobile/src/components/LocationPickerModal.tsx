@@ -31,6 +31,12 @@ type LocationPickerModalProps = {
   value: SelectedLocation | null;
   onClose: () => void;
   onConfirm: (location: SelectedLocation) => void;
+  /**
+   * WS-99 review. Registration and the provider profile need a real place, so
+   * a device fix — which carries no place_id — is refused here rather than
+   * looking chosen and failing on the form behind the picker.
+   */
+  requirePlaceId?: boolean;
 };
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -41,6 +47,7 @@ export function LocationPickerModal({
   value,
   onClose,
   onConfirm,
+  requirePlaceId = false,
 }: LocationPickerModalProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -138,6 +145,16 @@ export function LocationPickerModal({
 
   async function useCurrentLocation() {
     setErrorMessage("");
+
+    // A device fix has coordinates but no place_id and no street address, so
+    // where one is required it is refused here — the row never looks chosen.
+    if (requirePlaceId) {
+      setErrorMessage(
+        "Your current location has no street address. Pick an address from the suggestions.",
+      );
+      return;
+    }
+
     setIsLocating(true);
 
     try {
@@ -166,7 +183,16 @@ export function LocationPickerModal({
 
   function handleConfirm() {
     if (!selected) {
-      setErrorMessage("Pick a suggestion or use your current location.");
+      setErrorMessage(
+        requirePlaceId
+          ? "Pick an address from the suggestions."
+          : "Pick a suggestion or use your current location.",
+      );
+      return;
+    }
+
+    if (requirePlaceId && !selected.placeId) {
+      setErrorMessage("Pick an address from the suggestions.");
       return;
     }
 
@@ -200,7 +226,9 @@ export function LocationPickerModal({
             <Text style={styles.previewText}>
               {selected
                 ? `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`
-                : "Search for an address or use your current location"}
+                : requirePlaceId
+                  ? "Search for an address and pick it from the suggestions"
+                  : "Search for an address or use your current location"}
             </Text>
           </View>
 

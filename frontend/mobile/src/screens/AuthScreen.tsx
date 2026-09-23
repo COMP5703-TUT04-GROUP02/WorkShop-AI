@@ -22,10 +22,15 @@ import { useAuth } from "../context/AuthContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
-import { createCustomerAddress } from "../api/customer";
+import {
+  createCustomerAddress,
+  patchCustomerProfile,
+} from "../api/customer";
 import type { RegisterRequest } from "../types/auth";
 import type { SelectedLocation } from "../types/location";
 import { getErrorMessage } from "../utils/errors";
+import { notifyUser } from "../utils/notify";
+import { savePendingProviderPlace } from "../utils/pendingProviderPlace";
 
 type AuthMode = "login" | "register";
 
@@ -85,6 +90,71 @@ export function AuthScreen() {
     return "";
   }
 
+  /**
+   * WS-99. /register takes no location, so the chosen place is stored right
+   * after sign-up. It never fails the registration — the account exists and
+   * the user is already signed in by now — but it does not pass silently
+   * either: the register screen is gone at this point, so a failure is told
+   * in a dialog instead of a message nobody would see.
+   */
+  async function keepChosenPlace(userId: number, place: SelectedLocation) {
+    if (!place.placeId) {
+      return;
+    }
+
+    if (role === "provider") {
+      // A provider profile does not exist yet, so the place waits on this
+      // device until the profile form sends it as address and coordinates.
+      try {
+        await savePendingProviderPlace(userId, {
+          address: place.label,
+          latitude: place.latitude,
+          longitude: place.longitude,
+        });
+      } catch {
+        notifyUser(
+          "Address not kept",
+          `We could not keep ${place.label} on this device. Search for it again on the provider profile form.`,
+        );
+      }
+
+      return;
+    }
+
+    try {
+      await createCustomerAddress({
+        label: "Home",
+        place_id: place.placeId,
+        formatted_address: place.label,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        is_default: true,
+      });
+    } catch (error) {
+      notifyUser(
+        "Address not saved",
+        `Your account is ready, but ${place.label} was not added to your address book.\n\n${getErrorMessage(error)}`,
+      );
+
+      return;
+    }
+
+    // Search measures distance from the profile's default service point, so
+    // the same place is written there as well.
+    try {
+      await patchCustomerProfile({
+        default_service_address: place.label,
+        default_service_latitude: place.latitude,
+        default_service_longitude: place.longitude,
+      });
+    } catch (error) {
+      notifyUser(
+        "Default service location not set",
+        `${place.label} is in your address book, but it is not your default service location yet, so search results are not measured from it.\n\n${getErrorMessage(error)}`,
+      );
+    }
+  }
+
   async function handleSubmit() {
     setErrorMessage("");
 
@@ -104,7 +174,7 @@ export function AuthScreen() {
         const first = firstName.trim();
         const last = lastName.trim();
 
-        await signUp({
+        const newUser = await signUp({
           first_name: first,
           last_name: last,
           email: email.trim(),
@@ -116,22 +186,8 @@ export function AuthScreen() {
           name: `${first} ${last}`.trim(),
         });
 
-        // The register endpoint does not take a location, so the chosen place
-        // is saved right after sign-up. A failure here must not undo an
-        // account that already exists: the address list (WS-93) can add it.
-        if (role === "customer" && serviceLocation?.placeId) {
-          try {
-            await createCustomerAddress({
-              label: "Home",
-              place_id: serviceLocation.placeId,
-              formatted_address: serviceLocation.label,
-              latitude: serviceLocation.latitude,
-              longitude: serviceLocation.longitude,
-              is_default: true,
-            });
-          } catch {
-            // Ignored on purpose: the account is created and the user is in.
-          }
+        if (serviceLocation?.placeId) {
+          await keepChosenPlace(newUser.id, serviceLocation);
         }
       } else {
         await signIn(email.trim(), password);
@@ -353,6 +409,7 @@ export function AuthScreen() {
           setIsLocationPickerVisible(false);
           setErrorMessage("");
         }}
+        requirePlaceId
         value={serviceLocation}
         visible={isLocationPickerVisible}
       />
