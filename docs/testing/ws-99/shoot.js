@@ -301,6 +301,23 @@ async function waitForSignedIn(page) {
   );
   await shot(provider, "07-profile-prefilled");
 
+  // --- Reopening the address picker must not show a chosen row it would then
+  //     refuse: the profile keeps the point but not the place_id.
+  await button(provider, "Business address").click();
+  await provider.waitForTimeout(1800);
+  check(
+    (await isShown(provider, "No location selected")) &&
+      (await isShown(
+        provider,
+        "Search for an address and pick it from the suggestions",
+      )),
+    "reopening the address picker asks for a fresh search instead of showing a row it would refuse",
+    "the address picker opened on a selection it cannot accept",
+  );
+  await shot(provider, "09-address-picker-reopened");
+  await provider.getByLabel("Close location picker").locator("visible=true").first().click();
+  await provider.waitForTimeout(1500);
+
   await field(provider, "e.g. Istanbul CleanCare").fill("Ada Repairs");
   await field(provider, "Describe your services and experience").fill(
     "Appliance repair across the city.",

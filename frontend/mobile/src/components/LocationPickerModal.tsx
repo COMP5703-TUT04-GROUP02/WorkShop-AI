@@ -37,6 +37,9 @@ type LocationPickerModalProps = {
    * looking chosen and failing on the form behind the picker.
    */
   requirePlaceId?: boolean;
+  /** The sheet is opened for different things; these name the one at hand. */
+  title?: string;
+  subtitle?: string;
 };
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -48,6 +51,8 @@ export function LocationPickerModal({
   onClose,
   onConfirm,
   requirePlaceId = false,
+  title = "Select service location",
+  subtitle = "Filter nearby available providers",
 }: LocationPickerModalProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -205,8 +210,8 @@ export function LocationPickerModal({
         <View style={styles.sheet}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Select service location</Text>
-              <Text style={styles.subtitle}>Filter nearby available providers</Text>
+              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.subtitle}>{subtitle}</Text>
             </View>
             <Pressable
               accessibilityLabel="Close location picker"

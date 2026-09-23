@@ -63,6 +63,12 @@ workshop.pendingProviderPlace.<user id> =
 
 ![Create provider profile with the address already filled](07-profile-prefilled.png)
 
+Reopening the address picker starts a fresh search rather than showing a row it
+would then refuse: the profile keeps the address and the point, but not the
+`place_id` a re-pick needs.
+
+![Address picker reopened with nothing selected](09-address-picker-reopened.png)
+
 ![Submitted](08-profile-submitted.png)
 
 ```
@@ -98,6 +104,7 @@ PASS: a provider is held to the same rule
 PASS: provider registered with a place
 PASS: the provider's place is kept on the device until the profile exists
 PASS: the profile form opens with the address picked at registration
+PASS: reopening the address picker asks for a fresh search instead of showing a row it would refuse
 PASS: the profile is created on the registered place
 PASS: the kept place is dropped once the profile has it
 PASS: the accounts this run created are removed

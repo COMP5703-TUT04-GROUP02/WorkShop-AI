@@ -422,10 +422,11 @@ function ProviderProfileForm({
       return;
     }
 
+    const knownUserId = userId;
     let isActive = true;
 
     async function loadChosenPlace() {
-      const place = await readPendingProviderPlace(userId as number);
+      const place = await readPendingProviderPlace(knownUserId);
 
       if (!isActive || !place) {
         return;
@@ -891,16 +892,13 @@ function ProviderProfileForm({
           setMessage("");
         }}
         requirePlaceId
-        value={
-          placePoint && address
-            ? ({
-                label: address,
-                latitude: placePoint.latitude,
-                longitude: placePoint.longitude,
-                placeId: null,
-              } satisfies SelectedLocation)
-            : null
-        }
+        subtitle="Customers are matched by distance from this point"
+        title="Business address"
+        // The profile stores the address and the point but not the place_id,
+        // so there is nothing here the picker could accept as already chosen.
+        // Opening it means searching again; the row behind still shows what is
+        // saved.
+        value={null}
         visible={isAddressPickerVisible}
       />
 
