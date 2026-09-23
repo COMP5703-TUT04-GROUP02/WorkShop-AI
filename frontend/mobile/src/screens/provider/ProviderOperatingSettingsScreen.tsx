@@ -3,11 +3,13 @@ import { MapPin } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { getServiceLocationPath } from "../../api/locations";
 import {
   getProviderProfile,
   patchProviderOperatingSettings,
 } from "../../api/provider";
 import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
+import { getCompletedLocation } from "../../features/locations/location-cascade-state";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { TextField } from "../../components/TextField";
@@ -28,6 +30,33 @@ import { getErrorMessage } from "../../utils/errors";
  * saving here is not a profile edit, so it never puts the provider back in the
  * review queue.
  */
+/**
+ * The profile only stores the district id and the province name, so the full
+ * "Province / City / District" path is read back from the location tree. A
+ * failed lookup still names the area, just less precisely.
+ */
+async function readServiceArea(
+  profile: ProviderProfile,
+): Promise<ServiceAreaSelection | null> {
+  if (!profile.service_location_id) {
+    return null;
+  }
+
+  const province: ServiceAreaSelection = {
+    serviceLocationId: profile.service_location_id,
+    serviceProvince: profile.service_province,
+    label: profile.service_province,
+  };
+
+  try {
+    const path = await getServiceLocationPath(profile.service_location_id);
+
+    return getCompletedLocation(path) ?? province;
+  } catch {
+    return province;
+  }
+}
+
 export function ProviderOperatingSettingsScreen() {
   const [hourlyRate, setHourlyRate] = useState("");
   const [radiusKm, setRadiusKm] = useState("");
@@ -43,7 +72,7 @@ export function ProviderOperatingSettingsScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const applyProfile = useCallback((profile: ProviderProfile) => {
+  const applyProfile = useCallback(async (profile: ProviderProfile) => {
     const nextRate = profile.hourly_rate ? String(profile.hourly_rate) : "";
     const nextRadius = profile.service_radius_km
       ? String(profile.service_radius_km)
@@ -51,22 +80,12 @@ export function ProviderOperatingSettingsScreen() {
 
     setHourlyRate(nextRate);
     setRadiusKm(nextRadius);
-    setArea(
-      profile.service_location_id
-        ? {
-            serviceLocationId: profile.service_location_id,
-            serviceProvince: profile.service_province,
-            // The profile stores the province, not the full path; a fresh pick
-            // replaces this with the cascade's own label.
-            label: profile.service_province,
-          }
-        : null,
-    );
     setSaved({
       hourlyRate: nextRate,
       radiusKm: nextRadius,
       serviceLocationId: profile.service_location_id,
     });
+    setArea(await readServiceArea(profile));
   }, []);
 
   useFocusEffect(
@@ -81,7 +100,7 @@ export function ProviderOperatingSettingsScreen() {
           const profile = await getProviderProfile();
 
           if (isActive && profile) {
-            applyProfile(profile);
+            await applyProfile(profile);
           }
         } catch (error) {
           if (isActive) {
@@ -148,7 +167,7 @@ export function ProviderOperatingSettingsScreen() {
       const result = await patchProviderOperatingSettings(payload);
 
       if (result?.profile) {
-        applyProfile(result.profile);
+        await applyProfile(result.profile);
       }
 
       setSuccessMessage("Operating settings saved.");
@@ -182,6 +201,7 @@ export function ProviderOperatingSettingsScreen() {
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Service area</Text>
             <Pressable
+              accessibilityLabel="Service area"
               accessibilityRole="button"
               onPress={() => setIsAreaPickerVisible(true)}
               style={({ pressed }) => [
