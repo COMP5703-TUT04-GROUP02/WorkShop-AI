@@ -9,10 +9,10 @@ import {
   patchProviderOperatingSettings,
 } from "../../api/provider";
 import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
-import { getCompletedLocation } from "../../features/locations/location-cascade-state";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { TextField } from "../../components/TextField";
+import { getCompletedLocation } from "../../features/locations/location-cascade-state";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { ServiceAreaSelection } from "../../types/location";
 import type {
@@ -21,15 +21,6 @@ import type {
 } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
 
-/**
- * WS-107. Price, service area and radius on their own screen, reachable only
- * once an admin has approved the qualification — WS-106 enforces the same rule
- * server-side.
- *
- * Only changed fields are sent: the endpoint takes a partial update, and
- * saving here is not a profile edit, so it never puts the provider back in the
- * review queue.
- */
 /**
  * The profile only stores the district id and the province name, so the full
  * "Province / City / District" path is read back from the location tree. A
@@ -57,6 +48,15 @@ async function readServiceArea(
   }
 }
 
+/**
+ * WS-107. Price, service area and radius on their own screen, reachable only
+ * once an admin has approved the qualification — WS-106 enforces the same rule
+ * server-side.
+ *
+ * Only changed fields are sent: the endpoint takes a partial update, and
+ * saving here is not a profile edit, so it never puts the provider back in the
+ * review queue.
+ */
 export function ProviderOperatingSettingsScreen() {
   const [hourlyRate, setHourlyRate] = useState("");
   const [radiusKm, setRadiusKm] = useState("");
