@@ -129,6 +129,20 @@ class ProviderContactProfilePatch(BaseModel):
         return value.strip()
 
 
+class ProviderOperatingSettingsPatch(BaseModel):
+    hourly_rate: int | None = Field(default=None, gt=0)
+    service_location_id: int | None = Field(default=None, gt=0)
+    service_radius_km: float | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def validate_non_empty_update(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one operating setting is required")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Operating settings cannot be null")
+        return self
+
+
 class ProviderVerificationStatus(str, Enum):
     pending = "pending"
     approved = "approved"

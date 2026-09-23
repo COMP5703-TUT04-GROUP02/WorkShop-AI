@@ -45,7 +45,11 @@ from backend.utils.provider import (
     require_provider_qualification_approved,
     require_provider_identity_approved,
 )
-from backend.utils.service_locations import apply_profile_location
+from backend.utils.service_locations import (
+    apply_profile_location,
+    get_province_for_location,
+    validate_profile_location,
+)
 from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
@@ -74,6 +78,7 @@ from backend.schemas import (
     ProviderContactProfilePatch,
     ProviderContactProfileUpdate,
     ProviderCertificateFileInput,
+    ProviderOperatingSettingsPatch,
     ProviderProfileCreate,
     ProviderPortfolioResponse,
     ProviderRefundRejectCreate,
@@ -343,6 +348,39 @@ def patch_provider_contact_profile(
         {
             "message": "Provider contact profile updated successfully",
             "profile": format_provider_profile_response(profile),
+        }
+    )
+
+
+@router.patch("/provider/profile/operating-settings")
+def patch_provider_operating_settings(
+    settings: ProviderOperatingSettingsPatch,
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(profile)
+    updates = settings.model_dump(exclude_unset=True)
+    location = None
+    location_province = None
+    if "service_location_id" in updates:
+        location = validate_profile_location(db, updates["service_location_id"])
+        location_province = get_province_for_location(db, location)
+
+    if "hourly_rate" in updates:
+        profile.hourly_rate = updates["hourly_rate"]
+    if "service_radius_km" in updates:
+        profile.service_radius_km = updates["service_radius_km"]
+    if location is not None:
+        profile.service_location_id = location.id
+        profile.service_province = location_province.name
+
+    db.commit()
+    db.refresh(profile)
+    return success_response(
+        {
+            "message": "Provider operating settings updated successfully",
+            "profile": format_provider_profile_response(profile, db),
         }
     )
 
