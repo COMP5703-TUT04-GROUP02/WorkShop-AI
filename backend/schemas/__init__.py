@@ -8,10 +8,7 @@ from backend.schemas.feedback import *  # noqa: F403
 from backend.schemas.ai import *  # noqa: F403
 from backend.schemas.places import *  # noqa: F403
 from backend.schemas.location import *  # noqa: F403
-<<<<<<< HEAD
-=======
 from backend.schemas.address_book import *  # noqa: F403
->>>>>>> origin/main
 
 ApiResponse[CustomerHomeRecommendationResponseData].model_rebuild()
 ApiResponse[CustomerProviderSearchResponseData].model_rebuild()
@@ -128,11 +125,8 @@ __all__ = [
     "ServiceLocationLevel",
     "ServiceLocationResponse",
     "ServiceLocationListResponse",
-<<<<<<< HEAD
-=======
     "CustomerAddressCreate",
     "CustomerAddressUpdate",
     "CustomerAddressResponse",
->>>>>>> origin/main
 ]
 __all__ += ["PlaceSuggestion", "PlacesAutocompleteResponse", "PlaceDetailsResponse"]

@@ -50,7 +50,6 @@ from backend.utils.service_locations import (
     get_province_for_location,
     validate_profile_location,
 )
-from backend.utils.service_locations import apply_profile_location
 from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
@@ -257,8 +256,6 @@ def update_provider_profile(
         profile=profile,
         location_id=profile_data.service_location_id,
     )
-<<<<<<< HEAD
-=======
     if old_identity_status != ProviderVerificationStatus.approved or identity_changed:
         profile.identity_verification_status = ProviderVerificationStatus.pending
         history_step = "identity"
@@ -267,7 +264,6 @@ def update_provider_profile(
         history_step = "qualification"
         history_old_status = old_qualification_status
     profile.qualification_verification_status = ProviderVerificationStatus.pending
->>>>>>> origin/main
     profile.verification_status = ProviderVerificationStatus.pending
     profile.entity_type = profile_data.entity_type
     profile.verification_note = None

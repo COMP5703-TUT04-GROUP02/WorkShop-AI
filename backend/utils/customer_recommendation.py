@@ -442,11 +442,7 @@ def search_customer_providers(
         }
 
     provider_query = db.query(models.ProviderProfile).filter(
-<<<<<<< HEAD
-        models.ProviderProfile.verification_status
-=======
         models.ProviderProfile.qualification_verification_status
->>>>>>> origin/main
         == ProviderVerificationStatus.approved
     )
     provider_query = filter_provider_query_by_location(
