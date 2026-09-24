@@ -82,7 +82,7 @@ def test_province_only_customer_update_clears_old_location_id(client, db_session
     assert profile["service_location_id"] is None
 
 
-def test_province_only_provider_patch_clears_old_location_id(
+def test_provider_service_area_is_separate_from_business_location(
     client, db_session, marketplace
 ):
     seeded = seed_service_locations(db_session)
@@ -93,16 +93,20 @@ def test_province_only_provider_patch_clears_old_location_id(
     provider.service_location_id = seeded["tr-istanbul-city-kadikoy"].id
     db_session.commit()
 
-    updated = client.patch(
-        "/provider/profile/contact",
-        json={"service_province": "Ankara"},
+    updated = client.put(
+        "/provider/service-areas",
+        json={"service_location_ids": [seeded["tr-ankara"].id]},
         headers=marketplace["provider"]["headers"],
     )
 
     assert updated.status_code == 200, updated.text
-    profile = updated.json()["data"]["profile"]
-    assert profile["service_province"] == "Ankara"
-    assert profile["service_location_id"] is None
+    db_session.refresh(provider)
+    assert provider.service_province == "Istanbul"
+    assert provider.service_location_id == seeded["tr-istanbul-city-kadikoy"].id
+    areas = db_session.query(models.ProviderServiceArea).filter_by(
+        provider_profile_id=provider.id
+    ).all()
+    assert [area.service_location_id for area in areas] == [seeded["tr-ankara"].id]
 
 
 def test_location_id_filter_keeps_legacy_provider_and_is_case_insensitive(

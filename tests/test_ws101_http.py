@@ -22,7 +22,6 @@ def _provider(db_session, client):
         certificate_name="Certificate",
         certificate_url="https://example.com/cert",
         hourly_rate=100,
-        experience_years=1,
         verification_status="approved",
         identity_verification_status="approved",
         qualification_verification_status="approved",

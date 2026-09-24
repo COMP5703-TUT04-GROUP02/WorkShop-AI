@@ -17,6 +17,12 @@ def format_user_response(user):
         "is_banned": user.is_banned,
         "email_verified": user.email_verified_at is not None,
         "phone_verified": user.phone_verified_at is not None,
+        "identity_verification_status": getattr(
+            user, "identity_verification_status", None
+        ),
+        "qualification_verification_status": getattr(
+            user, "qualification_verification_status", None
+        ),
         "last_login_at": user.last_login_at,
         "created_at": user.created_at,
     }
@@ -62,10 +68,12 @@ def format_provider_certificate_response(certificate):
     }
 
 
-def format_provider_profile_response(profile, db=None):
+def format_provider_profile_response(
+    profile, db=None, *, include_verification_documents: bool = True
+):
     certificate_files = []
 
-    if db is not None:
+    if db is not None and include_verification_documents:
         from backend import models
 
         certificate_files = (
@@ -81,7 +89,11 @@ def format_provider_profile_response(profile, db=None):
         format_provider_certificate_response(certificate)
         for certificate in certificate_files
     ]
-    if not formatted_certificate_files and profile.certificate_url:
+    if (
+        include_verification_documents
+        and not formatted_certificate_files
+        and profile.certificate_url
+    ):
         formatted_certificate_files = [
             {
                 "id": 0,
@@ -106,13 +118,16 @@ def format_provider_profile_response(profile, db=None):
         "service_location_id": profile.service_location_id,
         "latitude": profile.latitude,
         "longitude": profile.longitude,
-        "service_radius_km": profile.service_radius_km,
+        "business_place_id": getattr(profile, "business_place_id", None),
         "tags": tags_to_list(profile.tags),
-        "certificate_name": profile.certificate_name,
-        "certificate_url": profile.certificate_url,
+        "certificate_name": (
+            profile.certificate_name if include_verification_documents else ""
+        ),
+        "certificate_url": (
+            profile.certificate_url if include_verification_documents else ""
+        ),
         "certificate_files": formatted_certificate_files,
         "hourly_rate": profile.hourly_rate,
-        "experience_years": profile.experience_years,
         "verification_status": profile.verification_status,
         "entity_type": getattr(profile, "entity_type", "personal"),
         "identity_verification_status": getattr(

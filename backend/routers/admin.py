@@ -283,6 +283,15 @@ def update_provider_verification(
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
+    provider_user = db.query(models.User).filter(models.User.id == profile.user_id).first()
+    if provider_user and provider_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Use the identity-verifications and qualification-verifications "
+                "decision endpoints"
+            ),
+        )
     step = verification_data.verification_step
     if step is None:
         old_status = profile.verification_status

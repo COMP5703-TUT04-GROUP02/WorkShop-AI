@@ -9,8 +9,7 @@ import {
 } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { getProviderProfile } from "../api/provider";
-import { isQualificationApproved } from "../utils/providerVerification";
+import { getProviderVerificationStatus } from "../api/provider";
 import { useAuth } from "./AuthContext";
 
 /**
@@ -19,7 +18,7 @@ import { useAuth } from "./AuthContext";
  * complete but unreviewed profile stays locked.
  */
 const PROVIDER_PROFILE_REQUIRED_MESSAGE =
-  "An admin needs to approve your qualification first. Start with identity verification on Home.";
+  "An admin needs to approve your service verification first. Continue from Home or Account → Verification.";
 
 type ProviderProfileGateContextValue = {
   hasProviderProfile: boolean | null;
@@ -51,8 +50,8 @@ export function ProviderProfileGateProvider({
     }
 
     try {
-      const profile = await getProviderProfile();
-      setHasProviderProfile(isQualificationApproved(profile));
+      const status = await getProviderVerificationStatus();
+      setHasProviderProfile(status?.qualification_status === "approved");
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response
         ?.status;

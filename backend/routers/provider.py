@@ -131,6 +131,14 @@ def create_provider_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Provider profiles are created after qualification approval; "
+                "use the identity and qualification verification endpoints"
+            ),
+        )
     existing_profile = (
         db.query(models.ProviderProfile)
         .filter(models.ProviderProfile.user_id == current_user.id)
@@ -149,12 +157,10 @@ def create_provider_profile(
         service_location_id=profile.service_location_id,
         latitude=profile.latitude,
         longitude=profile.longitude,
-        service_radius_km=profile.service_radius_km,
         tags=tags_to_string(profile.tags),
         certificate_name=profile.certificate_name,
         certificate_url=profile.certificate_url,
         hourly_rate=profile.hourly_rate,
-        experience_years=profile.experience_years,
         verification_status=ProviderVerificationStatus.pending,
         identity_verification_status=ProviderVerificationStatus.pending,
         qualification_verification_status=ProviderVerificationStatus.pending,
@@ -203,6 +209,11 @@ async def upload_provider_certificate(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the qualification verification upload endpoint",
+        )
     require_provider_identity_approved(get_provider_profile_for_user(current_user.id, db))
     upload_files = list(files or [])
     if file is not None:
@@ -225,6 +236,11 @@ def update_provider_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Full provider profile replacement is not available in the new verification flow",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
     old_identity_status = profile.identity_verification_status
     old_qualification_status = profile.qualification_verification_status
@@ -244,12 +260,10 @@ def update_provider_profile(
     profile.service_location_id = profile_data.service_location_id
     profile.latitude = profile_data.latitude
     profile.longitude = profile_data.longitude
-    profile.service_radius_km = profile_data.service_radius_km
     profile.tags = next_tags
     profile.certificate_name = profile_data.certificate_name
     profile.certificate_url = profile_data.certificate_url
     profile.hourly_rate = profile_data.hourly_rate
-    profile.experience_years = profile_data.experience_years
     profile.notes = profile_data.notes
     apply_profile_location(
         db=db,
@@ -295,6 +309,11 @@ def update_provider_contact_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the operating settings endpoint after qualification approval",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
     apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.phone_number = profile_data.phone_number
@@ -323,6 +342,11 @@ def patch_provider_contact_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the operating settings endpoint after qualification approval",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
 
     previous_phone = profile.phone_number
@@ -358,6 +382,11 @@ def patch_provider_operating_settings(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use /provider/operating-settings for the new verification flow",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
     require_provider_qualification_approved(profile)
     updates = settings.model_dump(exclude_unset=True)
@@ -369,8 +398,6 @@ def patch_provider_operating_settings(
 
     if "hourly_rate" in updates:
         profile.hourly_rate = updates["hourly_rate"]
-    if "service_radius_km" in updates:
-        profile.service_radius_km = updates["service_radius_km"]
     if location is not None:
         profile.service_location_id = location.id
         profile.service_province = location_province.name
@@ -647,6 +674,7 @@ def get_provider_reviews(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = (
         db.query(models.Review)
         .filter(

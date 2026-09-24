@@ -35,6 +35,7 @@ backend/
   ai/                     Prompts, LangChain tools, tool-calling flow
   tasks/                  Celery background tasks
   uploads/                Local upload directory
+  private_uploads/        Non-public identity and qualification documents
 ```
 
 ## Router layer
@@ -47,7 +48,9 @@ Routers are what the frontend calls.
 | `routers/public.py` | Public providers, reviews, portfolios, ratings | Guest / customer |
 | `routers/customer.py` | Customer profile, favorites, chat, bookings, pay, refund, complaints, reviews | customer |
 | `routers/provider.py` | Provider profile, verification, availability, portfolio, bookings, refunds | provider |
+| `routers/provider_verification.py` | Identity/qualification applications, operation settings, service areas, protected files | provider |
 | `routers/admin.py` | Users, provider verification, bookings/payments/refunds/complaints/reviews | admin |
+| `routers/admin_verification.py` | Separate identity and qualification review queues and decisions | admin |
 | `routers/shared.py` | Chat messages, notifications, booking details, attachments, status history | Authenticated users |
 | `routers/ai.py` | AI chat, tools, pending actions, async tasks, Milvus sync | Users / admin |
 | `routers/websocket.py` | Real-time chat WebSocket | customer / provider |
@@ -135,7 +138,11 @@ Main tables (see `models/`):
 | `RefreshToken` | Refresh token storage |
 | `SocialAccount` | Google/Apple linkage |
 | `CustomerProfile` | Customer profile, address, location |
-| `ProviderProfile` | Provider profile, tags, certificate, verification |
+| `ProviderProfile` | Current approved provider display and operating data |
+| `IdentityVerificationApplication` | Immutable real-name application snapshot and review result |
+| `QualificationVerificationApplication` | Immutable business qualification snapshot and review result |
+| `ProviderApprovedService` | Approved services and their current enabled state |
+| `ProviderServiceArea` | Province/city/district coverage selected after approval |
 | `ProviderAvailability` | Bookable hours |
 | `ProviderPortfolio` | Portfolio items |
 | `FavoriteProvider` | Customer favorites |
@@ -175,10 +182,16 @@ POST /refresh-token -> new access_token
 ### Provider verification
 
 ```text
-provider submits profile + certificate_url
--> verification_status = pending
--> admin approves/rejects
--> ProviderVerificationHistory
+register provider -> identity not_submitted, qualification locked
+POST /provider/identity-verification -> identity pending (name locked)
+PUT /admin/identity-verifications/{id}/decision
+-> approved unlocks qualification; rejected unlocks correction/resubmission
+POST /provider/qualification-files/upload
+POST /provider/qualification-verification -> qualification pending (application locked)
+PUT /admin/qualification-verifications/{id}/decision
+-> approved creates ProviderProfile + approved services and unlocks provider features
+-> rejected unlocks a new qualification submission
+PATCH /provider/operating-settings + PUT /provider/service-areas after approval
 ```
 
 ### Standard booking

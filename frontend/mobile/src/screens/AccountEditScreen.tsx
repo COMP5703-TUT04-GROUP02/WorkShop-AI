@@ -11,10 +11,7 @@ import {
 } from "react-native";
 
 import { getCustomerProfile, patchCustomerProfile } from "../api/customer";
-import {
-  getProviderProfile,
-  patchProviderContactProfile,
-} from "../api/provider";
+import { getProviderVerificationStatus } from "../api/provider";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { LocationCascadePickerModal } from "../components/LocationCascadePickerModal";
 import { ScreenContainer } from "../components/ScreenContainer";
@@ -22,7 +19,6 @@ import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
-import type { ProviderProfile } from "../types/provider";
 import type { ServiceAreaSelection } from "../types/location";
 
 const DEFAULT_SERVICE_PROVINCE = "Istanbul";
@@ -104,13 +100,14 @@ export function AccountEditScreen() {
     DEFAULT_SERVICE_PROVINCE,
   );
   const [notes, setNotes] = useState("");
-  const [providerProfile, setProviderProfile] =
-    useState<ProviderProfile | null>(null);
   const [isProvincePickerVisible, setIsProvincePickerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<MessageTone>("success");
+  const [providerIdentityStatus, setProviderIdentityStatus] = useState(
+    user?.identity_verification_status ?? "not_submitted",
+  );
   const [initialValues, setInitialValues] = useState<AccountFormValues | null>(
     user ? toFormValues(user) : null,
   );
@@ -154,20 +151,12 @@ export function AccountEditScreen() {
           }
 
           if (user.role === "provider") {
-            const profile = await getProviderProfile();
-
-            if (isActive && profile) {
-              const nextValues = toFormValues(user, profile);
-              setProviderProfile(profile);
-              setPhoneNumber(nextValues.phoneNumber);
-              setAddress(nextValues.address);
-              setServiceProvince(nextValues.serviceProvince);
-              setServiceLocationId(nextValues.serviceLocationId);
-              setServiceAreaLabel(nextValues.serviceProvince);
-              setNotes(nextValues.notes);
-              setInitialValues(nextValues);
+            const verification = await getProviderVerificationStatus();
+            if (isActive && verification) {
+              setProviderIdentityStatus(verification.identity_status);
             }
           }
+
         } catch {
           if (isActive) {
             setServiceProvince(DEFAULT_SERVICE_PROVINCE);
@@ -235,18 +224,12 @@ export function AccountEditScreen() {
     if (
       !trimmedFirstName ||
       !trimmedLastName ||
-      (user.role !== "admin" &&
+      (user.role === "customer" &&
         ((phoneChanged && !trimmedPhone) ||
           (addressChanged && !trimmedAddress)))
     ) {
       setMessageTone("error");
       setMessage("Fill in the required fields.");
-      return;
-    }
-
-    if (user.role === "provider" && !providerProfile && hasProfilePatch) {
-      setMessageTone("error");
-      setMessage("Create a provider profile first, then add contact details.");
       return;
     }
 
@@ -283,12 +266,6 @@ export function AccountEditScreen() {
         }
       }
 
-      if (user.role === "provider") {
-        if (hasProfilePatch) {
-          await patchProviderContactProfile(profilePatch);
-        }
-      }
-
       setMessageTone("success");
       setMessage("Profile saved");
       navigation.goBack();
@@ -299,6 +276,10 @@ export function AccountEditScreen() {
       setIsSaving(false);
     }
   }
+
+  const isProviderNameLocked =
+    user?.role === "provider" &&
+    ["pending", "approved"].includes(providerIdentityStatus);
 
   return (
     <ScreenContainer contentStyle={styles.content}>
@@ -311,6 +292,7 @@ export function AccountEditScreen() {
           <>
             <TextField
               autoCapitalize="words"
+              editable={!isProviderNameLocked}
               label="First name"
               onChangeText={setFirstName}
               placeholder="Your first name"
@@ -319,13 +301,14 @@ export function AccountEditScreen() {
 
             <TextField
               autoCapitalize="words"
+              editable={!isProviderNameLocked}
               label="Last name"
               onChangeText={setLastName}
               placeholder="Your last name"
               value={lastName}
             />
 
-            {user?.role !== "admin" ? (
+            {user?.role === "customer" ? (
               <>
                 <TextField
                   keyboardType="phone-pad"
@@ -364,9 +347,10 @@ export function AccountEditScreen() {
               </>
             ) : null}
 
-            {user?.role === "provider" && !providerProfile ? (
+            {isProviderNameLocked ? (
               <Text style={styles.hintText}>
-                Create a provider profile first, then add contact details.
+                Your legal name is locked while identity verification is under
+                review or approved.
               </Text>
             ) : null}
 
@@ -384,7 +368,10 @@ export function AccountEditScreen() {
             ) : null}
 
             <PrimaryButton
-              disabled={isSaving}
+              disabled={
+                isSaving ||
+                isProviderNameLocked
+              }
               label={isSaving ? "Saving..." : "Save"}
               onPress={() => void handleSave()}
             />
@@ -392,7 +379,7 @@ export function AccountEditScreen() {
         )}
       </View>
 
-      <LocationCascadePickerModal
+      {user?.role === "customer" ? <LocationCascadePickerModal
         onClose={() => setIsProvincePickerVisible(false)}
         onSelect={(selection) => {
           setServiceProvince(selection.serviceProvince);
@@ -410,7 +397,7 @@ export function AccountEditScreen() {
             : null
         }
         visible={isProvincePickerVisible}
-      />
+      /> : null}
     </ScreenContainer>
   );
 }

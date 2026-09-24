@@ -29,6 +29,12 @@ class User(Base):
     phone_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    identity_verification_status: Mapped[str | None] = mapped_column(
+        String(32), nullable=True
+    )
+    qualification_verification_status: Mapped[str | None] = mapped_column(
+        String(32), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )

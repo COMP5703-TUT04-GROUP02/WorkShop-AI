@@ -33,6 +33,7 @@ import type { RefundRequestSummary } from "../../types/booking";
 import type { ProviderPortfolio, ProviderProfile } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
 import { AISubscriptionPanel } from "./AISubscriptionPanel";
+import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
 
 const PAGE_SIZE = 20;
 
@@ -59,12 +60,10 @@ export function AdminDashboardScreen() {
     setIsLoading(true);
     setMessage("");
     try {
-      const [profileResult, portfolioResult, appealResult] = await Promise.all([
-        getPendingProviderProfiles(1, PAGE_SIZE),
+      const [portfolioResult, appealResult] = await Promise.all([
         getPendingProviderPortfolios(1, PAGE_SIZE),
         getPendingRefundAppeals(1, PAGE_SIZE),
       ]);
-      setPendingProfiles(profileResult?.items ?? []);
       setPendingPortfolios(portfolioResult?.items ?? []);
       setPendingAppeals(appealResult?.items ?? []);
     } catch (error) {
@@ -290,7 +289,7 @@ export function AdminDashboardScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Admin dashboard</Text>
-          <Text style={styles.subtitle}>Profile, portfolio, and refund appeal review</Text>
+          <Text style={styles.subtitle}>Provider verification, portfolio, and refund review</Text>
         </View>
         <SecondaryButton
           disabled={isLoading || isActing}
@@ -304,27 +303,7 @@ export function AdminDashboardScreen() {
       <AISubscriptionPanel />
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Profiles pending review</Text>
-        {isLoading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
-        ) : pendingProfiles.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No provider profiles pending review</Text>
-            <Text style={styles.emptyText}>
-              Provider profiles enter pending status after first submission or resubmission.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.list}>
-            {pendingProfiles.map((profile) => (
-              <ProfileReviewCard
-                key={profile.id}
-                onPress={() => void openProfile(profile.id)}
-                profile={profile}
-              />
-            ))}
-          </View>
-        )}
+        <ProviderVerificationAdminPanel />
       </View>
 
       <View style={styles.section}>
@@ -374,17 +353,6 @@ export function AdminDashboardScreen() {
           </View>
         )}
       </View>
-
-      <ProfileReviewModal
-        actionError={actionError}
-        isActing={isActing}
-        onApprove={() => void approveProfile()}
-        onClose={closeProfile}
-        onReject={() => void rejectProfile()}
-        profile={selectedProfile}
-        rejectReason={profileRejectReason}
-        setRejectReason={setProfileRejectReason}
-      />
 
       <PortfolioReviewModal
         actionError={actionError}
@@ -525,14 +493,6 @@ function ProfileReviewModal({
               <ProfileDetailRow label="Service province" value={profile.service_province} />
               <ProfileDetailRow label="Service tags" value={profile.tags.join(", ")} />
               <ProfileDetailRow label="Hourly rate" value={String(profile.hourly_rate)} />
-              <ProfileDetailRow
-                label="Years of experience"
-                value={String(profile.experience_years)}
-              />
-              <ProfileDetailRow
-                label="Service radius"
-                value={`${profile.service_radius_km} km`}
-              />
               <ProfileDetailRow label="Phone number" value={profile.phone_number} />
               <ProfileDetailRow label="Address" value={profile.address} />
               <ProfileDetailRow

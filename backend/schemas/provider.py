@@ -42,13 +42,11 @@ class ProviderProfileCreate(BaseModel):
     service_location_id: int | None = Field(default=None, gt=0)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
-    service_radius_km: float = Field(default=10.0, gt=0)
     tags: list[str] = Field(min_length=1)
     certificate_name: str
     certificate_url: str
     certificate_files: list[ProviderCertificateFileInput] = Field(default_factory=list)
     hourly_rate: int = Field(gt=0)
-    experience_years: int = Field(ge=0)
     notes: str | None = None
 
     @field_validator("entity_type")
@@ -132,7 +130,6 @@ class ProviderContactProfilePatch(BaseModel):
 class ProviderOperatingSettingsPatch(BaseModel):
     hourly_rate: int | None = Field(default=None, gt=0)
     service_location_id: int | None = Field(default=None, gt=0)
-    service_radius_km: float | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def validate_non_empty_update(self):
@@ -160,13 +157,11 @@ class ProviderProfileResponse(BaseModel):
     service_location_id: int | None = None
     latitude: float | None = None
     longitude: float | None = None
-    service_radius_km: float
     tags: list[str]
     certificate_name: str
     certificate_url: str
     certificate_files: list["ProviderCertificateFileResponse"] = Field(default_factory=list)
     hourly_rate: int
-    experience_years: int
     verification_status: ProviderVerificationStatus
     entity_type: str = "personal"
     identity_verification_status: ProviderVerificationStatus = ProviderVerificationStatus.pending

@@ -147,5 +147,9 @@ UPLOAD_DIR = get_config(
     "WORKSHOP_UPLOAD_DIR",
     str(PROJECT_ROOT / "backend" / "uploads"),
 )
+VERIFICATION_UPLOAD_DIR = get_config(
+    "WORKSHOP_VERIFICATION_UPLOAD_DIR",
+    str(PROJECT_ROOT / "backend" / "private_uploads" / "verification"),
+)
 MAX_UPLOAD_SIZE_MB = get_int_config("WORKSHOP_MAX_UPLOAD_SIZE_MB", 50)
 MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024

@@ -12,7 +12,6 @@ def add_approved_provider(
     tags,
     latitude,
     longitude,
-    service_radius_km=100,
     hourly_rate=500,
 ):
     user = models.User(
@@ -34,12 +33,10 @@ def add_approved_provider(
         service_province="Istanbul",
         latitude=latitude,
         longitude=longitude,
-        service_radius_km=service_radius_km,
         tags=tags,
         certificate_name="Trade license",
         certificate_url="https://example.com/cert.pdf",
         hourly_rate=hourly_rate,
-        experience_years=5,
         verification_status="approved",
         identity_verification_status="approved",
         qualification_verification_status="approved",
@@ -120,7 +117,6 @@ def test_customer_search_sorts_nearest_and_ranks_before_limit(
         tags="other",
         latitude=41.3,
         longitude=28.0,
-        service_radius_km=100,
     )
     nearest_items = customer_search(
         client,

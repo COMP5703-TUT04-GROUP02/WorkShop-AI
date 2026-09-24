@@ -319,11 +319,12 @@ other
 ### 8.5 Location
 
 - Customer profiles may store `latitude` and `longitude` for default addresses.
-- Provider profiles may store `latitude`, `longitude`, and `service_radius_km`.
+- Provider profiles store the current business address coordinates in `latitude` and `longitude`.
 - Service areas use the `service_locations` hierarchy: `province` → `city` →
-  `district`. Profile writes persist the selected district's
-  `service_location_id`; `service_province` is retained as a compatibility
-  projection.
+  `district`. Approved providers select one or more non-overlapping nodes in
+  `provider_service_areas`; selecting a parent covers its descendants.
+  `ProviderProfile.service_location_id` and `service_province` remain only as
+  compatibility fields for migrated providers.
 - `GET /locations` is public and read-only. Omit `parent_id` to list the 81
   provinces; pass a location ID to list its direct children. Responses use the
   standard success envelope and return ordered items with `id`, `code`, `name`,
@@ -345,7 +346,7 @@ Rules:
 - `latitude` and `longitude` must be sent together.
 - `max_distance_km` requires `latitude` and `longitude`.
 - `sort_by=distance_asc` or `sort_by=distance_desc` requires `latitude` and `longitude`.
-- Results exclude providers outside their `service_radius_km`.
+- `max_distance_km` is an optional customer search filter measured from the provider's current business coordinates; providers no longer store a self-declared service radius.
 - When location params are present, each provider item includes `distance_km`.
 
 AI recommendation also accepts location:
@@ -364,7 +365,7 @@ Rules:
 - `POST /ai/chat`, `POST /ai/chat/sync`, and `POST /ai/recommend-providers` accept location fields.
 - For customer AI chat, if `latitude` / `longitude` are omitted, the backend falls back to the customer profile default coordinates.
 - Closer providers score higher in recommendations.
-- Providers outside `service_radius_km` are excluded.
+- `max_distance_km`, when supplied by the customer, filters against the provider's current business coordinates.
 
 Home recommendations and keyword search:
 

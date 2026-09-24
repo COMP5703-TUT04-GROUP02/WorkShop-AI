@@ -302,7 +302,7 @@ export function CustomerProviderDetailScreen({
                     ) : null}
                     <Text style={styles.bioText}>{provider.bio}</Text>
                     <Text style={styles.metaText}>
-                      {provider.service_province} · {provider.experience_years} yrs experience
+                      {provider.service_province || provider.address}
                     </Text>
                     <Text style={styles.metaText}>
                       {formatRating(provider)} · {provider.hourly_rate} / hr

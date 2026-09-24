@@ -68,6 +68,8 @@ class UserResponse(BaseModel):
     is_banned: bool = False
     email_verified: bool = False
     phone_verified: bool = False
+    identity_verification_status: str | None = None
+    qualification_verification_status: str | None = None
     last_login_at: str | None = None
     created_at: str | None = None
 

@@ -9,13 +9,12 @@ export type ProviderProfile = {
   service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
-  service_radius_km: number;
+  business_place_id?: string | null;
   tags: string[];
   certificate_name: string;
   certificate_url: string;
   certificate_files: ProviderCertificateFile[];
   hourly_rate: number;
-  experience_years: number;
   verification_status: string;
   verification_note: string | null;
   /** WS-104. Absent until that branch merges; the helpers fall back. */
@@ -65,7 +64,6 @@ export type ProviderProfilePayload = {
   service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
-  service_radius_km: number;
   tags: string[];
   certificate_name: string;
   certificate_url: string;
@@ -77,8 +75,105 @@ export type ProviderProfilePayload = {
     sort_order: number;
   }>;
   hourly_rate: number;
-  experience_years: number;
   notes: string | null;
+};
+
+export type VerificationStatus =
+  | "not_submitted"
+  | "locked"
+  | "pending"
+  | "approved"
+  | "rejected";
+
+export type VerificationUploadFile = {
+  id?: number;
+  file_url: string;
+  original_file_name: string;
+  content_type: string;
+  sort_order?: number;
+  size?: number;
+};
+
+export type ProviderVerificationStatus = {
+  identity_status: VerificationStatus;
+  qualification_status: VerificationStatus;
+  identity_application_id: number | null;
+  qualification_application_id: number | null;
+};
+
+export type IdentityVerificationApplication = {
+  id: number;
+  user_id: number;
+  submitted_first_name: string;
+  submitted_last_name: string;
+  date_of_birth: string;
+  document_type: "national_id" | "passport";
+  status: VerificationStatus;
+  review_note: string | null;
+  reviewed_by_user_id: number | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  document_files: VerificationUploadFile[];
+};
+
+export type QualificationVerificationApplication = {
+  id: number;
+  user_id: number;
+  entity_type: "personal" | "organisation";
+  legal_name: string | null;
+  unique_enterprise_id: string | null;
+  display_name: string;
+  description: string;
+  contact_phone: string;
+  business_address: string;
+  business_place_id: string | null;
+  business_latitude: number;
+  business_longitude: number;
+  service_categories: string[];
+  status: VerificationStatus;
+  review_note: string | null;
+  reviewed_by_user_id: number | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  qualification_files: VerificationUploadFile[];
+};
+
+export type QualificationVerificationPayload = {
+  entity_type: "personal" | "organisation";
+  legal_name: string | null;
+  unique_enterprise_id: string | null;
+  description: string;
+  contact_phone: string;
+  business_address: string;
+  business_place_id: string | null;
+  business_latitude: number;
+  business_longitude: number;
+  service_categories: string[];
+  qualification_files: VerificationUploadFile[];
+};
+
+export type ApprovedServices = {
+  approved_service_categories: string[];
+  enabled_service_categories: string[];
+};
+
+export type ProviderOperatingSettingsPayload = {
+  description?: string;
+  contact_phone?: string;
+  business_address?: string;
+  business_place_id?: string | null;
+  business_latitude?: number;
+  business_longitude?: number;
+  hourly_rate?: number;
+  enabled_service_categories?: string[];
+};
+
+export type ProviderServiceArea = {
+  id: number;
+  name: string;
+  level: "province" | "city" | "district";
+  serviceProvince?: string;
+  label?: string;
 };
 
 export type ProviderProfileMutationResponse = {

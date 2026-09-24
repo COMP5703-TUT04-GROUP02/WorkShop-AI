@@ -33,6 +33,7 @@ type LocationCascadePickerModalProps = {
   value: ServiceAreaSelection | null;
   onClose: () => void;
   onSelect: (selection: ServiceAreaSelection) => void;
+  allowAnyLevel?: boolean;
 };
 
 export function LocationCascadePickerModal({
@@ -40,6 +41,7 @@ export function LocationCascadePickerModal({
   value,
   onClose,
   onSelect,
+  allowAnyLevel = false,
 }: LocationCascadePickerModalProps) {
   const [cascade, setCascade] = useState<LocationCascadeState>(
     EMPTY_LOCATION_CASCADE,
@@ -50,8 +52,8 @@ export function LocationCascadePickerModal({
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const completedLocation = useMemo(
-    () => getCompletedLocation(cascade),
-    [cascade],
+    () => getCompletedLocation(cascade, allowAnyLevel),
+    [allowAnyLevel, cascade],
   );
 
   useEffect(() => {
@@ -80,10 +82,10 @@ export function LocationCascadePickerModal({
         }
 
         const path = await getServiceLocationPath(value.serviceLocationId);
-        const [nextCities, nextDistricts] = await Promise.all([
-          getServiceLocations(path.province.id),
-          getServiceLocations(path.city.id),
-        ]);
+        const nextCities = await getServiceLocations(path.province.id);
+        const nextDistricts = path.city
+          ? await getServiceLocations(path.city.id)
+          : [];
         if (!isActive) {
           return;
         }
@@ -202,7 +204,11 @@ export function LocationCascadePickerModal({
             ]}
           >
             <Text style={styles.confirmButtonText}>
-              {completedLocation ? `Use ${completedLocation.label}` : "Choose a district"}
+              {completedLocation
+                ? `Use ${completedLocation.label}`
+                : allowAnyLevel
+                  ? "Choose a province, city, or district"
+                  : "Choose a district"}
             </Text>
           </Pressable>
         </View>

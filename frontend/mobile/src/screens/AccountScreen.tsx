@@ -1,6 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import {
   BellRing,
+  BadgeCheck,
   ChevronRight,
   CircleHelp,
   CreditCard,
@@ -9,7 +10,9 @@ import {
   LogOut,
   Pencil,
   Plus,
+  LockKeyhole,
   Shield,
+  SlidersHorizontal,
   UserRound,
 } from "lucide-react-native";
 import { ReactNode, useState } from "react";
@@ -19,6 +22,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
+import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
@@ -34,7 +38,12 @@ type MenuItemProps = {
 
 export function AccountScreen() {
   const { user, signOut, uploadAvatar } = useAuth();
+  const {
+    hasProviderProfile,
+    showProviderProfileRequiredMessage,
+  } = useProviderProfileGate();
   const isCustomer = user?.role === "customer";
+  const isProvider = user?.role === "provider";
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isWebDesktop = useIsWebDesktop();
@@ -129,6 +138,32 @@ export function AccountScreen() {
                 navigation.navigate("AccountEdit")
               }
             />
+            {isProvider ? (
+              <MenuItem
+                icon={<BadgeCheck color={colors.text} size={24} />}
+                label="Verification"
+                onPress={() => navigation.navigate("ProviderVerification")}
+              />
+            ) : null}
+            {isProvider ? (
+              <MenuItem
+                icon={
+                  hasProviderProfile === true ? (
+                    <SlidersHorizontal color={colors.text} size={24} />
+                  ) : (
+                    <LockKeyhole color={colors.mutedText} size={24} />
+                  )
+                }
+                label="Operating settings"
+                onPress={() => {
+                  if (hasProviderProfile === true) {
+                    navigation.navigate("ProviderOperatingSettings");
+                  } else {
+                    showProviderProfileRequiredMessage();
+                  }
+                }}
+              />
+            ) : null}
           </View>
 
           <View style={styles.menuCard}>

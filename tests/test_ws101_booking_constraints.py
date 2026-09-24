@@ -100,7 +100,6 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
         certificate_name="Certificate",
         certificate_url="https://example.com/cert",
         hourly_rate=100,
-        experience_years=1,
         verification_status="approved",
         identity_verification_status="approved",
         qualification_verification_status="approved",

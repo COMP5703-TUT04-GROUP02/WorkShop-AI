@@ -16,6 +16,8 @@ export type User = {
   phone_verified: boolean;
   last_login_at: string | null;
   created_at: string | null;
+  identity_verification_status?: string | null;
+  qualification_verification_status?: string | null;
 };
 
 export type ApiResponse<T> = {
