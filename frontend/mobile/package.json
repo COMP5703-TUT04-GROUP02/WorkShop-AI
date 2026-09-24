@@ -34,7 +34,13 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+<<<<<<< HEAD
     "test:favourites": "tsc --ignoreConfig src/features/favourites/favourite-state.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/favourites/__tests__/favourite-state.test.cjs"
+=======
+    "test:favourites": "tsc --ignoreConfig src/features/favourites/favourite-state.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/favourites/__tests__/favourite-state.test.cjs",
+    "test:locations": "tsc --ignoreConfig src/features/locations/location-cascade-state.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/locations/__tests__/location-cascade-state.test.cjs",
+    "test:provider-search": "tsc --ignoreConfig src/features/provider-search/search-filter-state.ts src/features/provider-search/provider-card-display.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/provider-search/__tests__/*.test.cjs"
+>>>>>>> origin/main
   },
   "private": true
 }

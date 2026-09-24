@@ -553,6 +553,7 @@ def prepare_create_booking_action_tool(
     booking_data = BookingCreate(
         provider_profile_id=provider_profile_id,
         chat_room_id=chat_room_id,
+        title=" ".join(service_description.split()[:30]),
         service_description=service_description,
         service_address=service_address,
         service_latitude=service_latitude,
@@ -601,6 +602,7 @@ def prepare_create_booking_action_tool(
     payload = {
         "provider_profile_id": booking_data.provider_profile_id,
         "chat_room_id": booking_data.chat_room_id,
+        "title": booking_data.title,
         "service_description": booking_data.service_description,
         "service_address": booking_data.service_address,
         "service_latitude": booking_data.service_latitude,

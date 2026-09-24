@@ -35,6 +35,13 @@ class ProviderProfile(Base):
     verification_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="pending"
     )
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False, default="personal")
+    identity_verification_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending"
+    )
+    qualification_verification_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending"
+    )
     verification_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -156,4 +163,7 @@ class ProviderVerificationHistory(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     changed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    verification_step: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="qualification"
     )

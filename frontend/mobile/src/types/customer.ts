@@ -4,6 +4,7 @@ export type CustomerProfile = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
   current_address: string | null;
@@ -24,6 +25,7 @@ export type CustomerProfilePayload = {
   phone_number: string;
   address: string;
   service_province: string;
+  service_location_id: number | null;
   latitude: number | null;
   longitude: number | null;
   current_address: string | null;

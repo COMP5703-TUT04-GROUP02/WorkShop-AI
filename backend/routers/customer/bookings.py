@@ -12,7 +12,7 @@ from backend import models
 from backend.ai.tools import create_chat_room_tool
 from backend.auth import get_db, require_customer
 from backend.constants import ALLOWED_PROVIDER_TAGS
-from backend.core.clock import utc_now
+from backend.core.clock import to_workshop_datetime, utc_now
 from backend.utils.booking import (
     add_booking_status_history,
     ensure_booking_status,
@@ -98,6 +98,7 @@ router = ApiRouter(tags=["Customer"])
 @router.post("/bookings", response_model=ApiResponse[BookingCreateResponseData])
 async def create_booking(
     provider_profile_id: int = Form(...),
+    title: str = Form(...),
     service_description: str = Form(...),
     service_address: str = Form(...),
     service_latitude: float = Form(...),
@@ -116,6 +117,7 @@ async def create_booking(
         booking_data = BookingCreate(
             provider_profile_id=provider_profile_id,
             chat_room_id=chat_room_id,
+            title=title,
             service_description=service_description,
             service_address=service_address,
             service_latitude=service_latitude,
@@ -194,23 +196,26 @@ async def update_pending_booking(
         [BookingStatus.pending],
         "Only pending bookings can be updated before provider response",
     )
+    scheduled_start_time = to_workshop_datetime(booking_data.scheduled_start_time)
+    scheduled_end_time = to_workshop_datetime(booking_data.scheduled_end_time)
     ensure_provider_available_for_datetime_range(
         booking.provider_profile_id,
-        booking_data.scheduled_start_time,
-        booking_data.scheduled_end_time,
+        scheduled_start_time,
+        scheduled_end_time,
         db,
     )
 
     old_status = booking.status
     booking.service_description = booking_data.service_description
+    booking.title = booking_data.title
     booking.service_address = booking_data.service_address
     booking.service_latitude = booking_data.service_latitude
     booking.service_longitude = booking_data.service_longitude
     booking.customer_current_address = booking_data.customer_current_address
     booking.customer_current_latitude = booking_data.customer_current_latitude
     booking.customer_current_longitude = booking_data.customer_current_longitude
-    booking.scheduled_start_time = booking_data.scheduled_start_time
-    booking.scheduled_end_time = booking_data.scheduled_end_time
+    booking.scheduled_start_time = scheduled_start_time
+    booking.scheduled_end_time = scheduled_end_time
     booking.status_note = "Customer updated booking request"
 
     add_booking_status_history(
@@ -256,7 +261,8 @@ async def update_pending_booking(
             "message": "Booking updated successfully",
             "booking": format_booking_detail_response(booking, db),
             "chat_message": formatted_chat_message,
-        }
+        },
+        message="Booking updated successfully",
     )
 
 

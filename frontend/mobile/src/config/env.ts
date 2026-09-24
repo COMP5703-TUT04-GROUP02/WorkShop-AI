@@ -45,5 +45,3 @@ export const API_BASE_URL = resolveApiBaseUrl();
 
 export const WS_BASE_URL = resolveWsBaseUrl();
 
-export const GOOGLE_MAPS_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";

@@ -31,6 +31,10 @@ from backend.models.provider import (
     ProviderVerificationHistory,
 )
 from backend.models.location import ServiceLocation
+<<<<<<< HEAD
+=======
+from backend.models.address_book import CustomerAddress
+>>>>>>> origin/main
 from backend.models.user import (
     AuthenticationIdentity,
     RefreshToken,
@@ -70,5 +74,9 @@ __all__ = [
     "Review",
     "SocialAccount",
     "ServiceLocation",
+<<<<<<< HEAD
+=======
+    "CustomerAddress",
+>>>>>>> origin/main
     "User",
 ]

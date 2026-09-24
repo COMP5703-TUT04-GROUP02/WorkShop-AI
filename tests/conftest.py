@@ -83,9 +83,18 @@ def auth_header(token: str) -> dict[str, str]:
 
 
 def register(client, email="customer@example.com", password=DEMO_PASSWORD, role="customer", name="Test User"):
+    first_name, last_name = name.split(" ", 1)
     return client.post(
         "/register",
-        json={"name": name, "email": email, "password": password, "role": role},
+        json={
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "password": password,
+            "confirm_password": password,
+            "tos_accepted": True,
+            "role": role,
+        },
     )
 
 
@@ -185,11 +194,22 @@ def set_week_availability(client, headers):
 
 
 def approve_provider(client, admin_headers, provider_profile_id):
-    response = client.put(
+    identity = client.put(
         f"/admin/providers/{provider_profile_id}/verification",
         json={
             "verification_status": "approved",
             "verification_note": "Documents checked",
+            "verification_step": "identity",
+        },
+        headers=admin_headers,
+    )
+    assert identity.status_code == 200, identity.text
+    response = client.put(
+        f"/admin/providers/{provider_profile_id}/verification",
+        json={
+            "verification_status": "approved",
+            "verification_note": "Qualifications checked",
+            "verification_step": "qualification",
         },
         headers=admin_headers,
     )
@@ -197,7 +217,9 @@ def approve_provider(client, admin_headers, provider_profile_id):
 
 
 @pytest.fixture
-def marketplace(client, db_session):
+def marketplace(client, db_session, monkeypatch):
+    monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
     customer = register_session(
         client, "customer@example.com", role="customer", name="Ayla Customer"
     )
@@ -219,6 +241,7 @@ def marketplace(client, db_session):
 def create_booking(client, customer_headers, provider_profile_id, **extra):
     payload = {
         "provider_profile_id": str(provider_profile_id),
+        "title": extra.get("title", "Booking request"),
         "service_description": extra.get(
             "service_description", "Kitchen pipe leak, needs on-site repair"
         ),

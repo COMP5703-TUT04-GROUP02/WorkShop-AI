@@ -31,6 +31,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   updateUserProfile: (payload: { name: string }) => Promise<User>;
   patchUserProfile: (payload: UserProfilePatchPayload) => Promise<User>;
+  /** WS-85 / WS-88. The verify and change endpoints return the updated user. */
+  setCurrentUser: (nextUser: User) => void;
   uploadAvatar: (payload: {
     uri: string;
     fileName?: string | null;
@@ -151,6 +153,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   }
 
+  function setCurrentUser(nextUser: User) {
+    setUser(nextUser);
+  }
+
   const value = useMemo(
     () => ({
       user,
@@ -160,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       updateUserProfile,
       patchUserProfile,
+      setCurrentUser,
       uploadAvatar,
     }),
     [user, isLoading, refreshToken],

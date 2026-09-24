@@ -275,6 +275,8 @@ def create_demo_providers(db, customers, location_seeds=None):
             hourly_rate=random.randint(45, 160),
             experience_years=random.randint(1, 15),
             verification_status="approved",
+            identity_verification_status="approved",
+            qualification_verification_status="approved",
             verification_note="Demo provider approved for AI testing",
         )
         db.add(provider_profile)
