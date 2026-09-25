@@ -51,6 +51,7 @@ export function LocationCascadePickerModal({
   const [districts, setDistricts] = useState<ServiceLocation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const completedLocation = useMemo(
     () => getCompletedLocation(cascade, allowAnyLevel),
     [allowAnyLevel, cascade],
@@ -71,6 +72,9 @@ export function LocationCascadePickerModal({
         const nextProvinces = await getServiceLocations();
         if (!isActive) {
           return;
+        }
+        if (nextProvinces.length === 0) {
+          throw new Error("No service areas were returned.");
         }
         setProvinces(nextProvinces);
 
@@ -108,7 +112,7 @@ export function LocationCascadePickerModal({
     return () => {
       isActive = false;
     };
-  }, [value?.serviceLocationId, visible]);
+  }, [reloadKey, value?.serviceLocationId, visible]);
 
   async function handleProvince(province: ServiceLocation) {
     setCascade((current) => chooseProvince(current, province));
@@ -192,7 +196,18 @@ export function LocationCascadePickerModal({
             </ScrollView>
           )}
 
-          {message ? <Text style={styles.errorText}>{message}</Text> : null}
+          {message ? (
+            <View style={styles.retryRow}>
+              <Text style={styles.errorText}>{message}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setReloadKey((current) => current + 1)}
+                style={styles.retryButton}
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
@@ -363,7 +378,25 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
+    flex: 1,
     fontSize: 13,
+  },
+  retryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  retryButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700",
   },
   confirmButton: {
     minHeight: 48,

@@ -21,6 +21,7 @@ def approved_provider(client, db_session):
         service_province="Istanbul",
         latitude=41.0082,
         longitude=28.9784,
+        business_place_id="place-original",
         tags="cleaning,plumbing",
         certificate_name="proof.pdf",
         certificate_url="/verification-files/qualification/proof.pdf",
@@ -87,6 +88,29 @@ def test_operating_settings_update_current_profile_without_changing_approval(
     assert profile.hourly_rate == 525
     assert profile.tags == "cleaning"
     assert profile.qualification_verification_status == "approved"
+
+
+def test_operating_settings_accept_current_location_without_place_id(
+    client, db_session, approved_provider
+):
+    provider, profile = approved_provider
+    response = client.patch(
+        "/provider/operating-settings",
+        json={
+            "business_address": "Current location",
+            "business_place_id": None,
+            "business_latitude": 41.015,
+            "business_longitude": 28.979,
+        },
+        headers=provider["headers"],
+    )
+
+    assert response.status_code == 200, response.text
+    db_session.refresh(profile)
+    assert profile.address == "Current location"
+    assert profile.business_place_id is None
+    assert profile.latitude == 41.015
+    assert profile.longitude == 28.979
 
 
 def test_only_approved_services_can_be_enabled(client, approved_provider):

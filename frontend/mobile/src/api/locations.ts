@@ -16,7 +16,12 @@ export async function getServiceLocations(parentId?: number) {
     },
   );
 
-  return response.data.data?.items ?? [];
+  const items = response.data.data?.items;
+  if (!Array.isArray(items)) {
+    throw new Error("Service areas returned an invalid response.");
+  }
+
+  return items;
 }
 
 export async function getServiceLocation(locationId: number) {

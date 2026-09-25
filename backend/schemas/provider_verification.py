@@ -138,7 +138,11 @@ class ProviderOperatingSettingsV2Patch(BaseModel):
     def validate_update(self):
         if not self.model_fields_set:
             raise ValueError("At least one operating setting is required")
-        if any(getattr(self, field) is None for field in self.model_fields_set):
+        nullable_fields = {"business_place_id"}
+        if any(
+            getattr(self, field) is None
+            for field in self.model_fields_set - nullable_fields
+        ):
             raise ValueError("Operating settings cannot be null")
         address_fields = {
             "business_address",

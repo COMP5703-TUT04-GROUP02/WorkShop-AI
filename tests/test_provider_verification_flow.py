@@ -214,7 +214,12 @@ def test_service_areas_accept_any_level_and_reject_overlap(client, db_session):
     saved = client.get("/provider/service-areas", headers=provider["headers"])
     assert saved.status_code == 200, saved.text
     assert saved.json()["data"]["service_areas"] == [
-        {"id": province.id, "name": province.name, "level": "province"}
+        {
+            "id": province.id,
+            "name": province.name,
+            "level": "province",
+            "label": "Istanbul",
+        }
     ]
     overlap = client.put(
         "/provider/service-areas",
@@ -222,3 +227,28 @@ def test_service_areas_accept_any_level_and_reject_overlap(client, db_session):
         headers=provider["headers"],
     )
     assert overlap.status_code == 422
+
+    district_only = client.put(
+        "/provider/service-areas",
+        json={"service_location_ids": [district.id]},
+        headers=provider["headers"],
+    )
+    assert district_only.status_code == 200, district_only.text
+    assert district_only.json()["data"]["service_areas"] == [
+        {
+            "id": district.id,
+            "name": "Kadikoy",
+            "level": "district",
+            "label": "Istanbul / Istanbul / Kadikoy",
+        }
+    ]
+    saved_district = client.get("/provider/service-areas", headers=provider["headers"])
+    assert saved_district.status_code == 200, saved_district.text
+    assert saved_district.json()["data"]["service_areas"] == [
+        {
+            "id": district.id,
+            "name": "Kadikoy",
+            "level": "district",
+            "label": "Istanbul / Istanbul / Kadikoy",
+        }
+    ]

@@ -29,11 +29,24 @@ from backend.utils.provider_verification import (
 from backend.utils.formatters import tags_to_string
 from backend.utils.response import success_response
 from backend.utils.router import ApiRouter
-from backend.utils.service_locations import get_location, location_scope_ids
+from backend.utils.service_locations import (
+    get_location,
+    get_location_chain,
+    location_scope_ids,
+)
 from backend.utils.upload import save_verification_upload
 
 
 router = ApiRouter(tags=["Provider Verification"])
+
+
+def _format_service_area(db: Session, location: models.ServiceLocation):
+    return {
+        "id": location.id,
+        "name": location.name,
+        "level": location.level,
+        "label": " / ".join(item.name for item in get_location_chain(db, location)),
+    }
 
 
 @router.get("/verification-files/{kind}/{filename}")
@@ -382,8 +395,7 @@ def replace_service_areas(
     return success_response(
         {
             "service_areas": [
-                {"id": location.id, "name": location.name, "level": location.level}
-                for location in locations
+                _format_service_area(db, location) for location in locations
             ]
         },
         message="Service areas updated successfully",
@@ -410,8 +422,7 @@ def get_service_areas(
     return success_response(
         {
             "service_areas": [
-                {"id": location.id, "name": location.name, "level": location.level}
-                for _, location in rows
+                _format_service_area(db, location) for _, location in rows
             ]
         }
     )
