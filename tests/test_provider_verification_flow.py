@@ -62,6 +62,25 @@ def test_provider_registration_starts_unverified_and_unqualified(client):
     assert status.json()["data"]["qualification_status"] == "locked"
 
 
+def test_identity_date_of_birth_requires_exact_valid_iso_date(client):
+    invalid_values = ["02-01-1990", "1990/01/02", "1990-02-30"]
+    for index, value in enumerate(invalid_values):
+        provider = register_session(
+            client,
+            f"invalid-birth-date-{index}@example.com",
+            role="provider",
+            name="Ada Provider",
+        )
+        response = client.post(
+            "/provider/identity-verification",
+            data={"date_of_birth": value, "document_type": "passport"},
+            files=[("files", ("identity.png", PNG_BYTES, "image/png"))],
+            headers=provider["headers"],
+        )
+        assert response.status_code == 422
+        assert "date_of_birth" in response.text
+
+
 def test_identity_submission_snapshots_name_and_locks_name_changes(client, db_session):
     provider = register_session(
         client, "identity-provider@example.com", role="provider", name="Ada Provider"

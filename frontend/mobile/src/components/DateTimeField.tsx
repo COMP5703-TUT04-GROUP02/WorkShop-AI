@@ -13,20 +13,55 @@ type DateTimeFieldProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  mode?: "date" | "datetime";
+  maximumDate?: Date;
 };
 
-export function DateTimeField({ label, value, onChange }: DateTimeFieldProps) {
-  const parsed = parseDateTime(value);
+function formatDateOnly(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateOnly(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return formatDateOnly(parsed) === value ? parsed : null;
+}
+
+export function DateTimeField({
+  label,
+  value,
+  onChange,
+  mode = "datetime",
+  maximumDate,
+}: DateTimeFieldProps) {
+  const parsed = mode === "date" ? parseDateOnly(value) : parseDateTime(value);
 
   if (Platform.OS === "web") {
     return (
       <View style={styles.container}>
         <Text style={styles.label}>{label}</Text>
         {createElement("input", {
-          type: "datetime-local",
-          value: parsed ? toDatetimeLocalValue(parsed) : "",
+          type: mode === "date" ? "date" : "datetime-local",
+          max: maximumDate
+            ? mode === "date"
+              ? formatDateOnly(maximumDate)
+              : toDatetimeLocalValue(maximumDate)
+            : undefined,
+          value: parsed
+            ? mode === "date"
+              ? formatDateOnly(parsed)
+              : toDatetimeLocalValue(parsed)
+            : "",
           onChange: (event: { target: { value: string } }) => {
-            onChange(fromDatetimeLocalValue(event.target.value));
+            onChange(
+              mode === "date"
+                ? event.target.value
+                : fromDatetimeLocalValue(event.target.value),
+            );
           },
           style: webInputStyle,
         })}
@@ -35,17 +70,27 @@ export function DateTimeField({ label, value, onChange }: DateTimeFieldProps) {
   }
 
   return (
-    <NativeDateTimeField date={parsed} label={label} onChange={onChange} />
+    <NativeDateTimeField
+      date={parsed}
+      fieldMode={mode}
+      label={label}
+      maximumDate={maximumDate}
+      onChange={onChange}
+    />
   );
 }
 
 function NativeDateTimeField({
   date,
+  fieldMode,
   label,
+  maximumDate,
   onChange,
 }: {
   date: Date | null;
+  fieldMode: "date" | "datetime";
   label: string;
+  maximumDate?: Date;
   onChange: (value: string) => void;
 }) {
   const [pickerMode, setPickerMode] = useState<"date" | "time" | "datetime" | null>(
@@ -54,7 +99,11 @@ function NativeDateTimeField({
   const pickerValue = date ?? new Date();
 
   function commit(next: Date) {
-    onChange(fromDatetimeLocalValue(toDatetimeLocalValue(next)));
+    onChange(
+      fieldMode === "date"
+        ? formatDateOnly(next)
+        : fromDatetimeLocalValue(toDatetimeLocalValue(next)),
+    );
   }
 
   return (
@@ -62,9 +111,7 @@ function NativeDateTimeField({
       <Text style={styles.label}>{label}</Text>
       <Pressable
         accessibilityRole="button"
-        onPress={() =>
-          setPickerMode(Platform.OS === "ios" ? "datetime" : "date")
-        }
+        onPress={() => setPickerMode(fieldMode === "date" ? "date" : Platform.OS === "ios" ? "datetime" : "date")}
         style={styles.nativeButton}
       >
         <Text
@@ -74,19 +121,28 @@ function NativeDateTimeField({
           ]}
         >
           {date
-            ? date.toLocaleString(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })
-            : "Select date and time"}
+            ? fieldMode === "date"
+              ? date.toLocaleDateString(undefined, { dateStyle: "medium" })
+              : date.toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })
+            : fieldMode === "date" ? "Select date" : "Select date and time"}
         </Text>
       </Pressable>
       {pickerMode ? (
         <DateTimePicker
           display={Platform.OS === "ios" ? "spinner" : "default"}
+          maximumDate={maximumDate}
           mode={pickerMode === "datetime" ? "datetime" : pickerMode}
           onChange={(_, selectedDate) => {
             if (!selectedDate) {
+              setPickerMode(null);
+              return;
+            }
+
+            if (fieldMode === "date") {
+              commit(selectedDate);
               setPickerMode(null);
               return;
             }

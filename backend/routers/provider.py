@@ -17,6 +17,7 @@ from backend.utils.availability import (
     format_provider_availability_override_response,
     get_provider_availabilities,
     get_provider_availability_overrides_by_month,
+    is_provider_open_now,
     replace_provider_availabilities,
     upsert_provider_availability_override,
 )
@@ -54,7 +55,10 @@ from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
 )
-from backend.utils.review import format_review_detail_response
+from backend.utils.review import (
+    format_review_detail_response,
+    get_provider_rating_summary,
+)
 from backend.utils.router import ApiRouter
 from backend.utils.upload import (
     delete_local_upload,
@@ -196,7 +200,10 @@ def get_provider_profile(
     current_user: models.User = Depends(require_provider), db: Session = Depends(get_db)
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
-    return success_response(format_provider_profile_response(profile, db))
+    result = format_provider_profile_response(profile, db)
+    result.update(get_provider_rating_summary(profile.id, db))
+    result["is_open"] = is_provider_open_now(profile.id, db)
+    return success_response(result)
 
 
 @router.post(

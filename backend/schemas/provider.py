@@ -178,6 +178,13 @@ class ProviderProfileWithRatingResponse(ProviderProfileResponse):
     is_available_for_requested_time: bool | None = None
 
 
+class ProviderServiceAreaResponse(BaseModel):
+    id: int
+    name: str
+    level: str
+    label: str
+
+
 class ProviderVerificationUpdate(BaseModel):
     verification_status: ProviderVerificationStatus
     verification_note: str

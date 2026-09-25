@@ -8,7 +8,6 @@ import {
   getAdminIdentityVerifications,
   getAdminQualificationVerifications,
 } from "../../api/admin";
-import { getAccessToken } from "../../api/client";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
@@ -20,7 +19,6 @@ import type {
   VerificationUploadFile,
 } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
-import { resolveMediaUrl } from "../../utils/media";
 
 type Selection =
   | { kind: "identity"; item: IdentityVerificationApplication }
@@ -118,22 +116,64 @@ function QualificationDetails({ item }: { item: QualificationVerificationApplica
 }
 
 function VerificationFiles({ files }: { files: VerificationUploadFile[] }) {
-  async function openFile(file: VerificationUploadFile) {
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [previewErrors, setPreviewErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    let active = true;
+    const createdUrls: string[] = [];
+    setPreviewUrls({});
+    setPreviewErrors({});
+
+    void Promise.all(
+      files.map(async (file) => {
+        try {
+          const blob = await downloadVerificationFile(file.file_url);
+          const objectUrl = URL.createObjectURL(blob);
+          createdUrls.push(objectUrl);
+          if (active) {
+            setPreviewUrls((current) => ({ ...current, [file.file_url]: objectUrl }));
+          } else {
+            URL.revokeObjectURL(objectUrl);
+          }
+        } catch (error) {
+          if (active) {
+            setPreviewErrors((current) => ({
+              ...current,
+              [file.file_url]: getErrorMessage(error),
+            }));
+          }
+        }
+      }),
+    );
+
+    return () => {
+      active = false;
+      createdUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
+
+  function openFile(file: VerificationUploadFile) {
     if (Platform.OS !== "web") {
       Alert.alert("File preview", "Images are shown below. Open PDF verification files from the web admin dashboard.");
       return;
     }
-    try {
-      const blob = await downloadVerificationFile(file.file_url);
-      const objectUrl = URL.createObjectURL(blob);
-      window.open(objectUrl, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-    } catch (error) {
-      Alert.alert("Could not open file", getErrorMessage(error));
+    const objectUrl = previewUrls[file.file_url];
+    if (!objectUrl) {
+      Alert.alert(
+        "File not ready",
+        previewErrors[file.file_url] || "The protected file is still loading. Try again shortly.",
+      );
+      return;
     }
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
   }
-  const token = getAccessToken();
-  return <View style={styles.files}><Text style={styles.rowLabel}>Files</Text>{files.map((file) => <Pressable key={`${file.file_url}-${file.original_file_name}`} onPress={() => void openFile(file)} style={styles.fileCard}>{file.content_type.startsWith("image/") ? <Image resizeMode="contain" source={{ uri: resolveMediaUrl(file.file_url) ?? undefined, headers: token ? { Authorization: `Bearer ${token}` } : undefined }} style={styles.preview} /> : null}<Text style={styles.link}>{file.original_file_name}</Text><Text style={styles.subtitle}>{file.content_type} · tap to open</Text></Pressable>)}</View>;
+  return <View style={styles.files}><Text style={styles.rowLabel}>Files</Text>{files.map((file) => {
+    const previewUrl = previewUrls[file.file_url];
+    const previewError = previewErrors[file.file_url];
+    return <Pressable key={`${file.file_url}-${file.original_file_name}`} onPress={() => openFile(file)} style={styles.fileCard}>{file.content_type.startsWith("image/") && previewUrl ? <Image resizeMode="contain" source={{ uri: previewUrl }} style={styles.preview} /> : file.content_type.startsWith("image/") && !previewError ? <ActivityIndicator color={colors.primary} style={styles.preview} /> : null}<Text style={styles.link}>{file.original_file_name}</Text><Text style={previewError ? styles.error : styles.subtitle}>{previewError || `${file.content_type} · tap to open`}</Text></Pressable>;
+  })}</View>;
 }
 
 function Row({ label, value }: { label: string; value: string }) { return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value || "-"}</Text></View>; }

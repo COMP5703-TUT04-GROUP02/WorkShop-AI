@@ -1,4 +1,5 @@
 from datetime import date
+import re
 
 from pathlib import Path
 
@@ -30,8 +31,8 @@ from backend.utils.formatters import tags_to_string
 from backend.utils.response import success_response
 from backend.utils.router import ApiRouter
 from backend.utils.service_locations import (
+    format_service_area,
     get_location,
-    get_location_chain,
     location_scope_ids,
 )
 from backend.utils.upload import save_verification_upload
@@ -40,13 +41,19 @@ from backend.utils.upload import save_verification_upload
 router = ApiRouter(tags=["Provider Verification"])
 
 
-def _format_service_area(db: Session, location: models.ServiceLocation):
-    return {
-        "id": location.id,
-        "name": location.name,
-        "level": location.level,
-        "label": " / ".join(item.name for item in get_location_chain(db, location)),
-    }
+def _parse_date_of_birth(value: str) -> date:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise HTTPException(
+            status_code=422,
+            detail="date_of_birth must use YYYY-MM-DD format",
+        )
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="date_of_birth must be a valid calendar date",
+        ) from exc
 
 
 @router.get("/verification-files/{kind}/{filename}")
@@ -143,13 +150,14 @@ def get_verification_status(
 
 @router.post("/provider/identity-verification")
 async def submit_identity_verification(
-    date_of_birth: date = Form(...),
+    date_of_birth: str = Form(...),
     document_type: IdentityDocumentType = Form(...),
     files: list[UploadFile] = File(...),
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
     _ensure_can_submit_identity(current_user)
+    parsed_date_of_birth = _parse_date_of_birth(date_of_birth)
     if not 1 <= len(files) <= 5:
         raise HTTPException(status_code=422, detail="Upload between 1 and 5 identity files")
     upload_results = [await save_verification_upload(file) for file in files]
@@ -157,7 +165,7 @@ async def submit_identity_verification(
         user_id=current_user.id,
         submitted_first_name=current_user.first_name,
         submitted_last_name=current_user.last_name,
-        date_of_birth=date_of_birth,
+        date_of_birth=parsed_date_of_birth,
         document_type=document_type.value,
         status="pending",
     )
@@ -395,7 +403,7 @@ def replace_service_areas(
     return success_response(
         {
             "service_areas": [
-                _format_service_area(db, location) for location in locations
+                format_service_area(db, location) for location in locations
             ]
         },
         message="Service areas updated successfully",
@@ -422,7 +430,7 @@ def get_service_areas(
     return success_response(
         {
             "service_areas": [
-                _format_service_area(db, location) for _, location in rows
+                format_service_area(db, location) for _, location in rows
             ]
         }
     )

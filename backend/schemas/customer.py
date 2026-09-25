@@ -14,7 +14,10 @@ from pydantic import (
 from backend.constants import ALLOWED_PROVIDER_TAGS
 
 from backend.schemas.common import *  # noqa: F403
-from backend.schemas.provider import ProviderProfileWithRatingResponse
+from backend.schemas.provider import (
+    ProviderProfileWithRatingResponse,
+    ProviderServiceAreaResponse,
+)
 
 
 class CustomerProfileCreate(BaseModel):
@@ -134,6 +137,7 @@ class CustomerProviderSearchResponseData(BaseModel):
 class CustomerProviderDetailProviderResponse(ProviderProfileWithRatingResponse):
     is_open: bool
     is_favorited: bool
+    service_areas: list[ProviderServiceAreaResponse] = Field(default_factory=list)
 
 
 class CustomerProviderDetailResponseData(BaseModel):

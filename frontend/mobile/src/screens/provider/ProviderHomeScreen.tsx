@@ -1,11 +1,14 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
-import { Check, CheckCircle2, FileText, MapPin, Trash2 } from "lucide-react-native";
+import { Check, ChevronRight, FileText, MapPin, Trash2 } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   getIdentityVerification,
+  getProviderProfile,
+  getProviderServiceAreas,
   getProviderVerificationStatus,
   getQualificationVerification,
   type LocalVerificationFile,
@@ -13,26 +16,39 @@ import {
   submitQualificationVerification,
   uploadQualificationFiles,
 } from "../../api/provider";
+import {
+  getPublicProviderPortfolios,
+  getPublicProviderReviews,
+} from "../../api/customer";
+import { DateTimeField } from "../../components/DateTimeField";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
+import { PortfolioCard } from "../../components/PortfolioCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { getProviderTagLabel, PROVIDER_TAGS } from "../../constants/providerTags";
 import { useAuth } from "../../context/AuthContext";
 import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
+import type { RootStackParamList } from "../../navigation/types";
 import { colors, radius, spacing } from "../../theme/theme";
+import type { PaginatedData } from "../../types/chat";
 import type { SelectedLocation } from "../../types/location";
 import type {
   IdentityVerificationApplication,
+  ProviderPortfolio,
+  ProviderProfile,
+  ProviderServiceArea,
   ProviderVerificationStatus,
   QualificationVerificationApplication,
   VerificationStatus,
 } from "../../types/provider";
+import type { Review } from "../../types/review";
 import { getErrorMessage } from "../../utils/errors";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
+const REVIEW_PAGE_SIZE = 10;
 
 export function ProviderHomeScreen() {
   const { user } = useAuth();
@@ -68,6 +84,10 @@ export function ProviderHomeScreen() {
 
   if (isLoading) return <ActivityIndicator color={colors.primary} style={styles.loader} />;
 
+  if (status?.qualification_status === "approved") {
+    return <ApprovedProviderHome />;
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
@@ -81,22 +101,204 @@ export function ProviderHomeScreen() {
       {message ? <Text style={styles.error}>{message}</Text> : null}
       {status?.identity_status !== "approved" ? (
         <IdentityStep application={identity} firstName={user?.first_name || ""} lastName={user?.last_name || ""} onSubmitted={() => void load()} status={status?.identity_status ?? "not_submitted"} />
-      ) : status.qualification_status !== "approved" ? (
-        <QualificationStep application={qualification} onSubmitted={() => void load()} status={status.qualification_status} />
       ) : (
-        <View style={styles.card}>
-          <View style={styles.completeIcon}>
-            <CheckCircle2 color={colors.primary} size={36} />
-          </View>
-          <Text style={styles.completeTitle}>Verification complete</Text>
-          <Text style={styles.completeText}>
-            Your provider tools are unlocked. Business details can now be
-            updated from Account → Operating settings.
-          </Text>
-        </View>
+        <QualificationStep application={qualification} onSubmitted={() => void load()} status={status.qualification_status} />
       )}
     </ScrollView>
   );
+}
+
+function ApprovedProviderHome() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [serviceAreas, setServiceAreas] = useState<ProviderServiceArea[]>([]);
+  const [portfolios, setPortfolios] = useState<ProviderPortfolio[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewPaging, setReviewPaging] = useState<PaginatedData<Review> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const [nextProfile, serviceAreaResult] = await Promise.all([
+        getProviderProfile(),
+        getProviderServiceAreas(),
+      ]);
+      if (!nextProfile) throw new Error("Provider profile could not be loaded.");
+      const [nextPortfolios, nextReviews] = await Promise.all([
+        getPublicProviderPortfolios(nextProfile.id, 1, 4),
+        getPublicProviderReviews(nextProfile.id, 1, REVIEW_PAGE_SIZE),
+      ]);
+      setProfile(nextProfile);
+      setServiceAreas(serviceAreaResult?.service_areas ?? []);
+      setPortfolios(nextPortfolios?.items ?? []);
+      setReviews(nextReviews?.items ?? []);
+      setReviewPaging(nextReviews ?? null);
+      setReviewPage(1);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => void load(), [load]));
+
+  async function loadMoreReviews() {
+    if (isLoadingMore || !reviewPaging?.has_next) return;
+
+    setIsLoadingMore(true);
+    try {
+      const nextPage = reviewPage + 1;
+      if (!profile) return;
+      const nextData = await getPublicProviderReviews(profile.id, nextPage, REVIEW_PAGE_SIZE);
+      if (nextData) {
+        setReviews((current) => [...current, ...nextData.items]);
+        setReviewPaging(nextData);
+        setReviewPage(nextPage);
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  return (
+    <FlatList
+      ListEmptyComponent={
+        isLoading ? null : <Text style={styles.emptyText}>{error || "No reviews yet"}</Text>
+      }
+      ListFooterComponent={
+        isLoadingMore ? <ActivityIndicator color={colors.primary} style={styles.footerLoader} /> : null
+      }
+      ListHeaderComponent={
+        <View style={styles.headerContent}>
+          <View style={styles.profileSummaryCard}>
+            <View style={styles.profileSummaryMain}>
+              <View style={styles.businessTitleRow}>
+                <Text numberOfLines={1} style={styles.businessName}>
+                  {profile?.business_name ?? "Provider"}
+                </Text>
+                <Text style={styles.serviceVerifiedBadge}>Service verified</Text>
+              </View>
+              <View style={styles.statusRow}>
+                <OpenStatusBadge isOpen={Boolean(profile?.is_open)} />
+                <OnlineStatusBadge isOnline={Boolean(profile?.is_online)} />
+              </View>
+              <Text style={styles.bioText}>{profile?.bio || "No business description yet."}</Text>
+              <Text style={styles.metaText}>
+                Business address: {profile?.address || "Not set"}
+              </Text>
+              <Text style={styles.metaText}>
+                Service areas: {formatServiceAreas(serviceAreas)}
+              </Text>
+              <Text style={styles.metaText}>
+                {formatRating(profile)} · {profile?.hourly_rate ?? "-"} / hr
+              </Text>
+              <View style={styles.tagWrap}>
+                {(profile?.tags ?? []).map((tag) => (
+                  <View key={tag} style={styles.serviceTag}>
+                    <Text style={styles.serviceTagText}>{getProviderTagLabel(tag)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate("ProviderOperatingSettings")}
+              style={styles.settingsButton}
+            >
+              <Text style={styles.settingsButtonText}>Operating settings</Text>
+            </Pressable>
+          </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Portfolios</Text>
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate("ProviderPortfolioList")} style={styles.moreButton}>
+              <Text style={styles.moreText}>Manage portfolios</Text>
+              <ChevronRight color={colors.primary} size={18} />
+            </Pressable>
+          </View>
+
+          {isLoading ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : portfolios.length > 0 ? (
+            <FlatList
+              ItemSeparatorComponent={() => <View style={styles.portfolioGap} />}
+              data={portfolios}
+              horizontal
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <PortfolioCard compact onPress={() => navigation.navigate("ProviderPortfolioDetail", { portfolioId: item.id })} portfolio={item} />
+              )}
+              showsHorizontalScrollIndicator={false}
+            />
+          ) : (
+            <Text style={styles.emptyText}>No portfolios uploaded yet</Text>
+          )}
+
+          <Text style={styles.sectionTitle}>Reviews</Text>
+        </View>
+      }
+      contentContainerStyle={styles.approvedContent}
+      data={reviews}
+      keyExtractor={(item) => String(item.id)}
+      onEndReached={() => void loadMoreReviews()}
+      onEndReachedThreshold={0.4}
+      renderItem={({ item }) => <ReviewRow review={item} />}
+      style={styles.container}
+    />
+  );
+}
+
+function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
+  return (
+    <View style={styles.statusBadge}>
+      <View style={[styles.statusDot, isOpen ? styles.statusDotActive : styles.statusDotInactive]} />
+      <Text style={styles.statusBadgeText}>{isOpen ? "Open" : "Closed"}</Text>
+    </View>
+  );
+}
+
+function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
+  return (
+    <View style={styles.statusBadge}>
+      <View style={[styles.statusDot, isOnline ? styles.statusDotActive : styles.statusDotInactive]} />
+      <Text style={styles.statusBadgeText}>{isOnline ? "Online" : "Offline"}</Text>
+    </View>
+  );
+}
+
+function formatServiceAreas(areas: ProviderServiceArea[]) {
+  return areas.length > 0 ? areas.map((area) => area.label || area.name).join(", ") : "Not set";
+}
+
+function formatRating(profile: ProviderProfile | null) {
+  if (profile?.average_rating == null || !profile.review_count) return "No rating yet";
+  return `${profile.average_rating.toFixed(1)} stars · ${profile.review_count} reviews`;
+}
+
+function ReviewRow({ review }: { review: Review }) {
+  return (
+    <View style={styles.reviewCard}>
+      <View style={styles.reviewTopRow}>
+        <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
+        <Text style={styles.reviewDate}>{formatReviewDate(review.created_at)}</Text>
+      </View>
+      <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
+    </View>
+  );
+}
+
+function formatReviewDate(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
 function ProgressCard({ status }: { status: ProviderVerificationStatus | null }) {
@@ -165,7 +367,13 @@ function IdentityStep({ application, firstName, lastName, onSubmitted, status }:
         <ReadOnlyRow label="First name" value={firstName} /><ReadOnlyRow label="Last name" value={lastName} />
         <Text style={styles.hint}>These names are read from your account.</Text>
         {!firstName.trim() || !lastName.trim() ? <Text style={styles.error}>Complete both names in Account → Edit profile first.</Text> : null}
-        <TextField label="Date of birth" onChangeText={setDateOfBirth} placeholder="YYYY-MM-DD" value={dateOfBirth} />
+        <DateTimeField
+          label="Date of birth"
+          maximumDate={new Date()}
+          mode="date"
+          onChange={setDateOfBirth}
+          value={dateOfBirth}
+        />
         <ChoiceRow options={[["national_id", "National ID"], ["passport", "Passport"]]} selected={documentType} onSelect={(value) => setDocumentType(value as "national_id" | "passport")} />
         <FilePicker files={files} onChange={setFiles} />
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -276,6 +484,8 @@ function documentLabel(value?: string) { return value === "passport" ? "Passport
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface }, content: { width: "100%", maxWidth: 820, alignSelf: "center", padding: spacing.lg, gap: spacing.md }, loader: { flex: 1 },
+  approvedContent: { gap: spacing.md, padding: spacing.lg },
+  headerContent: { gap: spacing.lg },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: 26, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
   stepper: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg }, stepItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, position: "relative" }, stepDot: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, stepDotApproved: { borderColor: colors.primary, backgroundColor: "#E9F7F3" }, stepNumber: { color: colors.mutedText, fontWeight: "800" }, stepNumberApproved: { color: colors.primary }, stepCopy: { flex: 1, alignItems: "flex-start", gap: spacing.xs }, stepConnector: { position: "absolute", right: -spacing.lg, width: spacing.lg, height: 1, backgroundColor: colors.border }, progressLabel: { color: colors.text, fontWeight: "700" },
@@ -284,4 +494,34 @@ const styles = StyleSheet.create({
   tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }, tag: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md }, tagActive: { borderColor: colors.primary, backgroundColor: "#E9F7F3" }, tagText: { color: colors.text, fontWeight: "600" }, tagTextActive: { color: colors.primary },
   fileRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.md }, addressButton: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md },
   readOnlyRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm }, readOnlyValue: { flex: 1, color: colors.text, fontWeight: "600", textAlign: "right" }, muted: { color: colors.mutedText }, link: { color: colors.primary, fontWeight: "700" }, flex: { flex: 1, color: colors.text }, completeIcon: { alignSelf: "center", width: 68, height: 68, alignItems: "center", justifyContent: "center", borderRadius: 34, backgroundColor: "#E9F7F3" }, completeTitle: { color: colors.text, fontSize: 22, fontWeight: "800", textAlign: "center" }, completeText: { color: colors.mutedText, fontSize: 14, lineHeight: 21, textAlign: "center" },
+  profileSummaryCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: spacing.lg, borderWidth: 1, borderColor: colors.border, borderRadius: 18, backgroundColor: colors.background, padding: spacing.lg },
+  profileSummaryMain: { flex: 1, minWidth: 260, gap: spacing.sm },
+  businessTitleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
+  businessName: { color: colors.text, fontSize: 24, fontWeight: "800" },
+  serviceVerifiedBadge: { overflow: "hidden", borderRadius: 999, backgroundColor: "#E9F7F3", color: colors.primary, paddingHorizontal: spacing.sm, paddingVertical: 5, fontSize: 12, fontWeight: "800" },
+  statusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  statusBadge: { minHeight: 26, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: 999, backgroundColor: colors.surface, paddingHorizontal: spacing.sm },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusDotActive: { backgroundColor: colors.primary },
+  statusDotInactive: { backgroundColor: "#A0A4AE" },
+  statusBadgeText: { color: colors.mutedText, fontSize: 12, fontWeight: "800" },
+  bioText: { color: colors.text, fontSize: 15, lineHeight: 22 },
+  metaText: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
+  tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  serviceTag: { borderRadius: 999, backgroundColor: colors.surface, paddingHorizontal: spacing.sm, paddingVertical: 5 },
+  serviceTagText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+  settingsButton: { minWidth: 190, minHeight: 52, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.primary, paddingHorizontal: spacing.lg },
+  settingsButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "800" },
+  moreButton: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  moreText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
+  portfolioGap: { width: spacing.md },
+  reviewCard: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.background, padding: spacing.md },
+  reviewTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  ratingText: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  reviewDate: { color: colors.mutedText, fontSize: 13 },
+  reviewComment: { color: colors.text, fontSize: 15, lineHeight: 22 },
+  emptyText: { color: colors.mutedText, fontSize: 14, lineHeight: 21 },
+  footerLoader: { paddingVertical: spacing.lg },
 });

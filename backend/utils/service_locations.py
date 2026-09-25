@@ -65,6 +65,15 @@ def get_location_chain(db: Session, location: models.ServiceLocation):
     return list(reversed(chain))
 
 
+def format_service_area(db: Session, location: models.ServiceLocation):
+    return {
+        "id": location.id,
+        "name": location.name,
+        "level": location.level,
+        "label": " / ".join(item.name for item in get_location_chain(db, location)),
+    }
+
+
 def get_province_for_location(db: Session, location: models.ServiceLocation):
     return get_location_chain(db, location)[0]
 

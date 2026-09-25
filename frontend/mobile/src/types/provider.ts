@@ -23,6 +23,8 @@ export type ProviderProfile = {
   qualification_verification_status?: string;
   notes: string | null;
   is_online: boolean;
+  is_open?: boolean;
+  service_areas?: ProviderServiceArea[];
   average_rating?: number | null;
   review_count?: number;
   distance_km?: number | null;
@@ -280,6 +282,7 @@ export type CustomerProviderDetail = {
 export type CustomerProviderDetailProfile = ProviderProfile & {
   is_open: boolean;
   is_favorited: boolean;
+  service_areas: ProviderServiceArea[];
 };
 
 export type FavoriteProvider = {

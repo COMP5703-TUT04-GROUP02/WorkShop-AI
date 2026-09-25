@@ -7,6 +7,7 @@ x-backend-env: &backend-env
   WORKSHOP_JWT_PRIVATE_KEY_PATH: backend/certs/jwt-private.pem
   WORKSHOP_JWT_PUBLIC_KEY_PATH: backend/certs/jwt-public.pem
   WORKSHOP_UPLOAD_DIR: backend/uploads
+  WORKSHOP_VERIFICATION_UPLOAD_DIR: backend/uploads/verification
   WORKSHOP_MILVUS_HOST: milvus
   WORKSHOP_MILVUS_PORT: 19530
   WORKSHOP_GOOGLE_MAPS_API_KEY: ${WORKSHOP_GOOGLE_MAPS_API_KEY:-}
