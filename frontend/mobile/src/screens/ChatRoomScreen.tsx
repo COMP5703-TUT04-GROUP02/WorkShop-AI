@@ -58,6 +58,7 @@ import {
   createDefaultBookingRequestForm,
   type BookingRequestFormState,
 } from "../components/BookingRequestModal";
+import { CompletionProofGallery } from "../components/CompletionProofGallery";
 import { CustomerReviewModal } from "../components/CustomerReviewModal";
 import { DateTimeField } from "../components/DateTimeField";
 import { PrimaryButton } from "../components/PrimaryButton";
@@ -414,7 +415,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
     const payload = buildUpdatePayload(selectedBooking, bookingForm);
     if (!payload) {
-      Alert.alert("Incomplete booking", "Enter the service description, address, and schedule.");
+      Alert.alert("Incomplete booking", "Enter a title (maximum 30 words), description, address, and schedule.");
       return;
     }
 
@@ -790,7 +791,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       form: createBookingForm,
     });
     if (!payload) {
-      setCreateBookingError("Enter the service description, address, and schedule.");
+      setCreateBookingError("Enter a title (maximum 30 words), description, address, and schedule.");
       return;
     }
 
@@ -1390,6 +1391,8 @@ function BookingActionModal({
                     : booking.provider?.business_name ||
                       `Provider #${booking.provider_profile_id}`}
                 </Text>
+                <Text style={styles.detailLabel}>Booking title</Text>
+                <Text style={styles.detailValue}>{booking.title}</Text>
                 <Text style={styles.detailLabel}>Service description</Text>
                 <Text style={styles.detailValue}>{booking.service_description}</Text>
                 <Text style={styles.detailLabel}>Service address</Text>
@@ -1451,8 +1454,17 @@ function BookingActionModal({
                 ) : null}
               </View>
 
+              {userRole === "customer" ? (
+                <CompletionProofGallery booking={booking} />
+              ) : null}
+
               {canCustomerEdit && bookingForm ? (
                 <>
+                  <TextField
+                    label="Booking title"
+                    onChangeText={(value) => updateFormField("title", value)}
+                    value={bookingForm.title}
+                  />
                   <TextField
                     label="Service description"
                     multiline
@@ -1749,10 +1761,12 @@ function createBookingFormFromDetail(
   booking: BookingDetail,
 ): BookingRequestFormState {
   return {
+    title: booking.title,
     serviceDescription: booking.service_description,
     serviceAddress: booking.service_address,
     scheduledStartTime: toEditableDateTime(booking.scheduled_start_time),
     scheduledEndTime: toEditableDateTime(booking.scheduled_end_time),
+    attachments: [],
   };
 }
 
@@ -1761,6 +1775,8 @@ function buildUpdatePayload(
   form: BookingRequestFormState,
 ): BookingPayload | null {
   if (
+    !form.title.trim() ||
+    form.title.trim().split(/\s+/).length > 30 ||
     !form.serviceDescription.trim() ||
     !form.serviceAddress.trim() ||
     !form.scheduledStartTime.trim() ||
@@ -1770,6 +1786,7 @@ function buildUpdatePayload(
   }
 
   return {
+    title: form.title.trim(),
     service_description: form.serviceDescription.trim(),
     service_address: form.serviceAddress.trim(),
     service_latitude: booking.service_latitude,

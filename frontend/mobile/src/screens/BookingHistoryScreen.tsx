@@ -12,6 +12,7 @@ import {
 
 import { getCustomerBookings } from "../api/customer";
 import { getProviderBookings } from "../api/provider";
+import { CompletionProofGallery } from "../components/CompletionProofGallery";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../theme/theme";
@@ -120,7 +121,7 @@ function HistoryBookingCard({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleGroup}>
-          <Text style={styles.cardTitle}>Booking #{booking.id}</Text>
+          <Text style={styles.cardTitle}>{booking.title || `Booking #${booking.id}`}</Text>
           <Text style={styles.targetName}>
             {getTargetName(booking, userRole)}
           </Text>
@@ -168,6 +169,7 @@ function HistoryBookingDetailModal({
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
             <DetailRow label={userRole === "provider" ? "Customer" : "Provider"} value={getTargetName(booking, userRole)} />
+            <DetailRow label="Booking title" value={booking.title} />
             <DetailRow label="Service description" value={booking.service_description} />
             <DetailRow label="Service address" value={booking.service_address} />
             <DetailRow
@@ -190,6 +192,9 @@ function HistoryBookingDetailModal({
             />
             <DetailRow label="Quote notes" value={booking.quote_message || "—"} />
             <DetailRow label="Notes" value={booking.status_note || "—"} />
+            {userRole === "customer" ? (
+              <CompletionProofGallery booking={booking} />
+            ) : null}
           </ScrollView>
 
           <View style={styles.modalActions}>
