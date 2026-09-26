@@ -55,7 +55,7 @@ Auth: none.
 |---|---|---|---|---|---|
 | `GET` | `/locations` | List direct service-area children; omit `parent_id` for provinces. | `parent_id`(query, optional, integer / null) | - | `ApiResponse_ServiceLocationListResponse_` |
 | `GET` | `/locations/{location_id}` | Get one service-area node by ID. | `location_id`(path, required, integer) | - | `ApiResponse_ServiceLocationResponse_` |
-| `GET` | `/providers` | Search approved providers. | `service_province`(query, optional, string / null)<br>`service_location_id`(query, optional, integer / null)<br>`min_price`(query, optional, integer / null)<br>`max_price`(query, optional, integer / null)<br>`min_experience`(query, optional, integer / null)<br>`latitude`(query, optional, number / null)<br>`longitude`(query, optional, number / null)<br>`max_distance_km`(query, optional, number / null)<br>`scheduled_start_time`(query, optional, string / null)<br>`scheduled_end_time`(query, optional, string / null)<br>`tags`(query, optional, array[string] / null)<br>`sort_by`(query, optional, string / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderProfileWithRatingResponse__` |
+| `GET` | `/providers` | Search approved providers. | `service_province`(query, optional, string / null)<br>`service_location_id`(query, optional, integer / null)<br>`min_price`(query, optional, integer / null)<br>`max_price`(query, optional, integer / null)<br>`latitude`(query, optional, number / null)<br>`longitude`(query, optional, number / null)<br>`max_distance_km`(query, optional, number / null)<br>`scheduled_start_time`(query, optional, string / null)<br>`scheduled_end_time`(query, optional, string / null)<br>`tags`(query, optional, array[string] / null)<br>`sort_by`(query, optional, string / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderProfileWithRatingResponse__` |
 | `GET` | `/providers/{provider_id}` | Public provider detail. | `provider_id`(path, required, integer) | - | `ApiResponse_ProviderProfileWithRatingResponse_` |
 | `GET` | `/providers/{provider_id}/portfolio` | Public portfolio. | `provider_id`(path, required, integer)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderPortfolioResponse__` |
 | `GET` | `/providers/{provider_id}/rating-summary` | Rating summary. | `provider_id`(path, required, integer) | - | `ApiResponse_RatingSummaryResponse_` |
@@ -115,7 +115,16 @@ Auth: provider.
 | `PUT` | `/provider/bookings/{booking_id}/complete` | Complete Booking | `booking_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/quote` | Quote Booking | `booking_id`(path, required, integer) | `application/json` -> `ProviderBookingQuoteCreate` | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/reject` | Reject Booking | `booking_id`(path, required, integer) | `application/json` -> `BookingNoteUpdate` | `ApiResponse_Any_` |
-| `POST` | `/provider/certificates/upload` | Upload Provider Certificate | - | `multipart/form-data` -> `Body_upload_provider_certificate_provider_certificates_upload_post` | `ApiResponse_CertificateUploadResponse_` |
+| `GET` | `/provider/verification-status` | Read identity and qualification state | - | - | `ApiResponse_Any_` |
+| `POST` | `/provider/identity-verification` | Submit real-name verification | - | multipart date, document type, 1-5 files | `ApiResponse_Any_` |
+| `GET` | `/provider/identity-verification` | Read latest identity application | - | - | `ApiResponse_Any_` |
+| `POST` | `/provider/qualification-files/upload` | Upload private qualification documents | - | multipart 1-5 files | `ApiResponse_Any_` |
+| `POST` | `/provider/qualification-verification` | Submit qualification snapshot after identity approval | - | `QualificationVerificationSubmit` | `ApiResponse_Any_` |
+| `GET` | `/provider/qualification-verification` | Read latest qualification application | - | - | `ApiResponse_Any_` |
+| `GET` | `/provider/approved-services` | Read approved and enabled services | - | - | `ApiResponse_Any_` |
+| `PATCH` | `/provider/operating-settings` | Update approved provider's current operating data | - | `ProviderOperatingSettingsV2Patch` | `ApiResponse_Any_` |
+| `PUT` | `/provider/service-areas` | Replace province/city/district service areas | - | `ProviderServiceAreasUpdate` | `ApiResponse_Any_` |
+| `POST` | `/provider/certificates/upload` | Legacy-provider certificate upload; new providers use qualification upload | - | `multipart/form-data` -> `Body_upload_provider_certificate_provider_certificates_upload_post` | `ApiResponse_CertificateUploadResponse_` |
 | `GET` | `/provider/chats` | Get Provider Chats | `page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/provider/dashboard` | Provider Dashboard | - | - | `ApiResponse_Any_` |
 | `GET` | `/provider/payments` | Get Provider Payments | `status`(query, optional, PaymentStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
@@ -123,8 +132,8 @@ Auth: provider.
 | `POST` | `/provider/portfolio` | Create Provider Portfolio | - | `multipart/form-data` -> `Body_create_provider_portfolio_provider_portfolio_post` | `ApiResponse_ProviderPortfolioResponse_` |
 | `DELETE` | `/provider/portfolio/{portfolio_id}` | Delete Provider Portfolio | `portfolio_id`(path, required, integer) | - | `ApiResponse_NoneType_` |
 | `GET` | `/provider/profile` | Get Provider Profile | - | - | `ApiResponse_Any_` |
-| `POST` | `/provider/profile` | Create Provider Profile | - | `application/json` -> `ProviderProfileCreate` | `ApiResponse_Any_` |
-| `PUT` | `/provider/profile` | Update Provider Profile | - | `application/json` -> `ProviderProfileCreate` | `ApiResponse_Any_` |
+| `POST` | `/provider/profile` | Legacy compatibility only; new profiles are created by qualification approval | - | `application/json` -> `ProviderProfileCreate` | `ApiResponse_Any_` |
+| `PUT` | `/provider/profile` | Legacy compatibility only; new providers use operating settings | - | `application/json` -> `ProviderProfileCreate` | `ApiResponse_Any_` |
 | `GET` | `/provider/refund-requests` | Get Provider Refund Requests | `status`(query, optional, RefundRequestStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/provider/refund-requests/{refund_request_id}/approve` | Approve Refund Request | `refund_request_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/provider/refund-requests/{refund_request_id}/reject` | Reject Refund Request | `refund_request_id`(path, required, integer) | `application/json` -> `ProviderRefundRejectCreate` | `ApiResponse_Any_` |
@@ -147,9 +156,15 @@ Auth: admin.
 | `PUT` | `/admin/complaints/{complaint_id}/status` | Update Complaint Status | `complaint_id`(path, required, integer) | `application/json` -> `AdminComplaintStatusUpdate` | `ApiResponse_Any_` |
 | `GET` | `/admin/dashboard` | Get Admin Dashboard | - | - | `ApiResponse_Any_` |
 | `GET` | `/admin/payments` | Get All Payments | `status`(query, optional, PaymentStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
+| `GET` | `/admin/identity-verifications` | List identity applications | `status`(query, optional) | - | `ApiResponse_Any_` |
+| `GET` | `/admin/identity-verifications/{application_id}` | Read an identity application | `application_id` | - | `ApiResponse_Any_` |
+| `PUT` | `/admin/identity-verifications/{application_id}/decision` | Approve/reject pending identity application | `application_id` | `VerificationDecision` | `ApiResponse_Any_` |
+| `GET` | `/admin/qualification-verifications` | List qualification applications | `status`(query, optional) | - | `ApiResponse_Any_` |
+| `GET` | `/admin/qualification-verifications/{application_id}` | Read a qualification application | `application_id` | - | `ApiResponse_Any_` |
+| `PUT` | `/admin/qualification-verifications/{application_id}/decision` | Approve/reject pending qualification application | `application_id` | `VerificationDecision` | `ApiResponse_Any_` |
 | `GET` | `/admin/providers` | Get Admin Providers | `verification_status`(query, optional, ProviderVerificationStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/admin/providers/{provider_profile_id}` | Get Admin Provider By Id | `provider_profile_id`(path, required, integer) | - | `ApiResponse_Any_` |
-| `PUT` | `/admin/providers/{provider_profile_id}/verification` | Update Provider Verification | `provider_profile_id`(path, required, integer) | `application/json` -> `ProviderVerificationUpdate` | `ApiResponse_Any_` |
+| `PUT` | `/admin/providers/{provider_profile_id}/verification` | Legacy verification only; new providers use separate application decisions | `provider_profile_id`(path, required, integer) | `application/json` -> `ProviderVerificationUpdate` | `ApiResponse_Any_` |
 | `GET` | `/admin/providers/{provider_profile_id}/verification-history` | Get Provider Verification History | `provider_profile_id`(path, required, integer)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/admin/refund-requests` | Get All Refund Requests | `status`(query, optional, RefundRequestStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/admin/refund-requests/{refund_request_id}/history` | Get Refund Request Status History | `refund_request_id`(path, required, integer)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
@@ -256,10 +271,10 @@ Auth: none.
 ### Provider onboarding
 
 1. Register provider account.
-2. `POST /provider/profile` with certificate URL; status pending.
-3. Admin `PUT /admin/providers/{provider_profile_id}/verification`.
-4. Provider `PUT /provider/availability`.
-5. Provider handles quotes, rejections, completion, refunds.
+2. `POST /provider/identity-verification`; Admin reviews it through the identity decision endpoint.
+3. After identity approval, upload qualification files and `POST /provider/qualification-verification`.
+4. Admin reviews the qualification application through its separate decision endpoint.
+5. Approval creates the current Provider Profile and unlocks operating settings, service areas, schedule, portfolio, chat, booking, payment, and refund functions.
 
 ### AI booking flow
 
@@ -318,12 +333,10 @@ Auth: none.
 | `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
-| `service_radius_km` | `number` | no | Service Radius Km |
 | `tags` | `list[string]` | yes | Tags |
 | `certificate_name` | `string` | yes | Certificate Name |
 | `certificate_url` | `string` | yes | Certificate Url |
 | `hourly_rate` | `integer` | yes | Hourly Rate |
-| `experience_years` | `integer` | yes | Experience Years |
 
 ### `ProviderProfileResponse`
 
@@ -337,12 +350,10 @@ Auth: none.
 | `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
-| `service_radius_km` | `number` | yes | Service Radius Km |
 | `tags` | `list[string]` | yes | Tags |
 | `certificate_name` | `string` | yes | Certificate Name |
 | `certificate_url` | `string` | yes | Certificate Url |
 | `hourly_rate` | `integer` | yes | Hourly Rate |
-| `experience_years` | `integer` | yes | Experience Years |
 | `verification_status` | `ProviderVerificationStatus` | yes |  |
 | `verification_note` | `string / null` | no | Verification Note |
 
@@ -358,12 +369,10 @@ Auth: none.
 | `service_location_id` | `integer / null` | no | Selected service district ID |
 | `latitude` | `number / null` | no | Latitude |
 | `longitude` | `number / null` | no | Longitude |
-| `service_radius_km` | `number` | yes | Service Radius Km |
 | `tags` | `list[string]` | yes | Tags |
 | `certificate_name` | `string` | yes | Certificate Name |
 | `certificate_url` | `string` | yes | Certificate Url |
 | `hourly_rate` | `integer` | yes | Hourly Rate |
-| `experience_years` | `integer` | yes | Experience Years |
 | `verification_status` | `ProviderVerificationStatus` | yes |  |
 | `verification_note` | `string / null` | no | Verification Note |
 | `average_rating` | `number / null` | no | Average Rating |

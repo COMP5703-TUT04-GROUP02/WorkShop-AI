@@ -15,10 +15,12 @@ from fastapi.staticfiles import StaticFiles
 from backend.config import CORS_ORIGINS, UPLOAD_DIR
 from backend.routers import (
     admin,
+    admin_verification,
     ai,
     auth,
     customer,
     provider,
+    provider_verification,
     public,
     shared,
     websocket,
@@ -94,7 +96,9 @@ app.include_router(auth.router)
 app.include_router(public.router)
 app.include_router(customer.router)
 app.include_router(provider.router)
+app.include_router(provider_verification.router)
 app.include_router(admin.router)
+app.include_router(admin_verification.router)
 app.include_router(shared.router)
 app.include_router(ai.router)
 app.include_router(websocket.router)

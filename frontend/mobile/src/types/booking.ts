@@ -20,6 +20,7 @@ export type BookingDetail = {
   customer_id: number;
   provider_profile_id: number;
   chat_room_id: number | null;
+  title: string;
   service_description: string;
   service_address: string;
   service_latitude: number;
@@ -115,6 +116,7 @@ export type PaymentHistoryEntry = PaymentSummary & {
 export type BookingPayload = {
   provider_profile_id?: number;
   chat_room_id?: number | null;
+  title: string;
   service_description: string;
   service_address: string;
   service_latitude: number;
@@ -124,6 +126,14 @@ export type BookingPayload = {
   customer_current_longitude?: number | null;
   scheduled_start_time: string;
   scheduled_end_time: string;
+  attachments?: BookingUploadFile[];
+};
+
+export type BookingUploadFile = {
+  uri: string;
+  fileName: string;
+  mimeType: string;
+  size?: number | null;
 };
 
 export type BookingCreateResponseData = {

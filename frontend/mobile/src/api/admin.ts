@@ -2,7 +2,62 @@ import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
 import type { RefundRequestSummary } from "../types/booking";
 import type { PaginatedData } from "../types/chat";
-import type { ProviderPortfolio, ProviderProfile } from "../types/provider";
+import type {
+  IdentityVerificationApplication,
+  ProviderPortfolio,
+  ProviderProfile,
+  QualificationVerificationApplication,
+} from "../types/provider";
+
+export async function getAdminIdentityVerifications(status = "pending") {
+  const response = await apiClient.get<ApiResponse<IdentityVerificationApplication[]>>(
+    "/admin/identity-verifications",
+    { params: { status } },
+  );
+  return response.data.data ?? [];
+}
+
+export async function decideAdminIdentityVerification(
+  applicationId: number,
+  status: "approved" | "rejected",
+  reviewNote?: string,
+) {
+  const response = await apiClient.put<ApiResponse<IdentityVerificationApplication>>(
+    `/admin/identity-verifications/${applicationId}/decision`,
+    { status, review_note: reviewNote || null },
+  );
+  return response.data.data;
+}
+
+export async function getAdminQualificationVerifications(status = "pending") {
+  const response = await apiClient.get<ApiResponse<QualificationVerificationApplication[]>>(
+    "/admin/qualification-verifications",
+    { params: { status } },
+  );
+  return response.data.data ?? [];
+}
+
+export async function decideAdminQualificationVerification(
+  applicationId: number,
+  status: "approved" | "rejected",
+  reviewNote?: string,
+) {
+  const response = await apiClient.put<
+    ApiResponse<{
+      application: QualificationVerificationApplication;
+      provider_profile_id: number | null;
+    }>
+  >(`/admin/qualification-verifications/${applicationId}/decision`, {
+    status,
+    review_note: reviewNote || null,
+  });
+  return response.data.data;
+}
+
+export async function downloadVerificationFile(fileUrl: string) {
+  const response = await apiClient.get<Blob>(fileUrl, { responseType: "blob" });
+  return response.data;
+}
 
 export async function getPendingProviderProfiles(page = 1, pageSize = 20) {
   const response = await apiClient.get<ApiResponse<PaginatedData<ProviderProfile>>>(

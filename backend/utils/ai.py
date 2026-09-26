@@ -11,7 +11,6 @@ from backend.utils.formatters import tags_to_list
 from backend.utils.location import (
     calculate_distance_km,
     has_location,
-    provider_can_serve_location,
 )
 from backend.utils.service_locations import (
     filter_provider_query_by_location,
@@ -300,9 +299,6 @@ def find_provider_candidates(
             provider.longitude,
         )
 
-        if not provider_can_serve_location(provider, distance_km):
-            continue
-
         if max_distance_km is not None and distance_km > max_distance_km:
             continue
 
@@ -521,7 +517,6 @@ def build_provider_recommendations(
                 "service_province": provider.service_province,
                 "tags": provider.tags,
                 "hourly_rate": provider.hourly_rate,
-                "experience_years": provider.experience_years,
                 "distance_km": distance_by_provider_id.get(provider.id),
                 "is_available_for_requested_time": (True if schedule_enabled else None),
                 "match_score": recommendation["match_score"],
@@ -591,7 +586,6 @@ def build_provider_ai_profile(
         f"Tags: {provider.tags}",
         f"Bio: {provider.bio}",
         f"Hourly rate: {provider.hourly_rate}",
-        f"Experience years: {provider.experience_years}",
         f"Average rating: {stats['average_rating']}",
         f"Review count: {stats['review_count']}",
         f"Completed bookings: {stats['completed_bookings']}",

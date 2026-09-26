@@ -14,7 +14,6 @@ from backend.utils.location import (
     calculate_distance_km,
     has_location,
     has_partial_location,
-    provider_can_serve_location,
 )
 from backend.utils.pagination import paginate_list, paginate_query
 from backend.utils.review import get_provider_rating_summary
@@ -123,8 +122,6 @@ def filter_provider_profiles(
         None,
         "price_asc",
         "price_desc",
-        "experience_asc",
-        "experience_desc",
     }
     can_use_sql_pagination = (
         not tags
@@ -141,10 +138,6 @@ def filter_provider_profiles(
             query = query.order_by(models.ProviderProfile.hourly_rate.asc())
         elif normalized_sort == "price_desc":
             query = query.order_by(models.ProviderProfile.hourly_rate.desc())
-        elif normalized_sort == "experience_asc":
-            query = query.order_by(models.ProviderProfile.experience_years.asc())
-        elif normalized_sort == "experience_desc":
-            query = query.order_by(models.ProviderProfile.experience_years.desc())
 
         profiles, total, normalized_page, normalized_page_size = paginate_query(
             query,
@@ -264,8 +257,6 @@ def filter_provider_profile_list(
                     profile.longitude,
                 )
 
-            if not provider_can_serve_location(profile, distance_km):
-                continue
             if max_distance_km is not None and distance_km > max_distance_km:
                 continue
             distance_by_provider_id[profile.id] = distance_km
@@ -292,15 +283,6 @@ def filter_provider_profile_list(
     elif normalized_sort == "price_desc":
         filtered_profiles.sort(
             key=lambda profile: (profile.hourly_rate, -profile.id),
-            reverse=True,
-        )
-    elif normalized_sort == "experience_asc":
-        filtered_profiles.sort(
-            key=lambda profile: (profile.experience_years, profile.id)
-        )
-    elif normalized_sort == "experience_desc":
-        filtered_profiles.sort(
-            key=lambda profile: (profile.experience_years, -profile.id),
             reverse=True,
         )
     elif normalized_sort == "rating_desc":

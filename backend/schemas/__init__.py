@@ -1,6 +1,7 @@
 from backend.schemas.common import *  # noqa: F403
 from backend.schemas.auth import *  # noqa: F403
 from backend.schemas.provider import *  # noqa: F403
+from backend.schemas.provider_verification import *  # noqa: F403
 from backend.schemas.customer import *  # noqa: F403
 from backend.schemas.chat import *  # noqa: F403
 from backend.schemas.booking import *  # noqa: F403

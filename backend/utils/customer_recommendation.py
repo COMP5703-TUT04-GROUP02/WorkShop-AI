@@ -370,7 +370,6 @@ def search_customer_providers(
     limit: int = 40,
     min_price: int | None = None,
     max_price: int | None = None,
-    min_experience: int | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
     max_distance_km: float | None = None,
@@ -459,11 +458,6 @@ def search_customer_providers(
         provider_query = provider_query.filter(
             models.ProviderProfile.hourly_rate <= max_price
         )
-    if min_experience is not None:
-        provider_query = provider_query.filter(
-            models.ProviderProfile.experience_years >= min_experience
-        )
-
     provider_profiles = provider_query.all()
 
     keyword_matches = []

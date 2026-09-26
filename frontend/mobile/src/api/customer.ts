@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
 import type {
@@ -148,6 +150,7 @@ export async function createCustomerBooking(payload: BookingPayload) {
   if (payload.chat_room_id) {
     formData.append("chat_room_id", String(payload.chat_room_id));
   }
+  formData.append("title", payload.title);
   formData.append("service_description", payload.service_description);
   formData.append("service_address", payload.service_address);
   formData.append("service_latitude", String(payload.service_latitude));
@@ -169,6 +172,25 @@ export async function createCustomerBooking(payload: BookingPayload) {
   }
   formData.append("scheduled_start_time", payload.scheduled_start_time);
   formData.append("scheduled_end_time", payload.scheduled_end_time);
+
+  for (const attachment of payload.attachments ?? []) {
+    if (Platform.OS === "web") {
+      const fileResponse = await fetch(attachment.uri);
+      const blob = await fileResponse.blob();
+      formData.append(
+        "attachments",
+        new File([blob], attachment.fileName, {
+          type: attachment.mimeType || blob.type || "application/octet-stream",
+        }),
+      );
+    } else {
+      formData.append("attachments", {
+        uri: attachment.uri,
+        name: attachment.fileName,
+        type: attachment.mimeType,
+      } as unknown as Blob);
+    }
+  }
 
   const response = await apiClient.post<ApiResponse<BookingCreateResponseData>>(
     "/bookings",
@@ -200,6 +222,7 @@ export async function updateCustomerPendingBooking(
   const response = await apiClient.put<ApiResponse<BookingUpdateResponseData>>(
     `/customer/bookings/${bookingId}`,
     {
+      title: payload.title,
       service_description: payload.service_description,
       service_address: payload.service_address,
       service_latitude: payload.service_latitude,

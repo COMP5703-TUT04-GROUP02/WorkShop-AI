@@ -3,13 +3,28 @@ from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 
-from backend.config import MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB, UPLOAD_DIR
+from backend.config import (
+    MAX_UPLOAD_SIZE_BYTES,
+    MAX_UPLOAD_SIZE_MB,
+    UPLOAD_DIR,
+    VERIFICATION_UPLOAD_DIR,
+)
 
 CERTIFICATE_UPLOAD_SUBDIR = "certificates"
 PORTFOLIO_UPLOAD_SUBDIR = "portfolio"
 BOOKING_UPLOAD_SUBDIR = "bookings"
 CHAT_UPLOAD_SUBDIR = "chats"
 AVATAR_UPLOAD_SUBDIR = "avatars"
+IDENTITY_VERIFICATION_UPLOAD_SUBDIR = "identity"
+QUALIFICATION_VERIFICATION_UPLOAD_SUBDIR = "qualification"
+
+VERIFICATION_FILE_LIMIT_BYTES = 5 * 1024 * 1024
+ALLOWED_VERIFICATION_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf"}
+ALLOWED_VERIFICATION_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "application/pdf",
+}
 
 ALLOWED_CERTIFICATE_EXTENSIONS = {
     ".jpg",
@@ -250,6 +265,40 @@ async def save_certificate_upload(file: UploadFile):
             if content_type == "application/pdf" or extension == ".pdf"
             else "image"
         ),
+        "size": len(content),
+    }
+
+
+async def save_verification_upload(file: UploadFile, *, qualification: bool = False):
+    original_filename, extension, content_type = validate_file_metadata(
+        file,
+        ALLOWED_VERIFICATION_EXTENSIONS,
+        ALLOWED_VERIFICATION_CONTENT_TYPES,
+        "Only jpg, jpeg, png and pdf files are allowed",
+    )
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file cannot be empty")
+    if len(content) > VERIFICATION_FILE_LIMIT_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="Verification files cannot be larger than 5MB",
+        )
+    subdir = (
+        QUALIFICATION_VERIFICATION_UPLOAD_SUBDIR
+        if qualification
+        else IDENTITY_VERIFICATION_UPLOAD_SUBDIR
+    )
+    stored_filename = f"{uuid4().hex}{extension}"
+    upload_dir = Path(VERIFICATION_UPLOAD_DIR) / subdir
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_path = upload_dir / stored_filename
+    stored_path.write_bytes(content)
+    return {
+        "original_file_name": original_filename,
+        "file_name": stored_filename,
+        "file_url": f"/verification-files/{subdir}/{stored_filename}",
+        "content_type": content_type,
         "size": len(content),
     }
 

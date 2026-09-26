@@ -36,6 +36,7 @@ import type {
   CustomerProviderDetail,
   ProviderPortfolio,
   ProviderProfile,
+  ProviderServiceArea,
 } from "../../types/provider";
 import type { Review } from "../../types/review";
 import { getErrorMessage } from "../../utils/errors";
@@ -235,7 +236,7 @@ export function CustomerProviderDetailScreen({
       : null;
 
     if (!provider || !payload) {
-      setBookingError("Enter the service description, address, and schedule.");
+      setBookingError("Enter a title (maximum 30 words), description, address, and schedule.");
       return;
     }
 
@@ -302,7 +303,10 @@ export function CustomerProviderDetailScreen({
                     ) : null}
                     <Text style={styles.bioText}>{provider.bio}</Text>
                     <Text style={styles.metaText}>
-                      {provider.service_province} · {provider.experience_years} yrs experience
+                      Business address: {provider.address || "Not set"}
+                    </Text>
+                    <Text style={styles.metaText}>
+                      Service areas: {formatServiceAreas(provider.service_areas)}
                     </Text>
                     <Text style={styles.metaText}>
                       {formatRating(provider)} · {provider.hourly_rate} / hr
@@ -427,6 +431,12 @@ function formatRating(provider: ProviderProfile) {
   }
 
   return `${provider.average_rating.toFixed(1)} stars · ${provider.review_count} reviews`;
+}
+
+function formatServiceAreas(areas: ProviderServiceArea[] | undefined) {
+  return areas?.length
+    ? areas.map((area) => area.label || area.name).join(", ")
+    : "Not set";
 }
 
 function ReviewRow({ review }: { review: Review }) {

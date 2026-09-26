@@ -29,6 +29,10 @@ export function getErrorMessage(error: unknown) {
       return formatErrorItems(responseData.detail);
     }
 
+    if (error.response?.status === 413) {
+      return "The selected files are too large to upload.";
+    }
+
     if (error.response?.status) {
       return `Request failed (${error.response.status}).`;
     }

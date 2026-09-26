@@ -31,8 +31,3 @@ def calculate_distance_km(
 
     distance = 2 * earth_radius_km * math.asin(math.sqrt(haversine_value))
     return round(distance, 2)
-
-
-def provider_can_serve_location(provider_profile, distance_km: float):
-    service_radius_km = provider_profile.service_radius_km or 0
-    return distance_km <= service_radius_km

@@ -129,6 +129,8 @@ function getSidebarItems(
     badge: notificationUnreadCount,
     stackRoutes: [
       "AccountEdit",
+      "ProviderVerification",
+      "ProviderOperatingSettings",
       "AccountSecurity",
       "Help",
       "Legal",

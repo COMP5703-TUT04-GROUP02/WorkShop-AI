@@ -20,6 +20,7 @@ type TextFieldProps = {
   multiline?: boolean;
   numberOfLines?: number;
   maxLength?: number;
+  editable?: boolean;
 };
 
 export function TextField({
@@ -33,6 +34,7 @@ export function TextField({
   multiline = false,
   numberOfLines,
   maxLength,
+  editable = true,
 }: TextFieldProps) {
   return (
     <View style={styles.container}>
@@ -40,6 +42,7 @@ export function TextField({
       <TextInput
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
+        editable={editable}
         keyboardType={keyboardType}
         maxLength={maxLength}
         onChangeText={onChangeText}
@@ -48,7 +51,11 @@ export function TextField({
         secureTextEntry={secureTextEntry}
         multiline={multiline}
         numberOfLines={numberOfLines}
-        style={[styles.input, multiline ? styles.multilineInput : null]}
+        style={[
+          styles.input,
+          multiline ? styles.multilineInput : null,
+          !editable ? styles.inputDisabled : null,
+        ]}
         textAlignVertical={multiline ? "top" : "center"}
         value={value}
       />
@@ -78,5 +85,9 @@ const styles = StyleSheet.create({
   multilineInput: {
     minHeight: 104,
     paddingTop: spacing.md,
+  },
+  inputDisabled: {
+    backgroundColor: colors.surface,
+    color: colors.mutedText,
   },
 });

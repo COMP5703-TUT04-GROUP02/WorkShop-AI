@@ -63,6 +63,7 @@ from backend.utils.refund import (
     format_refund_request_response,
 )
 from backend.utils.review import format_review_detail_response
+from backend.utils.service_locations import format_service_area
 from backend.utils.review_embedding_queue import (
     enqueue_review_embedding_delete,
     enqueue_review_embedding_sync,
@@ -146,7 +147,6 @@ def search_customer_provider_profiles(
     limit: int = Query(default=40, ge=1, le=100),
     min_price: int | None = Query(default=None, ge=0),
     max_price: int | None = Query(default=None, ge=0),
-    min_experience: int | None = Query(default=None, ge=0),
     latitude: float | None = Query(default=None, ge=-90, le=90),
     longitude: float | None = Query(default=None, ge=-180, le=180),
     max_distance_km: float | None = Query(default=None, gt=0),
@@ -169,7 +169,6 @@ def search_customer_provider_profiles(
             limit=limit,
             min_price=min_price,
             max_price=max_price,
-            min_experience=min_experience,
             latitude=latitude,
             longitude=longitude,
             max_distance_km=max_distance_km,
@@ -210,9 +209,22 @@ def get_customer_provider_detail(
         db,
     )
     provider_data = format_provider_profile_with_rating(provider_profile, db)
+    service_area_rows = (
+        db.query(models.ProviderServiceArea, models.ServiceLocation)
+        .join(
+            models.ServiceLocation,
+            models.ServiceLocation.id == models.ProviderServiceArea.service_location_id,
+        )
+        .filter(models.ProviderServiceArea.provider_profile_id == provider_profile.id)
+        .order_by(models.ServiceLocation.name.asc())
+        .all()
+    )
     provider_data.update(
         {
             "is_open": is_provider_open_now(provider_profile.id, db),
+            "service_areas": [
+                format_service_area(db, location) for _, location in service_area_rows
+            ],
             "is_favorited": db.query(models.FavoriteProvider.id)
             .filter(
                 models.FavoriteProvider.customer_id == current_user.id,

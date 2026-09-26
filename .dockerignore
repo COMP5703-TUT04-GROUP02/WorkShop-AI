@@ -13,6 +13,7 @@ htmlcov
 **/*.pyc
 **/.pytest_cache
 backend/uploads
+backend/private_uploads
 backend/certs/*.pem
 backend/certs/*.json
 frontend/mobile/node_modules

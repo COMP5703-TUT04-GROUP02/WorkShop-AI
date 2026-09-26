@@ -30,7 +30,6 @@ export type AIProviderRecommendation = {
   service_province: string | null;
   tags: string | string[];
   hourly_rate: number | null;
-  experience_years: number | null;
   distance_km?: number | null;
   match_score?: number | null;
   matched_tags?: string[];

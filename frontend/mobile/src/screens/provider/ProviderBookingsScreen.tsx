@@ -351,7 +351,7 @@ function ProviderBookingCard({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleGroup}>
-          <Text style={styles.cardTitle}>Booking #{booking.id}</Text>
+          <Text style={styles.cardTitle}>{booking.title || `Booking #${booking.id}`}</Text>
           <Text style={styles.customerName}>
             {booking.customer?.name || `Customer #${booking.customer_id}`}
           </Text>
@@ -445,6 +445,7 @@ function ProviderBookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
+            <DetailRow label="Booking title" value={booking.title} />
             <DetailRow
               label="Customer"
               value={booking.customer?.name || `Customer #${booking.customer_id}`}

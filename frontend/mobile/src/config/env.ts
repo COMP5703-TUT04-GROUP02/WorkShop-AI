@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 
-const FORWARDED_API_URL = "http://127.0.0.1:8020";
-const LAN_API_URL = "http://10.10.10.10:8020";
+const LOCAL_API_URL = "http://127.0.0.1:8000";
+const LAN_API_URL = "http://10.10.10.10:8000";
 
 function isSameOrigin(value?: string) {
   return value === "same-origin";
@@ -14,7 +14,7 @@ function resolveApiBaseUrl() {
   }
 
   if (Platform.OS === "web") {
-    return configured ?? FORWARDED_API_URL;
+    return configured ?? LOCAL_API_URL;
   }
 
   return process.env.EXPO_PUBLIC_LAN_API_BASE_URL ?? LAN_API_URL;

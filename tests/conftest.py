@@ -151,27 +151,52 @@ def create_admin_session(client, db_session, email="admin@example.com", name="Ad
 
 
 def create_provider_profile(client, headers):
-    response = client.post(
-        "/provider/profile",
-        json={
-            "business_name": "Bosphorus Plumbing",
-            "bio": "Istanbul kitchen and bathroom repairs.",
-            "phone_number": "+905551110000",
-            "address": "Karakoy, Istanbul",
-            "service_province": "Istanbul",
-            "latitude": 41.0255,
-            "longitude": 28.9744,
-            "service_radius_km": 15,
+    current_user = client.get("/me", headers=headers)
+    assert current_user.status_code == 200, current_user.text
+    user_id = current_user.json()["data"]["id"]
+    db = SessionLocal()
+    try:
+        profile = models.ProviderProfile(
+            user_id=user_id,
+            business_name="Bosphorus Plumbing",
+            bio="Istanbul kitchen and bathroom repairs.",
+            phone_number="+905551110000",
+            address="Karakoy, Istanbul",
+            service_province="Istanbul",
+            latitude=41.0255,
+            longitude=28.9744,
+            tags="plumbing",
+            certificate_name="Trade license",
+            certificate_url="https://example.com/cert.pdf",
+            hourly_rate=400,
+            verification_status="pending",
+            identity_verification_status="pending",
+            qualification_verification_status="pending",
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return {
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "business_name": profile.business_name,
+            "bio": profile.bio,
+            "phone_number": profile.phone_number,
+            "address": profile.address,
+            "service_province": profile.service_province,
+            "service_location_id": profile.service_location_id,
+            "latitude": profile.latitude,
+            "longitude": profile.longitude,
             "tags": ["plumbing"],
-            "certificate_name": "Trade license",
-            "certificate_url": "https://example.com/cert.pdf",
-            "hourly_rate": 400,
-            "experience_years": 6,
-        },
-        headers=headers,
-    )
-    assert response.status_code == 200, response.text
-    return response.json()["data"]["profile"]
+            "certificate_name": profile.certificate_name,
+            "certificate_url": profile.certificate_url,
+            "hourly_rate": profile.hourly_rate,
+            "verification_status": profile.verification_status,
+            "identity_verification_status": profile.identity_verification_status,
+            "qualification_verification_status": profile.qualification_verification_status,
+        }
+    finally:
+        db.close()
 
 
 def set_week_availability(client, headers):
@@ -194,26 +219,27 @@ def set_week_availability(client, headers):
 
 
 def approve_provider(client, admin_headers, provider_profile_id):
-    identity = client.put(
-        f"/admin/providers/{provider_profile_id}/verification",
-        json={
-            "verification_status": "approved",
-            "verification_note": "Documents checked",
-            "verification_step": "identity",
-        },
-        headers=admin_headers,
-    )
-    assert identity.status_code == 200, identity.text
-    response = client.put(
-        f"/admin/providers/{provider_profile_id}/verification",
-        json={
-            "verification_status": "approved",
-            "verification_note": "Qualifications checked",
-            "verification_step": "qualification",
-        },
-        headers=admin_headers,
-    )
-    assert response.status_code == 200, response.text
+    del client, admin_headers
+    db = SessionLocal()
+    try:
+        profile = db.get(models.ProviderProfile, provider_profile_id)
+        assert profile is not None
+        profile.identity_verification_status = "approved"
+        profile.qualification_verification_status = "approved"
+        profile.verification_status = "approved"
+        user = db.get(models.User, profile.user_id)
+        user.identity_verification_status = "approved"
+        user.qualification_verification_status = "approved"
+        db.add(
+            models.ProviderApprovedService(
+                provider_profile_id=profile.id,
+                service_category="plumbing",
+                is_enabled=True,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
 
 
 @pytest.fixture

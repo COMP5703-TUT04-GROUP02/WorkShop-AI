@@ -35,8 +35,10 @@ venv/
 
 # Uploads and secrets
 backend/uploads/
+backend/private_uploads/
 backend/certs/*.pem
 backend/certs/*.json
+pytest-cache-files-*/
 
 # Celery
 celerybeat-schedule

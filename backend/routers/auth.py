@@ -180,6 +180,10 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         is_banned=False,
         last_login_at=None,
         created_at=get_now(),
+        identity_verification_status=(
+            "not_submitted" if user.role == "provider" else None
+        ),
+        qualification_verification_status=("locked" if user.role == "provider" else None),
     )
     db.add(new_user)
     db.flush()
@@ -279,6 +283,14 @@ def update_me(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if current_user.role == "provider" and current_user.identity_verification_status in {
+        "pending",
+        "approved",
+    }:
+        raise HTTPException(
+            status_code=409,
+            detail="Name cannot be changed while identity verification is pending or approved",
+        )
     current_user.name = profile_data.name
     current_user.first_name = None
     current_user.last_name = None
@@ -296,6 +308,19 @@ def patch_me(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    changes_name = any(
+        value is not None
+        for value in (profile_data.name, profile_data.first_name, profile_data.last_name)
+    )
+    if (
+        changes_name
+        and current_user.role == "provider"
+        and current_user.identity_verification_status in {"pending", "approved"}
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Name cannot be changed while identity verification is pending or approved",
+        )
     if profile_data.name is not None:
         current_user.name = profile_data.name
         current_user.first_name = None

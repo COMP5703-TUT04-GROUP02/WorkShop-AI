@@ -127,7 +127,6 @@ def get_all_providers(
     service_location_id: int | None = Query(default=None, gt=0),
     min_price: int | None = None,
     max_price: int | None = None,
-    min_experience: int | None = None,
     latitude: float | None = Query(default=None, ge=-90, le=90),
     longitude: float | None = Query(default=None, ge=-180, le=180),
     max_distance_km: float | None = Query(default=None, gt=0),
@@ -153,8 +152,6 @@ def get_all_providers(
         query = query.filter(models.ProviderProfile.hourly_rate >= min_price)
     if max_price is not None:
         query = query.filter(models.ProviderProfile.hourly_rate <= max_price)
-    if min_experience is not None:
-        query = query.filter(models.ProviderProfile.experience_years >= min_experience)
 
     search_result = filter_provider_profiles(
         query,

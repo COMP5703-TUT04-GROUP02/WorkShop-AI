@@ -10,7 +10,9 @@ from backend.core.clock import utc_now
 
 
 def format_provider_profile_with_rating(profile, db: Session):
-    result = format_provider_profile_response(profile)
+    result = format_provider_profile_response(
+        profile, include_verification_documents=False
+    )
     result.update(get_provider_rating_summary(profile.id, db))
 
     return result

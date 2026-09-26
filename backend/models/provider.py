@@ -26,12 +26,19 @@ class ProviderProfile(Base):
     )
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    service_radius_km: Mapped[float] = mapped_column(Float, nullable=False, default=10.0)
+    business_place_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    unique_enterprise_id: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, unique=True, index=True
+    )
+    qualification_application_id: Mapped[int | None] = mapped_column(
+        ForeignKey("qualification_verification_applications.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
     tags: Mapped[str] = mapped_column(String(512), nullable=False)
     certificate_name: Mapped[str] = mapped_column(String(255), nullable=False)
     certificate_url: Mapped[str] = mapped_column(String(1024), nullable=False)
     hourly_rate: Mapped[int] = mapped_column(Integer, nullable=False)
-    experience_years: Mapped[int] = mapped_column(Integer, nullable=False)
     verification_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="pending"
     )

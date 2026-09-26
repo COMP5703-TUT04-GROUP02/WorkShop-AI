@@ -44,6 +44,8 @@ export type RootStackParamList = {
     providerProfileId?: number;
   };
   AccountEdit: undefined;
+  ProviderVerification: undefined;
+  ProviderOperatingSettings: undefined;
   AccountSecurity: undefined;
   Help: undefined;
   BookingHistory: undefined;

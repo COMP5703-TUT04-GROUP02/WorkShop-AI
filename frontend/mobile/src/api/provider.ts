@@ -13,6 +13,14 @@ import type {
   ProviderAvailabilityOverride,
   ProviderAvailabilityResponseData,
   ProviderAvailabilityUpdateResponseData,
+  ApprovedServices,
+  IdentityVerificationApplication,
+  ProviderOperatingSettingsPayload,
+  ProviderServiceArea,
+  ProviderVerificationStatus,
+  QualificationVerificationApplication,
+  QualificationVerificationPayload,
+  VerificationUploadFile,
   ProviderContactProfilePatchPayload,
   ProviderContactProfilePayload,
   ProviderContactProfileUpdateResponse,
@@ -22,6 +30,123 @@ import type {
   ProviderProfile,
 } from "../types/provider";
 import type { Review } from "../types/review";
+
+export type LocalVerificationFile = {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+};
+
+async function appendUploadFile(
+  formData: FormData,
+  field: string,
+  file: LocalVerificationFile,
+) {
+  const fileName = file.fileName || "verification-file";
+  const mimeType = file.mimeType || "application/octet-stream";
+  if (Platform.OS === "web") {
+    const fileResponse = await fetch(file.uri);
+    const blob = await fileResponse.blob();
+    formData.append(field, new File([blob], fileName, { type: mimeType || blob.type }));
+  } else {
+    formData.append(field, {
+      uri: file.uri,
+      name: fileName,
+      type: mimeType,
+    } as unknown as Blob);
+  }
+}
+
+export async function getProviderVerificationStatus() {
+  const response = await apiClient.get<ApiResponse<ProviderVerificationStatus>>(
+    "/provider/verification-status",
+  );
+  return response.data.data;
+}
+
+export async function getIdentityVerification() {
+  const response = await apiClient.get<ApiResponse<IdentityVerificationApplication>>(
+    "/provider/identity-verification",
+  );
+  return response.data.data;
+}
+
+export async function submitIdentityVerification(payload: {
+  dateOfBirth: string;
+  documentType: "national_id" | "passport";
+  files: LocalVerificationFile[];
+}) {
+  const formData = new FormData();
+  formData.append("date_of_birth", payload.dateOfBirth);
+  formData.append("document_type", payload.documentType);
+  for (const file of payload.files) await appendUploadFile(formData, "files", file);
+  const response = await apiClient.post<ApiResponse<IdentityVerificationApplication>>(
+    "/provider/identity-verification",
+    formData,
+    { timeout: 120000 },
+  );
+  return response.data.data;
+}
+
+export async function getQualificationVerification() {
+  const response = await apiClient.get<ApiResponse<QualificationVerificationApplication>>(
+    "/provider/qualification-verification",
+  );
+  return response.data.data;
+}
+
+export async function uploadQualificationFiles(files: LocalVerificationFile[]) {
+  const formData = new FormData();
+  for (const file of files) await appendUploadFile(formData, "files", file);
+  const response = await apiClient.post<ApiResponse<{ files: VerificationUploadFile[] }>>(
+    "/provider/qualification-files/upload",
+    formData,
+    { timeout: 120000 },
+  );
+  return response.data.data;
+}
+
+export async function submitQualificationVerification(
+  payload: QualificationVerificationPayload,
+) {
+  const response = await apiClient.post<ApiResponse<QualificationVerificationApplication>>(
+    "/provider/qualification-verification",
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function getApprovedServices() {
+  const response = await apiClient.get<ApiResponse<ApprovedServices>>(
+    "/provider/approved-services",
+  );
+  return response.data.data;
+}
+
+export async function updateProviderOperatingSettings(
+  payload: ProviderOperatingSettingsPayload,
+) {
+  const response = await apiClient.patch<ApiResponse<{ message: string }>>(
+    "/provider/operating-settings",
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function getProviderServiceAreas() {
+  const response = await apiClient.get<ApiResponse<{ service_areas: ProviderServiceArea[] }>>(
+    "/provider/service-areas",
+  );
+  return response.data.data;
+}
+
+export async function updateProviderServiceAreas(serviceLocationIds: number[]) {
+  const response = await apiClient.put<ApiResponse<{ service_areas: ProviderServiceArea[] }>>(
+    "/provider/service-areas",
+    { service_location_ids: serviceLocationIds },
+  );
+  return response.data.data;
+}
 
 export async function getProviderProfile() {
   const response =

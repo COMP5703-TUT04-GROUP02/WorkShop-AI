@@ -1,171 +1,126 @@
 import pytest
 
 from backend import models
-from backend.utils.service_locations import seed_service_locations
-from tests.conftest import create_provider_profile, register_session
+from tests.conftest import register_session
 
 
-@pytest.fixture(autouse=True)
-def isolate_online_status(monkeypatch):
-    monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
-
-
-def provider_with_profile(client, db_session, *, email="ws106-provider@example.com"):
-    provider = register_session(client, email, role="provider", name="Settings Provider")
-    profile_data = create_provider_profile(client, provider["headers"])
-    profile = db_session.query(models.ProviderProfile).filter_by(id=profile_data["id"]).one()
+@pytest.fixture
+def approved_provider(client, db_session):
+    provider = register_session(
+        client, "settings-provider@example.com", role="provider", name="Settings Provider"
+    )
+    user = db_session.get(models.User, provider["user"]["id"])
+    user.identity_verification_status = "approved"
+    user.qualification_verification_status = "approved"
+    profile = models.ProviderProfile(
+        user_id=user.id,
+        business_name="Settings Provider",
+        bio="Original description",
+        phone_number="+905551110000",
+        address="Original address",
+        service_province="Istanbul",
+        latitude=41.0082,
+        longitude=28.9784,
+        business_place_id="place-original",
+        tags="cleaning,plumbing",
+        certificate_name="proof.pdf",
+        certificate_url="/verification-files/qualification/proof.pdf",
+        hourly_rate=400,
+        verification_status="approved",
+        identity_verification_status="approved",
+        qualification_verification_status="approved",
+    )
+    db_session.add(profile)
+    db_session.flush()
+    db_session.add_all(
+        [
+            models.ProviderApprovedService(
+                provider_profile_id=profile.id,
+                service_category=category,
+                is_enabled=True,
+            )
+            for category in ("cleaning", "plumbing")
+        ]
+    )
+    db_session.commit()
     return provider, profile
 
 
-def approve_qualification(db_session, profile):
-    profile.identity_verification_status = "approved"
-    profile.qualification_verification_status = "approved"
-    profile.verification_status = "approved"
-    db_session.commit()
-
-
-@pytest.mark.parametrize("qualification_status", ["pending", "rejected"])
-def test_operating_settings_requires_approved_qualification(
-    client, db_session, qualification_status
+@pytest.mark.parametrize("qualification_status", ["locked", "not_submitted", "pending", "rejected"])
+def test_operating_settings_are_locked_until_qualification_approval(
+    client, db_session, approved_provider, qualification_status
 ):
-    provider, profile = provider_with_profile(
-        client,
-        db_session,
-        email=f"ws106-{qualification_status}@example.com",
-    )
-    original = (profile.hourly_rate, profile.service_radius_km, profile.service_location_id)
+    provider, profile = approved_provider
     profile.qualification_verification_status = qualification_status
     db_session.commit()
-
     response = client.patch(
-        "/provider/profile/operating-settings",
-        json={"hourly_rate": 525},
+        "/provider/operating-settings",
+        json={"hourly_rate": 500},
         headers=provider["headers"],
     )
-
     assert response.status_code == 403
-    db_session.refresh(profile)
-    assert (profile.hourly_rate, profile.service_radius_km, profile.service_location_id) == original
 
 
-def test_operating_settings_supports_independent_rate_and_radius_updates(client, db_session):
-    provider, profile = provider_with_profile(client, db_session)
-    approve_qualification(db_session, profile)
-    statuses_before = (
-        profile.identity_verification_status,
-        profile.qualification_verification_status,
-        profile.verification_status,
-    )
-
-    rate_response = client.patch(
-        "/provider/profile/operating-settings",
-        json={"hourly_rate": 525},
-        headers=provider["headers"],
-    )
-    assert rate_response.status_code == 200, rate_response.text
-    assert rate_response.json()["data"]["profile"]["hourly_rate"] == 525
-    assert rate_response.json()["data"]["profile"]["service_radius_km"] == 15
-    assert (
-        rate_response.json()["data"]["profile"]["identity_verification_status"],
-        rate_response.json()["data"]["profile"]["qualification_verification_status"],
-        rate_response.json()["data"]["profile"]["verification_status"],
-    ) == statuses_before
-
-    radius_response = client.patch(
-        "/provider/profile/operating-settings",
-        json={"service_radius_km": 32.5},
-        headers=provider["headers"],
-    )
-    assert radius_response.status_code == 200, radius_response.text
-    assert radius_response.json()["data"]["profile"]["hourly_rate"] == 525
-    assert radius_response.json()["data"]["profile"]["service_radius_km"] == 32.5
-    assert (
-        radius_response.json()["data"]["profile"]["identity_verification_status"],
-        radius_response.json()["data"]["profile"]["qualification_verification_status"],
-        radius_response.json()["data"]["profile"]["verification_status"],
-    ) == statuses_before
-
-
-def test_invalid_location_combination_does_not_partially_update_rate_or_radius(client, db_session):
-    provider, profile = provider_with_profile(client, db_session)
-    approve_qualification(db_session, profile)
-    original = (profile.hourly_rate, profile.service_radius_km, profile.service_location_id)
-
+def test_operating_settings_update_current_profile_without_changing_approval(
+    client, db_session, approved_provider
+):
+    provider, profile = approved_provider
     response = client.patch(
-        "/provider/profile/operating-settings",
+        "/provider/operating-settings",
         json={
-            "hourly_rate": original[0] + 100,
-            "service_radius_km": original[1] + 10,
-            "service_location_id": 999999,
+            "description": "Updated description",
+            "contact_phone": "+905551110099",
+            "business_address": "Kadikoy, Istanbul",
+            "business_place_id": "place-current",
+            "business_latitude": 40.9909,
+            "business_longitude": 29.0303,
+            "hourly_rate": 525,
+            "enabled_service_categories": ["cleaning"],
         },
         headers=provider["headers"],
     )
-
-    assert response.status_code == 404
+    assert response.status_code == 200, response.text
     db_session.refresh(profile)
-    assert (profile.hourly_rate, profile.service_radius_km, profile.service_location_id) == original
+    assert profile.bio == "Updated description"
+    assert profile.phone_number == "+905551110099"
+    assert profile.address == "Kadikoy, Istanbul"
+    assert profile.business_place_id == "place-current"
+    assert profile.hourly_rate == 525
+    assert profile.tags == "cleaning"
+    assert profile.qualification_verification_status == "approved"
 
 
-def test_operating_settings_updates_district_and_combined_values_without_review_reset(
-    client, db_session
+def test_operating_settings_accept_current_location_without_place_id(
+    client, db_session, approved_provider
 ):
-    seeded = seed_service_locations(db_session)
-    db_session.commit()
-    district = seeded["tr-istanbul-city-kadikoy"]
-    provider, profile = provider_with_profile(client, db_session)
-    approve_qualification(db_session, profile)
-    statuses_before = (
-        profile.identity_verification_status,
-        profile.qualification_verification_status,
-        profile.verification_status,
-    )
-
+    provider, profile = approved_provider
     response = client.patch(
-        "/provider/profile/operating-settings",
+        "/provider/operating-settings",
         json={
-            "hourly_rate": 610,
-            "service_radius_km": 24,
-            "service_location_id": district.id,
+            "business_address": "Current location",
+            "business_place_id": None,
+            "business_latitude": 41.015,
+            "business_longitude": 28.979,
         },
         headers=provider["headers"],
     )
 
     assert response.status_code == 200, response.text
-    result = response.json()["data"]["profile"]
-    assert result["hourly_rate"] == 610
-    assert result["service_radius_km"] == 24
-    assert result["service_location_id"] == district.id
-    assert result["service_province"] == "Istanbul"
-    assert (
-        result["identity_verification_status"],
-        result["qualification_verification_status"],
-        result["verification_status"],
-    ) == statuses_before
+    db_session.refresh(profile)
+    assert profile.address == "Current location"
+    assert profile.business_place_id is None
+    assert profile.latitude == 41.015
+    assert profile.longitude == 28.979
 
 
-@pytest.mark.parametrize("location_kind", ["missing", "province", "city"])
-def test_operating_settings_rejects_invalid_location_levels(client, db_session, location_kind):
-    seeded = seed_service_locations(db_session)
-    db_session.commit()
-    provider, profile = provider_with_profile(
-        client,
-        db_session,
-        email=f"ws106-{location_kind}@example.com",
-    )
-    approve_qualification(db_session, profile)
-    location_ids = {
-        "missing": 999999,
-        "province": seeded["tr-istanbul"].id,
-        "city": seeded["tr-istanbul-city"].id,
-    }
-
+def test_only_approved_services_can_be_enabled(client, approved_provider):
+    provider, _ = approved_provider
     response = client.patch(
-        "/provider/profile/operating-settings",
-        json={"service_location_id": location_ids[location_kind]},
+        "/provider/operating-settings",
+        json={"enabled_service_categories": ["moving"]},
         headers=provider["headers"],
     )
-
-    assert response.status_code == (404 if location_kind == "missing" else 400)
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize(
@@ -173,42 +128,40 @@ def test_operating_settings_rejects_invalid_location_levels(client, db_session, 
     [
         {},
         {"hourly_rate": 0},
-        {"service_radius_km": -1},
-        {"service_location_id": 0},
-        {"hourly_rate": None},
+        {"business_address": "Address only"},
+        {"business_latitude": 41.0, "business_longitude": 29.0},
+        {"description": None},
     ],
 )
-def test_operating_settings_rejects_empty_or_invalid_payload(client, db_session, payload):
-    provider, profile = provider_with_profile(
-        client,
-        db_session,
-        email=f"ws106-invalid-{len(str(payload))}@example.com",
-    )
-    approve_qualification(db_session, profile)
-
+def test_operating_settings_reject_invalid_or_partial_updates(
+    client, approved_provider, payload
+):
+    provider, _ = approved_provider
     response = client.patch(
-        "/provider/profile/operating-settings",
+        "/provider/operating-settings",
         json=payload,
         headers=provider["headers"],
     )
-
     assert response.status_code == 422
 
 
-def test_operating_settings_rejects_non_provider(client):
-    customer = register_session(client, "ws106-customer@example.com")
-
-    response = client.patch(
+def test_new_provider_cannot_use_legacy_settings_routes(client, approved_provider):
+    provider, _ = approved_provider
+    old_operating = client.patch(
         "/provider/profile/operating-settings",
         json={"hourly_rate": 500},
-        headers=customer["headers"],
+        headers=provider["headers"],
     )
+    old_contact = client.patch(
+        "/provider/profile/contact",
+        json={"address": "Bypass address"},
+        headers=provider["headers"],
+    )
+    assert old_operating.status_code == 409
+    assert old_contact.status_code == 409
 
-    assert response.status_code == 403
 
-
-def test_operating_settings_is_published_in_openapi(client):
+def test_operating_settings_are_published_in_openapi(client):
     document = client.get("/openapi.json")
-
     assert document.status_code == 200
-    assert "patch" in document.json()["paths"]["/provider/profile/operating-settings"]
+    assert "patch" in document.json()["paths"]["/provider/operating-settings"]

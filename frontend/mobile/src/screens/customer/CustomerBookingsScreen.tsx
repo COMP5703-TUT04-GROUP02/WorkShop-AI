@@ -24,6 +24,7 @@ import {
   requestCustomerRefund,
 } from "../../api/customer";
 import { CustomerReviewModal } from "../../components/CustomerReviewModal";
+import { CompletionProofGallery } from "../../components/CompletionProofGallery";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
@@ -373,7 +374,7 @@ function BookingCard({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleGroup}>
-          <Text style={styles.cardTitle}>Booking #{booking.id}</Text>
+          <Text style={styles.cardTitle}>{booking.title || `Booking #${booking.id}`}</Text>
           <Text style={styles.providerName}>
             {booking.provider?.business_name || `Provider #${booking.provider_profile_id}`}
           </Text>
@@ -516,6 +517,7 @@ function BookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
+            <DetailRow label="Booking title" value={booking.title} />
             <DetailRow
               label="Provider"
               value={
@@ -585,6 +587,8 @@ function BookingDetailModal({
                 This demo charges {formatMoney(booking.quote_amount)} automatically.
               </Text>
             ) : null}
+
+            <CompletionProofGallery booking={booking} />
 
             {canRequestRefund ? (
               <>

@@ -16,7 +16,12 @@ export async function getServiceLocations(parentId?: number) {
     },
   );
 
-  return response.data.data?.items ?? [];
+  const items = response.data.data?.items;
+  if (!Array.isArray(items)) {
+    throw new Error("Service areas returned an invalid response.");
+  }
+
+  return items;
 }
 
 export async function getServiceLocation(locationId: number) {
@@ -28,12 +33,28 @@ export async function getServiceLocation(locationId: number) {
 }
 
 export async function getServiceLocationPath(locationId: number) {
-  const district = await getServiceLocation(locationId);
-  if (!district || district.level !== "district" || !district.parent_id) {
-    throw new Error("The saved service area is not a district.");
+  const selected = await getServiceLocation(locationId);
+  if (!selected) {
+    throw new Error("The saved service area was not found.");
   }
 
-  const city = await getServiceLocation(district.parent_id);
+  if (selected.level === "province") {
+    return { province: selected, city: null, district: null };
+  }
+
+  if (!selected.parent_id) throw new Error("The saved service area has no parent.");
+
+  if (selected.level === "city") {
+    const province = await getServiceLocation(selected.parent_id);
+    if (!province || province.level !== "province") {
+      throw new Error("The saved city has no province.");
+    }
+    return { province, city: selected, district: null };
+  }
+
+  const district = selected;
+
+  const city = await getServiceLocation(district.parent_id!);
   if (!city || city.level !== "city" || !city.parent_id) {
     throw new Error("The saved district has no city.");
   }

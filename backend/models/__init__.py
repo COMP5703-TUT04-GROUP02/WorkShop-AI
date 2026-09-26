@@ -30,6 +30,15 @@ from backend.models.provider import (
     ProviderProfile,
     ProviderVerificationHistory,
 )
+from backend.models.provider_verification import (
+    IdentityVerificationApplication,
+    IdentityVerificationFile,
+    ProviderApprovedService,
+    ProviderServiceArea,
+    QualificationVerificationApplication,
+    QualificationVerificationFile,
+    QualificationVerificationService,
+)
 from backend.models.location import ServiceLocation
 from backend.models.address_book import CustomerAddress
 from backend.models.user import (
@@ -65,6 +74,13 @@ __all__ = [
     "ProviderPortfolioMedia",
     "ProviderProfile",
     "ProviderVerificationHistory",
+    "IdentityVerificationApplication",
+    "IdentityVerificationFile",
+    "ProviderApprovedService",
+    "ProviderServiceArea",
+    "QualificationVerificationApplication",
+    "QualificationVerificationFile",
+    "QualificationVerificationService",
     "RefreshToken",
     "RefundRequest",
     "RefundRequestStatusHistory",

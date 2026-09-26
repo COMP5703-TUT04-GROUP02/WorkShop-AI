@@ -28,6 +28,8 @@ import { CustomerProviderSearchResultsScreen } from "../screens/customer/Custome
 import { ProviderPortfolioCreateScreen } from "../screens/provider/ProviderPortfolioCreateScreen";
 import { ProviderPortfolioDetailScreen } from "../screens/provider/ProviderPortfolioDetailScreen";
 import { ProviderPortfolioListScreen } from "../screens/provider/ProviderPortfolioListScreen";
+import { ProviderHomeScreen } from "../screens/provider/ProviderHomeScreen";
+import { ProviderOperatingSettingsScreen } from "../screens/provider/ProviderOperatingSettingsScreen";
 import { useAuth } from "../context/AuthContext";
 import {
   ProviderProfileGateProvider,
@@ -57,6 +59,9 @@ const GuardedProviderPortfolioCreateScreen = withRequiredProviderProfile(
 );
 const GuardedProviderPortfolioDetailScreen = withRequiredProviderProfile(
   ProviderPortfolioDetailScreen,
+);
+const GuardedProviderOperatingSettingsScreen = withRequiredProviderProfile(
+  ProviderOperatingSettingsScreen,
 );
 
 const navigationTheme = {
@@ -151,6 +156,16 @@ function AuthenticatedStack() {
         name="AccountEdit"
         component={AccountEditScreen}
         options={{ title: "Edit profile" }}
+      />
+      <Stack.Screen
+        name="ProviderVerification"
+        component={ProviderHomeScreen}
+        options={{ title: "Verification" }}
+      />
+      <Stack.Screen
+        name="ProviderOperatingSettings"
+        component={GuardedProviderOperatingSettingsScreen}
+        options={{ title: "Operating settings" }}
       />
       <Stack.Screen
         name="AccountSecurity"

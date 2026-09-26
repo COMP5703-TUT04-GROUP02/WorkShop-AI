@@ -773,7 +773,6 @@ function normalizeRecommendation(value: unknown): AIProviderRecommendation | nul
     service_province: readString(data.service_province),
     tags: readTags(data.tags),
     hourly_rate: readNumber(data.hourly_rate),
-    experience_years: readNumber(data.experience_years),
     distance_km: readNumber(data.distance_km),
     match_score: readNumber(data.match_score),
     matched_tags: readTags(data.matched_tags),

@@ -502,22 +502,27 @@ This document summarizes the current functional gaps and improvement requirement
 **Updated Provider Flow**
 
 1. Provider registers an account.
-2. Provider can only edit profile before verification.
+2. Before identity submission, Provider can edit account name and account security fields.
 3. Provider completes real-name verification.
 4. Provider can then apply for qualification/business verification.
-5. Full provider functionality is unlocked after required verification is completed.
+5. Full provider functionality and Business Operation Settings are unlocked after qualification approval.
 
-**Implementation Review — 2026-09-22**
+**Implementation Review — 2026-09-24**
 
-- Done in the connected frontend:
-  - Separate identity and qualification verification steps
-  - Clear approved, pending, rejected, and locked states
-  - Identity-before-qualification ordering
-  - Provider feature gating until qualification approval
-  - Individual/organization support in the backend contract
-- Remaining:
-  - Complete individual/organization selection in the connected Provider form
-  - Separate Business Operation Settings area for price and service area
+- Done in the backend:
+  - Provider registration has no address and starts at identity `not_submitted` and qualification `locked`.
+  - Identity applications snapshot first name, last name, date of birth, document type (`national_id` or `passport`), and one to five private PDF/PNG/JPG files (5 MB each).
+  - Qualification applications are available only after identity approval, are immutable while pending, and support `personal` and `organisation` providers.
+  - Organization applications require `legal_name` and a globally unique `unique_enterprise_id`; personal display names come from the approved account name.
+  - Qualification applications contain description, contact phone, one exact business address with map coordinates/place ID, service categories, and one to five private qualification files.
+  - Identity and qualification have separate Admin queues and decisions. Only pending applications can be reviewed and rejection requires a reason.
+  - Qualification approval creates the current `ProviderProfile` and approved-service list. Application rows remain immutable audit snapshots.
+  - Business Operation Settings are unlocked only after qualification approval and contain description, contact phone, current business address, hourly rate, enabled approved services, hierarchical service areas, and the existing weekly/date-specific availability settings.
+  - `service_radius_km` and `experience_years` were removed. Distance uses business coordinates; service coverage uses province/city/district service-area records.
+  - Existing approved providers are grandfathered as identity/qualification approved. Other legacy providers restart at identity `not_submitted` with qualification `locked` without deleting profiles or transaction history.
+- Remaining frontend work:
+  - Connect the Provider forms and Admin queues to the new endpoints.
+  - Present organization `unique_enterprise_id` with the market-specific label (for Turkey, MERSIS/company identifier).
 
 **Original Project Screenshots**
 

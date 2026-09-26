@@ -32,12 +32,10 @@ def availability_provider_id(db_session):
         service_province="Istanbul",
         latitude=41.0082,
         longitude=28.9784,
-        service_radius_km=20,
         tags="moving",
         certificate_name="Test certificate",
         certificate_url="https://example.com/certificate.pdf",
         hourly_rate=100,
-        experience_years=5,
         verification_status="approved",
     )
     db_session.add(profile)
