@@ -52,6 +52,10 @@ export type RootStackParamList = {
   Notifications: undefined;
   NotificationSettings: undefined;
   Payments: undefined;
+  PaymentResult: {
+    booking_id?: string;
+    payment_status?: string;
+  };
   CustomerFavourites: undefined;
   ProviderPortfolioList: undefined;
   ProviderPortfolioCreate: undefined;

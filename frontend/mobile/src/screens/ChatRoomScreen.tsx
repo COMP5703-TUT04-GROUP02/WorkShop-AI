@@ -14,6 +14,7 @@ import {
   Alert,
   AppState,
   FlatList,
+  Linking,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -78,6 +79,10 @@ import { getErrorMessage } from "../utils/errors";
 import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
 import {
+  createPaymentIdempotencyKey,
+  shouldRotatePaymentIdempotencyKey,
+} from "../utils/payment";
+import {
   getBookingStatusLabelForChat,
   getRefundServiceStageLabel,
   getRefundStatusLabel,
@@ -132,6 +137,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isBookingActionLoading, setIsBookingActionLoading] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const paymentInFlightRef = useRef(false);
+  const paymentIdempotencyKeysRef = useRef<Record<number, string>>({});
   const [isCreateBookingModalVisible, setIsCreateBookingModalVisible] =
     useState(false);
   const [createBookingForm, setCreateBookingForm] =
@@ -550,19 +558,41 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
   async function handlePayBooking(bookingId?: number) {
     const targetBookingId = bookingId ?? selectedBooking?.id;
-    if (!targetBookingId) {
+    if (!targetBookingId || paymentInFlightRef.current) {
       return;
     }
 
+    paymentInFlightRef.current = true;
+    setIsPaymentLoading(true);
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await payCustomerBooking(targetBookingId);
+      const idempotencyKey =
+        paymentIdempotencyKeysRef.current[targetBookingId] ??
+        (paymentIdempotencyKeysRef.current[targetBookingId] =
+          createPaymentIdempotencyKey());
+      const result = await payCustomerBooking(
+        targetBookingId,
+        "iyzico_checkout",
+        idempotencyKey,
+      );
+
+      if (shouldRotatePaymentIdempotencyKey(result?.payment)) {
+        delete paymentIdempotencyKeysRef.current[targetBookingId];
+      }
+
+      if (result?.payment_page_url) {
+        delete paymentIdempotencyKeysRef.current[targetBookingId];
+        await Linking.openURL(result.payment_page_url);
+      }
+
       setSelectedBooking(null);
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
     } finally {
+      paymentInFlightRef.current = false;
+      setIsPaymentLoading(false);
       setIsBookingActionLoading(false);
     }
   }
@@ -845,6 +875,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
                     void handlePayBooking(bookingId);
                   }
                 }}
+                isPaying={isPaymentLoading}
                 userRole={user?.role}
               />
             </View>
@@ -878,6 +909,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
                     void handlePayBooking(bookingId);
                   }
                 }}
+                isPaying={isPaymentLoading}
                 userRole={user?.role}
               />
             )}
@@ -1036,6 +1068,7 @@ function MessageBubble({
   isPinned = false,
   onBookingPress,
   onPayBooking,
+  isPaying,
   userRole,
 }: {
   displayVariant: ChatDisplayItem["variant"];
@@ -1044,6 +1077,7 @@ function MessageBubble({
   isPinned?: boolean;
   onBookingPress: () => void;
   onPayBooking: () => void;
+  isPaying: boolean;
   userRole?: string;
 }) {
   const isBookingMessage =
@@ -1067,6 +1101,7 @@ function MessageBubble({
           message={message}
           onPress={onBookingPress}
           onPayBooking={onPayBooking}
+          isPaying={isPaying}
           userRole={userRole}
         />
       ) : (
@@ -1120,6 +1155,7 @@ function BookingMessageCard({
   isPinned = false,
   onPress,
   onPayBooking,
+  isPaying,
   userRole,
 }: {
   message: ChatMessage;
@@ -1127,6 +1163,7 @@ function BookingMessageCard({
   isPinned?: boolean;
   onPress: () => void;
   onPayBooking: () => void;
+  isPaying: boolean;
   userRole?: string;
 }) {
   const metadata = message.metadata ?? {};
@@ -1216,13 +1253,17 @@ function BookingMessageCard({
       {canPay ? (
         <Pressable
           accessibilityRole="button"
-          disabled={false}
+          disabled={isPaying}
           onPress={onPayBooking}
           style={styles.bookingPayButton}
         >
-          <Text style={styles.bookingPayButtonText}>
-            {formatPayLabel(quoteAmount)}
-          </Text>
+          {isPaying ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.bookingPayButtonText}>
+              {formatPayLabel(quoteAmount)}
+            </Text>
+          )}
         </Pressable>
       ) : null}
       <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>

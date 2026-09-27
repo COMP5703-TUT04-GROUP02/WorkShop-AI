@@ -35,6 +35,15 @@ export const REFUND_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: "Payment pending",
+  checkout_created: "Checkout ready",
+  processing: "Payment processing",
+  paid: "Paid",
+  failed: "Payment failed",
+  refunded: "Refunded",
+};
+
 export const REFUND_SERVICE_STAGE_LABELS: Record<RefundServiceStage, string> = {
   not_started: "Not started",
   in_progress: "In progress",
@@ -70,6 +79,10 @@ export function getBookingStatusLabelForChat(status: string) {
 
 export function getRefundStatusLabel(status: string) {
   return REFUND_STATUS_LABELS[status] ?? status;
+}
+
+export function getPaymentStatusLabel(status: string) {
+  return PAYMENT_STATUS_LABELS[status] ?? status;
 }
 
 export function getRefundServiceStageLabel(stage: string) {

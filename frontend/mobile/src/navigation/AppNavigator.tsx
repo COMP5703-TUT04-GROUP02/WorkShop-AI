@@ -1,5 +1,6 @@
 import {
   DefaultTheme,
+  type LinkingOptions,
   NavigationContainer,
   useNavigation,
 } from "@react-navigation/native";
@@ -21,6 +22,7 @@ import { LEGAL_DOCUMENTS, LegalScreen } from "../screens/LegalScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
 import { PaymentsScreen } from "../screens/PaymentsScreen";
+import { PaymentResultScreen } from "../screens/PaymentResultScreen";
 import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
@@ -45,6 +47,20 @@ import type { RootStackParamList } from "./types";
 export type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:8090",
+    "http://127.0.0.1:8090",
+  ],
+  config: {
+    screens: {
+      PaymentResult: "payment-result",
+    },
+  },
+};
 
 // WS-105: the qualification gate covers a provider's working surfaces only —
 // chats and portfolios here, schedule and bookings in RoleTabs. Account,
@@ -88,7 +104,7 @@ export function AppNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer linking={linking} theme={navigationTheme}>
       {user ? (
         <RealtimeProvider>
           <ProviderProfileGateProvider>
@@ -203,6 +219,11 @@ function AuthenticatedStack() {
         name="Payments"
         component={PaymentsScreen}
         options={{ title: "Payments" }}
+      />
+      <Stack.Screen
+        name="PaymentResult"
+        component={PaymentResultScreen}
+        options={{ title: "Payment result" }}
       />
       <Stack.Screen
         name="CustomerFavourites"

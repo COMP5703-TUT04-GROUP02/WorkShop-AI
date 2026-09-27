@@ -5,11 +5,15 @@ router. This router only exposes the provider callback needed to finalize the
 Checkout Form result.
 """
 
+from urllib.parse import urlencode
+
 from fastapi import Depends, Form, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.auth import get_db
+from backend.config import IYZICO_FRONTEND_RETURN_URL
 from backend.services import iyzico as iyzico_service
 from backend.utils.customer_booking_actions import apply_iyzico_checkout_result
 from backend.utils.payment import format_payment_response
@@ -19,6 +23,23 @@ from backend.utils.router import ApiRouter
 
 
 router = ApiRouter(tags=["Payment"])
+
+
+def _frontend_result_redirect(payment: models.Payment):
+    if not IYZICO_FRONTEND_RETURN_URL:
+        return None
+
+    query = urlencode(
+        {
+            "booking_id": payment.booking_id,
+            "payment_status": payment.status,
+        }
+    )
+    separator = "&" if "?" in IYZICO_FRONTEND_RETURN_URL else "?"
+    return RedirectResponse(
+        url=f"{IYZICO_FRONTEND_RETURN_URL}{separator}{query}",
+        status_code=303,
+    )
 
 
 @router.post("/payments/iyzico/callback")
@@ -35,12 +56,16 @@ async def iyzico_checkout_callback(
     payment = (
         db.query(models.Payment)
         .filter(models.Payment.iyzico_token == token)
+        .with_for_update()
         .first()
     )
     if not payment:
         raise HTTPException(status_code=404, detail="Payment checkout token not found")
 
     if payment.status in ["paid", "refunded"]:
+        redirect = _frontend_result_redirect(payment)
+        if redirect:
+            return redirect
         return success_response(
             {
                 "message": "Payment result was already finalized",
@@ -59,6 +84,8 @@ async def iyzico_checkout_callback(
     except iyzico_service.IyzicoClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return success_response(
-        await apply_iyzico_checkout_result(payment, result, db)
-    )
+    result_data = await apply_iyzico_checkout_result(payment, result, db)
+    redirect = _frontend_result_redirect(payment)
+    if redirect:
+        return redirect
+    return success_response(result_data)

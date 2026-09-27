@@ -1,9 +1,11 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useState } from "react";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +17,7 @@ import { getProviderBookings } from "../api/provider";
 import { CompletionProofGallery } from "../components/CompletionProofGallery";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useAuth } from "../context/AuthContext";
+import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 import type { BookingDetail } from "../types/booking";
 import { formatDateTime } from "../utils/datetime";
@@ -25,6 +28,9 @@ const HISTORY_ORDER_STATUSES = ["completed", "cancelled", "rejected", "refunded"
 
 export function BookingHistoryScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<
+    NativeStackNavigationProp<RootStackParamList>
+  >();
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +65,15 @@ export function BookingHistoryScreen() {
       void loadBookings();
     }, [loadBookings]),
   );
+
+  function openProvider(booking: BookingDetail) {
+    if (Platform.OS === "web") {
+      setSelectedBooking(null);
+    }
+    navigation.navigate("CustomerProviderDetail", {
+      providerId: booking.provider_profile_id,
+    });
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -97,6 +112,7 @@ export function BookingHistoryScreen() {
 
       <HistoryBookingDetailModal
         booking={selectedBooking}
+        onOpenProvider={openProvider}
         onClose={() => setSelectedBooking(null)}
         userRole={user?.role}
       />
@@ -150,10 +166,12 @@ function HistoryBookingCard({
 
 function HistoryBookingDetailModal({
   booking,
+  onOpenProvider,
   onClose,
   userRole,
 }: {
   booking: BookingDetail | null;
+  onOpenProvider: (booking: BookingDetail) => void;
   onClose: () => void;
   userRole?: string;
 }) {
@@ -168,7 +186,18 @@ function HistoryBookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
-            <DetailRow label={userRole === "provider" ? "Customer" : "Provider"} value={getTargetName(booking, userRole)} />
+            {userRole === "customer" ? (
+              <DetailRow
+                label="Provider"
+                onPress={() => onOpenProvider(booking)}
+                value={getTargetName(booking, userRole)}
+              />
+            ) : (
+              <DetailRow
+                label="Customer"
+                value={getTargetName(booking, userRole)}
+              />
+            )}
             <DetailRow label="Booking title" value={booking.title} />
             <DetailRow label="Service description" value={booking.service_description} />
             <DetailRow label="Service address" value={booking.service_address} />
@@ -206,13 +235,33 @@ function HistoryBookingDetailModal({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  onPress,
+  value,
+}: {
+  label: string;
+  onPress?: () => void;
+  value: string;
+}) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      {onPress ? (
+        <Pressable
+          accessibilityHint="Opens the provider profile"
+          accessibilityLabel={`Open ${value}`}
+          accessibilityRole="link"
+          onPress={onPress}
+        >
+          <Text style={[styles.detailValue, styles.detailLink]}>{value}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.detailValue}>{value}</Text>
+      )}
     </View>
   );
+
 }
 
 function filterHistoryBookings(bookings: BookingDetail[]) {
@@ -394,6 +443,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  detailLink: {
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "700",
   },
   modalActions: {
     flexDirection: "row",

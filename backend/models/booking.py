@@ -179,6 +179,15 @@ class Payment(Base):
     payment_method: Mapped[str] = mapped_column(
         String(32), nullable=False, default="iyzico_checkout"
     )
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, index=True
+    )
+    processing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    checkout_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     external_payment_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     conversation_id: Mapped[str | None] = mapped_column(
         String(128), unique=True, index=True, nullable=True
@@ -206,6 +215,14 @@ class Payment(Base):
     )
     failed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "customer_id",
+            "idempotency_key",
+            name="uq_payments_customer_idempotency_key",
+        ),
     )
 
 

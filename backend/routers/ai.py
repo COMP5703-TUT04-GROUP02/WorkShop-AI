@@ -496,6 +496,7 @@ async def confirm_ai_action(
                 payload.get("payment_method", "iyzico_checkout"),
                 current_user,
                 db,
+                idempotency_key=f"ai-action-{action.id}",
             )
         elif action_type == AIActionType.reject_quote:
             result = await reject_customer_booking_quote_action(

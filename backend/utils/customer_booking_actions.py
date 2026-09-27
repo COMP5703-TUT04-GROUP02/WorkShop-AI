@@ -4,8 +4,9 @@ Core booking flow: create, cancel, pay, refund, acceptance, pre-review state cha
 Shared by HTTP APIs and AI confirmations for consistent state rules.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -48,8 +49,8 @@ from backend.utils.upload import (
     save_booking_attachment_upload,
     validate_booking_attachments,
 )
-from backend.core.clock import to_workshop_datetime, utc_now
-from backend.config import IYZICO_CALLBACK_URL
+from backend.core.clock import parse_dt, to_workshop_datetime, utc_now
+from backend.config import IYZICO_CALLBACK_URL, IYZICO_CHECKOUT_TTL_SECONDS
 from backend.services import iyzico as iyzico_service
 
 
@@ -654,6 +655,8 @@ async def apply_iyzico_checkout_result(
     fraud_status = result.get("fraudStatus")
     if external_status != "success" or fraud_status == -1:
         payment.status = PaymentStatus.failed
+        payment.processing_started_at = None
+        payment.checkout_expires_at = None
         payment.failed_at = utc_now()
         payment.failure_code = str(result.get("errorCode") or "payment_failed")
         payment.failure_message = str(result.get("errorMessage") or "iyzico payment failed")
@@ -668,6 +671,8 @@ async def apply_iyzico_checkout_result(
 
     if fraud_status == 0:
         payment.status = PaymentStatus.processing
+        payment.processing_started_at = None
+        payment.checkout_expires_at = None
         db.commit()
         db.refresh(payment)
         db.refresh(booking)
@@ -679,6 +684,8 @@ async def apply_iyzico_checkout_result(
 
     if not _external_amount_matches(payment, result):
         payment.status = PaymentStatus.failed
+        payment.processing_started_at = None
+        payment.checkout_expires_at = None
         payment.failed_at = utc_now()
         payment.failure_code = "payment_amount_mismatch"
         payment.failure_message = "iyzico amount does not match the local payment amount"
@@ -688,6 +695,8 @@ async def apply_iyzico_checkout_result(
     result_currency = str(result.get("currency") or payment.currency).upper()
     if result_currency != payment.currency.upper():
         payment.status = PaymentStatus.failed
+        payment.processing_started_at = None
+        payment.checkout_expires_at = None
         payment.failed_at = utc_now()
         payment.failure_code = "payment_currency_mismatch"
         payment.failure_message = "iyzico currency does not match the local payment currency"
@@ -702,6 +711,8 @@ async def apply_iyzico_checkout_result(
 
     now = utc_now()
     payment.status = PaymentStatus.paid
+    payment.processing_started_at = None
+    payment.checkout_expires_at = None
     payment.payment_method = "iyzico_checkout"
     payment.paid_at = now
     payment.failed_at = None
@@ -772,6 +783,7 @@ async def pay_customer_booking_action(
     payment_method: str,
     current_user: models.User,
     db: Session,
+    idempotency_key: str | None = None,
 ):
     if current_user.role != "customer":
         raise HTTPException(status_code=403, detail="Only customers can pay bookings")
@@ -779,12 +791,22 @@ async def pay_customer_booking_action(
     if not payment_method.strip():
         raise HTTPException(status_code=400, detail="Payment method cannot be empty")
 
+    normalized_idempotency_key = (idempotency_key or "").strip()
+    if not normalized_idempotency_key:
+        normalized_idempotency_key = f"legacy-{uuid4().hex}"
+    if len(normalized_idempotency_key) > 128:
+        raise HTTPException(
+            status_code=400,
+            detail="Idempotency-Key must be at most 128 characters",
+        )
+
     booking = (
         db.query(models.Booking)
         .filter(
             models.Booking.id == booking_id,
             models.Booking.customer_id == current_user.id,
         )
+        .with_for_update()
         .first()
     )
     if not booking:
@@ -797,6 +819,20 @@ async def pay_customer_booking_action(
     )
     if booking.quote_amount is None:
         raise HTTPException(status_code=400, detail="Booking has no quote amount")
+
+    keyed_payment = (
+        db.query(models.Payment)
+        .filter(
+            models.Payment.customer_id == current_user.id,
+            models.Payment.idempotency_key == normalized_idempotency_key,
+        )
+        .first()
+    )
+    if keyed_payment and keyed_payment.booking_id != booking.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Idempotency-Key was already used for another booking",
+        )
 
     payment = (
         db.query(models.Payment)
@@ -811,57 +847,228 @@ async def pay_customer_booking_action(
                 ]
             ),
         )
+        .order_by(models.Payment.created_at.desc(), models.Payment.id.desc())
         .first()
     )
+
+    now = utc_now()
+    if keyed_payment and keyed_payment.booking_id == booking.id:
+        payment = keyed_payment
+        if payment.status in [PaymentStatus.paid, PaymentStatus.refunded]:
+            return {
+                "message": "Payment result was already finalized",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+                "payment_page_url": payment.checkout_url,
+                "token": payment.iyzico_token,
+            }
+        if payment.status == PaymentStatus.checkout_created:
+            checkout_expires_at = parse_dt(payment.checkout_expires_at)
+            if checkout_expires_at and checkout_expires_at > now:
+                return {
+                    "message": "Payment checkout already created",
+                    "payment": format_payment_response(payment, db),
+                    "booking": format_booking_detail_response(booking, db),
+                    "payment_page_url": payment.checkout_url,
+                    "token": payment.iyzico_token,
+                }
+            payment.status = PaymentStatus.failed
+            payment.external_status = "checkout_expired"
+            payment.failure_code = "checkout_expired"
+            payment.failure_message = "The iyzico checkout has expired. Start a new payment attempt."
+            payment.failed_at = now
+            payment.checkout_expires_at = None
+            db.commit()
+            db.refresh(payment)
+            db.refresh(booking)
+            return {
+                "message": "Payment checkout expired. Start a new payment attempt.",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+            }
+        if payment.status == PaymentStatus.processing:
+            processing_started_at = parse_dt(payment.processing_started_at)
+            if (
+                processing_started_at
+                and processing_started_at
+                > now - timedelta(seconds=IYZICO_CHECKOUT_TTL_SECONDS)
+            ):
+                return {
+                    "message": "Payment checkout is being prepared",
+                    "payment": format_payment_response(payment, db),
+                    "booking": format_booking_detail_response(booking, db),
+                    "payment_page_url": payment.checkout_url,
+                    "token": payment.iyzico_token,
+                }
+            payment.status = PaymentStatus.failed
+            payment.external_status = "processing_timeout"
+            payment.failure_code = "processing_timeout"
+            payment.failure_message = "The previous checkout request timed out. Start a new payment attempt."
+            payment.failed_at = now
+            payment.processing_started_at = None
+            db.commit()
+            db.refresh(payment)
+            db.refresh(booking)
+            return {
+                "message": "Payment checkout preparation timed out. Start a new payment attempt.",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+            }
+        if payment.status == PaymentStatus.failed:
+            return {
+                "message": "Payment attempt failed. Start a new payment attempt.",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+            }
+
     if not payment:
         raise HTTPException(
             status_code=400,
             detail="Pending payment not found for this booking",
         )
 
-    if payment.status in [PaymentStatus.checkout_created, PaymentStatus.processing]:
-        return {
-            "message": "Payment checkout already created",
-            "payment": format_payment_response(payment, db),
-            "booking": format_booking_detail_response(booking, db),
-            "payment_page_url": payment.checkout_url,
-            "token": payment.iyzico_token,
-        }
+    if payment.status == PaymentStatus.checkout_created:
+        checkout_expires_at = parse_dt(payment.checkout_expires_at)
+        if checkout_expires_at and checkout_expires_at > now:
+            return {
+                "message": "Payment checkout already created",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+                "payment_page_url": payment.checkout_url,
+                "token": payment.iyzico_token,
+            }
+        payment.status = PaymentStatus.failed
+        payment.external_status = "checkout_expired"
+        payment.failure_code = "checkout_expired"
+        payment.failure_message = (
+            "The previous iyzico checkout expired; a new checkout was created."
+        )
+        payment.failed_at = now
 
-    now = utc_now()
+        payment = models.Payment(
+            booking_id=booking.id,
+            customer_id=current_user.id,
+            provider_profile_id=booking.provider_profile_id,
+            amount=booking.quote_amount,
+            currency="TRY",
+            status=PaymentStatus.pending,
+            payment_method="iyzico_checkout",
+            idempotency_key=normalized_idempotency_key,
+            external_payment_id=None,
+            created_at=now,
+            paid_at=None,
+            refunded_at=None,
+        )
+        db.add(payment)
+        db.flush()
+
+    if payment.status == PaymentStatus.processing:
+        is_checkout_initializing = payment.external_status == "checkout_initializing"
+        processing_started_at = parse_dt(payment.processing_started_at)
+        if not is_checkout_initializing or not processing_started_at:
+            return {
+                "message": "Payment is still being processed",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+                "payment_page_url": payment.checkout_url,
+                "token": payment.iyzico_token,
+            }
+        if processing_started_at and processing_started_at > now - timedelta(
+            seconds=IYZICO_CHECKOUT_TTL_SECONDS
+        ):
+            return {
+                "message": "Payment checkout is being prepared",
+                "payment": format_payment_response(payment, db),
+                "booking": format_booking_detail_response(booking, db),
+                "payment_page_url": payment.checkout_url,
+                "token": payment.iyzico_token,
+            }
+        payment.status = PaymentStatus.failed
+        payment.external_status = "processing_timeout"
+        payment.failure_code = "processing_timeout"
+        payment.failure_message = (
+            "The previous checkout request timed out; a new checkout was created."
+        )
+        payment.failed_at = now
+        payment.processing_started_at = None
+        payment = models.Payment(
+            booking_id=booking.id,
+            customer_id=current_user.id,
+            provider_profile_id=booking.provider_profile_id,
+            amount=booking.quote_amount,
+            currency="TRY",
+            status=PaymentStatus.pending,
+            payment_method="iyzico_checkout",
+            idempotency_key=normalized_idempotency_key,
+            external_payment_id=None,
+            created_at=now,
+            paid_at=None,
+            refunded_at=None,
+        )
+        db.add(payment)
+        db.flush()
+
+    payment.idempotency_key = payment.idempotency_key or normalized_idempotency_key
     payment.payment_method = "iyzico_checkout"
     payment.conversation_id = payment.conversation_id or (
         f"booking-{booking.id}-payment-{payment.id}"
     )
     payment.basket_id = payment.basket_id or payment.conversation_id
+    payment.status = PaymentStatus.processing
+    payment.processing_started_at = now
+    payment.checkout_expires_at = None
+    payment.external_status = "checkout_initializing"
+    payment.failed_at = None
+    payment.failure_code = None
+    payment.failure_message = None
+    db.commit()
+    db.refresh(payment)
+    db.refresh(booking)
     checkout_payload = _build_checkout_payload(booking, payment, current_user, db)
     try:
         result = await iyzico_service.get_iyzico_client().initialize_checkout_form(
             checkout_payload
         )
     except iyzico_service.IyzicoClientError as exc:
-        db.rollback()
+        payment.status = PaymentStatus.failed
+        payment.external_status = "checkout_initialize_failed"
+        payment.failure_code = "checkout_initialize_failed"
+        payment.failure_message = str(exc)
+        payment.failed_at = utc_now()
+        payment.processing_started_at = None
+        db.commit()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     if str(result.get("status", "")).lower() != "success":
+        payment.status = PaymentStatus.failed
         payment.external_status = str(result.get("status") or "failure")
         payment.failure_code = str(result.get("errorCode") or "checkout_initialize_failed")
         payment.failure_message = str(
             result.get("errorMessage") or "iyzico checkout initialization failed"
         )
+        payment.failed_at = utc_now()
+        payment.processing_started_at = None
         db.commit()
         raise HTTPException(status_code=502, detail=payment.failure_message)
 
     token = result.get("token")
     checkout_url = result.get("paymentPageUrl")
     if not token or not checkout_url:
-        db.rollback()
+        payment.status = PaymentStatus.failed
+        payment.external_status = "checkout_initialize_failed"
+        payment.failure_code = "checkout_initialize_failed"
+        payment.failure_message = "iyzico checkout response did not include a payment page"
+        payment.failed_at = utc_now()
+        payment.processing_started_at = None
+        db.commit()
         raise HTTPException(
             status_code=502,
             detail="iyzico checkout response did not include a payment page",
         )
 
     payment.status = PaymentStatus.checkout_created
+    payment.processing_started_at = None
+    payment.checkout_expires_at = now + timedelta(seconds=IYZICO_CHECKOUT_TTL_SECONDS)
     payment.iyzico_token = str(token)
     payment.checkout_url = str(checkout_url)
     payment.external_status = "checkout_created"

@@ -8,6 +8,7 @@ Messages are persisted; WebSocket handles presence, read state, and push.
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi.encoders import jsonable_encoder
 
 from backend import models
 from backend.auth import get_user_from_token
@@ -279,6 +280,8 @@ async def chat_websocket(
                 )
                 db.commit()
 
+                read_at = jsonable_encoder(read_result["read_at"])
+
                 await websocket.send_json(
                     {
                         "type": "chat_read_summary",
@@ -286,7 +289,7 @@ async def chat_websocket(
                         "updated_count": read_result["updated_count"],
                         "unread_count": read_result["unread_count"],
                         "message_ids": read_result["message_ids"],
-                        "read_at": read_result["read_at"],
+                        "read_at": read_at,
                     }
                 )
 
@@ -304,7 +307,7 @@ async def chat_websocket(
                                 "chat_room_id": chat_room.id,
                                 "reader_user_id": current_user.id,
                                 "message_ids": read_result["message_ids"],
-                                "read_at": read_result["read_at"],
+                                "read_at": read_at,
                             },
                         )
                 continue

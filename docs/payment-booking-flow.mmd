@@ -1,0 +1,34 @@
+flowchart TD
+    C[Customer] -->|POST /bookings| B1[Booking: pending]
+    B1 -->|Provider quote| B2[Booking: quoted]
+    B2 -->|PUT /customer/bookings/id/accept-quote| B3[Booking: awaiting_payment]
+    B3 -->|PUT /customer/bookings/id/pay| P1[Payment: checkout_created]
+    P1 -->|Open payment_page_url| I[Iyzico Sandbox Checkout]
+    I -->|Test card + callback token| CB[POST /payments/iyzico/callback]
+    CB -->|Retrieve + verify amount/currency| P2{Payment result}
+    P2 -->|SUCCESS| PAID[Payment: paid]
+    PAID --> ACCEPTED[Booking: accepted]
+    P2 -->|FAILED| FAILED[Payment: failed]
+    FAILED --> B3
+    ACCEPTED -->|Provider completes service| COMPLETE[Booking: awaiting_confirmation]
+    COMPLETE -->|Customer confirms| DONE[Booking: completed]
+
+    subgraph CustomerActions[Customer actions]
+        C
+        B2
+        B3
+        P1
+        CB
+        COMPLETE
+        DONE
+    end
+
+    subgraph ProviderActions[Provider actions]
+        Q[PUT /provider/bookings/id/quote]
+        R[PUT /provider/bookings/id/reject]
+        S[PUT /provider/bookings/id/complete]
+    end
+
+    Q --> B2
+    R --> REJECTED[Booking: rejected]
+    S --> COMPLETE

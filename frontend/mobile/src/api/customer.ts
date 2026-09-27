@@ -270,13 +270,21 @@ export async function cancelCustomerBooking(bookingId: number) {
 
 export async function payCustomerBooking(
   bookingId: number,
-  paymentMethod = "mock",
+  paymentMethod = "iyzico_checkout",
+  idempotencyKey?: string,
 ) {
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/customer/bookings/${bookingId}/pay`,
     {
       payment_method: paymentMethod,
     },
+    idempotencyKey
+      ? {
+          headers: {
+            "Idempotency-Key": idempotencyKey,
+          },
+        }
+      : undefined,
   );
 
   return response.data.data;
