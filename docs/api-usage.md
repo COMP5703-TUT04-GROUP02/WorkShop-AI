@@ -76,7 +76,7 @@ Auth: customer.
 |---|---|---|---|---|---|
 | `POST` | `/bookings` | Create booking with form fields and attachments. | - | `multipart/form-data` -> `Body_create_booking_bookings_post` | `ApiResponse_BookingCreateResponseData_` |
 | `POST` | `/bookings/{booking_id}/complaints` | Create Complaint | `booking_id`(path, required, integer) | `application/json` -> `ComplaintCreate` | `ApiResponse_Any_` |
-| `POST` | `/bookings/{booking_id}/payments` | Create Payment | `booking_id`(path, required, integer) | `application/json` -> `PaymentCreate` | `ApiResponse_Any_` |
+| `PUT` | `/customer/bookings/{booking_id}/accept-quote` | Accept Booking Quote | `booking_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `POST` | `/bookings/{booking_id}/refund-requests` | Create Refund Request | `booking_id`(path, required, integer) | `application/json` -> `RefundRequestCreate` | `ApiResponse_Any_` |
 | `POST` | `/bookings/{booking_id}/review` | Create Review | `booking_id`(path, required, integer) | `application/json` -> `ReviewCreate` | `ApiResponse_Any_` |
 | `GET` | `/customer/bookings` | Get Customer Bookings | `status`(query, optional, BookingStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
@@ -91,12 +91,12 @@ Auth: customer.
 | `POST` | `/customer/favorites/{provider_profile_id}` | Add Favorite Provider | `provider_profile_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `DELETE` | `/customer/favorites/{provider_profile_id}` | Remove Favorite Provider | `provider_profile_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/customer/payments` | Get Customer Payments | `status`(query, optional, PaymentStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
+| `PUT` | `/customer/bookings/{booking_id}/pay` | Start Booking Payment | `booking_id`(path, required, integer) | `application/json` -> `PaymentCreate` | `ApiResponse_Any_` |
 | `GET` | `/customer/profile` | Get Customer Profile | - | - | `ApiResponse_Any_` |
 | `POST` | `/customer/profile` | Create Customer Profile | - | `application/json` -> `CustomerProfileCreate` | `ApiResponse_Any_` |
 | `PUT` | `/customer/profile` | Update Customer Profile | - | `application/json` -> `CustomerProfileCreate` | `ApiResponse_Any_` |
 | `GET` | `/customer/refund-requests` | Get Customer Refund Requests | `status`(query, optional, RefundRequestStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/customer/reviews` | Get Customer Reviews | `is_visible`(query, optional, boolean / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
-| `PUT` | `/payments/{payment_id}/pay` | Pay Payment | `payment_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/refund-requests/{refund_request_id}/cancel` | Cancel Refund Request | `refund_request_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/reviews/{review_id}` | Update Review | `review_id`(path, required, integer) | `application/json` -> `ReviewUpdate` | `ApiResponse_Any_` |
 | `DELETE` | `/reviews/{review_id}` | Delete Review | `review_id`(path, required, integer) | - | `ApiResponse_Any_` |
@@ -263,7 +263,7 @@ Auth: none.
 4. `POST /customer/chats/{provider_profile_id}` open chat.
 5. `POST /bookings` with attachments, or AI draft then `POST /ai/actions/confirm`.
 6. Provider `PUT /provider/bookings/{booking_id}/quote`.
-7. Customer `POST /bookings/{booking_id}/payments` then `PUT /payments/{payment_id}/pay`.
+7. Customer `PUT /customer/bookings/{booking_id}/accept-quote`, then `PUT /customer/bookings/{booking_id}/pay`.
 8. Provider `PUT /provider/bookings/{booking_id}/complete`.
 9. Customer `PUT /customer/bookings/{booking_id}/confirm-complete`.
 10. Customer `POST /bookings/{booking_id}/review`.

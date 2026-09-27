@@ -6,6 +6,17 @@ def test_customer_bookings_require_auth(client):
     assert response.status_code == 401
 
 
+def test_legacy_payment_routes_are_removed(client):
+    create_payment = client.post(
+        "/bookings/1/payments",
+        json={"payment_method": "mock"},
+    )
+    pay_payment = client.put("/payments/1/pay")
+
+    assert create_payment.status_code == 404
+    assert pay_payment.status_code == 404
+
+
 def test_customer_profile_round_trip(client, marketplace):
     headers = marketplace["customer"]["headers"]
     created = client.post(
