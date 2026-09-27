@@ -916,7 +916,7 @@ def prepare_pay_booking_action_tool(
     booking_id: int,
     current_user: models.User,
     db: Session,
-    payment_method: str = "mock",
+    payment_method: str = "iyzico_checkout",
 ):
     ensure_current_user_is_customer(current_user)
     if not payment_method.strip():
@@ -938,7 +938,13 @@ def prepare_pay_booking_action_tool(
         db.query(models.Payment)
         .filter(
             models.Payment.booking_id == booking.id,
-            models.Payment.status == PaymentStatus.pending,
+            models.Payment.status.in_(
+                [
+                    PaymentStatus.pending,
+                    PaymentStatus.checkout_created,
+                    PaymentStatus.processing,
+                ]
+            ),
         )
         .first()
     )

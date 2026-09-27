@@ -49,6 +49,8 @@ from backend.utils.upload import (
     validate_booking_attachments,
 )
 from backend.core.clock import to_workshop_datetime, utc_now
+from backend.config import IYZICO_CALLBACK_URL
+from backend.services import iyzico as iyzico_service
 
 
 async def create_customer_booking_action(
@@ -527,6 +529,244 @@ async def appeal_customer_refund_request_action(
     }
 
 
+def _checkout_buyer_details(
+    booking: models.Booking,
+    current_user: models.User,
+    db: Session,
+) -> tuple[dict, dict]:
+    customer_profile = (
+        db.query(models.CustomerProfile)
+        .filter(models.CustomerProfile.user_id == current_user.id)
+        .first()
+    )
+    name_parts = (current_user.name or "Workshop Customer").split(maxsplit=1)
+    first_name = current_user.first_name or name_parts[0]
+    last_name = current_user.last_name or (name_parts[1] if len(name_parts) > 1 else "Customer")
+    city = (
+        customer_profile.service_province
+        if customer_profile and customer_profile.service_province
+        else "Istanbul"
+    )
+    phone = (
+        customer_profile.phone_number
+        if customer_profile and customer_profile.phone_number
+        else "+905000000000"
+    )
+    registration_date = (current_user.created_at or utc_now()).strftime("%Y-%m-%d %H:%M:%S")
+    last_login_date = (current_user.last_login_at or current_user.created_at or utc_now()).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    buyer = {
+        "id": str(current_user.id),
+        "name": first_name,
+        "surname": last_name,
+        "identityNumber": str(current_user.id).zfill(11),
+        "email": current_user.email,
+        "gsmNumber": phone,
+        "registrationDate": registration_date,
+        "lastLoginDate": last_login_date,
+        "registrationAddress": booking.service_address,
+        "city": city,
+        "country": "Turkey",
+        "ip": "127.0.0.1",
+    }
+    address = {
+        "address": booking.service_address,
+        "contactName": current_user.name or f"{first_name} {last_name}",
+        "city": city,
+        "country": "Turkey",
+    }
+    return buyer, address
+
+
+def _build_checkout_payload(
+    booking: models.Booking,
+    payment: models.Payment,
+    current_user: models.User,
+    db: Session,
+) -> dict:
+    buyer, address = _checkout_buyer_details(booking, current_user, db)
+    amount = float(payment.amount)
+    return {
+        "locale": "en",
+        "conversationId": payment.conversation_id,
+        "price": amount,
+        "paidPrice": amount,
+        "currency": payment.currency,
+        "basketId": payment.basket_id,
+        "paymentGroup": "PRODUCT",
+        "callbackUrl": IYZICO_CALLBACK_URL,
+        "buyer": buyer,
+        "shippingAddress": address,
+        "billingAddress": address,
+        "basketItems": [
+            {
+                "id": str(booking.id),
+                "price": amount,
+                "name": booking.title,
+                "category1": "Service",
+                "itemType": "VIRTUAL",
+            }
+        ],
+    }
+
+
+def _external_amount_matches(payment: models.Payment, result: dict) -> bool:
+    raw_amount = result.get("paidPrice", result.get("price"))
+    if raw_amount is None:
+        return False
+    try:
+        return Decimal(str(raw_amount)).quantize(Decimal("0.01")) == Decimal(
+            str(payment.amount)
+        ).quantize(Decimal("0.01"))
+    except Exception:
+        return False
+
+
+async def apply_iyzico_checkout_result(
+    payment: models.Payment,
+    result: dict,
+    db: Session,
+):
+    booking = (
+        db.query(models.Booking)
+        .filter(models.Booking.id == payment.booking_id)
+        .first()
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if payment.status in [PaymentStatus.paid, PaymentStatus.refunded]:
+        return {
+            "message": "Payment result was already finalized",
+            "payment": format_payment_response(payment, db),
+            "booking": format_booking_detail_response(booking, db),
+        }
+
+    external_status = str(result.get("paymentStatus") or result.get("status") or "").lower()
+    payment.external_status = external_status or None
+    iyzico_payment_id = result.get("paymentId")
+    if iyzico_payment_id:
+        payment.iyzico_payment_id = str(iyzico_payment_id)
+        payment.external_payment_id = str(iyzico_payment_id)
+
+    fraud_status = result.get("fraudStatus")
+    if external_status != "success" or fraud_status == -1:
+        payment.status = PaymentStatus.failed
+        payment.failed_at = utc_now()
+        payment.failure_code = str(result.get("errorCode") or "payment_failed")
+        payment.failure_message = str(result.get("errorMessage") or "iyzico payment failed")
+        db.commit()
+        db.refresh(payment)
+        db.refresh(booking)
+        return {
+            "message": "Payment failed",
+            "payment": format_payment_response(payment, db),
+            "booking": format_booking_detail_response(booking, db),
+        }
+
+    if fraud_status == 0:
+        payment.status = PaymentStatus.processing
+        db.commit()
+        db.refresh(payment)
+        db.refresh(booking)
+        return {
+            "message": "Payment is pending iyzico review",
+            "payment": format_payment_response(payment, db),
+            "booking": format_booking_detail_response(booking, db),
+        }
+
+    if not _external_amount_matches(payment, result):
+        payment.status = PaymentStatus.failed
+        payment.failed_at = utc_now()
+        payment.failure_code = "payment_amount_mismatch"
+        payment.failure_message = "iyzico amount does not match the local payment amount"
+        db.commit()
+        raise HTTPException(status_code=400, detail=payment.failure_message)
+
+    result_currency = str(result.get("currency") or payment.currency).upper()
+    if result_currency != payment.currency.upper():
+        payment.status = PaymentStatus.failed
+        payment.failed_at = utc_now()
+        payment.failure_code = "payment_currency_mismatch"
+        payment.failure_message = "iyzico currency does not match the local payment currency"
+        db.commit()
+        raise HTTPException(status_code=400, detail=payment.failure_message)
+
+    transactions = result.get("itemTransactions") or []
+    if transactions and isinstance(transactions[0], dict):
+        transaction_id = transactions[0].get("paymentTransactionId")
+        if transaction_id:
+            payment.payment_transaction_id = str(transaction_id)
+
+    now = utc_now()
+    payment.status = PaymentStatus.paid
+    payment.payment_method = "iyzico_checkout"
+    payment.paid_at = now
+    payment.failed_at = None
+    payment.failure_code = None
+    payment.failure_message = None
+
+    if booking.status == BookingStatus.awaiting_payment:
+        old_status = booking.status
+        booking.status = BookingStatus.accepted
+        booking.total_amount = payment.amount
+        booking.status_note = "Customer paid the quoted amount through iyzico Sandbox"
+        add_booking_status_history(
+            booking,
+            old_status,
+            booking.status,
+            booking.status_note,
+            db.get(models.User, payment.customer_id),
+            db,
+        )
+        booking_status_chat_message = create_booking_status_chat_message(
+            booking,
+            old_status,
+            payment.customer_id,
+            "Customer paid the quote and accepted the booking",
+            booking.status_note,
+            db,
+            {
+                "payment_id": payment.id,
+                "payment_status": payment.status,
+                "amount": payment.amount,
+                "currency": payment.currency,
+                "paid_at": payment.paid_at,
+            },
+        )
+        provider_profile = (
+            db.query(models.ProviderProfile)
+            .filter(models.ProviderProfile.id == booking.provider_profile_id)
+            .first()
+        )
+        if provider_profile:
+            create_notification(
+                provider_profile.user_id,
+                "Payment received",
+                "A customer paid for your quoted booking",
+                NotificationType.payment_paid,
+                NotificationRelatedType.payment,
+                payment.id,
+                db,
+            )
+    else:
+        booking_status_chat_message = None
+
+    db.commit()
+    db.refresh(payment)
+    db.refresh(booking)
+    if booking_status_chat_message:
+        db.refresh(booking_status_chat_message)
+        await push_chat_message_to_room_members(booking_status_chat_message, db)
+    return {
+        "message": "Payment completed and booking moved to implementation stage",
+        "payment": format_payment_response(payment, db),
+        "booking": format_booking_detail_response(booking, db),
+    }
+
+
 async def pay_customer_booking_action(
     booking_id: int,
     payment_method: str,
@@ -563,7 +803,13 @@ async def pay_customer_booking_action(
         .filter(
             models.Payment.booking_id == booking.id,
             models.Payment.customer_id == current_user.id,
-            models.Payment.status == PaymentStatus.pending,
+            models.Payment.status.in_(
+                [
+                    PaymentStatus.pending,
+                    PaymentStatus.checkout_created,
+                    PaymentStatus.processing,
+                ]
+            ),
         )
         .first()
     )
@@ -573,61 +819,64 @@ async def pay_customer_booking_action(
             detail="Pending payment not found for this booking",
         )
 
-    now = utc_now()
-    payment.payment_method = payment_method.strip()
-    payment.status = PaymentStatus.paid
-    payment.paid_at = now
-    payment.external_payment_id = f"mock-payment-{payment.id}"
+    if payment.status in [PaymentStatus.checkout_created, PaymentStatus.processing]:
+        return {
+            "message": "Payment checkout already created",
+            "payment": format_payment_response(payment, db),
+            "booking": format_booking_detail_response(booking, db),
+            "payment_page_url": payment.checkout_url,
+            "token": payment.iyzico_token,
+        }
 
-    old_status = booking.status
-    booking.status = BookingStatus.accepted
-    booking.total_amount = payment.amount
-    booking.status_note = "Customer paid the quoted amount"
-    add_booking_status_history(
-        booking, old_status, booking.status, booking.status_note, current_user, db
+    now = utc_now()
+    payment.payment_method = "iyzico_checkout"
+    payment.conversation_id = payment.conversation_id or (
+        f"booking-{booking.id}-payment-{payment.id}"
     )
-    booking_status_chat_message = create_booking_status_chat_message(
-        booking,
-        old_status,
-        current_user.id,
-        "Customer paid the quote and accepted the booking",
-        booking.status_note,
-        db,
-        {
-            "payment_id": payment.id,
-            "payment_status": payment.status,
-            "amount": payment.amount,
-            "currency": payment.currency,
-            "paid_at": payment.paid_at,
-        },
-    )
-    provider_profile = (
-        db.query(models.ProviderProfile)
-        .filter(models.ProviderProfile.id == booking.provider_profile_id)
-        .first()
-    )
-    if provider_profile:
-        create_notification(
-            provider_profile.user_id,
-            "Payment received",
-            "A customer paid for your quoted booking",
-            NotificationType.payment_paid,
-            NotificationRelatedType.payment,
-            payment.id,
-            db,
+    payment.basket_id = payment.basket_id or payment.conversation_id
+    checkout_payload = _build_checkout_payload(booking, payment, current_user, db)
+    try:
+        result = await iyzico_service.get_iyzico_client().initialize_checkout_form(
+            checkout_payload
+        )
+    except iyzico_service.IyzicoClientError as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if str(result.get("status", "")).lower() != "success":
+        payment.external_status = str(result.get("status") or "failure")
+        payment.failure_code = str(result.get("errorCode") or "checkout_initialize_failed")
+        payment.failure_message = str(
+            result.get("errorMessage") or "iyzico checkout initialization failed"
+        )
+        db.commit()
+        raise HTTPException(status_code=502, detail=payment.failure_message)
+
+    token = result.get("token")
+    checkout_url = result.get("paymentPageUrl")
+    if not token or not checkout_url:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail="iyzico checkout response did not include a payment page",
         )
 
+    payment.status = PaymentStatus.checkout_created
+    payment.iyzico_token = str(token)
+    payment.checkout_url = str(checkout_url)
+    payment.external_status = "checkout_created"
+    payment.failed_at = None
+    payment.failure_code = None
+    payment.failure_message = None
     db.commit()
     db.refresh(payment)
     db.refresh(booking)
-    if booking_status_chat_message:
-        db.refresh(booking_status_chat_message)
-        await push_chat_message_to_room_members(booking_status_chat_message, db)
-
     return {
-        "message": "Payment completed and booking moved to implementation stage",
+        "message": "iyzico checkout created",
         "payment": format_payment_response(payment, db),
         "booking": format_booking_detail_response(booking, db),
+        "payment_page_url": payment.checkout_url,
+        "token": payment.iyzico_token,
     }
 
 
@@ -662,7 +911,14 @@ async def accept_customer_booking_quote_action(
         db.query(models.Payment)
         .filter(
             models.Payment.booking_id == booking.id,
-            models.Payment.status.in_([PaymentStatus.pending, PaymentStatus.paid]),
+            models.Payment.status.in_(
+                [
+                    PaymentStatus.pending,
+                    PaymentStatus.checkout_created,
+                    PaymentStatus.processing,
+                    PaymentStatus.paid,
+                ]
+            ),
         )
         .first()
     )
@@ -680,7 +936,7 @@ async def accept_customer_booking_quote_action(
         amount=booking.quote_amount,
         currency="TRY",
         status=PaymentStatus.pending,
-        payment_method="mock",
+        payment_method="iyzico_checkout",
         external_payment_id=None,
         created_at=now,
         paid_at=None,

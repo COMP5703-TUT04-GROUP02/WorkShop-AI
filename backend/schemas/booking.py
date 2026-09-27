@@ -221,12 +221,14 @@ class AdminBookingStatusUpdate(BaseModel):
 
 class PaymentStatus(str, Enum):
     pending = "pending"
+    checkout_created = "checkout_created"
+    processing = "processing"
     paid = "paid"
     failed = "failed"
     refunded = "refunded"
 
 class PaymentCreate(BaseModel):
-    payment_method: str = "mock"
+    payment_method: str = "iyzico_checkout"
 
     @field_validator("payment_method")
     @classmethod

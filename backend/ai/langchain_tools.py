@@ -169,7 +169,9 @@ class PrepareRefundRequestActionToolInput(BaseModel):
 
 class PreparePayBookingActionToolInput(BaseModel):
     booking_id: int = Field(description="Booking ID to pay quote for")
-    payment_method: str = Field(default="mock", description="Payment method, default mock")
+    payment_method: str = Field(
+        default="iyzico_checkout", description="Payment method, default iyzico Checkout Form"
+    )
 
 
 class PrepareRejectQuoteActionToolInput(BaseModel):
@@ -368,7 +370,7 @@ def build_langchain_tools(current_user: models.User, db: Session):
 
     def prepare_pay_booking_action(
         booking_id: int,
-        payment_method: str = "mock",
+        payment_method: str = "iyzico_checkout",
     ):
         return jsonable_encoder(
             prepare_pay_booking_action_tool(

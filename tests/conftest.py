@@ -61,6 +61,46 @@ BOOKING_START = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
 BOOKING_END = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 
+class FakeIyzicoClient:
+    def __init__(self):
+        self.sessions: dict[str, dict] = {}
+        self.retrieve_amount_override: str | None = None
+
+    async def initialize_checkout_form(self, payload: dict) -> dict:
+        token = f"test-token-{len(self.sessions) + 1}"
+        self.sessions[token] = payload
+        return {
+            "status": "success",
+            "conversationId": payload["conversationId"],
+            "token": token,
+            "paymentPageUrl": f"https://sandbox.example.test/checkout/{token}",
+        }
+
+    async def retrieve_checkout_form(
+        self,
+        *,
+        token: str,
+        conversation_id: str | None = None,
+    ) -> dict:
+        payload = self.sessions[token]
+        amount = self.retrieve_amount_override or str(payload["paidPrice"])
+        return {
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "conversationId": conversation_id or payload["conversationId"],
+            "paymentId": f"iyzico-payment-{token}",
+            "price": amount,
+            "paidPrice": amount,
+            "currency": payload["currency"],
+            "itemTransactions": [
+                {
+                    "paymentTransactionId": f"iyzico-transaction-{token}",
+                    "transactionStatus": 1,
+                }
+            ],
+        }
+
+
 @pytest.fixture
 def db_session():
     Base.metadata.drop_all(bind=engine)
@@ -148,6 +188,16 @@ def create_admin_session(client, db_session, email="admin@example.com", name="Ad
         "refresh_token": data["refresh_token"],
         "headers": auth_header(data["access_token"]),
     }
+
+
+@pytest.fixture
+def fake_iyzico(monkeypatch):
+    fake = FakeIyzicoClient()
+    monkeypatch.setattr(
+        "backend.services.iyzico.get_iyzico_client",
+        lambda: fake,
+    )
+    return fake
 
 
 def create_provider_profile(client, headers):
@@ -243,8 +293,21 @@ def approve_provider(client, admin_headers, provider_profile_id):
 
 
 @pytest.fixture
-def marketplace(client, db_session, monkeypatch):
+def marketplace(client, db_session, monkeypatch, fake_iyzico):
+    del fake_iyzico
     monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "backend.utils.notification.enqueue_notification_delivery",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "backend.utils.notification.increment_notification_unread_count",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "backend.utils.chat.increment_chat_room_unread_count",
+        lambda *args, **kwargs: 0,
+    )
     monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
     customer = register_session(
         client, "customer@example.com", role="customer", name="Ayla Customer"

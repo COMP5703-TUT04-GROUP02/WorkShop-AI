@@ -19,6 +19,7 @@
 - **Auth**: login, social login, token refresh, current user, mock verify, change password/email (11 endpoints).
 - **Public**: providers, reviews, portfolios without login (6 endpoints).
 - **Customer**: profile, favorites, chat, bookings, payments, refunds, complaints, reviews (26 endpoints).
+- **Payment**: iyzico Sandbox Checkout Form callback (1 public provider callback).
 - **Provider**: profile, availability, portfolio, quotes, completion, refunds (19 endpoints).
 - **Admin**: users, verification, bookings, payments, refunds, chat, complaints, reviews (20 endpoints).
 - **Shared**: chat, notifications, booking details, attachments, status history (14 endpoints).
@@ -100,6 +101,25 @@ Auth: customer.
 | `PUT` | `/refund-requests/{refund_request_id}/cancel` | Cancel Refund Request | `refund_request_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/reviews/{review_id}` | Update Review | `review_id`(path, required, integer) | `application/json` -> `ReviewUpdate` | `ApiResponse_Any_` |
 | `DELETE` | `/reviews/{review_id}` | Delete Review | `review_id`(path, required, integer) | - | `ApiResponse_Any_` |
+
+## Payment
+
+The payment flow uses iyzico Sandbox Checkout Form. The authenticated customer starts
+checkout, the backend returns `payment_page_url`, and the frontend redirects the
+customer to that URL. iyzico then posts a `token` to the callback; the backend
+retrieves the authoritative result server-to-server and updates the local payment and
+booking statuses.
+
+| Method | Path | Purpose | Params | Body | Success |
+|---|---|---|---|---|---|
+| `POST` | `/payments/iyzico/callback` | Receive Checkout Form token and finalize payment | - | `application/x-www-form-urlencoded` -> `token` | `ApiResponse_Any_` |
+
+Payment start response fields:
+
+- `data.payment_page_url`: iyzico Sandbox checkout page to open or redirect to.
+- `data.token`: Checkout Form token returned by iyzico.
+- `data.payment.status`: initially `checkout_created`; after callback it becomes `paid`, `failed`, or `processing`.
+- `data.booking.status`: remains `awaiting_payment` until a successful callback, then becomes `accepted`.
 
 ## Provider
 
@@ -435,7 +455,7 @@ Allowed values:`pending`, `quoted`, `accepted`, `rejected`, `refunding`, `refund
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `payment_method` | `string` | no | Payment Method |
+| `payment_method` | `string` | no | Payment method; use `iyzico_checkout` (the backend currently routes payment through iyzico Sandbox). |
 
 ### `RefundRequestCreate`
 

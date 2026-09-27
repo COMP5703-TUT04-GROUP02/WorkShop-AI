@@ -244,7 +244,10 @@ def build_ai_pending_action_preview(
             "title": "Confirm pay quote",
             "confirm_label": "Confirm pay quote",
             "extra_fields": [
-                build_field("Payment method", payload.get("payment_method", "mock"))
+                build_field(
+                    "Payment method",
+                    payload.get("payment_method", "iyzico_checkout"),
+                )
             ],
         },
         "reject_quote": {

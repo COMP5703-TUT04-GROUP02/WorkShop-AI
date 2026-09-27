@@ -51,7 +51,6 @@ from backend.utils.verification import apply_phone_number_change
 from backend.utils.notification import create_admin_notifications, create_notification
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
-from backend.services.payment_gateway import payment_gateway
 from backend.utils.provider import (
     format_favorite_provider_response,
     format_provider_profile_with_rating,

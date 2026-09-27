@@ -493,7 +493,7 @@ async def confirm_ai_action(
         elif action_type == AIActionType.pay_booking:
             result = await pay_customer_booking_action(
                 payload["booking_id"],
-                payload.get("payment_method", "mock"),
+                payload.get("payment_method", "iyzico_checkout"),
                 current_user,
                 db,
             )

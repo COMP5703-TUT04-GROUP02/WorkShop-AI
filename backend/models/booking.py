@@ -176,8 +176,25 @@ class Payment(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="TRY")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
-    payment_method: Mapped[str] = mapped_column(String(32), nullable=False, default="mock")
+    payment_method: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="iyzico_checkout"
+    )
     external_payment_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    conversation_id: Mapped[str | None] = mapped_column(
+        String(128), unique=True, index=True, nullable=True
+    )
+    basket_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    iyzico_token: Mapped[str | None] = mapped_column(
+        String(255), unique=True, index=True, nullable=True
+    )
+    checkout_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    iyzico_payment_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    payment_transaction_id: Mapped[str | None] = mapped_column(
+        String(128), index=True, nullable=True
+    )
+    external_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -185,6 +202,9 @@ class Payment(Base):
         DateTime(timezone=True), nullable=True
     )
     refunded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    failed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

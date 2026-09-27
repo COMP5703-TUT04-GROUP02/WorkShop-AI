@@ -9,7 +9,7 @@ def test_customer_bookings_require_auth(client):
 def test_legacy_payment_routes_are_removed(client):
     create_payment = client.post(
         "/bookings/1/payments",
-        json={"payment_method": "mock"},
+        json={"payment_method": "iyzico_checkout"},
     )
     pay_payment = client.put("/payments/1/pay")
 
@@ -66,13 +66,20 @@ def test_booking_quote_pay_complete_review_flow(client, marketplace):
 
     paid = client.put(
         f"/customer/bookings/{booking_id}/pay",
-        json={"payment_method": "mock"},
+        json={"payment_method": "iyzico_checkout"},
         headers=customer,
     )
     assert paid.status_code == 200, paid.text
-    assert paid.json()["data"]["booking"]["status"] == "accepted"
-    assert paid.json()["data"]["payment"]["status"] == "paid"
+    assert paid.json()["data"]["booking"]["status"] == "awaiting_payment"
+    assert paid.json()["data"]["payment"]["status"] == "checkout_created"
     assert paid.json()["data"]["payment"]["currency"] == "TRY"
+    callback = client.post(
+        "/payments/iyzico/callback",
+        data={"token": paid.json()["data"]["token"]},
+    )
+    assert callback.status_code == 200, callback.text
+    assert callback.json()["data"]["booking"]["status"] == "accepted"
+    assert callback.json()["data"]["payment"]["status"] == "paid"
 
     completed = client.put(
         f"/provider/bookings/{booking_id}/complete",
@@ -116,11 +123,17 @@ def test_refund_and_complaint_on_paid_booking(client, marketplace):
         headers=provider,
     )
     client.put(f"/customer/bookings/{booking_id}/accept-quote", headers=customer)
-    client.put(
+    paid = client.put(
         f"/customer/bookings/{booking_id}/pay",
-        json={"payment_method": "mock"},
+        json={"payment_method": "iyzico_checkout"},
         headers=customer,
     )
+    assert paid.status_code == 200, paid.text
+    callback = client.post(
+        "/payments/iyzico/callback",
+        data={"token": paid.json()["data"]["token"]},
+    )
+    assert callback.status_code == 200, callback.text
 
     complaint = client.post(
         f"/bookings/{booking_id}/complaints",
