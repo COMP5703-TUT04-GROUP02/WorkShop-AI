@@ -262,6 +262,9 @@ def format_booking_response(booking):
         "quoted_at": booking.quoted_at,
         "status": booking.status,
         "status_note": booking.status_note,
+        "onboarding_paused": booking.onboarding_paused,
+        "onboarding_pause_reason": booking.onboarding_pause_reason,
+        "onboarding_paused_at": booking.onboarding_paused_at,
     }
 
 

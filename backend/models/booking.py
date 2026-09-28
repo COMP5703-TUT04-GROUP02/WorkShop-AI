@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.clock import utc_now
@@ -120,6 +120,11 @@ class Booking(Base):
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     status_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    onboarding_paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    onboarding_pause_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    onboarding_paused_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class BookingAttachment(Base):

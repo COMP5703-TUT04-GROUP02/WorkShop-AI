@@ -566,10 +566,34 @@ async def admin_update_booking_status(
             db,
         )
     result = save_booking(booking, db)
+    settlement = None
+    if status_data.status == BookingStatus.completed:
+        payment = (
+            db.query(models.Payment)
+            .filter(
+                models.Payment.booking_id == booking.id,
+                models.Payment.status == PaymentStatus.paid,
+            )
+            .order_by(models.Payment.created_at.desc(), models.Payment.id.desc())
+            .first()
+        )
+        if payment:
+            from backend.tasks.marketplace_tasks import enqueue_payment_settlement
+            from backend.utils.marketplace import (
+                ensure_payment_settlement,
+                format_payment_settlement,
+            )
+
+            settlement = ensure_payment_settlement(payment, db)
+            db.commit()
+            db.refresh(settlement)
+            enqueue_payment_settlement(payment.id)
     if booking_status_chat_message:
         db.refresh(booking_status_chat_message)
         await push_chat_message_to_room_members(booking_status_chat_message, db)
     result["booking"] = format_booking_detail_response(booking, db)
+    if settlement:
+        result["settlement"] = format_payment_settlement(settlement)
     result["message"] = "Booking status updated by admin"
     return success_response(result)
 
@@ -589,7 +613,7 @@ def get_all_payments(
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db))
+        result.append(format_payment_response(payment, db, include_settlement=True))
     return success_response(build_paginated_response(result, total, page, page_size))
 
 
@@ -771,7 +795,7 @@ async def admin_approve_refund_request(
             "message": "Refund appeal approved by admin",
             "refund_request": format_refund_request_response(refund_request, db),
             "booking": format_booking_detail_response(booking, db),
-            "payment": format_payment_response(payment, db),
+            "payment": format_payment_response(payment, db, include_settlement=True),
         }
     )
 

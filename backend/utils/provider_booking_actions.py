@@ -153,7 +153,7 @@ async def approve_provider_refund_request_action(
         "message": "Refund request approved successfully",
         "refund_request": format_refund_request_response(refund_request, db),
         "booking": format_booking_detail_response(booking, db),
-        "payment": format_payment_response(payment, db),
+        "payment": format_payment_response(payment, db, include_settlement=True),
     }
 
 

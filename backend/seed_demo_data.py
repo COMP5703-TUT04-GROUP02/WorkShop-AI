@@ -9,6 +9,7 @@ from backend.constants import ALLOWED_PROVIDER_TAGS, DEMO_PASSWORD
 from backend.core.clock import utc_now
 from backend.database import SessionLocal
 from backend.utils.service_locations import seed_service_locations
+from backend.utils.marketplace_seed import ensure_demo_submerchant_drafts
 
 TAGS = ALLOWED_PROVIDER_TAGS
 DEFAULT_PROVINCE = "Istanbul"
@@ -400,6 +401,7 @@ def main():
         else:
             result = create_demo_providers(db, customers, location_seeds)
         assign_existing_demo_locations(db, location_seeds)
+        result["submerchant_drafts"] = ensure_demo_submerchant_drafts(db)
         db.commit()
         print("Demo data inserted successfully.")
         print(result)

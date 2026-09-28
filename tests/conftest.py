@@ -100,6 +100,22 @@ class FakeIyzicoClient:
             ],
         }
 
+    async def create_submerchant(self, payload: dict) -> dict:
+        return {
+            "status": "success",
+            "conversationId": payload.get("conversationId"),
+            "subMerchantKey": f"test-submerchant-{payload['subMerchantExternalId']}",
+        }
+
+    async def update_submerchant(self, payload: dict) -> dict:
+        return {"status": "success", "conversationId": payload.get("conversationId")}
+
+    async def approve_item(self, payment_transaction_id: str) -> dict:
+        return {
+            "status": "success",
+            "paymentTransactionId": payment_transaction_id,
+        }
+
 
 @pytest.fixture
 def db_session():
@@ -318,6 +334,25 @@ def marketplace(client, db_session, monkeypatch, fake_iyzico):
     admin = create_admin_session(client, db_session)
     profile = create_provider_profile(client, provider["headers"])
     approve_provider(client, admin["headers"], profile["id"])
+    db_session.add(
+        models.ProviderSubmerchant(
+            provider_profile_id=profile["id"],
+            submerchant_type="PERSONAL",
+            submerchant_external_id=f"test-provider-{profile['id']}",
+            submerchant_key=f"test-submerchant-{profile['id']}",
+            name="Bosphorus Plumbing",
+            email="provider@example.com",
+            gsm_number="+905551110000",
+            address="Karakoy, Istanbul",
+            iban="TR180006200119000006672315",
+            contact_name="Can",
+            contact_surname="Provider",
+            identity_number="10000000001",
+            currency="TRY",
+            status="active",
+        )
+    )
+    db_session.commit()
     set_week_availability(client, provider["headers"])
     return {
         "customer": customer,

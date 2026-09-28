@@ -19,7 +19,7 @@ The repository contains a FastAPI backend and an Expo app that runs on iOS, Andr
 
 This is a working demo, not a production deployment.
 
-- Checkout uses a mock payment gateway. The quoted amount is charged in TRY; no card processor is connected.
+- Checkout uses iyzico Sandbox. Marketplace payments require an iyzico-enabled Marketplace merchant account; no live funds are involved.
 - Google and Apple buttons on the sign-in screen are placeholders until OAuth client IDs are configured.
 - Address autocomplete needs a server-side Google Places API (New) key. The rest of the app runs without it.
 - Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
@@ -168,6 +168,19 @@ Every seeded account uses the password `Demo1234`.
 | Admin    | `demo_admin@workshop.ai`                                       |
 | Customer | `demo_customer_1@workshop.ai` … `demo_customer_5@workshop.ai`  |
 | Provider | `demo_provider_1@workshop.ai` … `demo_provider_30@workshop.ai` |
+
+
+## iyzico Sandbox testing
+
+Successful Sandbox cards:
+
+| Card number | Bank / type |
+| ----------- | ----------- |
+| `5526080000000006` | Akbank Mastercard credit |
+| `4603450000000000` | Denizbank Visa credit |
+| `4987490000000002` | QNB Visa debit |
+
+Use a future expiry date and a correctly formatted CVV. These cards simulate payments only; they do not move real funds.
 
 
 

@@ -41,6 +41,7 @@ from backend.models.provider_verification import (
 )
 from backend.models.location import ServiceLocation
 from backend.models.address_book import CustomerAddress
+from backend.models.marketplace import PaymentSettlement, ProviderSubmerchant
 from backend.models.user import (
     AuthenticationIdentity,
     RefreshToken,
@@ -88,5 +89,7 @@ __all__ = [
     "SocialAccount",
     "ServiceLocation",
     "CustomerAddress",
+    "PaymentSettlement",
+    "ProviderSubmerchant",
     "User",
 ]

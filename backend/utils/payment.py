@@ -4,6 +4,7 @@ from backend import models
 from backend.core.clock import utc_now
 from backend.schemas import PaymentStatus
 from backend.utils.booking import format_booking_detail_response
+from backend.utils.marketplace import format_payment_settlement
 
 
 def fail_pending_payments_for_booking(booking: models.Booking, db: Session):
@@ -29,9 +30,19 @@ def fail_pending_payments_for_booking(booking: models.Booking, db: Session):
     return len(pending_payments)
 
 
-def format_payment_response(payment: models.Payment, db: Session):
+def format_payment_response(
+    payment: models.Payment,
+    db: Session,
+    *,
+    include_settlement: bool = False,
+):
     booking = (
         db.query(models.Booking).filter(models.Booking.id == payment.booking_id).first()
+    )
+    settlement = (
+        db.query(models.PaymentSettlement)
+        .filter(models.PaymentSettlement.payment_id == payment.id)
+        .first()
     )
 
     return {
@@ -60,5 +71,11 @@ def format_payment_response(payment: models.Payment, db: Session):
         "paid_at": payment.paid_at,
         "refunded_at": payment.refunded_at,
         "failed_at": payment.failed_at,
+        # Commission and provider payout metadata is an internal/provider
+        # concern. Customer responses expose the payment total and status but
+        # do not expose the platform split.
+        "settlement": format_payment_settlement(settlement)
+        if include_settlement
+        else None,
         "booking": format_booking_detail_response(booking, db) if booking else None,
     }

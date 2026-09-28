@@ -24,6 +24,7 @@ from backend.routers import (
     provider_verification,
     public,
     payment,
+    marketplace,
     shared,
     websocket,
 )
@@ -56,6 +57,10 @@ OPENAPI_TAGS = [
     {
         "name": "Payment",
         "description": "iyzico Sandbox payment callbacks and payment-provider integration.",
+    },
+    {
+        "name": "Marketplace",
+        "description": "Provider submerchant onboarding, commission splits, and settlement approval controls.",
     },
     {
         "name": "Admin",
@@ -143,6 +148,7 @@ app.include_router(customer.router)
 app.include_router(provider.router)
 app.include_router(provider_verification.router)
 app.include_router(payment.router)
+app.include_router(marketplace.router)
 app.include_router(admin.router)
 app.include_router(admin_verification.router)
 app.include_router(shared.router)

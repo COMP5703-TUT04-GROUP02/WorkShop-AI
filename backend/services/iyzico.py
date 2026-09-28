@@ -24,6 +24,9 @@ from backend.config import (
 
 CHECKOUT_FORM_INITIALIZE_PATH = "/payment/iyzipos/checkoutform/initialize/auth/ecom"
 CHECKOUT_FORM_RETRIEVE_PATH = "/payment/iyzipos/checkoutform/auth/ecom/detail"
+SUBMERCHANT_CREATE_PATH = "/onboarding/submerchant"
+SUBMERCHANT_UPDATE_PATH = "/onboarding/submerchant"
+ITEM_APPROVE_PATH = "/payment/iyzipos/item/approve"
 
 
 class IyzicoClientError(RuntimeError):
@@ -103,6 +106,34 @@ class IyzicoClient:
             )
         return response_data
 
+    async def _put(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        headers = self._authorization_headers(path, body)
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=self.timeout,
+            ) as client:
+                response = await client.put(path, content=body, headers=headers)
+        except httpx.HTTPError as exc:
+            raise IyzicoClientError("iyzico request failed") from exc
+
+        try:
+            response_data = response.json()
+        except ValueError as exc:
+            raise IyzicoClientError(
+                "iyzico returned a non-JSON response"
+            ) from exc
+
+        if not isinstance(response_data, dict):
+            raise IyzicoClientError("iyzico returned an invalid response")
+        if response.status_code >= 400:
+            raise IyzicoClientError(
+                "iyzico rejected the request",
+                response_data=response_data,
+            )
+        return response_data
+
     async def initialize_checkout_form(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._post(CHECKOUT_FORM_INITIALIZE_PATH, payload)
 
@@ -119,6 +150,21 @@ class IyzicoClient:
         if conversation_id:
             payload["conversationId"] = conversation_id
         return await self._post(CHECKOUT_FORM_RETRIEVE_PATH, payload)
+
+    async def create_submerchant(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._post(SUBMERCHANT_CREATE_PATH, payload)
+
+    async def update_submerchant(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._put(SUBMERCHANT_UPDATE_PATH, payload)
+
+    async def approve_item(self, payment_transaction_id: str) -> dict[str, Any]:
+        return await self._post(
+            ITEM_APPROVE_PATH,
+            {
+                "locale": "en",
+                "paymentTransactionId": payment_transaction_id,
+            },
+        )
 
 
 def get_iyzico_client() -> IyzicoClient:
