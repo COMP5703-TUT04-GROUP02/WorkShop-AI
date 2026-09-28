@@ -179,6 +179,7 @@ class BookingBaseResponse(BaseModel):
     quoted_at: str | None = None
     status: BookingStatus
     status_note: str | None = None
+    booking_notice: str | None = None
 
 class BookingComplaintSummaryResponse(BaseModel):
     has_open_complaint: bool

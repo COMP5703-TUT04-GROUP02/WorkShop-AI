@@ -44,6 +44,7 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   refunded: "Refunded",
 };
 
+
 export const REFUND_SERVICE_STAGE_LABELS: Record<RefundServiceStage, string> = {
   not_started: "Not started",
   in_progress: "In progress",
@@ -84,6 +85,7 @@ export function getRefundStatusLabel(status: string) {
 export function getPaymentStatusLabel(status: string) {
   return PAYMENT_STATUS_LABELS[status] ?? status;
 }
+
 
 export function getRefundServiceStageLabel(stage: string) {
   return REFUND_SERVICE_STAGE_LABELS[stage as RefundServiceStage] ?? stage;

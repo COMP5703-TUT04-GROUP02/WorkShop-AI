@@ -41,6 +41,8 @@ class ProviderSubmerchantUpsert(BaseModel):
     )
     @classmethod
     def strip_optional_text(cls, value):
+        if value is None:
+            return None
         value = value.strip()
         return value or None
 
@@ -50,6 +52,23 @@ class ProviderSubmerchantUpsert(BaseModel):
         if not value.strip():
             raise ValueError("This field cannot be empty")
         return value.strip()
+
+    @field_validator("iban")
+    @classmethod
+    def validate_turkish_iban(cls, value):
+        value = value.replace(" ", "").strip().upper()
+        if len(value) != 26 or not value.startswith("TR") or not value[2:].isdigit():
+            raise ValueError("IBAN must be a valid Turkish IBAN")
+
+        rearranged = value[4:] + value[:4]
+        remainder = 0
+        for character in rearranged:
+            digits = str(ord(character) - ord("A") + 10) if character.isalpha() else character
+            for digit in digits:
+                remainder = (remainder * 10 + int(digit)) % 97
+        if remainder != 1:
+            raise ValueError("IBAN checksum is invalid")
+        return value
 
     @field_validator("currency")
     @classmethod

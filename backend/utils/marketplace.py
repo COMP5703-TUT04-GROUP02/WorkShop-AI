@@ -51,8 +51,16 @@ def is_provider_submerchant_active(
     return bool(
         submerchant
         and submerchant.status == SubmerchantStatus.active.value
-        and submerchant.submerchant_key
     )
+
+
+def pause_booking_for_provider_onboarding(booking: models.Booking) -> None:
+    if booking.status not in UNPAID_BOOKING_STATUSES:
+        return
+
+    booking.onboarding_paused = True
+    booking.onboarding_pause_reason = ONBOARDING_PAUSE_REASON
+    booking.onboarding_paused_at = booking.onboarding_paused_at or utc_now()
 
 
 def refresh_provider_onboarding_holds(
@@ -67,7 +75,6 @@ def refresh_provider_onboarding_holds(
     )
     bookings = query.all()
     changed = 0
-    now = utc_now()
     for booking in bookings:
         if active:
             if booking.onboarding_paused:
@@ -76,9 +83,7 @@ def refresh_provider_onboarding_holds(
                 booking.onboarding_paused_at = None
                 changed += 1
         elif not booking.onboarding_paused:
-            booking.onboarding_paused = True
-            booking.onboarding_pause_reason = ONBOARDING_PAUSE_REASON
-            booking.onboarding_paused_at = now
+            pause_booking_for_provider_onboarding(booking)
             changed += 1
     return changed
 
@@ -90,21 +95,15 @@ def require_active_provider_submerchant(
     booking: models.Booking | None = None,
 ) -> models.ProviderSubmerchant:
     submerchant = get_provider_submerchant(provider_profile_id, db)
-    if not (
-        submerchant
-        and submerchant.status == SubmerchantStatus.active.value
-        and submerchant.submerchant_key
-    ):
+    if not (submerchant and submerchant.status == SubmerchantStatus.active.value):
         if booking and booking.status in UNPAID_BOOKING_STATUSES:
-            booking.onboarding_paused = True
-            booking.onboarding_pause_reason = ONBOARDING_PAUSE_REASON
-            booking.onboarding_paused_at = booking.onboarding_paused_at or utc_now()
+            pause_booking_for_provider_onboarding(booking)
             db.commit()
         raise HTTPException(
             status_code=409,
             detail={
                 "code": "SUBMERCHANT_REQUIRED",
-                "message": "Complete the provider payout account before continuing this booking",
+                "message": "Complete the provider payout details before continuing this booking",
             },
         )
     return submerchant

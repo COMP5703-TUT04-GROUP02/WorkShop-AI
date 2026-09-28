@@ -38,6 +38,7 @@ export type BookingDetail = {
   quoted_at: string | null;
   status: BookingStatus;
   status_note: string | null;
+  booking_notice?: string | null;
   customer?: User | null;
   provider?: ProviderProfile | null;
   attachments?: BookingAttachment[];

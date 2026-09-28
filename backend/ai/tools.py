@@ -45,6 +45,7 @@ from backend.utils.booking import (
 )
 from backend.utils.availability import ensure_provider_available_for_datetime_range
 from backend.utils.location import has_location
+from backend.utils.marketplace import require_active_provider_submerchant
 from backend.utils.notification import create_notification
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.service_locations import resolve_location_context
@@ -1075,6 +1076,11 @@ def prepare_quote_booking_action_tool(
         quote_message=quote_message,
     )
     booking = get_provider_booking_for_ai_action(booking_id, current_user, db)
+    require_active_provider_submerchant(
+        booking.provider_profile_id,
+        db,
+        booking=booking,
+    )
     ensure_booking_status(
         booking,
         [BookingStatus.pending],

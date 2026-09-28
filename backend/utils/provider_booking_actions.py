@@ -32,6 +32,7 @@ from backend.utils.chat import (
 )
 from backend.utils.notification import create_notification
 from backend.utils.payment import format_payment_response
+from backend.utils.marketplace import require_active_provider_submerchant
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.refund import (
     add_refund_request_status_history,
@@ -153,7 +154,7 @@ async def approve_provider_refund_request_action(
         "message": "Refund request approved successfully",
         "refund_request": format_refund_request_response(refund_request, db),
         "booking": format_booking_detail_response(booking, db),
-        "payment": format_payment_response(payment, db, include_settlement=True),
+        "payment": format_payment_response(payment, db),
     }
 
 
@@ -269,6 +270,12 @@ async def quote_provider_booking_action(
     )
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+
+    require_active_provider_submerchant(
+        provider_profile.id,
+        db,
+        booking=booking,
+    )
 
     ensure_booking_status(
         booking, [BookingStatus.pending], "Only pending bookings can receive a quote"

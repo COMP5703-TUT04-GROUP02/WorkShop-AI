@@ -2,7 +2,7 @@ from backend import models
 from backend.database import SessionLocal
 from backend.schemas import SubmerchantType
 from backend.utils.marketplace_seed import build_demo_submerchant_data
-from tests.conftest import create_booking
+from tests.conftest import PNG_BYTES, create_booking
 
 
 def _remove_provider_submerchant(provider_profile_id: int) -> None:
@@ -72,7 +72,57 @@ def test_provider_can_manage_submerchant_without_exposing_secret_key(
     assert "submerchant_key" not in fetched.json()["data"]["submerchant"]
 
 
-def test_draft_provider_can_quote_and_customer_can_accept_booking(
+def test_provider_payout_details_require_valid_turkish_iban(client, marketplace):
+    payload = {
+        "submerchant_type": "PERSONAL",
+        "name": "Can Provider",
+        "email": "provider@example.com",
+        "gsm_number": "+905551110000",
+        "address": "Karakoy, Istanbul",
+        "iban": "TR000000000000000000000000",
+        "contact_name": "Can",
+        "contact_surname": "Provider",
+        "identity_number": "10000000001",
+    }
+
+    response = client.put(
+        "/provider/submerchant",
+        json=payload,
+        headers=marketplace["provider"]["headers"],
+    )
+
+    assert response.status_code == 422, response.text
+    assert "IBAN checksum is invalid" in response.text
+
+
+def test_provider_company_details_allow_unused_personal_fields_to_be_null(
+    client, marketplace
+):
+    payload = {
+        "submerchant_type": "PRIVATE_COMPANY",
+        "name": "Can Provider Ltd",
+        "email": "provider@example.com",
+        "gsm_number": "+905551110000",
+        "address": "Karakoy, Istanbul",
+        "iban": "TR180006200119000006672315",
+        "contact_name": None,
+        "contact_surname": None,
+        "identity_number": None,
+        "tax_office": "Istanbul Tax Office",
+        "legal_company_title": "Can Provider Limited Company",
+    }
+
+    response = client.put(
+        "/provider/submerchant",
+        json=payload,
+        headers=marketplace["provider"]["headers"],
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["submerchant"]["status"] == "active"
+
+
+def test_draft_provider_stays_recommended_but_cannot_progress_unpaid_booking(
     client, marketplace
 ):
     customer = marketplace["customer"]["headers"]
@@ -80,41 +130,40 @@ def test_draft_provider_can_quote_and_customer_can_accept_booking(
     provider_profile_id = marketplace["provider_profile"]["id"]
     _remove_provider_submerchant(provider_profile_id)
 
+    recommendations = client.get(
+        "/customer/home/recommendations",
+        headers=customer,
+    )
+    assert recommendations.status_code == 200, recommendations.text
+    assert any(
+        item["id"] == provider_profile_id
+        for item in recommendations.json()["data"]["items"]
+    )
+
     booking = create_booking(client, customer, provider_profile_id)
+    assert booking["booking_notice"] == "This booking is temporarily unable to continue."
+    assert "onboarding_paused" not in booking
+    assert "onboarding_pause_reason" not in booking
     response = client.put(
         f"/provider/bookings/{booking['id']}/quote",
         json={"quote_amount": 250, "quote_message": "Includes parts"},
         headers=provider,
     )
 
-    assert response.status_code == 200, response.text
-    assert response.json()["data"]["booking"]["status"] == "quoted"
-
-    accepted = client.put(
-        f"/customer/bookings/{booking['id']}/accept-quote", headers=customer
-    )
-    assert accepted.status_code == 200, accepted.text
-    assert accepted.json()["data"]["booking"]["status"] == "awaiting_payment"
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["detail"]["code"] == "SUBMERCHANT_REQUIRED"
 
     db = SessionLocal()
     try:
         stored_booking = db.get(models.Booking, booking["id"])
-        assert stored_booking.status == "awaiting_payment"
-        assert stored_booking.onboarding_paused is False
-        assert stored_booking.onboarding_pause_reason is None
+        assert stored_booking.status == "pending"
+        assert stored_booking.onboarding_paused is True
+        assert stored_booking.onboarding_pause_reason == "provider_onboarding_required"
     finally:
         db.close()
 
-    payment = client.put(
-        f"/customer/bookings/{booking['id']}/pay",
-        json={"payment_method": "iyzico_checkout"},
-        headers=customer,
-    )
-    assert payment.status_code == 409, payment.text
-    assert payment.json()["error"]["detail"]["code"] == "SUBMERCHANT_REQUIRED"
 
-
-def test_payment_records_commission_split_but_hides_it_from_customer(
+def test_payment_flow_does_not_create_marketplace_settlement(
     client, marketplace, fake_iyzico
 ):
     customer = marketplace["customer"]["headers"]
@@ -141,11 +190,21 @@ def test_payment_records_commission_split_but_hides_it_from_customer(
     assert checkout.status_code == 200, checkout.text
     token = checkout.json()["data"]["token"]
     payload = fake_iyzico.sessions[token]
-    assert payload["basketItems"][0]["subMerchantPrice"] == "162.00"
+    assert "subMerchantKey" not in payload["basketItems"][0]
+    assert "subMerchantPrice" not in payload["basketItems"][0]
 
     callback = client.post("/payments/iyzico/callback", data={"token": token})
     assert callback.status_code == 200, callback.text
     assert callback.json()["data"]["payment"]["settlement"] is None
+
+    _remove_provider_submerchant(provider_profile_id)
+    completed = client.put(
+        f"/provider/bookings/{booking['id']}/complete",
+        files=[("proof_files", ("proof.png", PNG_BYTES, "image/png"))],
+        headers=provider,
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["data"]["booking"]["status"] == "awaiting_confirmation"
 
     customer_payments = client.get("/customer/payments", headers=customer)
     assert customer_payments.status_code == 200, customer_payments.text
@@ -154,49 +213,4 @@ def test_payment_records_commission_split_but_hides_it_from_customer(
 
     provider_payments = client.get("/provider/payments", headers=provider)
     assert provider_payments.status_code == 200, provider_payments.text
-    settlement = provider_payments.json()["data"]["items"][0]["settlement"]
-    assert settlement["platform_commission_amount"] == 18.0
-    assert settlement["provider_share_amount"] == 162.0
-    assert settlement["status"] == "pending"
-
-
-def test_paid_settlement_can_be_approved_after_completion(client, marketplace):
-    customer = marketplace["customer"]["headers"]
-    provider = marketplace["provider"]["headers"]
-    provider_profile_id = marketplace["provider_profile"]["id"]
-    booking = create_booking(client, customer, provider_profile_id)
-
-    client.put(
-        f"/provider/bookings/{booking['id']}/quote",
-        json={"quote_amount": 180, "quote_message": "Labour only"},
-        headers=provider,
-    )
-    client.put(f"/customer/bookings/{booking['id']}/accept-quote", headers=customer)
-    checkout = client.put(
-        f"/customer/bookings/{booking['id']}/pay",
-        json={"payment_method": "iyzico_checkout"},
-        headers=customer,
-    )
-    callback = client.post(
-        "/payments/iyzico/callback",
-        data={"token": checkout.json()["data"]["token"]},
-    )
-    assert callback.status_code == 200, callback.text
-    payment_id = callback.json()["data"]["payment"]["id"]
-
-    from backend.tasks.marketplace_tasks import _approve_payment_settlement
-
-    result = _approve_payment_settlement(payment_id)
-    assert result["status"] == "approved"
-
-    db = SessionLocal()
-    try:
-        settlement = (
-            db.query(models.PaymentSettlement)
-            .filter(models.PaymentSettlement.payment_id == payment_id)
-            .one()
-        )
-        assert settlement.status == "approved"
-        assert settlement.approved_at is not None
-    finally:
-        db.close()
+    assert provider_payments.json()["data"]["items"][0]["settlement"] is None

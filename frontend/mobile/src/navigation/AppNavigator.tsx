@@ -31,8 +31,11 @@ import { ProviderPortfolioCreateScreen } from "../screens/provider/ProviderPortf
 import { ProviderPortfolioDetailScreen } from "../screens/provider/ProviderPortfolioDetailScreen";
 import { ProviderPortfolioListScreen } from "../screens/provider/ProviderPortfolioListScreen";
 import { ProviderHomeScreen } from "../screens/provider/ProviderHomeScreen";
+import { ProviderPayoutAccountScreen } from "../screens/provider/ProviderPayoutAccountScreen";
 import { ProviderOperatingSettingsScreen } from "../screens/provider/ProviderOperatingSettingsScreen";
+import { ProviderPayoutReminder } from "../components/ProviderPayoutReminder";
 import { useAuth } from "../context/AuthContext";
+import { ProviderPayoutStatusProvider } from "../context/ProviderPayoutStatusContext";
 import {
   ProviderProfileGateProvider,
   useProviderProfileGate,
@@ -107,9 +110,11 @@ export function AppNavigator() {
     <NavigationContainer linking={linking} theme={navigationTheme}>
       {user ? (
         <RealtimeProvider>
-          <ProviderProfileGateProvider>
-            <AuthenticatedStack />
-          </ProviderProfileGateProvider>
+          <ProviderPayoutStatusProvider>
+            <ProviderProfileGateProvider>
+              <AuthenticatedStack />
+            </ProviderProfileGateProvider>
+          </ProviderPayoutStatusProvider>
         </RealtimeProvider>
       ) : (
         <Stack.Navigator>
@@ -137,7 +142,10 @@ function AuthenticatedStack() {
       layout={({ children }) => (
         <View style={[styles.shell, isWebDesktop ? styles.shellDesktop : null]}>
           {isWebDesktop ? <DesktopSidebar /> : null}
-          <View style={styles.shellContent}>{children}</View>
+          <View style={styles.shellContent}>
+            <ProviderPayoutReminder />
+            {children}
+          </View>
         </View>
       )}
     >
@@ -177,6 +185,11 @@ function AuthenticatedStack() {
         name="ProviderVerification"
         component={ProviderHomeScreen}
         options={{ title: "Verification" }}
+      />
+      <Stack.Screen
+        name="ProviderPayoutAccount"
+        component={ProviderPayoutAccountScreen}
+        options={{ title: "Payout account" }}
       />
       <Stack.Screen
         name="ProviderOperatingSettings"

@@ -841,7 +841,7 @@ def get_provider_payments(
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db, include_settlement=True))
+        result.append(format_payment_response(payment, db))
     return success_response(build_paginated_response(result, total, page, page_size))
 
 

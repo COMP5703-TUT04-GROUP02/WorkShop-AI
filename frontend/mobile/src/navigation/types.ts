@@ -45,6 +45,7 @@ export type RootStackParamList = {
   };
   AccountEdit: undefined;
   ProviderVerification: undefined;
+  ProviderPayoutAccount: undefined;
   ProviderOperatingSettings: undefined;
   AccountSecurity: undefined;
   Help: undefined;

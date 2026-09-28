@@ -1,15 +1,13 @@
-"""Marketplace onboarding and settlement controls."""
+"""Provider payout details with local validation."""
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend import models
-from backend.auth import get_db, require_admin, require_provider
+from backend.auth import get_db, require_provider
 from backend.schemas import ProviderSubmerchantUpsert
 from backend.services.marketplace import upsert_provider_submerchant
-from backend.tasks.marketplace_tasks import enqueue_payment_settlement
 from backend.utils.marketplace import (
-    format_payment_settlement,
     format_submerchant_response,
     get_provider_submerchant,
 )
@@ -57,37 +55,3 @@ async def update_provider_submerchant_profile(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return success_response({"submerchant": submerchant})
-
-
-@router.post("/admin/payments/{payment_id}/settlement/retry")
-def retry_payment_settlement(
-    payment_id: int,
-    current_user: models.User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    del current_user
-    settlement = (
-        db.query(models.PaymentSettlement)
-        .filter(models.PaymentSettlement.payment_id == payment_id)
-        .first()
-    )
-    if not settlement:
-        raise HTTPException(status_code=404, detail="Payment settlement not found")
-    if settlement.status == "approved":
-        return success_response(
-            {
-                "queued": False,
-                "settlement": format_payment_settlement(settlement),
-            }
-        )
-    settlement.failure_code = None
-    settlement.failure_message = None
-    db.commit()
-    queued = enqueue_payment_settlement(payment_id)
-    db.refresh(settlement)
-    return success_response(
-        {
-            "queued": queued,
-            "settlement": format_payment_settlement(settlement),
-        }
-    )

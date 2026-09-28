@@ -306,6 +306,7 @@ export function AdminDashboardScreen() {
         <ProviderVerificationAdminPanel />
       </View>
 
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Portfolios pending review</Text>
         {isLoading ? (

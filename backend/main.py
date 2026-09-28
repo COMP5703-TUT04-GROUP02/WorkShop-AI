@@ -60,7 +60,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Marketplace",
-        "description": "Provider submerchant onboarding, commission splits, and settlement approval controls.",
+        "description": "Provider payout details and local validation.",
     },
     {
         "name": "Admin",

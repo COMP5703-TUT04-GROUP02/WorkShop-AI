@@ -1,7 +1,7 @@
-"""Create Demo Provider Submerchants in iyzico Sandbox.
+"""Populate demo provider payout details with local validation.
 
-Local draft records are created by seed_demo_data. This command is explicit
-because it makes external iyzico API calls and stores returned subMerchantKeys.
+Local draft records are created by seed_demo_data. This command fills the
+official demo details and does not call an external payment API.
 """
 
 import asyncio
@@ -53,8 +53,8 @@ async def run() -> None:
                     f"{result.get('iyzico_error_message')}"
                 )
         print(
-            "Sandbox submerchant initialization complete: "
-            f"active={success}, failed={failed}"
+            "Local payout details initialization complete: "
+            f"valid={success}, failed={failed}"
         )
     finally:
         db.close()

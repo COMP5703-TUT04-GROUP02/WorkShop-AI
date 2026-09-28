@@ -445,6 +445,9 @@ function ProviderBookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
+            {booking.booking_notice ? (
+              <DetailRow label="Notice" value={booking.booking_notice} />
+            ) : null}
             <DetailRow label="Booking title" value={booking.title} />
             <DetailRow
               label="Customer"

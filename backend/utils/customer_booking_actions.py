@@ -41,9 +41,8 @@ from backend.utils.notification import create_admin_notifications, create_notifi
 from backend.utils.payment import fail_pending_payments_for_booking
 from backend.utils.payment import format_payment_response
 from backend.utils.marketplace import (
-    ensure_payment_settlement,
-    calculate_commission,
-    get_provider_submerchant,
+    is_provider_submerchant_active,
+    pause_booking_for_provider_onboarding,
     require_active_provider_submerchant,
 )
 from backend.utils.refund import (
@@ -152,6 +151,8 @@ async def create_customer_booking_action(
         )
         db.add(booking)
         db.flush()
+        if not is_provider_submerchant_active(provider_profile.id, db):
+            pause_booking_for_provider_onboarding(booking)
 
         attachment_records = []
         for file in attachments or []:
@@ -595,16 +596,6 @@ def _build_checkout_payload(
 ) -> dict:
     buyer, address = _checkout_buyer_details(booking, current_user, db)
     amount = float(payment.amount)
-    submerchant = get_provider_submerchant(booking.provider_profile_id, db)
-    if not submerchant or not submerchant.submerchant_key:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "SUBMERCHANT_REQUIRED",
-                "message": "Complete the provider payout account before paying",
-            },
-        )
-    _, provider_share_amount = calculate_commission(payment.amount)
     return {
         "locale": "en",
         "conversationId": payment.conversation_id,
@@ -624,8 +615,6 @@ def _build_checkout_payload(
                 "name": booking.title,
                 "category1": "Service",
                 "itemType": "VIRTUAL",
-                "subMerchantKey": submerchant.submerchant_key,
-                "subMerchantPrice": str(provider_share_amount),
             }
         ],
     }
@@ -737,8 +726,6 @@ async def apply_iyzico_checkout_result(
     payment.failed_at = None
     payment.failure_code = None
     payment.failure_message = None
-    ensure_payment_settlement(payment, db, transaction=transaction)
-
     if booking.status == BookingStatus.awaiting_payment:
         old_status = booking.status
         booking.status = BookingStatus.accepted
@@ -1140,6 +1127,12 @@ async def accept_customer_booking_quote_action(
     if booking.quote_amount is None:
         raise HTTPException(status_code=400, detail="Booking has no quote amount")
 
+    require_active_provider_submerchant(
+        booking.provider_profile_id,
+        db,
+        booking=booking,
+    )
+
     existing_payment = (
         db.query(models.Payment)
         .filter(
@@ -1380,11 +1373,7 @@ async def confirm_customer_booking_complete_action(
         .first()
     )
     if payment:
-        ensure_payment_settlement(payment, db)
         db.commit()
-        from backend.tasks.marketplace_tasks import enqueue_payment_settlement
-
-        enqueue_payment_settlement(payment.id)
     if booking_status_chat_message:
         db.refresh(booking_status_chat_message)
         await push_chat_message_to_room_members(booking_status_chat_message, db)

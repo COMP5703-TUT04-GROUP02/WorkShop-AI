@@ -1423,6 +1423,12 @@ function BookingActionModal({
               <View style={styles.detailBox}>
                 <Text style={styles.detailLabel}>Current status</Text>
                 <Text style={styles.detailValue}>{getBookingStatusLabelForChat(booking.status)}</Text>
+                {booking.booking_notice ? (
+                  <>
+                    <Text style={styles.detailLabel}>Notice</Text>
+                    <Text style={styles.detailValue}>{booking.booking_notice}</Text>
+                  </>
+                ) : null}
                 <Text style={styles.detailLabel}>
                   {userRole === "provider" ? "Customer" : "Provider"}
                 </Text>
