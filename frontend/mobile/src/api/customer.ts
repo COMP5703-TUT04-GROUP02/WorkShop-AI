@@ -15,7 +15,6 @@ import type {
   BookingDetail,
   BookingPayload,
   BookingUpdateResponseData,
-  RefundServiceStage,
 } from "../types/booking";
 import type { ChatRoom } from "../types/chat";
 import type { PaginatedData } from "../types/chat";
@@ -270,13 +269,21 @@ export async function cancelCustomerBooking(bookingId: number) {
 
 export async function payCustomerBooking(
   bookingId: number,
-  paymentMethod = "mock",
+  paymentMethod = "iyzico_checkout",
+  idempotencyKey?: string,
 ) {
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/customer/bookings/${bookingId}/pay`,
     {
       payment_method: paymentMethod,
     },
+    idempotencyKey
+      ? {
+          headers: {
+            "Idempotency-Key": idempotencyKey,
+          },
+        }
+      : undefined,
   );
 
   return response.data.data;
@@ -284,14 +291,14 @@ export async function payCustomerBooking(
 
 export async function requestCustomerRefund(
   bookingId: number,
-  serviceStage: RefundServiceStage,
   reason: string,
+  refundAmount?: number,
 ) {
   const response = await apiClient.post<ApiResponse<BookingActionResponseData>>(
     `/bookings/${bookingId}/refund-requests`,
     {
-      service_stage: serviceStage,
       reason,
+      ...(refundAmount != null ? { refund_amount: refundAmount } : {}),
     },
     {
       timeout: 30000,

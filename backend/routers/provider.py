@@ -841,7 +841,7 @@ def get_provider_payments(
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db))
+        result.append(format_payment_response(payment, db, include_settlement=True))
     return success_response(build_paginated_response(result, total, page, page_size))
 
 
@@ -942,6 +942,8 @@ async def reject_booking(
 async def complete_booking(
     booking_id: int,
     proof_files: list[UploadFile] = File(...),
+    final_quote_amount: float | None = Form(default=None),
+    final_quote_message: str | None = Form(default=None),
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
@@ -952,5 +954,7 @@ async def complete_booking(
             current_user,
             db,
             proof_files,
+            final_quote_amount,
+            final_quote_message,
         )
     )

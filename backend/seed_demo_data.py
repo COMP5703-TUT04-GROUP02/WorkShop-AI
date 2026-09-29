@@ -1,5 +1,5 @@
 import random
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from backend import models
@@ -9,6 +9,7 @@ from backend.constants import ALLOWED_PROVIDER_TAGS, DEMO_PASSWORD
 from backend.core.clock import utc_now
 from backend.database import SessionLocal
 from backend.utils.service_locations import seed_service_locations
+from backend.utils.marketplace_seed import ensure_demo_submerchant_drafts
 
 TAGS = ALLOWED_PROVIDER_TAGS
 DEFAULT_PROVINCE = "Istanbul"
@@ -187,8 +188,6 @@ def create_demo_customers(db, location_seeds=None):
             db.add(user)
             db.flush()
 
-        ensure_password_identity(user, db)
-
         profile = (
             db.query(models.CustomerProfile)
             .filter(models.CustomerProfile.user_id == user.id)
@@ -221,6 +220,11 @@ def create_demo_customers(db, location_seeds=None):
     return customers
 
 
+def get_seed_admin_id(db):
+    admin = db.query(models.User).filter(models.User.email == ADMIN_EMAIL).first()
+    return admin.id if admin else None
+
+
 def create_demo_providers(db, customers, location_seeds=None):
     location_seeds = location_seeds or seed_service_locations(db)
     istanbul_districts = [
@@ -247,17 +251,19 @@ def create_demo_providers(db, customers, location_seeds=None):
 
         provider_user = models.User(
             name=f"Istanbul Provider {index + 1}",
+            first_name="Istanbul",
+            last_name=f"Provider {index + 1}",
             email=email,
             role="provider",
             is_active=True,
             is_banned=False,
             last_login_at=None,
+            identity_verification_status="approved",
+            qualification_verification_status="approved",
             created_at=now,
         )
         db.add(provider_user)
         db.flush()
-        ensure_password_identity(provider_user, db)
-
         provider_profile = models.ProviderProfile(
             user_id=provider_user.id,
             business_name=business_name,
@@ -279,6 +285,32 @@ def create_demo_providers(db, customers, location_seeds=None):
         )
         db.add(provider_profile)
         db.flush()
+        identity_application = models.IdentityVerificationApplication(
+            user_id=provider_user.id,
+            submitted_first_name=provider_user.first_name,
+            submitted_last_name=provider_user.last_name,
+            date_of_birth=date(1990, 1, 1),
+            document_type="national_id",
+            status="approved",
+            review_note="Demo identity verification approved for local testing",
+            reviewed_by_user_id=get_seed_admin_id(db),
+            submitted_at=now,
+            reviewed_at=now,
+        )
+        db.add(identity_application)
+        db.flush()
+        db.add(
+            models.IdentityVerificationFile(
+                application_id=identity_application.id,
+                file_url=(
+                    f"https://example.com/demo-verification/"
+                    f"provider-{index + 1}-identity.pdf"
+                ),
+                original_file_name=f"provider-{index + 1}-identity.pdf",
+                content_type="application/pdf",
+                sort_order=0,
+            )
+        )
         ensure_seed_verified(provider_user, db)
         created_provider_count += 1
 
@@ -400,6 +432,7 @@ def main():
         else:
             result = create_demo_providers(db, customers, location_seeds)
         assign_existing_demo_locations(db, location_seeds)
+        result["submerchant_drafts"] = ensure_demo_submerchant_drafts(db)
         db.commit()
         print("Demo data inserted successfully.")
         print(result)

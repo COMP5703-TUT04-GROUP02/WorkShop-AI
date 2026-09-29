@@ -16,24 +16,37 @@ import {
   approveProviderRefundRequest,
   completeProviderBooking,
   getProviderBookings,
+  getProviderPayments,
   quoteProviderBooking,
   rejectProviderRefundRequest,
   rejectProviderBooking,
 } from "../../api/provider";
 import { PrimaryButton } from "../../components/PrimaryButton";
+import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownCard";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
-import type { BookingDetail } from "../../types/booking";
+import type { BookingDetail, PaymentHistoryEntry } from "../../types/booking";
 import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
+import { indexLatestPayments } from "../../utils/payment";
 
-const HIDDEN_ORDER_STATUSES = ["completed", "cancelled", "rejected", "refunded"];
+const HIDDEN_ORDER_STATUSES = [
+  "completed",
+  "cancelled",
+  "rejected",
+  "refunded",
+  "partially_refunded",
+];
 
 export function ProviderBookingsScreen() {
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  const [paymentsByBookingId, setPaymentsByBookingId] = useState<
+    Record<number, PaymentHistoryEntry>
+  >({});
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentHistoryEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [message, setMessage] = useState("");
@@ -43,12 +56,18 @@ export function ProviderBookingsScreen() {
   const [rejectReason, setRejectReason] = useState("");
   const [refundRejectReason, setRefundRejectReason] = useState("");
   const [proofAssets, setProofAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [finalQuoteAmount, setFinalQuoteAmount] = useState("");
+  const [finalQuoteMessage, setFinalQuoteMessage] = useState("");
 
   const loadBookings = useCallback(async () => {
     setMessage("");
     try {
-      const result = await getProviderBookings(undefined, 1, 100);
-      setBookings(filterActiveBookings(result?.items ?? []));
+      const [bookingResult, paymentResult] = await Promise.all([
+        getProviderBookings(undefined, 1, 100),
+        getProviderPayments(1, 100),
+      ]);
+      setBookings(filterActiveBookings(bookingResult?.items ?? []));
+      setPaymentsByBookingId(indexLatestPayments(paymentResult?.items ?? []));
     } catch (error) {
       setMessage(getErrorMessage(error));
     }
@@ -60,9 +79,13 @@ export function ProviderBookingsScreen() {
     async function loadInitialBookings() {
       setIsLoading(true);
       try {
-        const result = await getProviderBookings(undefined, 1, 100);
+        const [bookingResult, paymentResult] = await Promise.all([
+          getProviderBookings(undefined, 1, 100),
+          getProviderPayments(1, 100),
+        ]);
         if (isActive) {
-          setBookings(filterActiveBookings(result?.items ?? []));
+          setBookings(filterActiveBookings(bookingResult?.items ?? []));
+          setPaymentsByBookingId(indexLatestPayments(paymentResult?.items ?? []));
         }
       } catch (error) {
         if (isActive) {
@@ -90,21 +113,27 @@ export function ProviderBookingsScreen() {
 
   function openBooking(booking: BookingDetail) {
     setSelectedBooking(booking);
+    setSelectedPayment(paymentsByBookingId[booking.id] ?? null);
     setQuoteAmount(booking.quote_amount == null ? "" : String(booking.quote_amount));
     setQuoteMessage(booking.quote_message || "");
     setRejectReason("");
     setRefundRejectReason("");
     setProofAssets([]);
+    setFinalQuoteAmount(booking.quote_amount == null ? "" : String(booking.quote_amount));
+    setFinalQuoteMessage(booking.quote_message || "");
     setActionError("");
   }
 
   function closeBooking() {
     setSelectedBooking(null);
+    setSelectedPayment(null);
     setQuoteAmount("");
     setQuoteMessage("");
     setRejectReason("");
     setRefundRejectReason("");
     setProofAssets([]);
+    setFinalQuoteAmount("");
+    setFinalQuoteMessage("");
     setActionError("");
   }
 
@@ -199,6 +228,11 @@ export function ProviderBookingsScreen() {
       setActionError("Add at least one photo or video as completion proof.");
       return;
     }
+    const parsedFinalAmount = Number(finalQuoteAmount);
+    if (!Number.isFinite(parsedFinalAmount) || parsedFinalAmount <= 0) {
+      setActionError("Enter a final quote amount greater than 0.");
+      return;
+    }
 
     setIsActing(true);
     setActionError("");
@@ -210,6 +244,8 @@ export function ProviderBookingsScreen() {
           fileName: asset.fileName,
           mimeType: asset.mimeType,
         })),
+        parsedFinalAmount,
+        finalQuoteMessage.trim() || null,
       );
       if (result?.booking) {
         setSelectedBooking(result.booking);
@@ -314,6 +350,7 @@ export function ProviderBookingsScreen() {
       <ProviderBookingDetailModal
         actionError={actionError}
         booking={selectedBooking}
+        payment={selectedPayment}
         isActing={isActing}
         onClose={closeBooking}
         onApproveRefund={handleApproveRefund}
@@ -323,6 +360,8 @@ export function ProviderBookingsScreen() {
         onReject={handleRejectBooking}
         onRejectRefund={handleRejectRefund}
         proofAssets={proofAssets}
+        finalQuoteAmount={finalQuoteAmount}
+        finalQuoteMessage={finalQuoteMessage}
         quoteAmount={quoteAmount}
         quoteMessage={quoteMessage}
         refundRejectReason={refundRejectReason}
@@ -330,6 +369,8 @@ export function ProviderBookingsScreen() {
         setRefundRejectReason={setRefundRejectReason}
         setQuoteAmount={setQuoteAmount}
         setQuoteMessage={setQuoteMessage}
+        setFinalQuoteAmount={setFinalQuoteAmount}
+        setFinalQuoteMessage={setFinalQuoteMessage}
         setRejectReason={setRejectReason}
       />
     </ScrollView>
@@ -391,6 +432,7 @@ function ProviderBookingDetailModal({
   actionError,
   booking,
   isActing,
+  payment,
   onApproveRefund,
   onComplete,
   onClose,
@@ -399,11 +441,15 @@ function ProviderBookingDetailModal({
   onReject,
   onRejectRefund,
   proofAssets,
+  finalQuoteAmount,
+  finalQuoteMessage,
   quoteAmount,
   quoteMessage,
   refundRejectReason,
   rejectReason,
   setRefundRejectReason,
+  setFinalQuoteAmount,
+  setFinalQuoteMessage,
   setQuoteAmount,
   setQuoteMessage,
   setRejectReason,
@@ -411,6 +457,7 @@ function ProviderBookingDetailModal({
   actionError: string;
   booking: BookingDetail | null;
   isActing: boolean;
+  payment: PaymentHistoryEntry | null;
   onApproveRefund: () => void;
   onComplete: () => void;
   onClose: () => void;
@@ -419,11 +466,15 @@ function ProviderBookingDetailModal({
   onReject: () => void;
   onRejectRefund: () => void;
   proofAssets: ImagePicker.ImagePickerAsset[];
+  finalQuoteAmount: string;
+  finalQuoteMessage: string;
   quoteAmount: string;
   quoteMessage: string;
   refundRejectReason: string;
   rejectReason: string;
   setRefundRejectReason: (value: string) => void;
+  setFinalQuoteAmount: (value: string) => void;
+  setFinalQuoteMessage: (value: string) => void;
   setQuoteAmount: (value: string) => void;
   setQuoteMessage: (value: string) => void;
   setRejectReason: (value: string) => void;
@@ -445,6 +496,9 @@ function ProviderBookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
+            {booking.booking_notice ? (
+              <DetailRow label="Notice" value={booking.booking_notice} />
+            ) : null}
             <DetailRow label="Booking title" value={booking.title} />
             <DetailRow
               label="Customer"
@@ -465,6 +519,11 @@ function ProviderBookingDetailModal({
               }
             />
             <DetailRow label="Quote notes" value={booking.quote_message || "—"} />
+            <MarketplaceBreakdownCard
+              amount={booking.quote_amount}
+              payment={payment}
+              title="Current payment breakdown"
+            />
             <DetailRow label="Notes" value={booking.status_note || "—"} />
             {currentRefundRequest ? (
               <>
@@ -472,11 +531,15 @@ function ProviderBookingDetailModal({
                   label="Refund status"
                   value={getRefundStatusLabel(currentRefundRequest.status)}
                 />
-                <DetailRow
-                  label="Refund stage"
-                  value={getRefundServiceStageLabel(currentRefundRequest.service_stage)}
-                />
                 <DetailRow label="Refund reason" value={currentRefundRequest.reason} />
+                <DetailRow
+                  label="Refund amount"
+                  value={
+                    currentRefundRequest.refund_amount == null
+                      ? "Full paid amount"
+                      : formatMoney(currentRefundRequest.refund_amount)
+                  }
+                />
                 <DetailRow
                   label="Rejection note"
                   value={currentRefundRequest.provider_note || "—"}
@@ -501,6 +564,10 @@ function ProviderBookingDetailModal({
                   placeholder="e.g. 120 TRY"
                   value={quoteAmount}
                 />
+                <MarketplaceBreakdownCard
+                  amount={quoteAmount}
+                  title="Quote estimate"
+                />
                 <TextField
                   label="Quote notes"
                   multiline
@@ -522,6 +589,25 @@ function ProviderBookingDetailModal({
 
             {canComplete ? (
               <View style={styles.proofBox}>
+                <TextField
+                  keyboardType="decimal-pad"
+                  label="Final quote amount"
+                  onChangeText={setFinalQuoteAmount}
+                  placeholder="Enter the final amount"
+                  value={finalQuoteAmount}
+                />
+                <MarketplaceBreakdownCard
+                  amount={finalQuoteAmount}
+                  title="Final quote estimate"
+                />
+                <TextField
+                  label="Final quote message"
+                  multiline
+                  numberOfLines={2}
+                  onChangeText={setFinalQuoteMessage}
+                  placeholder="Explain the final amount if it changed"
+                  value={finalQuoteMessage}
+                />
                 <Text style={styles.detailLabel}>Completion proof</Text>
                 <Text style={styles.proofText}>
                   {proofAssets.length > 0
@@ -643,16 +729,6 @@ function getRefundStatusLabel(status: string) {
   };
 
   return labels[status] || status;
-}
-
-function getRefundServiceStageLabel(stage: string) {
-  const labels: Record<string, string> = {
-    not_started: "Not started",
-    in_progress: "In progress",
-    service_completed: "Service completed",
-  };
-
-  return labels[stage] || stage;
 }
 
 function getStatusBadgeStyle(status: string) {

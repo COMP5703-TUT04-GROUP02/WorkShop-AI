@@ -114,7 +114,6 @@ def build_refund_request_fields(
         build_field("Refund request ID", refund_request.id),
         build_field("Booking ID", refund_request.booking_id),
         build_field("Provider", provider.business_name if provider else None),
-        build_field("Refund stage", refund_request.service_stage),
         build_field("Refund reason", refund_request.reason),
         build_field("Refund status", refund_request.status),
         build_field("Provider reply", refund_request.provider_note),
@@ -244,7 +243,10 @@ def build_ai_pending_action_preview(
             "title": "Confirm pay quote",
             "confirm_label": "Confirm pay quote",
             "extra_fields": [
-                build_field("Payment method", payload.get("payment_method", "mock"))
+                build_field(
+                    "Payment method",
+                    payload.get("payment_method", "iyzico_checkout"),
+                )
             ],
         },
         "reject_quote": {

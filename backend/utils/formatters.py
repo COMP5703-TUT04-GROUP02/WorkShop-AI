@@ -262,6 +262,11 @@ def format_booking_response(booking):
         "quoted_at": booking.quoted_at,
         "status": booking.status,
         "status_note": booking.status_note,
+        "booking_notice": (
+            "This booking is temporarily unable to continue."
+            if booking.onboarding_paused
+            else None
+        ),
     }
 
 

@@ -32,7 +32,7 @@ TOOL_CALLING_SYSTEM_PROMPT = """You are Workshop AI's tool-calling assistant. Ch
 - How booking, quotes, payment, refunds, complaints, or cancellation work: explain_booking_flow.
 - What you can do or how to use you, including minor typos: get_platform_capabilities.
 - Cancel a booking: prepare_cancel_booking_action (confirmation draft only).
-- Request a refund: prepare_refund_request_action with booking_id, service_stage, and reason.
+- Request a refund: prepare_refund_request_action with booking_id and reason after the booking is completed.
 - Pay or accept a quote: prepare_pay_booking_action.
 - Reject a quote: prepare_reject_quote_action.
 - Confirm completion: prepare_confirm_complete_action.

@@ -8,9 +8,9 @@ The repository contains a FastAPI backend and an Expo app that runs on iOS, Andr
 
 - Public provider search by service tag, area, price, and availability
 - Customer and provider chat, including real-time WebSocket delivery
-- Booking flow: request → quote → pay → complete → review
+- Booking flow: request → quote → authorize → complete → capture → review
 - Provider profiles, portfolios, and working-hour calendars
-- Admin tools for users, verification, bookings, refunds, and complaints
+- Admin tools for users, verification, bookings, payments, settlements, refunds, and complaints
 - Optional customer AI chat (API key, or admin ChatGPT Plus device-code login)
 
 
@@ -19,7 +19,10 @@ The repository contains a FastAPI backend and an Expo app that runs on iOS, Andr
 
 This is a working demo, not a production deployment.
 
-- Checkout uses a mock payment gateway. The quoted amount is charged in TRY; no card processor is connected.
+- Checkout uses iyzico Sandbox. Marketplace payments require an iyzico-enabled Marketplace merchant account; no live funds are involved.
+- Payment uses Checkout Form PreAuth first; the callback records `authorized`, and PostAuth captures the amount only after the customer confirms service completion. Authorized cancellations use Void.
+- Payment APIs cover authorization, callback handling, final capture, cancellation, Marketplace settlement retry, and one-time full/partial refunds.
+- Marketplace settlement approval and full/partial refunds are confirmed by iyzico before local terminal states are written. The app does not claim to know when a provider receives money.
 - Google and Apple buttons on the sign-in screen are placeholders until OAuth client IDs are configured.
 - Address autocomplete needs a server-side Google Places API (New) key. The rest of the app runs without it.
 - Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
@@ -172,6 +175,45 @@ Every seeded account uses the password `Demo1234`.
 
 
 
+## iyzico Sandbox testing
+
+Successful Sandbox cards:
+
+| Card number | Bank / type |
+| ----------- | ----------- |
+| `5526080000000006` | Akbank Mastercard credit |
+| `4603450000000000` | Denizbank Visa credit |
+| `4987490000000002` | QNB Visa debit |
+
+Use a future expiry date and a correctly formatted CVV. These cards simulate payments only; they do not move real funds.
+
+Seeded payout details use the following Sandbox fixtures:
+
+| Field | Personal / private company | Limited / joint stock company |
+| ----- | -------------------------- | ----------------------------- |
+| Name | `John's market` | `John's market` |
+| Email | `email@submerchantemail.com` | `email@submerchantemail.com` |
+| Phone | `+905350000000` | `+905350000000` |
+| Address | `Nidakule Göztepe, Merdivenköy Mah. Bora Sok. No:1` | same |
+| IBAN | `TR180006200119000006672315` | `TR180006200119000006672315` |
+| Identity number | `31300864726` | — |
+| Tax office | `Tax office` | `Tax office` |
+| Legal company title | `John Doe inc` | `XYZ inc` |
+| Tax number | — | `9261877` |
+
+The regular demo seed creates 30 providers and 300 bookings. Providers 6–9 are kept as negative onboarding samples without payout records; the other 26 providers receive deterministic, evenly distributed Personal, Private Company, or Limited / Joint Stock Company fixtures.
+
+To populate provider payout records and synchronize them with the Sandbox Marketplace account, run:
+
+```bash
+docker compose exec api python -m backend.seed_sandbox_submerchants
+```
+
+The script calls iyzico for each eligible provider and stores the returned status, external key, or error. It never marks a provider active locally when Sandbox rejects the details.
+
+
+
+
 ## Configuration
 
 Copy `.env.example` and adjust as needed. The values most people change first:
@@ -188,6 +230,9 @@ Copy `.env.example` and adjust as needed. The values most people change first:
 | `EMBEDDING_*`                                              | Review vectors. Compose defaults to local TEI (`Qwen3-Embedding-0.6B`, 1024). Leave blank in Docker; uncomment the host URL only for a local API process. |
 | `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | OAuth audience checks for `/social-login`                                                                                                                 |
 | `WORKSHOP_GOOGLE_MAPS_API_KEY`                             | Server-only key for the Places API (New) proxy                                                                                                             |
+| `IYZICO_BASE_URL` / `IYZICO_API_KEY` / `IYZICO_SECRET_KEY` | iyzico Sandbox endpoint and credentials                                                                                                                     |
+| `IYZICO_CALLBACK_URL` / `IYZICO_FRONTEND_RETURN_URL`       | Hosted Checkout callback and frontend return URLs                                                                                                           |
+| `IYZICO_CHECKOUT_TTL_SECONDS`                              | Hosted Checkout lifetime before a new checkout is required                                                                                                 |
 | `EXPO_PUBLIC_API_BASE_URL`                                 | API used by the Expo web/dev client                                                                                                                       |
 | `EXPO_PUBLIC_LAN_API_BASE_URL`                             | API used by Expo Go on a phone                                                                                                                            |
 
@@ -238,6 +283,7 @@ The same Admin page can sign in with SuperGrok / X Premium+ through xAI’s devi
 
 ```bash
 pytest
+pytest tests/test_marketplace.py
 cd frontend/mobile && npm run typecheck
 ```
 

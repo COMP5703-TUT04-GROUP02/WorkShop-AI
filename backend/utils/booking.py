@@ -27,8 +27,6 @@ ADMIN_BOOKING_STATUS_TRANSITIONS = {
         BookingStatus.awaiting_confirmation,
     ],
     BookingStatus.refunding: [
-        BookingStatus.accepted,
-        BookingStatus.awaiting_confirmation,
         BookingStatus.completed,
     ],
     BookingStatus.refunded: [BookingStatus.refunding],
@@ -283,16 +281,7 @@ def get_booking_complaint_summary(booking: models.Booking, db: Session):
 def get_booking_current_refund_request_summary(booking: models.Booking, db: Session):
     refund_request = (
         db.query(models.RefundRequest)
-        .filter(
-            models.RefundRequest.booking_id == booking.id,
-            models.RefundRequest.status.in_(
-                [
-                    RefundRequestStatus.pending,
-                    RefundRequestStatus.rejected,
-                    RefundRequestStatus.appealed,
-                ]
-            ),
-        )
+        .filter(models.RefundRequest.booking_id == booking.id)
         .order_by(models.RefundRequest.created_at.desc())
         .first()
     )
@@ -305,7 +294,6 @@ def get_booking_current_refund_request_summary(booking: models.Booking, db: Sess
         "payment_id": refund_request.payment_id,
         "customer_id": refund_request.customer_id,
         "provider_profile_id": refund_request.provider_profile_id,
-        "service_stage": refund_request.service_stage,
         "reason": refund_request.reason,
         "status": refund_request.status,
         "provider_note": refund_request.provider_note,
@@ -316,6 +304,9 @@ def get_booking_current_refund_request_summary(booking: models.Booking, db: Sess
         "responded_at": refund_request.responded_at,
         "appealed_at": refund_request.appealed_at,
         "admin_responded_at": refund_request.admin_responded_at,
+        "cancelled_at": refund_request.cancelled_at,
+        "refunded_at": refund_request.refunded_at,
+        "refund_amount": refund_request.refund_amount,
     }
 
 

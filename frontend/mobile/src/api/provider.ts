@@ -447,6 +447,8 @@ export async function completeProviderBooking(
     fileName?: string | null;
     mimeType?: string | null;
   }>,
+  finalQuoteAmount?: number | null,
+  finalQuoteMessage?: string | null,
 ) {
   const formData = new FormData();
 
@@ -469,6 +471,13 @@ export async function completeProviderBooking(
         type: mimeType,
       } as unknown as Blob);
     }
+  }
+
+  if (finalQuoteAmount != null) {
+    formData.append("final_quote_amount", String(finalQuoteAmount));
+  }
+  if (finalQuoteMessage?.trim()) {
+    formData.append("final_quote_message", finalQuoteMessage.trim());
   }
 
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(

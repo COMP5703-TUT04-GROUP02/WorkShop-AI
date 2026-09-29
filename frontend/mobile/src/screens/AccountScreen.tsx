@@ -10,6 +10,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  WalletCards,
   LockKeyhole,
   Shield,
   SlidersHorizontal,
@@ -162,6 +163,13 @@ export function AccountScreen() {
                     showProviderProfileRequiredMessage();
                   }
                 }}
+              />
+            ) : null}
+            {isProvider ? (
+              <MenuItem
+                icon={<WalletCards color={colors.text} size={24} />}
+                label="Payout account"
+                onPress={() => navigation.navigate("ProviderPayoutAccount")}
               />
             ) : null}
           </View>

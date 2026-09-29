@@ -152,6 +152,7 @@ class BookingStatus(str, Enum):
     rejected = "rejected"
     refunding = "refunding"
     refunded = "refunded"
+    partially_refunded = "partially_refunded"
     awaiting_confirmation = "awaiting_confirmation"
     completed = "completed"
     cancelled = "cancelled"
@@ -179,6 +180,7 @@ class BookingBaseResponse(BaseModel):
     quoted_at: str | None = None
     status: BookingStatus
     status_note: str | None = None
+    booking_notice: str | None = None
 
 class BookingComplaintSummaryResponse(BaseModel):
     has_open_complaint: bool
@@ -221,12 +223,19 @@ class AdminBookingStatusUpdate(BaseModel):
 
 class PaymentStatus(str, Enum):
     pending = "pending"
+    checkout_created = "checkout_created"
+    processing = "processing"
+    authorized = "authorized"
     paid = "paid"
+    voided = "voided"
     failed = "failed"
+    capture_failed = "capture_failed"
     refunded = "refunded"
+    partially_refunded = "partially_refunded"
+    refund_failed = "refund_failed"
 
 class PaymentCreate(BaseModel):
-    payment_method: str = "mock"
+    payment_method: str = "iyzico_checkout"
 
     @field_validator("payment_method")
     @classmethod
@@ -244,14 +253,9 @@ class RefundRequestStatus(str, Enum):
     admin_rejected = "admin_rejected"
     cancelled = "cancelled"
 
-class RefundServiceStage(str, Enum):
-    not_started = "not_started"
-    in_progress = "in_progress"
-    service_completed = "service_completed"
-
 class RefundRequestCreate(BaseModel):
-    service_stage: RefundServiceStage
     reason: str
+    refund_amount: float | None = Field(default=None, gt=0)
 
     @field_validator("reason")
     @classmethod

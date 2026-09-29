@@ -160,16 +160,14 @@ class PrepareCancelBookingActionToolInput(BaseModel):
 
 class PrepareRefundRequestActionToolInput(BaseModel):
     booking_id: int = Field(description="Booking ID for refund request")
-    service_stage: str = Field(
-        min_length=1,
-        description="Service stage for refund: not_started, in_progress, service_completed"
-    )
     reason: str = Field(min_length=1, description="Refund reason")
 
 
 class PreparePayBookingActionToolInput(BaseModel):
     booking_id: int = Field(description="Booking ID to pay quote for")
-    payment_method: str = Field(default="mock", description="Payment method, default mock")
+    payment_method: str = Field(
+        default="iyzico_checkout", description="Payment method, default iyzico Checkout Form"
+    )
 
 
 class PrepareRejectQuoteActionToolInput(BaseModel):
@@ -353,13 +351,11 @@ def build_langchain_tools(current_user: models.User, db: Session):
 
     def prepare_refund_request_action(
         booking_id: int,
-        service_stage: str,
         reason: str,
     ):
         return jsonable_encoder(
             prepare_refund_request_action_tool(
                 booking_id=booking_id,
-                service_stage=service_stage,
                 reason=reason,
                 current_user=current_user,
                 db=db,
@@ -368,7 +364,7 @@ def build_langchain_tools(current_user: models.User, db: Session):
 
     def prepare_pay_booking_action(
         booking_id: int,
-        payment_method: str = "mock",
+        payment_method: str = "iyzico_checkout",
     ):
         return jsonable_encoder(
             prepare_pay_booking_action_tool(
@@ -543,7 +539,6 @@ def build_langchain_tools(current_user: models.User, db: Session):
             name="prepare_refund_request_action",
             description=(
                 "Prepare refund request action. Returns pending confirmation only."
-                "service_stage must be not_started, in_progress, or service_completed."
             ),
             args_schema=PrepareRefundRequestActionToolInput,
         ),

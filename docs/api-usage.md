@@ -19,6 +19,7 @@
 - **Auth**: login, social login, token refresh, current user, mock verify, change password/email (11 endpoints).
 - **Public**: providers, reviews, portfolios without login (6 endpoints).
 - **Customer**: profile, favorites, chat, bookings, payments, refunds, complaints, reviews (26 endpoints).
+- **Payment**: iyzico Sandbox Checkout Form callback (1 public provider callback).
 - **Provider**: profile, availability, portfolio, quotes, completion, refunds (19 endpoints).
 - **Admin**: users, verification, bookings, payments, refunds, chat, complaints, reviews (20 endpoints).
 - **Shared**: chat, notifications, booking details, attachments, status history (14 endpoints).
@@ -76,7 +77,7 @@ Auth: customer.
 |---|---|---|---|---|---|
 | `POST` | `/bookings` | Create booking with form fields and attachments. | - | `multipart/form-data` -> `Body_create_booking_bookings_post` | `ApiResponse_BookingCreateResponseData_` |
 | `POST` | `/bookings/{booking_id}/complaints` | Create Complaint | `booking_id`(path, required, integer) | `application/json` -> `ComplaintCreate` | `ApiResponse_Any_` |
-| `POST` | `/bookings/{booking_id}/payments` | Create Payment | `booking_id`(path, required, integer) | `application/json` -> `PaymentCreate` | `ApiResponse_Any_` |
+| `PUT` | `/customer/bookings/{booking_id}/accept-quote` | Accept Booking Quote | `booking_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `POST` | `/bookings/{booking_id}/refund-requests` | Create Refund Request | `booking_id`(path, required, integer) | `application/json` -> `RefundRequestCreate` | `ApiResponse_Any_` |
 | `POST` | `/bookings/{booking_id}/review` | Create Review | `booking_id`(path, required, integer) | `application/json` -> `ReviewCreate` | `ApiResponse_Any_` |
 | `GET` | `/customer/bookings` | Get Customer Bookings | `status`(query, optional, BookingStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
@@ -91,15 +92,39 @@ Auth: customer.
 | `POST` | `/customer/favorites/{provider_profile_id}` | Add Favorite Provider | `provider_profile_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `DELETE` | `/customer/favorites/{provider_profile_id}` | Remove Favorite Provider | `provider_profile_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/customer/payments` | Get Customer Payments | `status`(query, optional, PaymentStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
+| `PUT` | `/customer/bookings/{booking_id}/pay` | Start Booking Payment | `booking_id`(path, required, integer) | `application/json` -> `PaymentCreate` | `ApiResponse_Any_` |
 | `GET` | `/customer/profile` | Get Customer Profile | - | - | `ApiResponse_Any_` |
 | `POST` | `/customer/profile` | Create Customer Profile | - | `application/json` -> `CustomerProfileCreate` | `ApiResponse_Any_` |
 | `PUT` | `/customer/profile` | Update Customer Profile | - | `application/json` -> `CustomerProfileCreate` | `ApiResponse_Any_` |
 | `GET` | `/customer/refund-requests` | Get Customer Refund Requests | `status`(query, optional, RefundRequestStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/customer/reviews` | Get Customer Reviews | `is_visible`(query, optional, boolean / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
-| `PUT` | `/payments/{payment_id}/pay` | Pay Payment | `payment_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/refund-requests/{refund_request_id}/cancel` | Cancel Refund Request | `refund_request_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/reviews/{review_id}` | Update Review | `review_id`(path, required, integer) | `application/json` -> `ReviewUpdate` | `ApiResponse_Any_` |
 | `DELETE` | `/reviews/{review_id}` | Delete Review | `review_id`(path, required, integer) | - | `ApiResponse_Any_` |
+
+## Payment
+
+The payment flow uses iyzico Sandbox Checkout Form PreAuth. The authenticated customer
+starts checkout, the backend returns `payment_page_url`, and the frontend redirects the
+customer to that URL. iyzico then posts a `token` to the callback; the backend retrieves
+the authoritative result server-to-server. A successful callback means the card is
+`authorized`, not charged. Customer completion confirmation calls PostAuth and only
+then moves the payment to `paid` and creates Marketplace settlement approval.
+
+| Method | Path | Purpose | Params | Body | Success |
+|---|---|---|---|---|---|
+| `POST` | `/payments/iyzico/callback` | Receive Checkout Form token and finalize payment | - | `application/x-www-form-urlencoded` -> `token` | `ApiResponse_Any_` |
+
+Payment start response fields:
+
+- `data.payment_page_url`: iyzico Sandbox checkout page to open or redirect to.
+- `data.token`: Checkout Form token returned by iyzico.
+- `data.payment.status`: initially `checkout_created`; after callback it becomes `authorized`, `failed`, or `processing`.
+- `data.booking.status`: remains `awaiting_payment` until a successful callback, then becomes `accepted`.
+
+Cancellation of an authorized booking calls iyzico Cancel/Void. Refund approval calls
+iyzico Refund for captured payments; one request may be full or partial, but a payment
+cannot receive a second refund request.
 
 ## Provider
 
@@ -112,7 +137,7 @@ Auth: provider.
 | `GET` | `/provider/availability` | Get Provider Availability | - | - | `ApiResponse_Any_` |
 | `PUT` | `/provider/availability` | Update Provider Availability | - | `application/json` -> `ProviderAvailabilityUpdate` | `ApiResponse_Any_` |
 | `GET` | `/provider/bookings` | Get Provider Bookings | `status`(query, optional, BookingStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
-| `PUT` | `/provider/bookings/{booking_id}/complete` | Complete Booking | `booking_id`(path, required, integer) | - | `ApiResponse_Any_` |
+| `PUT` | `/provider/bookings/{booking_id}/complete` | Complete Booking | `booking_id`(path, required, integer) | `multipart/form-data` -> proof files, `final_quote_amount`, `final_quote_message` | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/quote` | Quote Booking | `booking_id`(path, required, integer) | `application/json` -> `ProviderBookingQuoteCreate` | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/reject` | Reject Booking | `booking_id`(path, required, integer) | `application/json` -> `BookingNoteUpdate` | `ApiResponse_Any_` |
 | `GET` | `/provider/verification-status` | Read identity and qualification state | - | - | `ApiResponse_Any_` |
@@ -128,6 +153,9 @@ Auth: provider.
 | `GET` | `/provider/chats` | Get Provider Chats | `page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/provider/dashboard` | Provider Dashboard | - | - | `ApiResponse_Any_` |
 | `GET` | `/provider/payments` | Get Provider Payments | `status`(query, optional, PaymentStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
+| `GET` | `/provider/submerchant` | Read Provider Payout Account | - | - | `ApiResponse_Any_` |
+| `POST` | `/provider/submerchant` | Create and synchronize iyzico Submerchant | - | `application/json` -> `ProviderSubmerchantUpsert` | `ApiResponse_Any_` |
+| `PUT` | `/provider/submerchant` | Update and synchronize iyzico Submerchant | - | `application/json` -> `ProviderSubmerchantUpsert` | `ApiResponse_Any_` |
 | `GET` | `/provider/portfolio` | Get Provider Portfolio | `page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_PaginatedData_ProviderPortfolioResponse__` |
 | `POST` | `/provider/portfolio` | Create Provider Portfolio | - | `multipart/form-data` -> `Body_create_provider_portfolio_provider_portfolio_post` | `ApiResponse_ProviderPortfolioResponse_` |
 | `DELETE` | `/provider/portfolio/{portfolio_id}` | Delete Provider Portfolio | `portfolio_id`(path, required, integer) | - | `ApiResponse_NoneType_` |
@@ -156,6 +184,8 @@ Auth: admin.
 | `PUT` | `/admin/complaints/{complaint_id}/status` | Update Complaint Status | `complaint_id`(path, required, integer) | `application/json` -> `AdminComplaintStatusUpdate` | `ApiResponse_Any_` |
 | `GET` | `/admin/dashboard` | Get Admin Dashboard | - | - | `ApiResponse_Any_` |
 | `GET` | `/admin/payments` | Get All Payments | `status`(query, optional, PaymentStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
+| `GET` | `/admin/submerchants` | Get masked provider payout accounts | `page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
+| `POST` | `/admin/payments/{payment_id}/settlement/retry` | Queue a failed Marketplace approval retry | `payment_id`(path, required, integer) | - | `ApiResponse_Any_` |
 | `GET` | `/admin/identity-verifications` | List identity applications | `status`(query, optional) | - | `ApiResponse_Any_` |
 | `GET` | `/admin/identity-verifications/{application_id}` | Read an identity application | `application_id` | - | `ApiResponse_Any_` |
 | `PUT` | `/admin/identity-verifications/{application_id}/decision` | Approve/reject pending identity application | `application_id` | `VerificationDecision` | `ApiResponse_Any_` |
@@ -263,7 +293,7 @@ Auth: none.
 4. `POST /customer/chats/{provider_profile_id}` open chat.
 5. `POST /bookings` with attachments, or AI draft then `POST /ai/actions/confirm`.
 6. Provider `PUT /provider/bookings/{booking_id}/quote`.
-7. Customer `POST /bookings/{booking_id}/payments` then `PUT /payments/{payment_id}/pay`.
+7. Customer `PUT /customer/bookings/{booking_id}/accept-quote`, then `PUT /customer/bookings/{booking_id}/pay`.
 8. Provider `PUT /provider/bookings/{booking_id}/complete`.
 9. Customer `PUT /customer/bookings/{booking_id}/confirm-complete`.
 10. Customer `POST /bookings/{booking_id}/review`.
@@ -429,19 +459,24 @@ Auth: none.
 
 ### `BookingStatus`
 
-Allowed values:`pending`, `quoted`, `accepted`, `rejected`, `refunding`, `refunded`, `awaiting_confirmation`, `completed`, `cancelled`
+Allowed values:`pending`, `quoted`, `awaiting_payment`, `accepted`, `rejected`, `refunding`, `refunded`, `partially_refunded`, `awaiting_confirmation`, `completed`, `cancelled`
 
 ### `PaymentCreate`
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `payment_method` | `string` | no | Payment Method |
+| `payment_method` | `string` | no | Payment method; use `iyzico_checkout` (the backend currently routes payment through iyzico Sandbox). |
+
+### `PaymentStatus`
+
+Allowed values: `pending`, `checkout_created`, `processing`, `authorized`, `paid`, `voided`, `failed`, `capture_failed`, `refund_failed`, `refunded`, `partially_refunded`
 
 ### `RefundRequestCreate`
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `reason` | `string` | yes | Reason |
+| `refund_amount` | `number` | no | Full refund when omitted; otherwise one partial refund amount not exceeding the captured payment. |
 
 ### `ProviderBookingQuoteCreate`
 

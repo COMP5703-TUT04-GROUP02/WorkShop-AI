@@ -1,10 +1,14 @@
-import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +23,7 @@ import {
   confirmCustomerBookingComplete,
   createCustomerReview,
   getCustomerBookings,
+  getCustomerPayments,
   payCustomerBooking,
   rejectCustomerBookingQuote,
   requestCustomerRefund,
@@ -28,34 +33,51 @@ import { CompletionProofGallery } from "../../components/CompletionProofGallery"
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
+import type { RootStackParamList } from "../../navigation/types";
 import { colors, radius, spacing } from "../../theme/theme";
-import type { BookingDetail, RefundServiceStage } from "../../types/booking";
+import type {
+  BookingActionResponseData,
+  BookingDetail,
+  PaymentSummary,
+} from "../../types/booking";
+import { getPaymentStatusLabel } from "../../constants/labels";
 import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney, formatPayLabel } from "../../utils/money";
+import {
+  createPaymentIdempotencyKey,
+  getPaymentAction,
+  getPaymentStatusTone,
+  indexLatestPayments,
+  shouldRotatePaymentIdempotencyKey,
+} from "../../utils/payment";
 
 const CANCELLABLE_STATUSES = ["pending", "quoted", "awaiting_payment"];
-const HIDDEN_ORDER_STATUSES = ["completed", "cancelled", "rejected", "refunded"];
-const REFUND_SERVICE_STAGES: Array<{
-  label: string;
-  value: RefundServiceStage;
-}> = [
-  { label: "Not started", value: "not_started" },
-  { label: "In progress", value: "in_progress" },
-  { label: "Service completed", value: "service_completed" },
+const HIDDEN_ORDER_STATUSES = [
+  "completed",
+  "cancelled",
+  "rejected",
+  "refunded",
+  "partially_refunded",
 ];
-
 export function CustomerBookingsScreen() {
+  const navigation = useNavigation<
+    NativeStackNavigationProp<RootStackParamList>
+  >();
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  const [paymentsByBookingId, setPaymentsByBookingId] = useState<
+    Record<number, PaymentSummary>
+  >({});
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
+  const paymentInFlightRef = useRef(false);
+  const paymentIdempotencyKeysRef = useRef<Record<number, string>>({});
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [rejectReason, setRejectReason] = useState("");
-  const [refundServiceStage, setRefundServiceStage] =
-    useState<RefundServiceStage>("in_progress");
   const [refundReason, setRefundReason] = useState("");
+  const [refundAmount, setRefundAmount] = useState("");
   const [refundAppealReason, setRefundAppealReason] = useState("");
   const [reviewBooking, setReviewBooking] = useState<BookingDetail | null>(null);
   const [reviewError, setReviewError] = useState("");
@@ -64,8 +86,18 @@ export function CustomerBookingsScreen() {
   const loadBookings = useCallback(async () => {
     setMessage("");
     try {
-      const result = await getCustomerBookings(undefined, 1, 100);
+      const [result, paymentResult] = await Promise.all([
+        getCustomerBookings(undefined, 1, 100),
+        getCustomerPayments(1, 100),
+      ]);
+      const payments = paymentResult?.items ?? [];
+      payments.forEach((payment) => {
+        if (shouldRotatePaymentIdempotencyKey(payment)) {
+          delete paymentIdempotencyKeysRef.current[payment.booking_id];
+        }
+      });
       setBookings(filterActiveBookings(result?.items ?? []));
+      setPaymentsByBookingId(indexLatestPayments(payments));
     } catch (error) {
       setMessage(getErrorMessage(error));
     }
@@ -77,9 +109,19 @@ export function CustomerBookingsScreen() {
     async function loadInitialBookings() {
       setIsLoading(true);
       try {
-        const result = await getCustomerBookings(undefined, 1, 100);
+        const [result, paymentResult] = await Promise.all([
+          getCustomerBookings(undefined, 1, 100),
+          getCustomerPayments(1, 100),
+        ]);
         if (isActive) {
+          const payments = paymentResult?.items ?? [];
+          payments.forEach((payment) => {
+            if (shouldRotatePaymentIdempotencyKey(payment)) {
+              delete paymentIdempotencyKeysRef.current[payment.booking_id];
+            }
+          });
           setBookings(filterActiveBookings(result?.items ?? []));
+          setPaymentsByBookingId(indexLatestPayments(payments));
         }
       } catch (error) {
         if (isActive) {
@@ -99,6 +141,21 @@ export function CustomerBookingsScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (
+        previousState.match(/inactive|background/) &&
+        nextState === "active"
+      ) {
+        void loadBookings();
+      }
+      previousState = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [loadBookings]);
+
   useFocusEffect(
     useCallback(() => {
       void loadBookings();
@@ -108,8 +165,8 @@ export function CustomerBookingsScreen() {
   function openBooking(booking: BookingDetail) {
     setSelectedBooking(booking);
     setRejectReason("");
-    setRefundServiceStage(getDefaultRefundServiceStage(booking.status));
     setRefundReason("");
+    setRefundAmount("");
     setRefundAppealReason("");
     setActionError("");
   }
@@ -117,19 +174,19 @@ export function CustomerBookingsScreen() {
   function closeBooking() {
     setSelectedBooking(null);
     setRejectReason("");
-    setRefundServiceStage("in_progress");
     setRefundReason("");
+    setRefundAmount("");
     setRefundAppealReason("");
     setActionError("");
   }
 
   function openRefundForm(booking: BookingDetail) {
     openBooking(booking);
-    setActionError("Select the service stage and enter a refund reason.");
+    setActionError("Enter a refund reason.");
   }
 
   async function runBookingAction(
-    action: () => Promise<{ booking?: BookingDetail } | null | undefined>,
+    action: () => Promise<BookingActionResponseData | null | undefined>,
     successMessage: string,
   ) {
     setIsActing(true);
@@ -169,10 +226,63 @@ export function CustomerBookingsScreen() {
   }
 
   async function handlePayBooking(booking: BookingDetail) {
-    await runBookingAction(
-      () => payCustomerBooking(booking.id),
-      "Payment successful. The booking is in progress.",
-    );
+    if (paymentInFlightRef.current) {
+      return;
+    }
+
+    paymentInFlightRef.current = true;
+    setIsActing(true);
+    setActionError("");
+    try {
+      const idempotencyKey =
+        paymentIdempotencyKeysRef.current[booking.id] ??
+        (paymentIdempotencyKeysRef.current[booking.id] =
+          createPaymentIdempotencyKey());
+      const result = await payCustomerBooking(
+        booking.id,
+        "iyzico_checkout",
+        idempotencyKey,
+      );
+      const payment = result?.payment;
+      if (result?.booking) {
+        setSelectedBooking(result.booking);
+      }
+      if (payment) {
+        setPaymentsByBookingId((current) => ({
+          ...current,
+          [payment.booking_id]: payment,
+        }));
+      }
+
+      if (shouldRotatePaymentIdempotencyKey(payment)) {
+        delete paymentIdempotencyKeysRef.current[booking.id];
+      }
+
+      if (result?.payment_page_url) {
+        delete paymentIdempotencyKeysRef.current[booking.id];
+        await Linking.openURL(result.payment_page_url);
+        setMessage("iyzico checkout opened. Return here after payment to refresh the status.");
+        void loadBookings();
+      } else if (payment?.status) {
+        setMessage(`Payment status: ${getPaymentStatusLabel(payment.status)}.`);
+      } else {
+        setMessage("Payment checkout is being prepared. Refresh this page shortly.");
+      }
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      paymentInFlightRef.current = false;
+      setIsActing(false);
+    }
+  }
+
+  function openProvider(booking: BookingDetail) {
+    if (Platform.OS === "web") {
+      closeBooking();
+    }
+    navigation.navigate("CustomerProviderDetail", {
+      providerId: booking.provider_profile_id,
+    });
   }
 
   async function handleCancelBooking(booking: BookingDetail) {
@@ -189,8 +299,25 @@ export function CustomerBookingsScreen() {
       return;
     }
 
+    const parsedAmount = refundAmount.trim() ? Number(refundAmount) : undefined;
+    const paidAmount = paymentsByBookingId[booking.id]?.amount ?? booking.quote_amount;
+    if (
+      parsedAmount !== undefined &&
+      (!Number.isFinite(parsedAmount) ||
+        parsedAmount <= 0 ||
+        (paidAmount != null && parsedAmount > paidAmount))
+    ) {
+      setActionError("Refund amount must be greater than 0 and no more than the paid amount.");
+      return;
+    }
+
     await runBookingAction(
-      () => requestCustomerRefund(booking.id, refundServiceStage, reason),
+      () =>
+        requestCustomerRefund(
+          booking.id,
+          reason,
+          parsedAmount,
+        ),
       "Refund request sent.",
     );
   }
@@ -231,6 +358,13 @@ export function CustomerBookingsScreen() {
     setActionError("");
     try {
       const result = await confirmCustomerBookingComplete(booking.id);
+      if (result?.payment_page_url) {
+        setSelectedBooking(result.booking ?? booking);
+        await Linking.openURL(result.payment_page_url);
+        setMessage("The final quote changed. Complete the new authorization, then confirm again.");
+        await loadBookings();
+        return;
+      }
       setSelectedBooking(null);
       await loadBookings();
       setReviewError("");
@@ -292,6 +426,7 @@ export function CustomerBookingsScreen() {
           {bookings.map((booking) => (
             <BookingCard
               booking={booking}
+              payment={paymentsByBookingId[booking.id]}
               disabled={isActing}
               key={booking.id}
               onAcceptQuote={handleAcceptQuote}
@@ -308,6 +443,7 @@ export function CustomerBookingsScreen() {
       <BookingDetailModal
         actionError={actionError}
         booking={selectedBooking}
+        payment={selectedBooking ? paymentsByBookingId[selectedBooking.id] : null}
         isActing={isActing}
         onAcceptQuote={handleAcceptQuote}
         onAppealRefund={handleAppealRefund}
@@ -316,15 +452,19 @@ export function CustomerBookingsScreen() {
         onClose={closeBooking}
         onConfirmComplete={handleConfirmComplete}
         onPay={handlePayBooking}
+        onOpenProvider={openProvider}
         onRejectQuote={handleRejectQuote}
         onRequestRefund={handleRequestRefund}
         refundAppealReason={refundAppealReason}
+        refundAmount={refundAmount}
         refundReason={refundReason}
-        refundServiceStage={refundServiceStage}
         rejectReason={rejectReason}
         setRefundAppealReason={setRefundAppealReason}
+        setRefundAmount={(value) => {
+          setRefundAmount(value);
+          setActionError("");
+        }}
         setRefundReason={setRefundReason}
-        setRefundServiceStage={setRefundServiceStage}
         setRejectReason={setRejectReason}
       />
 
@@ -342,6 +482,7 @@ export function CustomerBookingsScreen() {
 function BookingCard({
   booking,
   disabled,
+  payment,
   onAcceptQuote,
   onCancel,
   onConfirmComplete,
@@ -351,6 +492,7 @@ function BookingCard({
 }: {
   booking: BookingDetail;
   disabled: boolean;
+  payment?: PaymentSummary | null;
   onAcceptQuote: (booking: BookingDetail) => void;
   onCancel: (booking: BookingDetail) => void;
   onConfirmComplete: (booking: BookingDetail) => void;
@@ -358,12 +500,12 @@ function BookingCard({
   onPay: (booking: BookingDetail) => void;
   onRequestRefund: (booking: BookingDetail) => void;
 }) {
-  const canPay = booking.status === "awaiting_payment";
+  const paymentAction = getPaymentAction(booking.status, payment);
+  const canPay = paymentAction === "pay" || paymentAction === "continue";
   const canAcceptQuote = booking.status === "quoted";
   const canCancel = CANCELLABLE_STATUSES.includes(String(booking.status));
-  const canRequestRefund = ["accepted", "awaiting_confirmation"].includes(
-    String(booking.status),
-  );
+  const canRequestRefund =
+    booking.status === "completed" && payment?.status === "paid";
   const canConfirmComplete = booking.status === "awaiting_confirmation";
 
   return (
@@ -379,9 +521,21 @@ function BookingCard({
             {booking.provider?.business_name || `Provider #${booking.provider_profile_id}`}
           </Text>
         </View>
-        <Text style={[styles.statusBadge, getStatusBadgeStyle(booking.status)]}>
-          {getBookingStatusLabel(booking.status)}
-        </Text>
+        <View style={styles.statusStack}>
+          <Text style={[styles.statusBadge, getStatusBadgeStyle(booking.status)]}>
+            {getBookingStatusLabel(booking.status)}
+          </Text>
+          {payment ? (
+            <Text
+              style={[
+                styles.statusBadge,
+                getPaymentBadgeStyle(payment.status),
+              ]}
+            >
+              {getPaymentStatusLabel(payment.status)}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       <Text numberOfLines={2} style={styles.description}>
@@ -436,7 +590,11 @@ function BookingCard({
           {canPay ? (
             <PrimaryButton
               disabled={disabled}
-              label={formatPayLabel(booking.quote_amount)}
+              label={
+                paymentAction === "continue"
+                  ? "Continue payment"
+                  : formatPayLabel(booking.quote_amount)
+              }
               onPress={() => onPay(booking)}
             />
           ) : null}
@@ -449,6 +607,7 @@ function BookingCard({
 function BookingDetailModal({
   actionError,
   booking,
+  payment,
   isActing,
   onAcceptQuote,
   onAppealRefund,
@@ -457,19 +616,21 @@ function BookingDetailModal({
   onClose,
   onConfirmComplete,
   onPay,
+  onOpenProvider,
   onRejectQuote,
   onRequestRefund,
   refundAppealReason,
+  refundAmount,
   refundReason,
-  refundServiceStage,
   rejectReason,
   setRefundAppealReason,
+  setRefundAmount,
   setRefundReason,
-  setRefundServiceStage,
   setRejectReason,
 }: {
   actionError: string;
   booking: BookingDetail | null;
+  payment?: PaymentSummary | null;
   isActing: boolean;
   onAcceptQuote: (booking: BookingDetail) => void;
   onAppealRefund: (booking: BookingDetail) => void;
@@ -478,15 +639,16 @@ function BookingDetailModal({
   onClose: () => void;
   onConfirmComplete: (booking: BookingDetail) => void;
   onPay: (booking: BookingDetail) => void;
+  onOpenProvider: (booking: BookingDetail) => void;
   onRejectQuote: (booking: BookingDetail) => void;
   onRequestRefund: (booking: BookingDetail) => void;
   refundAppealReason: string;
+  refundAmount: string;
   refundReason: string;
-  refundServiceStage: RefundServiceStage;
   rejectReason: string;
   setRefundAppealReason: (value: string) => void;
+  setRefundAmount: (value: string) => void;
   setRefundReason: (value: string) => void;
-  setRefundServiceStage: (value: RefundServiceStage) => void;
   setRejectReason: (value: string) => void;
 }) {
   if (!booking) {
@@ -495,11 +657,11 @@ function BookingDetailModal({
 
   const canRejectQuote = booking.status === "quoted";
   const canAcceptQuote = booking.status === "quoted";
-  const canPay = booking.status === "awaiting_payment";
+  const paymentAction = getPaymentAction(booking.status, payment);
+  const canPay = paymentAction === "pay" || paymentAction === "continue";
   const canCancel = CANCELLABLE_STATUSES.includes(String(booking.status));
-  const canRequestRefund = ["accepted", "awaiting_confirmation"].includes(
-    String(booking.status),
-  );
+  const canRequestRefund =
+    booking.status === "completed" && payment?.status === "paid";
   const canConfirmComplete = booking.status === "awaiting_confirmation";
   const canCancelRefund =
     booking.status === "refunding" &&
@@ -517,9 +679,20 @@ function BookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
+            {booking.booking_notice ? (
+              <DetailRow label="Notice" value={booking.booking_notice} />
+            ) : null}
+            <DetailRow
+              label="Payment status"
+              value={payment ? getPaymentStatusLabel(payment.status) : "Not started"}
+            />
+            {payment?.failure_message ? (
+              <DetailRow label="Payment note" value={payment.failure_message} />
+            ) : null}
             <DetailRow label="Booking title" value={booking.title} />
             <DetailRow
               label="Provider"
+              onPress={() => onOpenProvider(booking)}
               value={
                 booking.provider?.business_name || `Provider #${booking.provider_profile_id}`
               }
@@ -547,14 +720,20 @@ function BookingDetailModal({
                   value={getRefundStatusLabel(booking.current_refund_request.status)}
                 />
                 <DetailRow
-                  label="Refund stage"
-                  value={getRefundServiceStageLabel(
-                    booking.current_refund_request.service_stage,
-                  )}
+                  label="Original payment"
+                  value={payment ? formatMoney(payment.amount) : "—"}
                 />
                 <DetailRow
                   label="Refund reason"
                   value={booking.current_refund_request.reason}
+                />
+                <DetailRow
+                  label="Refund amount"
+                  value={
+                    booking.current_refund_request.refund_amount == null
+                      ? "Full paid amount"
+                      : formatMoney(booking.current_refund_request.refund_amount)
+                  }
                 />
                 <DetailRow
                   label="Provider response"
@@ -567,6 +746,28 @@ function BookingDetailModal({
                 <DetailRow
                   label="Appeal reason"
                   value={booking.current_refund_request.appeal_reason || "—"}
+                />
+                <DetailRow
+                  label="Requested at"
+                  value={formatDateTime(booking.current_refund_request.created_at)}
+                />
+                <DetailRow
+                  label="Provider responded at"
+                  value={formatDateTime(booking.current_refund_request.responded_at)}
+                />
+                <DetailRow
+                  label="Appealed at"
+                  value={formatDateTime(booking.current_refund_request.appealed_at)}
+                />
+                <DetailRow
+                  label="Support responded at"
+                  value={formatDateTime(
+                    booking.current_refund_request.admin_responded_at,
+                  )}
+                />
+                <DetailRow
+                  label="Refunded at"
+                  value={formatDateTime(booking.current_refund_request.refunded_at)}
                 />
               </>
             ) : null}
@@ -584,7 +785,9 @@ function BookingDetailModal({
 
             {canPay ? (
               <Text style={styles.payHint}>
-                This demo charges {formatMoney(booking.quote_amount)} automatically.
+                {paymentAction === "continue"
+                  ? "Your iyzico checkout is ready. Continue payment to complete this booking."
+                  : `iyzico Sandbox will authorize ${formatMoney(booking.quote_amount)} first. The payment is captured after service completion.`}
               </Text>
             ) : null}
 
@@ -592,35 +795,13 @@ function BookingDetailModal({
 
             {canRequestRefund ? (
               <>
-                <View style={styles.stageBox}>
-                  <Text style={styles.detailLabel}>Refund stage</Text>
-                  <View style={styles.stageOptions}>
-                    {REFUND_SERVICE_STAGES.map((stage) => (
-                      <Pressable
-                        accessibilityRole="button"
-                        key={stage.value}
-                        onPress={() => setRefundServiceStage(stage.value)}
-                        style={[
-                          styles.stageButton,
-                          refundServiceStage === stage.value
-                            ? styles.stageButtonActive
-                            : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.stageButtonText,
-                            refundServiceStage === stage.value
-                              ? styles.stageButtonTextActive
-                              : null,
-                          ]}
-                        >
-                          {stage.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
+                <TextField
+                  keyboardType="decimal-pad"
+                  label="Refund amount (optional)"
+                  onChangeText={setRefundAmount}
+                  placeholder="Leave blank for full refund"
+                  value={refundAmount}
+                />
                 <TextField
                   label="Refund reason"
                   multiline
@@ -648,7 +829,6 @@ function BookingDetailModal({
           {actionError ? <Text style={styles.actionErrorText}>{actionError}</Text> : null}
 
           <View style={styles.modalActions}>
-            <SecondaryButton disabled={isActing} label="Close" onPress={onClose} />
             {canCancel ? (
               <SecondaryButton
                 disabled={isActing}
@@ -705,10 +885,15 @@ function BookingDetailModal({
               <PrimaryButton
                 disabled={isActing}
                 isLoading={isActing}
-                label={formatPayLabel(booking.quote_amount)}
+                label={
+                  paymentAction === "continue"
+                    ? "Continue payment"
+                    : formatPayLabel(booking.quote_amount)
+                }
                 onPress={() => onPay(booking)}
               />
             ) : null}
+            <SecondaryButton disabled={isActing} label="Close" onPress={onClose} />
           </View>
         </View>
       </View>
@@ -716,11 +901,30 @@ function BookingDetailModal({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  onPress,
+  value,
+}: {
+  label: string;
+  onPress?: () => void;
+  value: string;
+}) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      {onPress ? (
+        <Pressable
+          accessibilityHint="Opens the provider profile"
+          accessibilityLabel={`Open ${value}`}
+          accessibilityRole="link"
+          onPress={onPress}
+        >
+          <Text style={[styles.detailValue, styles.detailLink]}>{value}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.detailValue}>{value}</Text>
+      )}
     </View>
   );
 }
@@ -734,6 +938,7 @@ function getBookingStatusLabel(status: string) {
     rejected: "Declined",
     refunding: "Refund in progress",
     refunded: "Refunded",
+    partially_refunded: "Partially refunded",
     awaiting_confirmation: "Awaiting confirmation",
     completed: "Completed",
     cancelled: "Cancelled",
@@ -755,24 +960,6 @@ function getRefundStatusLabel(status: string) {
   return labels[status] || status;
 }
 
-function getRefundServiceStageLabel(stage: string) {
-  const labels: Record<string, string> = {
-    not_started: "Not started",
-    in_progress: "In progress",
-    service_completed: "Service completed",
-  };
-
-  return labels[stage] || stage;
-}
-
-function getDefaultRefundServiceStage(status: string): RefundServiceStage {
-  if (status === "awaiting_confirmation") {
-    return "service_completed";
-  }
-
-  return "in_progress";
-}
-
 function filterActiveBookings(bookings: BookingDetail[]) {
   return bookings.filter(
     (booking) => !HIDDEN_ORDER_STATUSES.includes(String(booking.status)),
@@ -786,10 +973,29 @@ function getStatusBadgeStyle(status: string) {
   if (status === "accepted" || status === "completed") {
     return styles.statusSuccess;
   }
-  if (status === "cancelled" || status === "rejected" || status === "refunded") {
+  if (
+    status === "cancelled" ||
+    status === "rejected" ||
+    status === "refunded" ||
+    status === "partially_refunded"
+  ) {
     return styles.statusMuted;
   }
   return styles.statusNeutral;
+}
+
+function getPaymentBadgeStyle(status: string) {
+  const tone = getPaymentStatusTone(status);
+  if (tone === "success") {
+    return styles.statusSuccess;
+  }
+  if (tone === "danger") {
+    return styles.statusDanger;
+  }
+  if (tone === "muted") {
+    return styles.statusMuted;
+  }
+  return styles.statusWarning;
 }
 
 const styles = StyleSheet.create({
@@ -871,6 +1077,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
+  statusStack: {
+    alignItems: "flex-end",
+    gap: spacing.xs,
+  },
   cardTitleGroup: {
     flex: 1,
     gap: spacing.xs,
@@ -907,6 +1117,10 @@ const styles = StyleSheet.create({
   statusMuted: {
     backgroundColor: colors.surface,
     color: colors.mutedText,
+  },
+  statusDanger: {
+    backgroundColor: "#FEF2F2",
+    color: colors.danger,
   },
   description: {
     color: colors.text,
@@ -968,6 +1182,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  detailLink: {
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "700",
   },
   modalActions: {
     flexDirection: "row",

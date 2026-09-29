@@ -1065,7 +1065,9 @@ Short-term priorities:
 Pragmatic allowances:
 
 - Some list endpoints still return `ApiResponse[Any]` in Swagger.
-- Mock payment (`payment_method: "mock"`) is acceptable for demos.
+- Payment is implemented through the iyzico Sandbox Checkout Form. Keep the local
+  payment record and iyzico callback/retrieve result as the source of truth for the
+  payment state; do not reintroduce a mock payment gateway in application routes.
 - Local file storage is fine until object storage is wired.
 - `classify_user_intent` remains as a fallback behind LangChain tool calling.
 - Natural-language time parsing is deferred; ISO timestamps are required for schedules.

@@ -40,11 +40,11 @@ from backend.utils.chat import (
 from backend.utils.booking import (
     ensure_booking_status,
     format_booking_detail_response,
-    get_active_refund_request,
     get_booking_for_user_or_404,
 )
 from backend.utils.availability import ensure_provider_available_for_datetime_range
 from backend.utils.location import has_location
+from backend.utils.marketplace import require_active_provider_submerchant
 from backend.utils.notification import create_notification
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.service_locations import resolve_location_context
@@ -155,7 +155,7 @@ BOOKING_FLOW_STEPS = [
     "After payment, booking becomes accepted and work can begin.",
     "Provider marks complete; booking becomes awaiting_confirmation.",
     "Customer acceptance moves booking to completed.",
-    "Refunds and complaints are allowed in accepted, awaiting_confirmation, and completed.",
+    "Refunds are available after a paid booking is completed; complaints may be raised while service is in progress or after completion.",
     "Refund requests move to refunding; approved -> refunded; rejected stays refunding; customer can cancel refund.",
 ]
 
@@ -365,7 +365,6 @@ def format_refund_request_for_ai_tool(refund_request: models.RefundRequest):
         "id": refund_request.id,
         "booking_id": refund_request.booking_id,
         "payment_id": refund_request.payment_id,
-        "service_stage": refund_request.service_stage,
         "reason": refund_request.reason,
         "status": refund_request.status,
         "provider_note": refund_request.provider_note,
@@ -432,8 +431,6 @@ def explain_booking_flow_tool(topic: str | None = None):
         "pay": ["quoted", "accepted"],
         "complete": ["accepted", "awaiting_confirmation", "completed"],
         "refund": [
-            "accepted",
-            "awaiting_confirmation",
             "completed",
             "refunding",
             "refunded",
@@ -857,7 +854,6 @@ def prepare_cancel_booking_action_tool(
 
 def prepare_refund_request_action_tool(
     booking_id: int,
-    service_stage: str,
     reason: str,
     current_user: models.User,
     db: Session,
@@ -874,11 +870,8 @@ def prepare_refund_request_action_tool(
 
     ensure_booking_status(
         booking,
-        [
-            BookingStatus.accepted,
-            BookingStatus.awaiting_confirmation,
-        ],
-        "Only active paid or awaiting confirmation bookings can request a refund",
+        [BookingStatus.completed],
+        "Only completed bookings can request a refund",
     )
     payment = (
         db.query(models.Payment)
@@ -894,9 +887,9 @@ def prepare_refund_request_action_tool(
             status_code=400, detail="Paid payment not found for this booking"
         )
 
-    if get_active_refund_request(booking, db):
+    if db.query(models.RefundRequest).filter(models.RefundRequest.payment_id == payment.id).first():
         raise HTTPException(
-            status_code=400, detail="This booking already has an active refund request"
+            status_code=400, detail="This payment already has a refund request"
         )
 
     return build_pending_ai_action(
@@ -904,7 +897,6 @@ def prepare_refund_request_action_tool(
         f"On confirm, a refund request will be created for booking {booking.id} and the provider will be notified.",
         {
             "booking_id": booking.id,
-            "service_stage": service_stage,
             "reason": reason.strip(),
         },
         current_user,
@@ -916,7 +908,7 @@ def prepare_pay_booking_action_tool(
     booking_id: int,
     current_user: models.User,
     db: Session,
-    payment_method: str = "mock",
+    payment_method: str = "iyzico_checkout",
 ):
     ensure_current_user_is_customer(current_user)
     if not payment_method.strip():
@@ -938,7 +930,13 @@ def prepare_pay_booking_action_tool(
         db.query(models.Payment)
         .filter(
             models.Payment.booking_id == booking.id,
-            models.Payment.status == PaymentStatus.pending,
+            models.Payment.status.in_(
+                [
+                    PaymentStatus.pending,
+                    PaymentStatus.checkout_created,
+                    PaymentStatus.processing,
+                ]
+            ),
         )
         .first()
     )
@@ -1069,6 +1067,11 @@ def prepare_quote_booking_action_tool(
         quote_message=quote_message,
     )
     booking = get_provider_booking_for_ai_action(booking_id, current_user, db)
+    require_active_provider_submerchant(
+        booking.provider_profile_id,
+        db,
+        booking=booking,
+    )
     ensure_booking_status(
         booking,
         [BookingStatus.pending],

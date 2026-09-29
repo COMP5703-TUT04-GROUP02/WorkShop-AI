@@ -35,12 +35,16 @@ from backend.utils.formatters import (
 from backend.utils.notification import create_notification
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
+from backend.utils.marketplace import format_submerchant_response
 from backend.utils.provider import (
     add_provider_verification_history,
     format_provider_profile_with_rating,
 )
-from backend.utils.refund import format_refund_request_response
-from backend.utils.refund import add_refund_request_status_history
+from backend.utils.refund import (
+    add_refund_request_status_history,
+    execute_external_refund,
+    format_refund_request_response,
+)
 from backend.utils.review import format_review_detail_response
 from backend.utils.review_embedding_queue import (
     enqueue_review_embedding_delete,
@@ -62,6 +66,7 @@ from backend.schemas import (
     ProviderVerificationUpdate,
     RefundRequestStatus,
     ReviewVisibilityUpdate,
+    SettlementStatus,
 )
 from backend.utils.response import success_response
 from backend.core.clock import utc_now
@@ -577,6 +582,9 @@ async def admin_update_booking_status(
 @router.get("/admin/payments")
 def get_all_payments(
     status: PaymentStatus | None = None,
+    settlement_status: SettlementStatus | None = None,
+    provider_profile_id: int | None = None,
+    booking_id: int | None = None,
     page: int = 1,
     page_size: int = 20,
     current_user: models.User = Depends(require_admin),
@@ -585,12 +593,85 @@ def get_all_payments(
     query = db.query(models.Payment)
     if status:
         query = query.filter(models.Payment.status == status)
+    if settlement_status:
+        query = query.join(
+            models.PaymentSettlement,
+            models.PaymentSettlement.payment_id == models.Payment.id,
+        ).filter(models.PaymentSettlement.status == settlement_status)
+    if provider_profile_id is not None:
+        query = query.filter(
+            models.Payment.provider_profile_id == provider_profile_id
+        )
+    if booking_id is not None:
+        query = query.filter(models.Payment.booking_id == booking_id)
     query = query.order_by(models.Payment.created_at.desc())
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db))
+        result.append(format_payment_response(payment, db, include_settlement=True))
     return success_response(build_paginated_response(result, total, page, page_size))
+
+
+def _mask_secret(value: str | None) -> str | None:
+    if not value:
+        return value
+    if len(value) <= 4:
+        return "*" * len(value)
+    return "*" * (len(value) - 4) + value[-4:]
+
+
+@router.get("/admin/submerchants")
+def get_admin_submerchants(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.ProviderSubmerchant).order_by(
+        models.ProviderSubmerchant.updated_at.desc()
+    )
+    submerchants, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for submerchant in submerchants:
+        item = format_submerchant_response(submerchant)
+        item["iban"] = _mask_secret(item.get("iban"))
+        item["identity_number"] = _mask_secret(item.get("identity_number"))
+        item["tax_number"] = _mask_secret(item.get("tax_number"))
+        result.append(item)
+    return success_response(build_paginated_response(result, total, page, page_size))
+
+
+@router.post("/admin/payments/{payment_id}/settlement/retry")
+def retry_payment_settlement(
+    payment_id: int,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    payment = db.get(models.Payment, payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    settlement = (
+        db.query(models.PaymentSettlement)
+        .filter(models.PaymentSettlement.payment_id == payment_id)
+        .first()
+    )
+    if not settlement:
+        raise HTTPException(status_code=404, detail="Payment settlement not found")
+    if settlement.status != SettlementStatus.approval_failed.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Only failed Marketplace approvals can be retried",
+        )
+    from backend.tasks.marketplace_tasks import enqueue_payment_settlement
+
+    if not enqueue_payment_settlement(payment_id):
+        raise HTTPException(status_code=503, detail="Settlement retry could not be queued")
+    return success_response(
+        {
+            "message": "Marketplace settlement retry queued",
+            "payment": format_payment_response(payment, db, include_settlement=True),
+        }
+    )
 
 
 @router.get("/admin/refund-requests")
@@ -680,7 +761,7 @@ async def admin_approve_refund_request(
         db.query(models.Payment)
         .filter(
             models.Payment.id == refund_request.payment_id,
-            models.Payment.status == PaymentStatus.paid,
+            models.Payment.status.in_([PaymentStatus.paid, PaymentStatus.partially_refunded]),
         )
         .first()
     )
@@ -695,6 +776,7 @@ async def admin_approve_refund_request(
             detail="Only refunding bookings can be refunded by admin",
         )
 
+    await execute_external_refund(payment, refund_request, db)
     now = utc_now()
     old_status = booking.status
     old_refund_status = refund_request.status
@@ -702,9 +784,11 @@ async def admin_approve_refund_request(
     refund_request.admin_note = decision_data.admin_note
     refund_request.admin_responded_at = now
     refund_request.refunded_at = now
-    payment.status = PaymentStatus.refunded
-    payment.refunded_at = now
-    booking.status = BookingStatus.refunded
+    booking.status = (
+        BookingStatus.refunded
+        if refund_request.refund_amount >= payment.amount
+        else BookingStatus.partially_refunded
+    )
     booking.status_note = decision_data.admin_note
     add_booking_status_history(
         booking, old_status, booking.status, booking.status_note, current_user, db
@@ -808,10 +892,7 @@ async def admin_reject_refund_request(
             status_code=400,
             detail="Only refunding bookings can be restored after admin rejection",
         )
-    if refund_request.previous_booking_status not in [
-        BookingStatus.accepted,
-        BookingStatus.awaiting_confirmation,
-    ]:
+    if refund_request.previous_booking_status != BookingStatus.completed:
         raise HTTPException(
             status_code=400,
             detail="Refund request has an invalid previous booking status",

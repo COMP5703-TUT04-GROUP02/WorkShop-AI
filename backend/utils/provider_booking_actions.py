@@ -5,6 +5,7 @@ All entries verify the provider owns the booking.
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -32,9 +33,11 @@ from backend.utils.chat import (
 )
 from backend.utils.notification import create_notification
 from backend.utils.payment import format_payment_response
+from backend.utils.marketplace import require_active_provider_submerchant
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.refund import (
     add_refund_request_status_history,
+    execute_external_refund,
     format_refund_request_response,
 )
 from backend.utils.upload import delete_local_upload, save_booking_attachment_upload
@@ -83,7 +86,7 @@ async def approve_provider_refund_request_action(
             models.Payment.booking_id == refund_request.booking_id,
             models.Payment.customer_id == refund_request.customer_id,
             models.Payment.provider_profile_id == provider_profile.id,
-            models.Payment.status == PaymentStatus.paid,
+            models.Payment.status.in_([PaymentStatus.paid, PaymentStatus.partially_refunded]),
         )
         .first()
     )
@@ -96,15 +99,18 @@ async def approve_provider_refund_request_action(
     ensure_booking_status(
         booking, [BookingStatus.refunding], "Only refunding bookings can be refunded"
     )
+    await execute_external_refund(payment, refund_request, db)
     now = utc_now()
     old_status = booking.status
     old_refund_status = refund_request.status
     refund_request.status = RefundRequestStatus.approved
     refund_request.responded_at = now
     refund_request.refunded_at = now
-    payment.status = PaymentStatus.refunded
-    payment.refunded_at = now
-    booking.status = BookingStatus.refunded
+    booking.status = (
+        BookingStatus.refunded
+        if refund_request.refund_amount >= payment.amount
+        else BookingStatus.partially_refunded
+    )
     booking.status_note = "Provider approved refund request"
     add_booking_status_history(
         booking, old_status, booking.status, booking.status_note, current_user, db
@@ -270,6 +276,12 @@ async def quote_provider_booking_action(
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
 
+    require_active_provider_submerchant(
+        provider_profile.id,
+        db,
+        booking=booking,
+    )
+
     ensure_booking_status(
         booking, [BookingStatus.pending], "Only pending bookings can receive a quote"
     )
@@ -279,6 +291,16 @@ async def quote_provider_booking_action(
     booking.quote_message = quote_data.quote_message
     booking.quoted_at = utc_now()
     booking.status_note = quote_data.quote_message
+    db.add(
+        models.BookingQuoteRevision(
+            booking_id=booking.id,
+            revision_number=1,
+            quote_amount=Decimal(str(quote_data.quote_amount)),
+            quote_message=quote_data.quote_message,
+            created_by_user_id=current_user.id,
+            created_at=utc_now(),
+        )
+    )
     add_booking_status_history(
         booking, old_status, booking.status, booking.status_note, current_user, db
     )
@@ -375,6 +397,8 @@ async def complete_provider_booking_action(
     current_user: models.User,
     db: Session,
     proof_files: list[UploadFile] | None = None,
+    final_quote_amount: float | None = None,
+    final_quote_message: str | None = None,
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
     booking = (
@@ -397,6 +421,9 @@ async def complete_provider_booking_action(
             status_code=400,
             detail="Completion proof photo or video is required",
         )
+
+    if final_quote_amount is not None and final_quote_amount <= 0:
+        raise HTTPException(status_code=400, detail="Final quote amount must be positive")
 
     saved_file_urls = []
     proof_attachments = []
@@ -440,6 +467,29 @@ async def complete_provider_booking_action(
         for file_url in saved_file_urls:
             delete_local_upload(file_url)
         raise
+
+    if final_quote_amount is not None:
+        current_amount = Decimal(str(booking.quote_amount or 0)).quantize(Decimal("0.01"))
+        new_amount = Decimal(str(final_quote_amount)).quantize(Decimal("0.01"))
+        if new_amount != current_amount or final_quote_message is not None:
+            latest_revision = (
+                db.query(models.BookingQuoteRevision)
+                .filter(models.BookingQuoteRevision.booking_id == booking.id)
+                .order_by(models.BookingQuoteRevision.revision_number.desc())
+                .first()
+            )
+            booking.quote_amount = new_amount
+            booking.quote_message = final_quote_message
+            db.add(
+                models.BookingQuoteRevision(
+                    booking_id=booking.id,
+                    revision_number=(latest_revision.revision_number if latest_revision else 0) + 1,
+                    quote_amount=new_amount,
+                    quote_message=final_quote_message,
+                    created_by_user_id=current_user.id,
+                    created_at=utc_now(),
+                )
+            )
 
     old_status = booking.status
     booking.status = BookingStatus.awaiting_confirmation

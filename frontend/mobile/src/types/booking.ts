@@ -10,6 +10,7 @@ export type BookingStatus =
   | "rejected"
   | "refunding"
   | "refunded"
+  | "partially_refunded"
   | "awaiting_confirmation"
   | "completed"
   | "cancelled"
@@ -38,6 +39,7 @@ export type BookingDetail = {
   quoted_at: string | null;
   status: BookingStatus;
   status_note: string | null;
+  booking_notice?: string | null;
   customer?: User | null;
   provider?: ProviderProfile | null;
   attachments?: BookingAttachment[];
@@ -56,11 +58,6 @@ export type BookingAttachment = {
   created_at: string;
 };
 
-export type RefundServiceStage =
-  | "not_started"
-  | "in_progress"
-  | "service_completed";
-
 export type RefundRequestStatus =
   | "pending"
   | "approved"
@@ -70,13 +67,26 @@ export type RefundRequestStatus =
   | "cancelled"
   | string;
 
+export type PaymentStatus =
+  | "pending"
+  | "checkout_created"
+  | "processing"
+  | "authorized"
+  | "paid"
+  | "voided"
+  | "failed"
+  | "capture_failed"
+  | "refund_failed"
+  | "refunded"
+  | "partially_refunded"
+  | string;
+
 export type RefundRequestSummary = {
   id: number;
   booking_id: number;
   payment_id: number;
   customer_id: number;
   provider_profile_id: number;
-  service_stage: RefundServiceStage | string;
   reason: string;
   status: RefundRequestStatus;
   provider_note: string | null;
@@ -89,8 +99,44 @@ export type RefundRequestSummary = {
   admin_responded_at: string | null;
   cancelled_at?: string | null;
   refunded_at?: string | null;
+  refund_amount?: number | null;
   booking?: BookingDetail | null;
   payment?: PaymentSummary | null;
+};
+
+export type SettlementStatus =
+  | "pending"
+  | "approve_requested"
+  | "approved"
+  | "approval_failed"
+  | "disapproved"
+  | string;
+
+export type PaymentSettlement = {
+  id: number;
+  payment_id: number;
+  booking_id: number;
+  provider_profile_id: number;
+  platform_commission_rate: number;
+  platform_commission_amount: number;
+  provider_share_amount: number;
+  payment_transaction_id: string | null;
+  status: SettlementStatus;
+  approve_requested_at: string | null;
+  approved_at: string | null;
+  failure_code: string | null;
+  failure_message: string | null;
+  retry_count: number;
+  provider_payout_amount: number | null;
+  merchant_payout_amount: number | null;
+  provider_recovery_amount: number | null;
+  recovery_status: string | null;
+  iyzico_commission_rate_amount?: number | null;
+  iyzico_commission_fee?: number | null;
+  blockage_rate?: number | null;
+  blockage_resolved_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type PaymentSummary = {
@@ -100,12 +146,29 @@ export type PaymentSummary = {
   provider_profile_id: number;
   amount: number;
   currency: string;
-  status: string;
+  status: PaymentStatus;
   payment_method: string | null;
+  idempotency_key?: string | null;
+  processing_started_at?: string | null;
+  checkout_expires_at?: string | null;
   external_payment_id: string | null;
+  conversation_id?: string | null;
+  basket_id?: string | null;
+  iyzico_token?: string | null;
+  checkout_url?: string | null;
+  iyzico_payment_id?: string | null;
+  payment_transaction_id?: string | null;
+  external_status?: string | null;
+  failure_code?: string | null;
+  failure_message?: string | null;
   created_at: string;
   paid_at: string | null;
+  authorized_at?: string | null;
+  voided_at?: string | null;
+  capture_failed_at?: string | null;
   refunded_at: string | null;
+  failed_at?: string | null;
+  settlement?: PaymentSettlement | null;
 };
 
 /** What /customer/payments and /provider/payments return: a payment plus its booking. */
@@ -154,4 +217,7 @@ export type BookingActionResponseData = {
   booking: BookingDetail;
   chat_message?: ChatMessage | null;
   refund_request?: RefundRequestSummary | null;
+  payment?: PaymentSummary | null;
+  payment_page_url?: string | null;
+  token?: string | null;
 };

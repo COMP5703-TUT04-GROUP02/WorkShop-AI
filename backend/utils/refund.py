@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -8,11 +9,89 @@ from backend.schemas import BookingStatus
 from backend.utils.booking import format_booking_detail_response
 from backend.utils.payment import format_payment_response
 from backend.core.clock import utc_now
+from backend.services import iyzico as iyzico_service
 
 REFUND_RESTORABLE_BOOKING_STATUSES = [
-    BookingStatus.accepted,
-    BookingStatus.awaiting_confirmation,
+    BookingStatus.completed,
 ]
+
+
+async def execute_external_refund(
+    payment: models.Payment,
+    refund_request: models.RefundRequest,
+    db: Session,
+) -> str:
+    """Execute the one external money movement for a refund request.
+
+    An authorized payment is released with Cancel/Void; a captured payment is
+    refunded by transaction ID. Local terminal states are only written after
+    iyzico confirms success, so an approval can safely retry the same request.
+    """
+    client = iyzico_service.get_iyzico_client()
+    try:
+        if payment.status == "authorized":
+            if not payment.iyzico_payment_id or not payment.conversation_id:
+                raise HTTPException(status_code=409, detail="Authorized payment reference is missing")
+            result = await client.cancel_payment(
+                payment.iyzico_payment_id, payment.conversation_id
+            )
+            movement = "voided"
+        elif payment.status in {"paid", "partially_refunded"}:
+            if not payment.payment_transaction_id or not payment.conversation_id:
+                raise HTTPException(status_code=409, detail="Payment transaction reference is missing")
+            result = await client.refund_payment(
+                payment.payment_transaction_id,
+                payment.conversation_id,
+                refund_request.refund_amount,
+            )
+            movement = "refunded"
+        else:
+            raise HTTPException(status_code=409, detail="Payment cannot be refunded in its current state")
+    except iyzico_service.IyzicoClientError as exc:
+        response_data = exc.response_data or {}
+        refund_request.failure_code = str(response_data.get("errorCode") or "refund_failed")
+        refund_request.failure_message = str(response_data.get("errorMessage") or str(exc))
+        db.commit()
+        raise HTTPException(status_code=502, detail=refund_request.failure_message) from exc
+
+    if str(result.get("status", "")).lower() != "success":
+        refund_request.failure_code = str(result.get("errorCode") or "refund_failed")
+        refund_request.failure_message = str(
+            result.get("errorMessage") or "iyzico rejected the refund"
+        )
+        db.commit()
+        raise HTTPException(status_code=502, detail=refund_request.failure_message)
+
+    refund_request.failure_code = None
+    refund_request.failure_message = None
+    refund_request.external_refund_id = str(
+        result.get("paymentId")
+        or result.get("paymentTransactionId")
+        or result.get("conversationId")
+        or ""
+    ) or None
+    if movement == "voided":
+        payment.status = "voided"
+        payment.voided_at = utc_now()
+        payment.external_status = "voided"
+    else:
+        is_full = refund_request.refund_amount >= payment.amount
+        payment.status = "refunded" if is_full else "partially_refunded"
+        payment.refunded_at = utc_now()
+        payment.external_status = payment.status
+
+        settlement = (
+            db.query(models.PaymentSettlement)
+            .filter(models.PaymentSettlement.payment_id == payment.id)
+            .with_for_update()
+            .first()
+        )
+        if settlement and settlement.status == "approved":
+            settlement.provider_recovery_amount = (
+                refund_request.refund_amount * settlement.provider_share_amount / payment.amount
+            ).quantize(Decimal("0.01"))
+            settlement.recovery_status = "pending"
+    return movement
 
 
 def ensure_refund_can_restore_previous_booking_status(
@@ -66,7 +145,6 @@ def format_refund_request_response(
         "payment_id": refund_request.payment_id,
         "customer_id": refund_request.customer_id,
         "provider_profile_id": refund_request.provider_profile_id,
-        "service_stage": refund_request.service_stage,
         "reason": refund_request.reason,
         "status": refund_request.status,
         "provider_note": refund_request.provider_note,
@@ -79,6 +157,10 @@ def format_refund_request_response(
         "admin_responded_at": refund_request.admin_responded_at,
         "cancelled_at": refund_request.cancelled_at,
         "refunded_at": refund_request.refunded_at,
+        "refund_amount": refund_request.refund_amount,
+        "external_refund_id": refund_request.external_refund_id,
+        "failure_code": refund_request.failure_code,
+        "failure_message": refund_request.failure_message,
         "booking": format_booking_detail_response(booking, db) if booking else None,
         "payment": format_payment_response(payment, db) if payment else None,
     }

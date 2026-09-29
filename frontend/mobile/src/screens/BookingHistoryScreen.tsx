@@ -1,38 +1,70 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useState } from "react";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import { getCustomerBookings } from "../api/customer";
+import {
+  appealCustomerRefund,
+  cancelCustomerRefund,
+  getCustomerBookings,
+  getCustomerPayments,
+  requestCustomerRefund,
+} from "../api/customer";
 import { getProviderBookings } from "../api/provider";
 import { CompletionProofGallery } from "../components/CompletionProofGallery";
+import { PrimaryButton } from "../components/PrimaryButton";
 import { SecondaryButton } from "../components/SecondaryButton";
+import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
+import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
-import type { BookingDetail } from "../types/booking";
+import type { BookingDetail, PaymentSummary } from "../types/booking";
+import { getRefundStatusLabel } from "../constants/labels";
 import { formatDateTime } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 import { formatMoney } from "../utils/money";
+import { indexLatestPayments } from "../utils/payment";
 
-const HISTORY_ORDER_STATUSES = ["completed", "cancelled", "rejected", "refunded"];
+const HISTORY_ORDER_STATUSES = [
+  "completed",
+  "refunding",
+  "cancelled",
+  "rejected",
+  "refunded",
+  "partially_refunded",
+];
 
 export function BookingHistoryScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<
+    NativeStackNavigationProp<RootStackParamList>
+  >();
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  const [paymentsByBookingId, setPaymentsByBookingId] = useState<
+    Record<number, PaymentSummary>
+  >({});
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isActing, setIsActing] = useState(false);
   const [message, setMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundAppealReason, setRefundAppealReason] = useState("");
 
   const loadBookings = useCallback(async () => {
     if (!user || user.role === "admin") {
       setBookings([]);
+      setPaymentsByBookingId({});
       setIsLoading(false);
       return;
     }
@@ -40,12 +72,19 @@ export function BookingHistoryScreen() {
     setIsLoading(true);
     setMessage("");
     try {
-      const result =
-        user.role === "provider"
-          ? await getProviderBookings(undefined, 1, 100)
-          : await getCustomerBookings(undefined, 1, 100);
-
-      setBookings(filterHistoryBookings(result?.items ?? []));
+      if (user.role === "provider") {
+        const result = await getProviderBookings(undefined, 1, 100);
+        setBookings(filterHistoryBookings(result?.items ?? []));
+        setPaymentsByBookingId({});
+      } else {
+        const [bookingResult, paymentResult] = await Promise.all([
+          getCustomerBookings(undefined, 1, 100),
+          getCustomerPayments(1, 100),
+        ]);
+        const payments = indexLatestPayments(paymentResult?.items ?? []);
+        setBookings(filterHistoryBookings(bookingResult?.items ?? []));
+        setPaymentsByBookingId(payments);
+      }
     } catch (error) {
       setBookings([]);
       setMessage(getErrorMessage(error));
@@ -59,6 +98,114 @@ export function BookingHistoryScreen() {
       void loadBookings();
     }, [loadBookings]),
   );
+
+  function openProvider(booking: BookingDetail) {
+    if (Platform.OS === "web") {
+      setSelectedBooking(null);
+    }
+    navigation.navigate("CustomerProviderDetail", {
+      providerId: booking.provider_profile_id,
+    });
+  }
+
+  function openBooking(booking: BookingDetail) {
+    setSelectedBooking(booking);
+    setActionError("");
+    setRefundAmount("");
+    setRefundReason("");
+    setRefundAppealReason("");
+  }
+
+  async function handleRequestRefund() {
+    if (!selectedBooking) {
+      return;
+    }
+
+    const reason = refundReason.trim();
+    if (!reason) {
+      setActionError("Enter a refund reason.");
+      return;
+    }
+
+    const parsedAmount = refundAmount.trim() ? Number(refundAmount) : undefined;
+    const paidAmount = paymentsByBookingId[selectedBooking.id]?.amount;
+    if (
+      parsedAmount !== undefined &&
+      (!Number.isFinite(parsedAmount) ||
+        parsedAmount <= 0 ||
+        (paidAmount != null && parsedAmount > paidAmount))
+    ) {
+      setActionError("Refund amount must be greater than 0 and no more than the paid amount.");
+      return;
+    }
+
+    setIsActing(true);
+    setActionError("");
+    try {
+      const result = await requestCustomerRefund(
+        selectedBooking.id,
+        reason,
+        parsedAmount,
+      );
+      setSelectedBooking(result?.booking ?? selectedBooking);
+      setRefundAmount("");
+      setRefundReason("");
+      setMessage("Refund request sent.");
+      await loadBookings();
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setIsActing(false);
+    }
+  }
+
+  async function handleCancelRefund() {
+    const refundRequestId = selectedBooking?.current_refund_request?.id;
+    if (!refundRequestId) {
+      setActionError("This refund request cannot be cancelled.");
+      return;
+    }
+
+    setIsActing(true);
+    setActionError("");
+    try {
+      const result = await cancelCustomerRefund(refundRequestId);
+      setSelectedBooking(result?.booking ?? selectedBooking);
+      setMessage("Refund request cancelled.");
+      await loadBookings();
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setIsActing(false);
+    }
+  }
+
+  async function handleAppealRefund() {
+    const refundRequestId = selectedBooking?.current_refund_request?.id;
+    const reason = refundAppealReason.trim();
+    if (!refundRequestId) {
+      setActionError("This refund cannot be appealed.");
+      return;
+    }
+    if (!reason) {
+      setActionError("Enter an appeal reason.");
+      return;
+    }
+
+    setIsActing(true);
+    setActionError("");
+    try {
+      const result = await appealCustomerRefund(refundRequestId, reason);
+      setSelectedBooking(result?.booking ?? selectedBooking);
+      setRefundAppealReason("");
+      setMessage("Appeal submitted.");
+      await loadBookings();
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setIsActing(false);
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -88,7 +235,7 @@ export function BookingHistoryScreen() {
             <HistoryBookingCard
               booking={booking}
               key={booking.id}
-              onPress={() => setSelectedBooking(booking)}
+              onPress={() => openBooking(booking)}
               userRole={user?.role}
             />
           ))}
@@ -96,8 +243,21 @@ export function BookingHistoryScreen() {
       )}
 
       <HistoryBookingDetailModal
+        actionError={actionError}
         booking={selectedBooking}
+        isActing={isActing}
+        onAppealRefund={handleAppealRefund}
+        onCancelRefund={handleCancelRefund}
+        onOpenProvider={openProvider}
         onClose={() => setSelectedBooking(null)}
+        onRequestRefund={handleRequestRefund}
+        payment={selectedBooking ? paymentsByBookingId[selectedBooking.id] : null}
+        refundAmount={refundAmount}
+        refundAppealReason={refundAppealReason}
+        refundReason={refundReason}
+        setRefundAmount={setRefundAmount}
+        setRefundAppealReason={setRefundAppealReason}
+        setRefundReason={setRefundReason}
         userRole={user?.role}
       />
     </ScrollView>
@@ -149,17 +309,58 @@ function HistoryBookingCard({
 }
 
 function HistoryBookingDetailModal({
+  actionError,
   booking,
+  isActing,
+  onAppealRefund,
+  onCancelRefund,
+  onOpenProvider,
   onClose,
+  onRequestRefund,
+  payment,
+  refundAmount,
+  refundAppealReason,
+  refundReason,
+  setRefundAmount,
+  setRefundAppealReason,
+  setRefundReason,
   userRole,
 }: {
+  actionError: string;
   booking: BookingDetail | null;
+  isActing: boolean;
+  onAppealRefund: () => void;
+  onCancelRefund: () => void;
+  onOpenProvider: (booking: BookingDetail) => void;
   onClose: () => void;
+  onRequestRefund: () => void;
+  payment?: PaymentSummary | null;
+  refundAmount: string;
+  refundAppealReason: string;
+  refundReason: string;
+  setRefundAmount: (value: string) => void;
+  setRefundAppealReason: (value: string) => void;
+  setRefundReason: (value: string) => void;
   userRole?: string;
 }) {
   if (!booking) {
     return null;
   }
+
+  const canRequestRefund =
+    userRole === "customer" &&
+    booking.status === "completed" &&
+    payment?.status === "paid";
+  const canCancelRefund =
+    userRole === "customer" &&
+    booking.status === "refunding" &&
+    ["pending", "rejected"].includes(
+      String(booking.current_refund_request?.status || ""),
+    );
+  const canAppealRefund =
+    userRole === "customer" &&
+    booking.status === "refunding" &&
+    booking.current_refund_request?.status === "rejected";
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
@@ -168,7 +369,18 @@ function HistoryBookingDetailModal({
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.detailContent}>
             <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
-            <DetailRow label={userRole === "provider" ? "Customer" : "Provider"} value={getTargetName(booking, userRole)} />
+            {userRole === "customer" ? (
+              <DetailRow
+                label="Provider"
+                onPress={() => onOpenProvider(booking)}
+                value={getTargetName(booking, userRole)}
+              />
+            ) : (
+              <DetailRow
+                label="Customer"
+                value={getTargetName(booking, userRole)}
+              />
+            )}
             <DetailRow label="Booking title" value={booking.title} />
             <DetailRow label="Service description" value={booking.service_description} />
             <DetailRow label="Service address" value={booking.service_address} />
@@ -192,12 +404,125 @@ function HistoryBookingDetailModal({
             />
             <DetailRow label="Quote notes" value={booking.quote_message || "—"} />
             <DetailRow label="Notes" value={booking.status_note || "—"} />
+            {booking.current_refund_request ? (
+              <>
+                <DetailRow
+                  label="Refund status"
+                  value={getRefundStatusLabel(booking.current_refund_request.status)}
+                />
+                <DetailRow
+                  label="Original payment"
+                  value={payment ? formatMoney(payment.amount) : "—"}
+                />
+                <DetailRow
+                  label="Refund amount"
+                  value={
+                    booking.current_refund_request.refund_amount == null
+                      ? "Full paid amount"
+                      : formatMoney(booking.current_refund_request.refund_amount)
+                  }
+                />
+                <DetailRow
+                  label="Refund reason"
+                  value={booking.current_refund_request.reason}
+                />
+                <DetailRow
+                  label="Provider response"
+                  value={booking.current_refund_request.provider_note || "—"}
+                />
+                <DetailRow
+                  label="Appeal reason"
+                  value={booking.current_refund_request.appeal_reason || "—"}
+                />
+                <DetailRow
+                  label="Support response"
+                  value={booking.current_refund_request.admin_note || "—"}
+                />
+                <DetailRow
+                  label="Requested at"
+                  value={formatDateTime(booking.current_refund_request.created_at)}
+                />
+                <DetailRow
+                  label="Provider responded at"
+                  value={formatDateTime(booking.current_refund_request.responded_at)}
+                />
+                <DetailRow
+                  label="Appealed at"
+                  value={formatDateTime(booking.current_refund_request.appealed_at)}
+                />
+                <DetailRow
+                  label="Support responded at"
+                  value={formatDateTime(
+                    booking.current_refund_request.admin_responded_at,
+                  )}
+                />
+                <DetailRow
+                  label="Refunded at"
+                  value={formatDateTime(booking.current_refund_request.refunded_at)}
+                />
+              </>
+            ) : null}
             {userRole === "customer" ? (
               <CompletionProofGallery booking={booking} />
             ) : null}
+
+            {canRequestRefund ? (
+              <>
+                <TextField
+                  keyboardType="decimal-pad"
+                  label="Refund amount (optional)"
+                  onChangeText={setRefundAmount}
+                  placeholder="Leave blank for full refund"
+                  value={refundAmount}
+                />
+                <TextField
+                  label="Refund reason"
+                  multiline
+                  numberOfLines={3}
+                  onChangeText={setRefundReason}
+                  placeholder="Reason for refund"
+                  value={refundReason}
+                />
+              </>
+            ) : null}
+            {canAppealRefund ? (
+              <>
+                <TextField
+                  label="Appeal reason"
+                  multiline
+                  numberOfLines={3}
+                  onChangeText={setRefundAppealReason}
+                  placeholder="Reason for appeal"
+                  value={refundAppealReason}
+                />
+              </>
+            ) : null}
           </ScrollView>
 
+          {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
           <View style={styles.modalActions}>
+            {canRequestRefund ? (
+              <SecondaryButton
+                disabled={isActing}
+                label="Request refund"
+                onPress={onRequestRefund}
+              />
+            ) : null}
+            {canCancelRefund ? (
+              <SecondaryButton
+                disabled={isActing}
+                label="Cancel refund"
+                onPress={onCancelRefund}
+              />
+            ) : null}
+            {canAppealRefund ? (
+              <PrimaryButton
+                disabled={isActing}
+                isLoading={isActing}
+                label="Submit appeal"
+                onPress={onAppealRefund}
+              />
+            ) : null}
             <SecondaryButton label="Close" onPress={onClose} />
           </View>
         </View>
@@ -206,13 +531,33 @@ function HistoryBookingDetailModal({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  onPress,
+  value,
+}: {
+  label: string;
+  onPress?: () => void;
+  value: string;
+}) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      {onPress ? (
+        <Pressable
+          accessibilityHint="Opens the provider profile"
+          accessibilityLabel={`Open ${value}`}
+          accessibilityRole="link"
+          onPress={onPress}
+        >
+          <Text style={[styles.detailValue, styles.detailLink]}>{value}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.detailValue}>{value}</Text>
+      )}
     </View>
   );
+
 }
 
 function filterHistoryBookings(bookings: BookingDetail[]) {
@@ -233,6 +578,9 @@ function getBookingStatusLabel(status: string) {
   const labels: Record<string, string> = {
     completed: "Completed",
     cancelled: "Cancelled",
+    rejected: "Declined",
+    refunded: "Refunded",
+    partially_refunded: "Partially refunded",
   };
 
   return labels[status] || status;
@@ -394,6 +742,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  detailLink: {
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "700",
   },
   modalActions: {
     flexDirection: "row",
