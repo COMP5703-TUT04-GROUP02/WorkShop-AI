@@ -132,6 +132,8 @@ export type QualificationVerificationApplication = {
   business_latitude: number;
   business_longitude: number;
   service_categories: string[];
+  service_location_ids: number[];
+  service_areas: ProviderServiceArea[];
   status: VerificationStatus;
   review_note: string | null;
   reviewed_by_user_id: number | null;
@@ -151,6 +153,7 @@ export type QualificationVerificationPayload = {
   business_latitude: number;
   business_longitude: number;
   service_categories: string[];
+  service_location_ids: number[];
   qualification_files: VerificationUploadFile[];
 };
 

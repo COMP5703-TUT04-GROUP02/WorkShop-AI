@@ -63,6 +63,7 @@ class QualificationVerificationSubmit(BaseModel):
     business_latitude: float = Field(ge=-90, le=90)
     business_longitude: float = Field(ge=-180, le=180)
     service_categories: list[str] = Field(min_length=1)
+    service_location_ids: list[int] = Field(min_length=1)
     qualification_files: list[VerificationFileInput] = Field(min_length=1, max_length=5)
 
     @field_validator("description", "contact_phone", "business_address")
@@ -83,6 +84,15 @@ class QualificationVerificationSubmit(BaseModel):
             if service not in cleaned:
                 cleaned.append(service)
         return cleaned
+
+    @field_validator("service_location_ids")
+    @classmethod
+    def unique_positive_location_ids(cls, values):
+        if any(value <= 0 for value in values):
+            raise ValueError("service_location_ids must be positive")
+        if len(values) != len(set(values)):
+            raise ValueError("Duplicate service locations are not allowed")
+        return values
 
     @model_validator(mode="after")
     def validate_entity_fields(self):

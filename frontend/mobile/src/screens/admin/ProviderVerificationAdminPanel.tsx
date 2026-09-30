@@ -112,7 +112,7 @@ function IdentityDetails({ item }: { item: IdentityVerificationApplication }) {
 }
 
 function QualificationDetails({ item }: { item: QualificationVerificationApplication }) {
-  return <View style={styles.rows}><Row label="Display name" value={item.display_name} /><Row label="Type" value={item.entity_type} />{item.legal_name ? <Row label="Legal name" value={item.legal_name} /> : null}{item.unique_enterprise_id ? <Row label="Enterprise ID" value={item.unique_enterprise_id} /> : null}<Row label="Description" value={item.description} /><Row label="Phone" value={item.contact_phone} /><Row label="Business address" value={item.business_address} /><Row label="Services" value={item.service_categories.map(getProviderTagLabel).join(", ")} /><VerificationFiles files={item.qualification_files} /></View>;
+  return <View style={styles.rows}><Row label="Display name" value={item.display_name} /><Row label="Type" value={item.entity_type} />{item.legal_name ? <Row label="Legal name" value={item.legal_name} /> : null}{item.unique_enterprise_id ? <Row label="Enterprise ID" value={item.unique_enterprise_id} /> : null}<Row label="Description" value={item.description} /><Row label="Phone" value={item.contact_phone} /><Row label="Business address" value={item.business_address} /><Row label="Services" value={item.service_categories.map(getProviderTagLabel).join(", ")} /><Row label="Service areas" value={item.service_areas.map((area) => area.label ?? area.name).join(", ")} /><VerificationFiles files={item.qualification_files} /></View>;
 }
 
 function VerificationFiles({ files }: { files: VerificationUploadFile[] }) {

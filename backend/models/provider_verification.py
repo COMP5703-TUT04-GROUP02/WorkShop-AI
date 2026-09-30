@@ -104,6 +104,29 @@ class QualificationVerificationService(Base):
     service_category: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class QualificationVerificationServiceArea(Base):
+    __tablename__ = "qualification_verification_service_areas"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id",
+            "service_location_id",
+            name="uq_qualification_service_area",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    application_id: Mapped[int] = mapped_column(
+        ForeignKey("qualification_verification_applications.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    service_location_id: Mapped[int] = mapped_column(
+        ForeignKey("service_locations.id", ondelete="RESTRICT"),
+        index=True,
+        nullable=False,
+    )
+
+
 class ProviderApprovedService(Base):
     __tablename__ = "provider_approved_services"
     __table_args__ = (

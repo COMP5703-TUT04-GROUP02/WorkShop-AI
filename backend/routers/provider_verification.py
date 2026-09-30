@@ -41,6 +41,19 @@ from backend.utils.upload import save_verification_upload
 router = ApiRouter(tags=["Provider Verification"])
 
 
+def _validated_service_area_locations(db: Session, location_ids: list[int]):
+    locations = [get_location(db, location_id) for location_id in location_ids]
+    for index, location in enumerate(locations):
+        descendants = location_scope_ids(db, location.id)
+        for other in locations[index + 1 :]:
+            if other.id in descendants or location.id in location_scope_ids(db, other.id):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Service areas cannot contain overlapping parent and child locations",
+                )
+    return locations
+
+
 def _parse_date_of_birth(value: str) -> date:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise HTTPException(
@@ -225,6 +238,9 @@ def submit_qualification_verification(
     db: Session = Depends(get_db),
 ):
     _ensure_can_submit_qualification(current_user)
+    service_area_locations = _validated_service_area_locations(
+        db, payload.service_location_ids
+    )
     for file in payload.qualification_files:
         if not file.file_url.startswith("/verification-files/qualification/"):
             raise HTTPException(
@@ -274,6 +290,13 @@ def submit_qualification_verification(
             models.QualificationVerificationService(
                 application_id=application.id,
                 service_category=service,
+            )
+        )
+    for location in service_area_locations:
+        db.add(
+            models.QualificationVerificationServiceArea(
+                application_id=application.id,
+                service_location_id=location.id,
             )
         )
     for index, file in enumerate(payload.qualification_files):
@@ -380,15 +403,7 @@ def replace_service_areas(
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
     require_provider_qualification_approved(profile)
-    locations = [get_location(db, location_id) for location_id in payload.service_location_ids]
-    for index, location in enumerate(locations):
-        descendants = location_scope_ids(db, location.id)
-        for other in locations[index + 1 :]:
-            if other.id in descendants or location.id in location_scope_ids(db, other.id):
-                raise HTTPException(
-                    status_code=422,
-                    detail="Service areas cannot contain overlapping parent and child locations",
-                )
+    locations = _validated_service_area_locations(db, payload.service_location_ids)
     db.query(models.ProviderServiceArea).filter(
         models.ProviderServiceArea.provider_profile_id == profile.id
     ).delete(synchronize_session=False)
