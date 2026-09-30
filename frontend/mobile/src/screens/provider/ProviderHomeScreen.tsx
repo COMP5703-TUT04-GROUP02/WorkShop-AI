@@ -21,6 +21,7 @@ import {
   getPublicProviderReviews,
 } from "../../api/customer";
 import { DateTimeField } from "../../components/DateTimeField";
+import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -32,7 +33,7 @@ import { useProviderProfileGate } from "../../context/ProviderProfileGateContext
 import type { RootStackParamList } from "../../navigation/types";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
-import type { SelectedLocation } from "../../types/location";
+import type { SelectedLocation, ServiceAreaSelection } from "../../types/location";
 import type {
   IdentityVerificationApplication,
   ProviderPortfolio,
@@ -395,14 +396,16 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
     placeId: application.business_place_id,
   } : null);
   const [categories, setCategories] = useState<string[]>(application?.service_categories ?? []);
+  const [areas, setAreas] = useState<ProviderServiceArea[]>(application?.service_areas ?? []);
   const [files, setFiles] = useState<LocalVerificationFile[]>([]);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const [showAreaPicker, setShowAreaPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const canSubmit = status === "not_submitted" || status === "rejected";
 
   async function submit() {
-    if (!description.trim() || !phone.trim() || !address || categories.length === 0 || files.length === 0 || (entityType === "organisation" && (!legalName.trim() || !enterpriseId.trim()))) {
+    if (!description.trim() || !phone.trim() || !address || categories.length === 0 || areas.length === 0 || files.length === 0 || (entityType === "organisation" && (!legalName.trim() || !enterpriseId.trim()))) {
       setError("Complete every required field and attach at least one file."); return;
     }
     setIsSubmitting(true); setError("");
@@ -415,11 +418,25 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
         unique_enterprise_id: entityType === "organisation" ? enterpriseId.trim() : null,
         description: description.trim(), contact_phone: phone.trim(), business_address: address.label,
         business_place_id: address.placeId, business_latitude: address.latitude, business_longitude: address.longitude,
-        service_categories: categories, qualification_files: uploaded.files,
+        service_categories: categories, service_location_ids: areas.map((area) => area.id), qualification_files: uploaded.files,
       });
       Alert.alert("Submitted", "Your service verification application is now locked for review."); onSubmitted();
     } catch (submitError) { setError(getErrorMessage(submitError)); }
     finally { setIsSubmitting(false); }
+  }
+
+  function addArea(selection: ServiceAreaSelection) {
+    if (!areas.some((area) => area.id === selection.serviceLocationId)) {
+      const depth = selection.label.split(" / ").length;
+      setAreas((current) => [...current, {
+        id: selection.serviceLocationId,
+        name: selection.label,
+        label: selection.label,
+        serviceProvince: selection.serviceProvince,
+        level: depth === 1 ? "province" : depth === 2 ? "city" : "district",
+      }]);
+    }
+    setShowAreaPicker(false);
   }
 
   return <View style={styles.card}>
@@ -428,6 +445,7 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
     {!canSubmit ? <ApplicationSummary rows={[
       ["Provider type", application?.entity_type ?? "-"], ["Display name", application?.display_name ?? "-"],
       ["Business address", application?.business_address ?? "-"], ["Services", application?.service_categories.map(getProviderTagLabel).join(", ") ?? "-"],
+      ["Service areas", application?.service_areas.map((area) => area.label ?? area.name).join(", ") ?? "-"],
       ["Files", String(application?.qualification_files.length ?? 0)],
     ]} note="The application cannot be changed or cancelled while pending." /> :
       <View style={styles.form}>
@@ -439,10 +457,21 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
         <AddressButton location={address} onPress={() => setShowAddressPicker(true)} />
         <Text style={styles.fieldLabel}>Services to verify</Text>
         <TagPicker selected={categories} onChange={setCategories} options={[...PROVIDER_TAGS]} />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.fieldLabel}>Service areas</Text>
+          <Pressable onPress={() => setShowAreaPicker(true)}><Text style={styles.link}>Add area</Text></Pressable>
+        </View>
+        <Text style={styles.hint}>Choose every province, city, or district this provider will serve.</Text>
+        {areas.map((area) => <View key={area.id} style={styles.fileRow}>
+          <MapPin color={colors.primary} size={18} />
+          <Text style={styles.flex}>{area.label ?? area.name}</Text>
+          <Pressable onPress={() => setAreas((current) => current.filter((item) => item.id !== area.id))}><Trash2 color={colors.danger} size={18} /></Pressable>
+        </View>)}
         <FilePicker files={files} onChange={setFiles} />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <PrimaryButton isLoading={isSubmitting} label="Submit service verification" onPress={() => void submit()} />
         <LocationPickerModal onClose={() => setShowAddressPicker(false)} onConfirm={(location) => { setAddress(location); setShowAddressPicker(false); }} value={address} visible={showAddressPicker} />
+        <LocationCascadePickerModal allowAnyLevel onClose={() => setShowAreaPicker(false)} onSelect={addArea} value={null} visible={showAreaPicker} />
       </View>}
   </View>;
 }

@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from backend import models
 from backend.schemas.provider_verification import QualificationVerificationSubmit
+from backend.utils.service_locations import seed_service_locations
 from tests.conftest import create_admin_session, register_session
 from tests.test_provider_verification_flow import (
     approve_identity,
@@ -23,6 +24,7 @@ def organisation_payload(file):
         "business_latitude": 40.9909,
         "business_longitude": 29.0303,
         "service_categories": ["cleaning"],
+        "service_location_ids": [1],
         "qualification_files": [file],
     }
 
@@ -111,9 +113,13 @@ def test_organisation_approval_uses_legal_name_and_persists_enterprise_id(
     identity_id = submit_identity(client, provider["headers"]).json()["data"]["id"]
     assert approve_identity(client, admin["headers"], identity_id).status_code == 200
     file = upload_qualification_file(client, provider["headers"])
+    seeded = seed_service_locations(db_session)
+    db_session.commit()
+    payload = organisation_payload(file)
+    payload["service_location_ids"] = [seeded["tr-istanbul"].id]
     submitted = client.post(
         "/provider/qualification-verification",
-        json=organisation_payload(file),
+        json=payload,
         headers=provider["headers"],
     )
     assert submitted.status_code == 200, submitted.text

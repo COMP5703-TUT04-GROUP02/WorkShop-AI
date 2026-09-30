@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from backend import models
+from backend.utils.service_locations import format_service_area
 
 
 def latest_identity_application(user_id: int, db: Session):
@@ -62,6 +63,19 @@ def format_qualification_application(application, db: Session, *, include_files:
         .order_by(models.QualificationVerificationService.service_category.asc())
         .all()
     )
+    area_rows = (
+        db.query(models.QualificationVerificationServiceArea, models.ServiceLocation)
+        .join(
+            models.ServiceLocation,
+            models.ServiceLocation.id
+            == models.QualificationVerificationServiceArea.service_location_id,
+        )
+        .filter(
+            models.QualificationVerificationServiceArea.application_id == application.id
+        )
+        .order_by(models.QualificationVerificationServiceArea.id.asc())
+        .all()
+    )
     result = {
         "id": application.id,
         "user_id": application.user_id,
@@ -76,6 +90,10 @@ def format_qualification_application(application, db: Session, *, include_files:
         "business_latitude": application.business_latitude,
         "business_longitude": application.business_longitude,
         "service_categories": [item.service_category for item in services],
+        "service_location_ids": [row.service_location_id for row, _ in area_rows],
+        "service_areas": [
+            format_service_area(db, location) for _, location in area_rows
+        ],
         "status": application.status,
         "review_note": application.review_note,
         "reviewed_by_user_id": application.reviewed_by_user_id,

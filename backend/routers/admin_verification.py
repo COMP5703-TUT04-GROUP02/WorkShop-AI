@@ -126,6 +126,22 @@ def _approve_qualification(application, provider, db: Session):
         .filter(models.QualificationVerificationService.application_id == application.id)
         .all()
     )
+    service_areas = (
+        db.query(models.QualificationVerificationServiceArea)
+        .filter(
+            models.QualificationVerificationServiceArea.application_id == application.id
+        )
+        .order_by(models.QualificationVerificationServiceArea.id.asc())
+        .all()
+    )
+    if not service_areas:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This application has no service areas. Reject it and ask the provider "
+                "to submit a new application."
+            ),
+        )
     files = (
         db.query(models.QualificationVerificationFile)
         .filter(models.QualificationVerificationFile.application_id == application.id)
@@ -187,6 +203,16 @@ def _approve_qualification(application, provider, db: Session):
                 provider_profile_id=profile.id,
                 service_category=service.service_category,
                 is_enabled=True,
+            )
+        )
+    db.query(models.ProviderServiceArea).filter(
+        models.ProviderServiceArea.provider_profile_id == profile.id
+    ).delete(synchronize_session=False)
+    for area in service_areas:
+        db.add(
+            models.ProviderServiceArea(
+                provider_profile_id=profile.id,
+                service_location_id=area.service_location_id,
             )
         )
     db.query(models.ProviderCertificateFile).filter(

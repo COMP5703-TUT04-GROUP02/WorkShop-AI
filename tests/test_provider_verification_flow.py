@@ -30,7 +30,11 @@ def upload_qualification_file(client, headers):
     return response.json()["data"]["files"][0]
 
 
-def submit_personal_qualification(client, headers):
+def submit_personal_qualification(client, headers, db_session, *, service_location_ids=None):
+    seeded = seed_service_locations(db_session)
+    db_session.commit()
+    if service_location_ids is None:
+        service_location_ids = [seeded["tr-istanbul"].id]
     file = upload_qualification_file(client, headers)
     return client.post(
         "/provider/qualification-verification",
@@ -43,6 +47,7 @@ def submit_personal_qualification(client, headers):
             "business_latitude": 40.9909,
             "business_longitude": 29.0303,
             "service_categories": ["cleaning", "plumbing"],
+            "service_location_ids": service_location_ids,
             "qualification_files": [file],
         },
         headers=headers,
@@ -144,7 +149,7 @@ def test_qualification_requires_identity_and_is_immutable_while_pending(client, 
     admin = create_admin_session(client, db_session, email="qualification-admin@example.com")
     identity_id = submit_identity(client, provider["headers"]).json()["data"]["id"]
     assert approve_identity(client, admin["headers"], identity_id).status_code == 200
-    submitted = submit_personal_qualification(client, provider["headers"])
+    submitted = submit_personal_qualification(client, provider["headers"], db_session)
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["display_name"] == "Ada Provider"
     locked_upload = client.post(
@@ -162,7 +167,19 @@ def test_qualification_approval_creates_profile_and_operating_settings(client, d
     admin = create_admin_session(client, db_session, email="approval-admin@example.com")
     identity_id = submit_identity(client, provider["headers"]).json()["data"]["id"]
     approve_identity(client, admin["headers"], identity_id)
-    qualification = submit_personal_qualification(client, provider["headers"])
+    seeded = seed_service_locations(db_session)
+    db_session.commit()
+    application_area = seeded["tr-istanbul-city-kadikoy"]
+    qualification = submit_personal_qualification(
+        client,
+        provider["headers"],
+        db_session,
+        service_location_ids=[application_area.id],
+    )
+    assert qualification.json()["data"]["service_location_ids"] == [application_area.id]
+    assert qualification.json()["data"]["service_areas"][0]["label"] == (
+        "Istanbul / Istanbul / Kadikoy"
+    )
     qualification_id = qualification.json()["data"]["id"]
     decision = client.put(
         f"/admin/qualification-verifications/{qualification_id}/decision",
@@ -175,6 +192,11 @@ def test_qualification_approval_creates_profile_and_operating_settings(client, d
     assert profile.business_name == "Ada Provider"
     assert profile.address == "Kadikoy, Istanbul"
     assert profile.qualification_verification_status == "approved"
+    approved_areas = client.get("/provider/service-areas", headers=provider["headers"])
+    assert approved_areas.status_code == 200, approved_areas.text
+    assert [area["id"] for area in approved_areas.json()["data"]["service_areas"]] == [
+        application_area.id
+    ]
 
     public = client.get(f"/providers/{profile_id}")
     assert public.status_code == 200, public.text
@@ -214,16 +236,25 @@ def test_service_areas_accept_any_level_and_reject_overlap(client, db_session):
     admin = create_admin_session(client, db_session, email="areas-admin@example.com")
     identity_id = submit_identity(client, provider["headers"]).json()["data"]["id"]
     approve_identity(client, admin["headers"], identity_id)
-    qualification_id = submit_personal_qualification(client, provider["headers"]).json()["data"]["id"]
+    seeded = seed_service_locations(db_session)
+    db_session.commit()
+    province = seeded["tr-istanbul"]
+    district = seeded["tr-istanbul-city-kadikoy"]
+    qualification_id = submit_personal_qualification(
+        client,
+        provider["headers"],
+        db_session,
+        service_location_ids=[province.id],
+    ).json()["data"]["id"]
     client.put(
         f"/admin/qualification-verifications/{qualification_id}/decision",
         json={"status": "approved"},
         headers=admin["headers"],
     )
-    seeded = seed_service_locations(db_session)
-    db_session.commit()
-    province = seeded["tr-istanbul"]
-    district = seeded["tr-istanbul-city-kadikoy"]
+    initial = client.get("/provider/service-areas", headers=provider["headers"])
+    assert [area["id"] for area in initial.json()["data"]["service_areas"]] == [
+        province.id
+    ]
     province_only = client.put(
         "/provider/service-areas",
         json={"service_location_ids": [province.id]},
@@ -271,3 +302,56 @@ def test_service_areas_accept_any_level_and_reject_overlap(client, db_session):
             "label": "Istanbul / Istanbul / Kadikoy",
         }
     ]
+    application = client.get(
+        "/provider/qualification-verification", headers=provider["headers"]
+    )
+    assert application.json()["data"]["service_location_ids"] == [province.id]
+
+
+def test_qualification_rejects_empty_invalid_and_overlapping_service_areas(
+    client, db_session
+):
+    provider = register_session(
+        client, "invalid-areas-provider@example.com", role="provider", name="Ada Provider"
+    )
+    admin = create_admin_session(client, db_session, email="invalid-areas-admin@example.com")
+    identity_id = submit_identity(client, provider["headers"]).json()["data"]["id"]
+    approve_identity(client, admin["headers"], identity_id)
+    seeded = seed_service_locations(db_session)
+    db_session.commit()
+    file = upload_qualification_file(client, provider["headers"])
+    base_payload = {
+        "entity_type": "personal",
+        "description": "Qualified home services",
+        "contact_phone": "+905551110000",
+        "business_address": "Kadikoy, Istanbul",
+        "business_place_id": "place-123",
+        "business_latitude": 40.9909,
+        "business_longitude": 29.0303,
+        "service_categories": ["cleaning"],
+        "qualification_files": [file],
+    }
+    empty = client.post(
+        "/provider/qualification-verification",
+        json={**base_payload, "service_location_ids": []},
+        headers=provider["headers"],
+    )
+    assert empty.status_code == 422
+    missing = client.post(
+        "/provider/qualification-verification",
+        json={**base_payload, "service_location_ids": [999999]},
+        headers=provider["headers"],
+    )
+    assert missing.status_code == 404
+    overlap = client.post(
+        "/provider/qualification-verification",
+        json={
+            **base_payload,
+            "service_location_ids": [
+                seeded["tr-istanbul"].id,
+                seeded["tr-istanbul-city-kadikoy"].id,
+            ],
+        },
+        headers=provider["headers"],
+    )
+    assert overlap.status_code == 422

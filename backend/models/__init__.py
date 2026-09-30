@@ -38,6 +38,7 @@ from backend.models.provider_verification import (
     QualificationVerificationApplication,
     QualificationVerificationFile,
     QualificationVerificationService,
+    QualificationVerificationServiceArea,
 )
 from backend.models.location import ServiceLocation
 from backend.models.address_book import CustomerAddress
@@ -81,6 +82,7 @@ __all__ = [
     "QualificationVerificationApplication",
     "QualificationVerificationFile",
     "QualificationVerificationService",
+    "QualificationVerificationServiceArea",
     "RefreshToken",
     "RefundRequest",
     "RefundRequestStatusHistory",
