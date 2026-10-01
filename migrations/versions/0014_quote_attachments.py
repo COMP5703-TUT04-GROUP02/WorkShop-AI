@@ -37,6 +37,7 @@ def downgrade() -> None:
         return
     with op.batch_alter_table("booking_attachments") as batch:
         batch.drop_index(_index_name)
-        # Naming conventions also name the FK created by current model metadata.
-        batch.drop_constraint(_fk_name, type_="foreignkey")
+        # Dropping the column also removes its dependent foreign key. Avoid
+        # addressing the constraint by name because fresh SQLite schemas may
+        # create the model-defined foreign key without a persisted name.
         batch.drop_column("quote_revision_id")
