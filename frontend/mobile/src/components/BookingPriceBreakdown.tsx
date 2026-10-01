@@ -86,9 +86,6 @@ export function BookingPriceBreakdown({
             value={hasInitialQuote ? formatMoney(booking.total_amount) : "—"}
             emphasized
           />
-          {booking.quote_message ? (
-            <PriceRow label="Quote notes" value={booking.quote_message} />
-          ) : null}
         </>
       ) : null}
       {hasCurrentFinalQuote ? (
@@ -100,7 +97,6 @@ export function BookingPriceBreakdown({
             />
           ) : null}
           <PriceRow label="Service amount" value={formatMoney(booking.final_quote_amount)} emphasized />
-          <PriceRow label="Final quote notes" value={booking.final_quote_message || "—"} />
         </>
       ) : null}
       {hasPreviousQuote ? (
@@ -138,10 +134,6 @@ export function BookingPriceBreakdown({
             emphasized
             label="Previous service amount"
             value={formatMoney(previousFinalQuote.quote_amount)}
-          />
-          <PriceRow
-            label="Previous final quote notes"
-            value={previousFinalQuote.quote_message || "—"}
           />
           {!hasCurrentFinalQuote ? (
             <PriceRow label="Status" value="Waiting for revised quote" />

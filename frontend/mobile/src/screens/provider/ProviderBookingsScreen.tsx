@@ -33,7 +33,11 @@ import { ActionReasonModal } from "../../components/ActionReasonModal";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
-import type { BookingDetail, PaymentHistoryEntry } from "../../types/booking";
+import type {
+  BookingDetail,
+  BookingUploadFile,
+  PaymentHistoryEntry,
+} from "../../types/booking";
 import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
@@ -70,6 +74,8 @@ export function ProviderBookingsScreen() {
   const [quoteAmount, setQuoteAmount] = useState("");
   const [visitFeeAmount, setVisitFeeAmount] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
+  const [quoteFiles, setQuoteFiles] = useState<BookingUploadFile[]>([]);
+  const [quoteFilesError, setQuoteFilesError] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [refundRejectReason, setRefundRejectReason] = useState("");
   const [reasonAction, setReasonAction] = useState<ProviderReasonAction | null>(null);
@@ -143,6 +149,8 @@ export function ProviderBookingsScreen() {
       booking.visit_fee_amount == null ? "" : String(booking.visit_fee_amount),
     );
     setQuoteMessage(booking.quote_message || "");
+    setQuoteFiles([]);
+    setQuoteFilesError("");
     setRejectReason("");
     setRefundRejectReason("");
     setProofAssets([]);
@@ -169,6 +177,8 @@ export function ProviderBookingsScreen() {
     setQuoteAmount("");
     setVisitFeeAmount("");
     setQuoteMessage("");
+    setQuoteFiles([]);
+    setQuoteFilesError("");
     setRejectReason("");
     setRefundRejectReason("");
     setProofAssets([]);
@@ -209,6 +219,7 @@ export function ProviderBookingsScreen() {
         amount,
         quoteMessage.trim() || null,
         visitFee,
+        quoteFiles,
       );
       if (result?.booking) {
         setSelectedBooking(result.booking);
@@ -220,6 +231,8 @@ export function ProviderBookingsScreen() {
       const errorMessage = getErrorMessage(error);
       if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
         setVisitFeeError(errorMessage);
+      } else if (/file|attachment/i.test(errorMessage)) {
+        setQuoteFilesError(errorMessage);
       } else {
         setActionError(errorMessage);
       }
@@ -352,11 +365,21 @@ export function ProviderBookingsScreen() {
     setActionError("");
     setReasonAction(null);
     try {
-      await submitProviderFinalQuote(selectedBooking.id, amount, finalQuoteMessage.trim() || null);
+      await submitProviderFinalQuote(
+        selectedBooking.id,
+        amount,
+        finalQuoteMessage.trim() || null,
+        quoteFiles,
+      );
       await loadBookings();
       closeBooking();
     } catch (error) {
-      setActionError(getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      if (/file|attachment/i.test(errorMessage)) {
+        setQuoteFilesError(errorMessage);
+      } else {
+        setActionError(errorMessage);
+      }
     } finally {
       setIsActing(false);
     }
@@ -466,6 +489,8 @@ export function ProviderBookingsScreen() {
         onReject={() => setReasonAction("reject_booking")}
         onRejectRefund={() => setReasonAction("reject_refund")}
         proofAssets={proofAssets}
+        quoteFiles={quoteFiles}
+        quoteFilesError={quoteFilesError}
         finalQuoteAmount={finalQuoteAmount}
         finalQuoteMessage={finalQuoteMessage}
         quoteAmount={quoteAmount}
@@ -483,6 +508,10 @@ export function ProviderBookingsScreen() {
           setVisitFeeError("");
         }}
         setQuoteMessage={setQuoteMessage}
+        setQuoteFiles={(files) => {
+          setQuoteFiles(files);
+          setQuoteFilesError("");
+        }}
         setFinalQuoteAmount={setFinalQuoteAmount}
         setFinalQuoteMessage={setFinalQuoteMessage}
         setRejectReason={setRejectReason}

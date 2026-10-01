@@ -394,5 +394,16 @@ def format_booking_detail_response(booking: models.Booking, db: Session):
     result["last_declined_final_quote"] = get_booking_last_declined_final_quote(
         booking, db
     )
+    latest_quote_revision = (
+        db.query(models.BookingQuoteRevision)
+        .filter(models.BookingQuoteRevision.booking_id == booking.id)
+        .order_by(models.BookingQuoteRevision.revision_number.desc())
+        .first()
+    )
+    result["current_quote_revision_id"] = (
+        latest_quote_revision.id
+        if latest_quote_revision and latest_quote_revision.declined_at is None
+        else None
+    )
 
     return result

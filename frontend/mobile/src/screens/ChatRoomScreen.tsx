@@ -85,6 +85,7 @@ import { colors, radius, spacing } from "../theme/theme";
 import type {
   BookingDetail,
   BookingPayload,
+  BookingUploadFile,
   PaymentSummary,
 } from "../types/booking";
 import type { ChatMessage } from "../types/chat";
@@ -163,6 +164,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const [refundRejectReason, setRefundRejectReason] = useState("");
   const [reasonAction, setReasonAction] = useState<ChatReasonAction | null>(null);
   const [proofAssets, setProofAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [quoteFiles, setQuoteFiles] = useState<BookingUploadFile[]>([]);
+  const [quoteFilesError, setQuoteFilesError] = useState("");
   const [finalQuoteAmount, setFinalQuoteAmount] = useState("");
   const [finalQuoteMessage, setFinalQuoteMessage] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
@@ -546,6 +549,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         setRefundAppealReason("");
         setRefundRejectReason("");
         setProofAssets([]);
+        setQuoteFiles([]);
+        setQuoteFilesError("");
         setFinalQuoteAmount(
           booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
             ? ""
@@ -581,6 +586,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setRefundAppealReason("");
     setRefundRejectReason("");
     setProofAssets([]);
+    setQuoteFiles([]);
+    setQuoteFilesError("");
     setFinalQuoteAmount("");
     setFinalQuoteMessage("");
     setBookingActionError("");
@@ -641,6 +648,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         amount,
         quoteMessage.trim() || null,
         visitFee,
+        quoteFiles,
       );
       setSelectedBooking(null);
       await loadMessages();
@@ -648,6 +656,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       const errorMessage = getErrorMessage(error);
       if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
         setVisitFeeError(errorMessage);
+      } else if (/file|attachment/i.test(errorMessage)) {
+        setQuoteFilesError(errorMessage);
       } else {
         setBookingActionError(errorMessage);
       }
@@ -1157,6 +1167,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         selectedBooking.id,
         amount,
         finalQuoteMessage.trim() || null,
+        quoteFiles,
       );
       setSelectedBooking(null);
       await loadMessages();
@@ -1164,6 +1175,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       const errorMessage = getErrorMessage(error);
       if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
         setVisitFeeError(errorMessage);
+      } else if (/file|attachment/i.test(errorMessage)) {
+        setQuoteFilesError(errorMessage);
       } else {
         setBookingActionError(errorMessage);
       }
@@ -1417,6 +1430,12 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           onSubmitFinalQuote={() => void handleSubmitFinalQuote()}
           payment={selectedBookingPayment}
           proofAssets={proofAssets}
+          quoteFiles={quoteFiles}
+          quoteFilesError={quoteFilesError}
+          setQuoteFiles={(files) => {
+            setQuoteFiles(files);
+            setQuoteFilesError("");
+          }}
           quoteAmount={quoteAmount}
           quoteAmountError={quoteAmountError}
           quoteMessage={quoteMessage}
@@ -1629,11 +1648,12 @@ function BookingStatusUpdate({
   const status =
     typeof metadata.new_status === "string" ? metadata.new_status : "";
   const detail = typeof metadata.detail === "string" ? metadata.detail : "";
-  const title = status
-    ? `Booking update: ${getBookingStatusLabelForChat(status)}`
-    : typeof metadata.title === "string"
+  const title =
+    typeof metadata.title === "string"
       ? metadata.title
-      : "Booking updated";
+      : status
+        ? `Booking update: ${getBookingStatusLabelForChat(status)}`
+        : "Booking updated";
 
   return (
     <View
@@ -1710,8 +1730,18 @@ function BookingMessageCard({
     typeof metadata.final_quote_amount === "number"
       ? metadata.final_quote_amount
       : bookingPreview?.final_quote_amount ?? null;
+  const initialQuoteMessage =
+    typeof metadata.quote_message === "string"
+      ? metadata.quote_message
+      : bookingPreview?.quote_message || "";
+  const finalQuoteMessage =
+    typeof metadata.final_quote_message === "string"
+      ? metadata.final_quote_message
+      : bookingPreview?.final_quote_message || "";
   const quoteMessage =
-    typeof metadata.quote_message === "string" ? metadata.quote_message : "";
+    finalQuoteAmount != null && finalQuoteMessage
+      ? finalQuoteMessage
+      : initialQuoteMessage;
   const paymentStatus =
     bookingPayment?.status ||
     (typeof metadata.payment_status === "string"

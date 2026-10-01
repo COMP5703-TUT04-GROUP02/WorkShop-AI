@@ -1,6 +1,16 @@
 from tests.conftest import PNG_BYTES, create_booking
 
 
+def _booking_status_chat_messages(client, headers, room_id):
+    response = client.get(f"/chats/{room_id}/messages", headers=headers)
+    assert response.status_code == 200, response.text
+    return [
+        message
+        for message in response.json()["data"]["items"]
+        if message["message_type"] == "booking_status"
+    ]
+
+
 def test_customer_bookings_require_auth(client):
     response = client.get("/customer/bookings")
     assert response.status_code == 401
@@ -148,7 +158,9 @@ def test_booking_quote_pay_complete_review_flow(client, marketplace):
 def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(client, marketplace):
     customer = marketplace["customer"]["headers"]
     provider = marketplace["provider"]["headers"]
-    booking_id = create_booking(client, customer, marketplace["provider_profile"]["id"])["id"]
+    booking = create_booking(client, customer, marketplace["provider_profile"]["id"])
+    booking_id = booking["id"]
+    room_id = booking["chat_room_id"]
     assert client.put(
         f"/provider/bookings/{booking_id}/quote",
         json={"quote_amount": 200, "visit_fee_amount": 40},
@@ -169,12 +181,26 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
         files=[("proof_files", ("arrival.png", PNG_BYTES, "image/png"))],
         headers=provider,
     ).status_code == 200
+    messages = _booking_status_chat_messages(client, customer, room_id)
+    assert any(
+        message["metadata"]["title"] == "Provider started the visit"
+        and message["metadata"]["detail"]
+        == "Provider arrived and submitted visit evidence"
+        for message in messages
+    )
     first = client.put(
         f"/provider/bookings/{booking_id}/final-quote",
         json={"quote_amount": 220, "quote_message": "First final quote"},
         headers=provider,
     )
     assert first.status_code == 200, first.text
+    assert first.json()["data"]["booking"]["status_note"] == "First final quote"
+    messages = _booking_status_chat_messages(client, customer, room_id)
+    assert any(
+        message["metadata"]["title"] == "Provider submitted the final quote"
+        and message["metadata"]["detail"] == "First final quote"
+        for message in messages
+    )
     declined = client.put(
         f"/customer/bookings/{booking_id}/reject-final-quote",
         json={"status_note": "Please revise the parts cost"},
@@ -186,6 +212,12 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
     assert declined_final["quote_amount"] == 220
     assert declined_final["visit_fee_amount"] == 40
     assert declined_final["decline_reason"] == "Please revise the parts cost"
+    messages = _booking_status_chat_messages(client, provider, room_id)
+    assert any(
+        message["metadata"]["title"] == "Customer declined the final quote"
+        and message["metadata"]["detail"] == "Please revise the parts cost"
+        for message in messages
+    )
     revised = client.put(
         f"/provider/bookings/{booking_id}/final-quote",
         json={"quote_amount": 210, "quote_message": "Revised final quote"},
@@ -195,7 +227,20 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
     assert revised.json()["data"]["booking"]["status"] == "final_quote_sent"
     revised_booking = revised.json()["data"]["booking"]
     assert revised_booking["final_quote_amount"] == 210
+    assert revised_booking["status_note"] == "Revised final quote"
     assert revised_booking["last_declined_final_quote"]["quote_amount"] == 220
+    accepted = client.put(
+        f"/customer/bookings/{booking_id}/accept-final-quote",
+        headers=customer,
+    )
+    assert accepted.status_code == 200, accepted.text
+    messages = _booking_status_chat_messages(client, provider, room_id)
+    assert any(
+        message["metadata"]["title"] == "Customer accepted the final quote"
+        and message["metadata"]["detail"]
+        == "Customer accepted the final quote and is waiting to pay"
+        for message in messages
+    )
 
 
 def test_initial_quote_can_be_rejected_and_resubmitted(client, marketplace):

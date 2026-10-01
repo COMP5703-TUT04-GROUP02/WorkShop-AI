@@ -1508,9 +1508,26 @@ async def accept_customer_final_quote_action(
     booking.final_quote_confirmed_at = utc_now()
     booking.status_note = "Customer accepted the final quote and is waiting to pay"
     add_booking_status_history(booking, old_status, booking.status, booking.status_note, current_user, db)
+    booking_status_chat_message = create_booking_status_chat_message(
+        booking,
+        old_status,
+        current_user.id,
+        "Customer accepted the final quote",
+        booking.status_note,
+        db,
+        {
+            "payment_id": payment.id,
+            "payment_status": payment.status,
+            "amount": payment.amount,
+            "currency": payment.currency,
+        },
+    )
     db.commit()
     db.refresh(payment)
     db.refresh(booking)
+    if booking_status_chat_message:
+        db.refresh(booking_status_chat_message)
+        await push_chat_message_to_room_members(booking_status_chat_message, db)
     return {
         "message": "Final quote accepted. Service payment is due",
         "payment": format_payment_response(payment, db),
@@ -1552,8 +1569,24 @@ async def reject_customer_final_quote_action(
         latest_revision.declined_at = declined_at
         latest_revision.decline_reason = status_note.strip()
     add_booking_status_history(booking, old_status, booking.status, booking.status_note, current_user, db)
+    booking_status_chat_message = create_booking_status_chat_message(
+        booking,
+        old_status,
+        current_user.id,
+        "Customer declined the final quote",
+        booking.status_note,
+        db,
+        {
+            "reason": booking.status_note,
+            "final_quote_amount": booking.final_quote_amount,
+            "final_quote_message": booking.final_quote_message,
+        },
+    )
     db.commit()
     db.refresh(booking)
+    if booking_status_chat_message:
+        db.refresh(booking_status_chat_message)
+        await push_chat_message_to_room_members(booking_status_chat_message, db)
     return {"message": "Final quote declined. Provider can submit a revised quote", "booking": format_booking_detail_response(booking, db)}
 
 

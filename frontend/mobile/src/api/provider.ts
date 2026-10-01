@@ -5,8 +5,10 @@ import type { ApiResponse } from "../types/auth";
 import type {
   BookingActionResponseData,
   BookingDetail,
+  BookingUploadFile,
   PaymentHistoryEntry,
 } from "../types/booking";
+import { buildBookingQuoteBody } from "../utils/bookingQuoteUpload";
 import type { PaginatedData } from "../types/chat";
 import type {
   ProviderAvailability,
@@ -415,15 +417,22 @@ export async function quoteProviderBooking(
   expectedServiceAmount: number,
   quoteMessage: string | null,
   visitFeeAmount: number,
+  quoteFiles: BookingUploadFile[] = [],
 ) {
-  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
-    `/provider/bookings/${bookingId}/quote`,
+  const body = await buildBookingQuoteBody(
     {
       quote_amount: expectedServiceAmount,
       expected_service_amount: expectedServiceAmount,
       visit_fee_amount: visitFeeAmount,
       quote_message: quoteMessage,
     },
+    quoteFiles,
+    appendUploadFile,
+  );
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/provider/bookings/${bookingId}/quote`,
+    body,
+    { timeout: 120000 },
   );
 
   return response.data.data;
@@ -514,10 +523,17 @@ export async function submitProviderFinalQuote(
   bookingId: number,
   amount: number,
   message?: string | null,
+  quoteFiles: BookingUploadFile[] = [],
 ) {
+  const body = await buildBookingQuoteBody(
+    { quote_amount: amount, quote_message: message ?? null },
+    quoteFiles,
+    appendUploadFile,
+  );
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/provider/bookings/${bookingId}/final-quote`,
-    { quote_amount: amount, quote_message: message ?? null },
+    body,
+    { timeout: 120000 },
   );
   return response.data.data;
 }

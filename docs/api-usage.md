@@ -143,9 +143,9 @@ Auth: provider.
 | `PUT` | `/provider/availability` | Update Provider Availability | - | `application/json` -> `ProviderAvailabilityUpdate` | `ApiResponse_Any_` |
 | `GET` | `/provider/bookings` | Get Provider Bookings | `status`(query, optional, BookingStatus / null)<br>`page`(query, optional, integer)<br>`page_size`(query, optional, integer) | - | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/complete` | Complete Booking | `booking_id`(path, required, integer) | `multipart/form-data` -> proof files, `final_quote_amount`, `final_quote_message` | `ApiResponse_Any_` |
-| `PUT` | `/provider/bookings/{booking_id}/quote` | Quote Booking | `booking_id`(path, required, integer) | `application/json` -> `ProviderBookingQuoteCreate` | `ApiResponse_Any_` |
+| `PUT` | `/provider/bookings/{booking_id}/quote` | Quote Booking | `booking_id`(path, required, integer) | JSON, or `multipart/form-data` with quote fields and optional `quote_files` | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/start-visit` | Confirm arrival with evidence | `booking_id`(path, required, integer) | `multipart/form-data` -> `proof_files` | `ApiResponse_Any_` |
-| `PUT` | `/provider/bookings/{booking_id}/final-quote` | Submit or revise final service quote | `booking_id`(path, required, integer) | `application/json` -> `ProviderBookingQuoteCreate` | `ApiResponse_Any_` |
+| `PUT` | `/provider/bookings/{booking_id}/final-quote` | Submit or revise final service quote | `booking_id`(path, required, integer) | JSON, or `multipart/form-data` with quote fields and optional `quote_files` | `ApiResponse_Any_` |
 | `PUT` | `/provider/bookings/{booking_id}/reject` | Reject Booking | `booking_id`(path, required, integer) | `application/json` -> `BookingNoteUpdate` | `ApiResponse_Any_` |
 | `GET` | `/provider/verification-status` | Read identity and qualification state | - | - | `ApiResponse_Any_` |
 | `POST` | `/provider/identity-verification` | Submit real-name verification | - | multipart date, document type, 1-5 files | `ApiResponse_Any_` |
@@ -458,6 +458,7 @@ Auth: none.
 | `total_amount` | `number` | yes | Total Amount |
 | `quote_amount` | `number / null` | no | Quote Amount |
 | `quote_message` | `string / null` | no | Quote Message |
+| `quote_files` | `binary[]` | no | Optional JPG, PNG, PDF, MP4 or MOV files attached to this quote revision when using multipart form data. |
 | `quoted_at` | `string / null` | no | Quoted At |
 | `status` | `BookingStatus` | yes |  |
 | `status_note` | `string / null` | no | Status Note |

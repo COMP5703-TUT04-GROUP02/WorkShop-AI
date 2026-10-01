@@ -66,6 +66,7 @@ export type BookingDetail = {
   current_refund_request?: RefundRequestSummary | null;
   last_declined_quote?: BookingQuoteRevision | null;
   last_declined_final_quote?: BookingQuoteRevision | null;
+  current_quote_revision_id?: number | null;
 };
 
 export type BookingQuoteRevision = {
@@ -79,12 +80,17 @@ export type BookingQuoteRevision = {
   decline_reason?: string | null;
 };
 
-export type BookingAttachmentPurpose = "customer_attachment" | "arrival_evidence" | "completion_proof";
+export type BookingAttachmentPurpose =
+  | "customer_attachment"
+  | "quote_attachment"
+  | "arrival_evidence"
+  | "completion_proof";
 
 export type BookingAttachment = {
   id: number;
   booking_id: number;
   uploaded_by_user_id: number;
+  quote_revision_id?: number | null;
   purpose: BookingAttachmentPurpose;
   original_file_name: string;
   file_name: string;

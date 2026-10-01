@@ -7,11 +7,12 @@ import { BookingCoreDetails } from "./BookingCoreDetails";
 import { BookingPriceBreakdown } from "./BookingPriceBreakdown";
 import { MarketplaceBreakdownCard } from "./MarketplaceBreakdownCard";
 import { PrimaryButton } from "./PrimaryButton";
+import { QuoteAttachmentPicker } from "./QuoteAttachmentPicker";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
 import { getBookingStatusLabel, getPaymentStatusLabel, getRefundStatusLabel } from "../constants/labels";
 import { colors, radius, spacing } from "../theme/theme";
-import type { BookingDetail, PaymentSummary } from "../types/booking";
+import type { BookingDetail, BookingUploadFile, PaymentSummary } from "../types/booking";
 import { formatDateTime } from "../utils/datetime";
 import { formatMoney } from "../utils/money";
 import { shouldShowFinalQuote, shouldShowInitialQuote, shouldShowInitialQuoteHistory } from "../utils/bookingActions";
@@ -37,6 +38,9 @@ export type ProviderBookingDetailModalProps = {
   quoteAmount?: string;
   quoteAmountError?: string;
   quoteMessage?: string;
+  quoteFiles?: BookingUploadFile[];
+  quoteFilesError?: string;
+  setQuoteFiles?: (files: BookingUploadFile[]) => void;
   refundRejectReason?: string;
   rejectReason?: string;
   setFinalQuoteAmount?: (value: string) => void;
@@ -73,6 +77,9 @@ export function ProviderBookingDetailModal({
   quoteAmount = "",
   quoteAmountError = "",
   quoteMessage = "",
+  quoteFiles = [],
+  quoteFilesError = "",
+  setQuoteFiles = (_files: BookingUploadFile[]) => undefined,
   refundRejectReason = "",
   rejectReason = "",
   setFinalQuoteAmount = (_value: string) => undefined,
@@ -131,6 +138,7 @@ export function ProviderBookingDetailModal({
                 <TextField error={visitFeeError} keyboardType="decimal-pad" label="Visit fee" onChangeText={setVisitFeeAmount} placeholder="Amount paid before the visit" value={visitFeeAmount} />
                 <MarketplaceBreakdownCard amount={Number(quoteAmount) + Number(visitFeeAmount)} serviceAmount={quoteAmount} title="Provider income estimate" visitFeeAmount={visitFeeAmount} />
                 <TextField label="Quote notes" multiline numberOfLines={2} onChangeText={setQuoteMessage} placeholder="Optional notes" value={quoteMessage} />
+                <QuoteAttachmentPicker disabled={isActing} error={quoteFilesError} files={quoteFiles} onChange={setQuoteFiles} />
               </>
             ) : null}
 
@@ -147,7 +155,7 @@ export function ProviderBookingDetailModal({
                   visitFeeAmount={finalQuoteAmount.trim() ? booking.visit_fee_amount : null}
                 />
                 <TextField label="Final quote message" multiline numberOfLines={2} onChangeText={setFinalQuoteMessage} placeholder="Explain the final amount if it changed" value={finalQuoteMessage} />
-                <ProofPicker assets={proofAssets} isActing={isActing} label="Completion proof" onPick={onPickCompletionProof} />
+                <QuoteAttachmentPicker disabled={isActing} error={quoteFilesError} files={quoteFiles} onChange={setQuoteFiles} />
               </>
             ) : null}
 

@@ -152,6 +152,11 @@ class BookingAttachment(Base):
     uploaded_by_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
+    quote_revision_id: Mapped[int | None] = mapped_column(
+        ForeignKey("booking_quote_revisions.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
     purpose: Mapped[str] = mapped_column(
         String(32), nullable=False, default="customer_attachment", server_default="customer_attachment"
     )

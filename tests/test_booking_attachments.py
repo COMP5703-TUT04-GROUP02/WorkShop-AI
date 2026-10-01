@@ -38,15 +38,23 @@ def test_booking_attachments_stay_separate_through_pay_visit_completion_and_hist
         assert callback.status_code == 200, callback.text
         check_detail(callback.json()["data"]["booking"])
 
+    expected_purposes.append("quote_attachment")
     update(
         f"/provider/bookings/{booking_id}/quote", provider,
-        json={"quote_amount": 250, "visit_fee_amount": 40},
+        data={"quote_amount": "250", "visit_fee_amount": "40"},
+        files=[("quote_files", same_name_file)],
     )
     update(f"/customer/bookings/{booking_id}/accept-quote", customer)
     pay("visit_fee")
     expected_purposes.append("arrival_evidence")
     update(f"/provider/bookings/{booking_id}/start-visit", provider, files=[("proof_files", same_name_file)])
-    update(f"/provider/bookings/{booking_id}/final-quote", provider, json={"quote_amount": 275})
+    expected_purposes.append("quote_attachment")
+    update(
+        f"/provider/bookings/{booking_id}/final-quote",
+        provider,
+        data={"quote_amount": "275"},
+        files=[("quote_files", same_name_file)],
+    )
     update(f"/customer/bookings/{booking_id}/accept-final-quote", customer)
     pay("service_fee")
     expected_purposes.append("completion_proof")

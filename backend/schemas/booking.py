@@ -23,7 +23,13 @@ class BookingAttachmentResponse(BaseModel):
     id: int
     booking_id: int
     uploaded_by_user_id: int
-    purpose: Literal["customer_attachment", "arrival_evidence", "completion_proof"]
+    quote_revision_id: int | None = None
+    purpose: Literal[
+        "customer_attachment",
+        "quote_attachment",
+        "arrival_evidence",
+        "completion_proof",
+    ]
     original_file_name: str
     file_name: str
     file_url: str
@@ -216,6 +222,7 @@ class BookingDetailResponse(BookingBaseResponse):
     current_refund_request: dict[str, Any] | None = None
     last_declined_quote: dict[str, Any] | None = None
     last_declined_final_quote: dict[str, Any] | None = None
+    current_quote_revision_id: int | None = None
 
 class ProviderBookingQuoteCreate(BaseModel):
     # quote_amount remains accepted for final-quote calls and old clients. For

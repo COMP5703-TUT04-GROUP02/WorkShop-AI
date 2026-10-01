@@ -5,7 +5,7 @@ Booking actions delegate to `utils/provider_booking_actions.py` for consistent s
 """
 
 from datetime import date, datetime, time, timezone
-from fastapi import Depends, File, Form, HTTPException, UploadFile
+from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 from backend import models
 from backend.auth import get_db, require_provider
@@ -33,6 +33,7 @@ from backend.utils.formatters import (
 from backend.utils.verification import apply_phone_number_change
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
+from backend.utils.booking_quote_upload import QUOTE_UPLOAD_OPENAPI, parse_quote_request
 from backend.utils.provider_booking_actions import (
     approve_provider_refund_request_action,
     complete_provider_booking_action,
@@ -80,7 +81,6 @@ from backend.schemas import (
     ProviderAvailabilityOverrideResponse,
     ProviderAvailabilityOverrideUpdate,
     ProviderAvailabilityUpdate,
-    ProviderBookingQuoteCreate,
     ProviderContactProfilePatch,
     ProviderContactProfileUpdate,
     ProviderCertificateFileInput,
@@ -904,20 +904,25 @@ async def reject_refund_request(
     )
 
 
-@router.put("/provider/bookings/{booking_id}/quote")
+@router.put(
+    "/provider/bookings/{booking_id}/quote",
+    openapi_extra=QUOTE_UPLOAD_OPENAPI,
+)
 async def quote_booking(
     booking_id: int,
-    quote_data: ProviderBookingQuoteCreate,
+    request: Request,
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
     require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    quote_data, quote_files = await parse_quote_request(request)
     return success_response(
         await quote_provider_booking_action(
             booking_id,
             quote_data,
             current_user,
             db,
+            quote_files,
         )
     )
 
@@ -975,14 +980,24 @@ async def start_visit(
     )
 
 
-@router.put("/provider/bookings/{booking_id}/final-quote")
+@router.put(
+    "/provider/bookings/{booking_id}/final-quote",
+    openapi_extra=QUOTE_UPLOAD_OPENAPI,
+)
 async def submit_final_quote(
     booking_id: int,
-    quote_data: ProviderBookingQuoteCreate,
+    request: Request,
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
     require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    quote_data, quote_files = await parse_quote_request(request)
     return success_response(
-        await submit_final_quote_action(booking_id, quote_data, current_user, db)
+        await submit_final_quote_action(
+            booking_id,
+            quote_data,
+            current_user,
+            db,
+            quote_files,
+        )
     )

@@ -229,6 +229,7 @@ def format_booking_attachment_response(attachment):
         "id": attachment.id,
         "booking_id": attachment.booking_id,
         "uploaded_by_user_id": attachment.uploaded_by_user_id,
+        "quote_revision_id": attachment.quote_revision_id,
         "purpose": attachment.purpose,
         "original_file_name": attachment.original_file_name,
         "file_name": attachment.file_name,

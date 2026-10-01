@@ -8,35 +8,47 @@ export function BookingContextInformation({
 }: {
   booking: BookingDetail;
 }) {
-  const isInitialQuoteNegotiation = ["pending", "quoted"].includes(
-    String(booking.status),
-  );
-  const initialDeclineReason = isInitialQuoteNegotiation
+  const initialDeclineReason = booking.status === "pending"
     ? booking.last_declined_quote?.decline_reason
     : null;
   const finalDeclineReason =
     booking.status === "awaiting_final_quote"
       ? booking.final_quote_decline_reason
       : null;
+  const currentContext = initialDeclineReason
+    ? {
+        label: "Customer decline reason",
+        value: initialDeclineReason,
+      }
+    : finalDeclineReason
+      ? {
+          label: "Customer final quote decline reason",
+          value: finalDeclineReason,
+        }
+      : booking.status === "quoted" && booking.quote_message?.trim()
+        ? {
+            label: "Quote message",
+            value: booking.quote_message.trim(),
+          }
+        : booking.status === "final_quote_sent" && booking.final_quote_message?.trim()
+          ? {
+              label: "Final quote message",
+              value: booking.final_quote_message.trim(),
+            }
+          : !booking.current_refund_request && booking.status_note?.trim()
+            ? {
+                label: "Latest update",
+                value: booking.status_note.trim(),
+              }
+            : null;
 
-  if (!initialDeclineReason && !finalDeclineReason) {
+  if (!currentContext) {
     return null;
   }
 
   return (
     <View style={styles.container}>
-      {initialDeclineReason ? (
-        <ContextRow
-          label="Customer decline reason"
-          value={initialDeclineReason}
-        />
-      ) : null}
-      {finalDeclineReason ? (
-        <ContextRow
-          label="Customer final quote decline reason"
-          value={finalDeclineReason}
-        />
-      ) : null}
+      <ContextRow label={currentContext.label} value={currentContext.value} />
     </View>
   );
 }
