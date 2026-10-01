@@ -485,7 +485,6 @@ async def confirm_ai_action(
         elif action_type == AIActionType.request_refund:
             result = await create_customer_refund_request_action(
                 payload["booking_id"],
-                payload["service_stage"],
                 payload["reason"],
                 current_user,
                 db,
@@ -493,9 +492,10 @@ async def confirm_ai_action(
         elif action_type == AIActionType.pay_booking:
             result = await pay_customer_booking_action(
                 payload["booking_id"],
-                payload.get("payment_method", "mock"),
+                payload.get("payment_method", "iyzico_checkout"),
                 current_user,
                 db,
+                idempotency_key=f"ai-action-{action.id}",
             )
         elif action_type == AIActionType.reject_quote:
             result = await reject_customer_booking_quote_action(
@@ -520,6 +520,10 @@ async def confirm_ai_action(
         elif action_type == AIActionType.quote_booking:
             quote_data = ProviderBookingQuoteCreate(
                 quote_amount=payload["quote_amount"],
+                expected_service_amount=payload.get(
+                    "expected_service_amount", payload["quote_amount"]
+                ),
+                visit_fee_amount=payload["visit_fee_amount"],
                 quote_message=payload.get("quote_message"),
             )
             result = await quote_provider_booking_action(

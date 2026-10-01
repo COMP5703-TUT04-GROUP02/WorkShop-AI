@@ -27,8 +27,6 @@ ADMIN_BOOKING_STATUS_TRANSITIONS = {
         BookingStatus.awaiting_confirmation,
     ],
     BookingStatus.refunding: [
-        BookingStatus.accepted,
-        BookingStatus.awaiting_confirmation,
         BookingStatus.completed,
     ],
     BookingStatus.refunded: [BookingStatus.refunding],
@@ -283,16 +281,7 @@ def get_booking_complaint_summary(booking: models.Booking, db: Session):
 def get_booking_current_refund_request_summary(booking: models.Booking, db: Session):
     refund_request = (
         db.query(models.RefundRequest)
-        .filter(
-            models.RefundRequest.booking_id == booking.id,
-            models.RefundRequest.status.in_(
-                [
-                    RefundRequestStatus.pending,
-                    RefundRequestStatus.rejected,
-                    RefundRequestStatus.appealed,
-                ]
-            ),
-        )
+        .filter(models.RefundRequest.booking_id == booking.id)
         .order_by(models.RefundRequest.created_at.desc())
         .first()
     )
@@ -305,7 +294,6 @@ def get_booking_current_refund_request_summary(booking: models.Booking, db: Sess
         "payment_id": refund_request.payment_id,
         "customer_id": refund_request.customer_id,
         "provider_profile_id": refund_request.provider_profile_id,
-        "service_stage": refund_request.service_stage,
         "reason": refund_request.reason,
         "status": refund_request.status,
         "provider_note": refund_request.provider_note,
@@ -316,6 +304,59 @@ def get_booking_current_refund_request_summary(booking: models.Booking, db: Sess
         "responded_at": refund_request.responded_at,
         "appealed_at": refund_request.appealed_at,
         "admin_responded_at": refund_request.admin_responded_at,
+        "cancelled_at": refund_request.cancelled_at,
+        "refunded_at": refund_request.refunded_at,
+        "refund_amount": refund_request.refund_amount,
+    }
+
+
+def get_booking_last_declined_quote(booking: models.Booking, db: Session):
+    revision = (
+        db.query(models.BookingQuoteRevision)
+        .filter(
+            models.BookingQuoteRevision.booking_id == booking.id,
+            models.BookingQuoteRevision.declined_at.isnot(None),
+        )
+        .order_by(models.BookingQuoteRevision.revision_number.desc())
+        .first()
+    )
+    if not revision:
+        return None
+
+    return {
+        "revision_number": revision.revision_number,
+        "quote_amount": revision.quote_amount,
+        "expected_service_amount": revision.expected_service_amount,
+        "visit_fee_amount": revision.visit_fee_amount,
+        "total_amount": revision.total_amount,
+        "quote_message": revision.quote_message,
+        "declined_at": revision.declined_at,
+        "decline_reason": revision.decline_reason,
+    }
+
+
+def get_booking_last_declined_final_quote(booking: models.Booking, db: Session):
+    revision = (
+        db.query(models.BookingQuoteRevision)
+        .filter(
+            models.BookingQuoteRevision.booking_id == booking.id,
+            models.BookingQuoteRevision.declined_at.isnot(None),
+            models.BookingQuoteRevision.expected_service_amount.is_(None),
+            models.BookingQuoteRevision.visit_fee_amount.is_(None),
+        )
+        .order_by(models.BookingQuoteRevision.revision_number.desc())
+        .first()
+    )
+    if not revision:
+        return None
+
+    return {
+        "revision_number": revision.revision_number,
+        "quote_amount": revision.quote_amount,
+        "quote_message": revision.quote_message,
+        "visit_fee_amount": booking.visit_fee_amount,
+        "declined_at": revision.declined_at,
+        "decline_reason": revision.decline_reason,
     }
 
 
@@ -348,6 +389,10 @@ def format_booking_detail_response(booking: models.Booking, db: Session):
     result["current_refund_request"] = get_booking_current_refund_request_summary(
         booking,
         db,
+    )
+    result["last_declined_quote"] = get_booking_last_declined_quote(booking, db)
+    result["last_declined_final_quote"] = get_booking_last_declined_final_quote(
+        booking, db
     )
 
     return result

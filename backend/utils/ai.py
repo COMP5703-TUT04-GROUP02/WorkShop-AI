@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.constants import AI_RECOMMENDATION_PROVIDER_TAGS
-from backend.schemas import ProviderVerificationStatus, BookingStatus, PaymentStatus
+from backend.schemas import BookingStatus, PaymentStatus, ProviderVerificationStatus
 from backend.utils.availability import is_provider_available_for_datetime_range
 from backend.utils.formatters import tags_to_list
 from backend.utils.location import (

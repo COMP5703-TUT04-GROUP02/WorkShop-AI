@@ -37,6 +37,8 @@ from backend.utils.provider_booking_actions import (
     approve_provider_refund_request_action,
     complete_provider_booking_action,
     quote_provider_booking_action,
+    start_provider_visit_action,
+    submit_final_quote_action,
     reject_provider_booking_action,
     reject_provider_refund_request_action,
 )
@@ -841,7 +843,7 @@ def get_provider_payments(
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db))
+        result.append(format_payment_response(payment, db, include_settlement=True))
     return success_response(build_paginated_response(result, total, page, page_size))
 
 
@@ -942,6 +944,8 @@ async def reject_booking(
 async def complete_booking(
     booking_id: int,
     proof_files: list[UploadFile] = File(...),
+    final_quote_amount: float | None = Form(default=None),
+    final_quote_message: str | None = Form(default=None),
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
@@ -952,5 +956,33 @@ async def complete_booking(
             current_user,
             db,
             proof_files,
+            final_quote_amount,
+            final_quote_message,
         )
+    )
+
+
+@router.put("/provider/bookings/{booking_id}/start-visit")
+async def start_visit(
+    booking_id: int,
+    proof_files: list[UploadFile] = File(...),
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    return success_response(
+        await start_provider_visit_action(booking_id, current_user, db, proof_files)
+    )
+
+
+@router.put("/provider/bookings/{booking_id}/final-quote")
+async def submit_final_quote(
+    booking_id: int,
+    quote_data: ProviderBookingQuoteCreate,
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    return success_response(
+        await submit_final_quote_action(booking_id, quote_data, current_user, db)
     )

@@ -106,6 +106,25 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
     )
     db_session.add(provider)
     db_session.flush()
+    db_session.add(
+        models.ProviderSubmerchant(
+            provider_profile_id=provider.id,
+            submerchant_type="PERSONAL",
+            submerchant_external_id=f"test-ws101-action-provider-{provider.id}",
+            submerchant_key=f"test-ws101-action-submerchant-{provider.id}",
+            name="WS101 Provider",
+            email="ws101-provider@example.com",
+            gsm_number="+905551110099",
+            address="Istanbul",
+            iban="TR180006200119000006672315",
+            contact_name="WS101",
+            contact_surname="Provider",
+            identity_number="10000000001",
+            currency="TRY",
+            status="active",
+        )
+    )
+    db_session.flush()
 
     def fake_chat_room(customer_id, provider_profile_id, db):
         room = models.ChatRoom(

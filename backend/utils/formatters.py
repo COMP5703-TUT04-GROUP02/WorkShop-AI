@@ -229,6 +229,7 @@ def format_booking_attachment_response(attachment):
         "id": attachment.id,
         "booking_id": attachment.booking_id,
         "uploaded_by_user_id": attachment.uploaded_by_user_id,
+        "purpose": attachment.purpose,
         "original_file_name": attachment.original_file_name,
         "file_name": attachment.file_name,
         "file_url": attachment.file_url,
@@ -259,9 +260,23 @@ def format_booking_response(booking):
         "total_amount": booking.total_amount,
         "quote_amount": booking.quote_amount,
         "quote_message": booking.quote_message,
+        "expected_service_amount": booking.expected_service_amount,
+        "visit_fee_amount": booking.visit_fee_amount,
+        "final_quote_amount": booking.final_quote_amount,
+        "final_quote_message": booking.final_quote_message,
         "quoted_at": booking.quoted_at,
+        "arrival_started_at": booking.arrival_started_at,
+        "final_quote_declined_at": booking.final_quote_declined_at,
+        "final_quote_decline_reason": booking.final_quote_decline_reason,
+        "final_quote_confirmed_at": booking.final_quote_confirmed_at,
+        "closed_reason": booking.closed_reason,
         "status": booking.status,
         "status_note": booking.status_note,
+        "booking_notice": (
+            "This booking is temporarily unable to continue."
+            if booking.onboarding_paused
+            else None
+        ),
     }
 
 

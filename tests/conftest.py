@@ -61,6 +61,93 @@ BOOKING_START = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
 BOOKING_END = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 
+class FakeIyzicoClient:
+    def __init__(self):
+        self.sessions: dict[str, dict] = {}
+        self.retrieve_amount_override: str | None = None
+
+    async def initialize_checkout_form(self, payload: dict) -> dict:
+        token = f"test-token-{len(self.sessions) + 1}"
+        self.sessions[token] = payload
+        return {
+            "status": "success",
+            "conversationId": payload["conversationId"],
+            "token": token,
+            "paymentPageUrl": f"https://sandbox.example.test/checkout/{token}",
+        }
+
+    async def initialize_checkout_form_preauth(self, payload: dict) -> dict:
+        return await self.initialize_checkout_form(payload)
+
+    async def retrieve_checkout_form(
+        self,
+        *,
+        token: str,
+        conversation_id: str | None = None,
+    ) -> dict:
+        payload = self.sessions[token]
+        amount = self.retrieve_amount_override or str(payload["paidPrice"])
+        return {
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "conversationId": conversation_id or payload["conversationId"],
+            "paymentId": f"iyzico-payment-{token}",
+            "price": amount,
+            "paidPrice": amount,
+            "currency": payload["currency"],
+            "itemTransactions": [
+                {
+                    "paymentTransactionId": f"iyzico-transaction-{token}",
+                    "transactionStatus": 1,
+                }
+            ],
+        }
+
+    async def create_submerchant(self, payload: dict) -> dict:
+        return {
+            "status": "success",
+            "conversationId": payload.get("conversationId"),
+            "subMerchantKey": f"test-submerchant-{payload['subMerchantExternalId']}",
+        }
+
+    async def update_submerchant(self, payload: dict) -> dict:
+        return {
+            "status": "success",
+            "conversationId": payload.get("conversationId"),
+            "subMerchantKey": payload.get("subMerchantKey"),
+        }
+
+    async def get_submerchant(self, submerchant_external_id: str) -> dict:
+        return {
+            "status": "success",
+            "subMerchantExternalId": submerchant_external_id,
+            "subMerchantKey": f"test-submerchant-{submerchant_external_id}",
+        }
+
+    async def post_auth(self, payment_id: str, conversation_id: str, price) -> dict:
+        return {
+            "status": "success",
+            "paymentId": payment_id,
+            "paymentTransactionId": f"postauth-transaction-{payment_id}",
+        }
+
+    async def cancel_payment(self, payment_id: str, conversation_id: str) -> dict:
+        return {"status": "success", "paymentId": payment_id}
+
+    async def refund_payment(self, payment_transaction_id: str, conversation_id: str, price) -> dict:
+        return {
+            "status": "success",
+            "paymentTransactionId": payment_transaction_id,
+            "paymentId": f"refund-{payment_transaction_id}",
+        }
+
+    async def approve_item(self, payment_transaction_id: str) -> dict:
+        return {
+            "status": "success",
+            "paymentTransactionId": payment_transaction_id,
+        }
+
+
 @pytest.fixture
 def db_session():
     Base.metadata.drop_all(bind=engine)
@@ -148,6 +235,16 @@ def create_admin_session(client, db_session, email="admin@example.com", name="Ad
         "refresh_token": data["refresh_token"],
         "headers": auth_header(data["access_token"]),
     }
+
+
+@pytest.fixture
+def fake_iyzico(monkeypatch):
+    fake = FakeIyzicoClient()
+    monkeypatch.setattr(
+        "backend.services.iyzico.get_iyzico_client",
+        lambda: fake,
+    )
+    return fake
 
 
 def create_provider_profile(client, headers):
@@ -243,8 +340,21 @@ def approve_provider(client, admin_headers, provider_profile_id):
 
 
 @pytest.fixture
-def marketplace(client, db_session, monkeypatch):
+def marketplace(client, db_session, monkeypatch, fake_iyzico):
+    del fake_iyzico
     monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "backend.utils.notification.enqueue_notification_delivery",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "backend.utils.notification.increment_notification_unread_count",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "backend.utils.chat.increment_chat_room_unread_count",
+        lambda *args, **kwargs: 0,
+    )
     monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
     customer = register_session(
         client, "customer@example.com", role="customer", name="Ayla Customer"
@@ -255,6 +365,25 @@ def marketplace(client, db_session, monkeypatch):
     admin = create_admin_session(client, db_session)
     profile = create_provider_profile(client, provider["headers"])
     approve_provider(client, admin["headers"], profile["id"])
+    db_session.add(
+        models.ProviderSubmerchant(
+            provider_profile_id=profile["id"],
+            submerchant_type="PERSONAL",
+            submerchant_external_id=f"test-provider-{profile['id']}",
+            submerchant_key=f"test-submerchant-{profile['id']}",
+            name="Bosphorus Plumbing",
+            email="provider@example.com",
+            gsm_number="+905551110000",
+            address="Karakoy, Istanbul",
+            iban="TR180006200119000006672315",
+            contact_name="Can",
+            contact_surname="Provider",
+            identity_number="10000000001",
+            currency="TRY",
+            status="active",
+        )
+    )
+    db_session.commit()
     set_week_availability(client, provider["headers"])
     return {
         "customer": customer,
@@ -279,6 +408,8 @@ def create_booking(client, customer_headers, provider_profile_id, **extra):
         ),
         "scheduled_end_time": extra.get("scheduled_end_time", BOOKING_END.isoformat()),
     }
-    response = client.post("/bookings", data=payload, headers=customer_headers)
+    response = client.post(
+        "/bookings", data=payload, headers=customer_headers, files=extra.get("attachments")
+    )
     assert response.status_code == 200, response.text
     return response.json()["data"]["booking"]

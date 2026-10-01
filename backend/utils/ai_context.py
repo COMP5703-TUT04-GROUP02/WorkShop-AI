@@ -72,7 +72,6 @@ def format_ai_context_refund_request(refund_request: models.RefundRequest):
         "refund_request_id": refund_request.id,
         "booking_id": refund_request.booking_id,
         "payment_id": refund_request.payment_id,
-        "service_stage": refund_request.service_stage,
         "reason": refund_request.reason,
         "status": refund_request.status,
         "provider_note": refund_request.provider_note,
@@ -106,12 +105,7 @@ def get_customer_refundable_bookings(user_id: int, db: Session):
         .join(models.Payment, models.Payment.booking_id == models.Booking.id)
         .filter(
             models.Booking.customer_id == user_id,
-            models.Booking.status.in_(
-                [
-                    BookingStatus.accepted,
-                    BookingStatus.awaiting_confirmation,
-                ]
-            ),
+            models.Booking.status == BookingStatus.completed,
             models.Payment.customer_id == user_id,
             models.Payment.status == PaymentStatus.paid,
         )

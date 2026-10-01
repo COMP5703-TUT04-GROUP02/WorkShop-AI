@@ -10,6 +10,7 @@ from backend.schemas.ai import *  # noqa: F403
 from backend.schemas.places import *  # noqa: F403
 from backend.schemas.location import *  # noqa: F403
 from backend.schemas.address_book import *  # noqa: F403
+from backend.schemas.marketplace import *  # noqa: F403
 
 ApiResponse[CustomerHomeRecommendationResponseData].model_rebuild()
 ApiResponse[CustomerProviderSearchResponseData].model_rebuild()
@@ -80,7 +81,6 @@ __all__ = [
     "PaymentStatus",
     "PaymentCreate",
     "RefundRequestStatus",
-    "RefundServiceStage",
     "RefundRequestCreate",
     "RefundAppealCreate",
     "ProviderRefundRejectCreate",
@@ -129,5 +129,10 @@ __all__ = [
     "CustomerAddressCreate",
     "CustomerAddressUpdate",
     "CustomerAddressResponse",
+    "SubmerchantType",
+    "SubmerchantStatus",
+    "ProviderSubmerchantUpsert",
+    "ProviderSubmerchantResponse",
+    "SettlementStatus",
 ]
 __all__ += ["PlaceSuggestion", "PlacesAutocompleteResponse", "PlaceDetailsResponse"]

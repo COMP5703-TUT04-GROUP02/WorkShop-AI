@@ -133,11 +133,6 @@ def _ensure_can_submit_identity(user):
 
 
 def _ensure_can_submit_qualification(user):
-    if user.identity_verification_status != "approved":
-        raise HTTPException(
-            status_code=403,
-            detail="Identity approval is required before qualification verification",
-        )
     if user.qualification_verification_status in {"pending", "approved"}:
         raise HTTPException(
             status_code=409,
@@ -195,7 +190,8 @@ async def submit_identity_verification(
             )
         )
     current_user.identity_verification_status = "pending"
-    current_user.qualification_verification_status = "locked"
+    if current_user.qualification_verification_status == "locked":
+        current_user.qualification_verification_status = "not_submitted"
     db.commit()
     db.refresh(application)
     return success_response(

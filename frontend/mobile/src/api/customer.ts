@@ -15,7 +15,6 @@ import type {
   BookingDetail,
   BookingPayload,
   BookingUpdateResponseData,
-  RefundServiceStage,
 } from "../types/booking";
 import type { ChatRoom } from "../types/chat";
 import type { PaginatedData } from "../types/chat";
@@ -270,28 +269,65 @@ export async function cancelCustomerBooking(bookingId: number) {
 
 export async function payCustomerBooking(
   bookingId: number,
-  paymentMethod = "mock",
+  paymentMethod = "iyzico_checkout",
+  idempotencyKey?: string,
+  paymentStage: "visit_fee" | "service_fee" = "visit_fee",
 ) {
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/customer/bookings/${bookingId}/pay`,
     {
       payment_method: paymentMethod,
+      payment_stage: paymentStage,
     },
+    idempotencyKey
+      ? {
+          headers: {
+            "Idempotency-Key": idempotencyKey,
+          },
+        }
+      : undefined,
   );
 
   return response.data.data;
 }
 
+export async function cancelCustomerBookingAfterVisit(
+  bookingId: number,
+  statusNote = "Customer cancelled after provider arrival without requesting a refund.",
+) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/customer/bookings/${bookingId}/close-final-quote`,
+    { status_note: statusNote },
+  );
+
+  return response.data.data;
+}
+
+export async function acceptCustomerFinalQuote(bookingId: number) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/customer/bookings/${bookingId}/accept-final-quote`,
+  );
+  return response.data.data;
+}
+
+export async function rejectCustomerFinalQuote(bookingId: number, statusNote: string) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/customer/bookings/${bookingId}/reject-final-quote`,
+    { status_note: statusNote },
+  );
+  return response.data.data;
+}
+
 export async function requestCustomerRefund(
   bookingId: number,
-  serviceStage: RefundServiceStage,
   reason: string,
+  refundAmount?: number,
 ) {
   const response = await apiClient.post<ApiResponse<BookingActionResponseData>>(
     `/bookings/${bookingId}/refund-requests`,
     {
-      service_stage: serviceStage,
       reason,
+      ...(refundAmount != null ? { refund_amount: refundAmount } : {}),
     },
     {
       timeout: 30000,

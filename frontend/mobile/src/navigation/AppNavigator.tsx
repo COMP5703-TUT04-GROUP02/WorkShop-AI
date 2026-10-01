@@ -1,5 +1,6 @@
 import {
   DefaultTheme,
+  type LinkingOptions,
   NavigationContainer,
   useNavigation,
 } from "@react-navigation/native";
@@ -21,6 +22,7 @@ import { LEGAL_DOCUMENTS, LegalScreen } from "../screens/LegalScreen";
 import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
 import { PaymentsScreen } from "../screens/PaymentsScreen";
+import { PaymentResultScreen } from "../screens/PaymentResultScreen";
 import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
@@ -28,9 +30,18 @@ import { CustomerProviderSearchResultsScreen } from "../screens/customer/Custome
 import { ProviderPortfolioCreateScreen } from "../screens/provider/ProviderPortfolioCreateScreen";
 import { ProviderPortfolioDetailScreen } from "../screens/provider/ProviderPortfolioDetailScreen";
 import { ProviderPortfolioListScreen } from "../screens/provider/ProviderPortfolioListScreen";
-import { ProviderHomeScreen } from "../screens/provider/ProviderHomeScreen";
+import {
+  ProviderHomeScreen,
+  ProviderIdentityVerificationScreen,
+  ProviderServiceVerificationScreen,
+  ProviderVerificationScreen,
+} from "../screens/provider/ProviderHomeScreen";
+import { ProviderPayoutAccountScreen } from "../screens/provider/ProviderPayoutAccountScreen";
 import { ProviderOperatingSettingsScreen } from "../screens/provider/ProviderOperatingSettingsScreen";
+import { ProviderPayoutReminder } from "../components/ProviderPayoutReminder";
 import { useAuth } from "../context/AuthContext";
+import { ProviderPayoutStatusProvider } from "../context/ProviderPayoutStatusContext";
+import { consumePendingPaymentResult } from "../utils/pendingPaymentResult";
 import {
   ProviderProfileGateProvider,
   useProviderProfileGate,
@@ -45,6 +56,20 @@ import type { RootStackParamList } from "./types";
 export type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:8090",
+    "http://127.0.0.1:8090",
+  ],
+  config: {
+    screens: {
+      PaymentResult: "payment-result",
+    },
+  },
+};
 
 // WS-105: the qualification gate covers a provider's working surfaces only —
 // chats and portfolios here, schedule and bookings in RoleTabs. Account,
@@ -88,12 +113,14 @@ export function AppNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer linking={linking} theme={navigationTheme}>
       {user ? (
         <RealtimeProvider>
-          <ProviderProfileGateProvider>
-            <AuthenticatedStack />
-          </ProviderProfileGateProvider>
+          <ProviderPayoutStatusProvider>
+            <ProviderProfileGateProvider>
+              <AuthenticatedStack />
+            </ProviderProfileGateProvider>
+          </ProviderPayoutStatusProvider>
         </RealtimeProvider>
       ) : (
         <Stack.Navigator>
@@ -107,6 +134,11 @@ export function AppNavigator() {
             component={LegalScreen}
             options={legalScreenOptions}
           />
+          <Stack.Screen
+            name="PaymentResult"
+            component={PaymentResultScreen}
+            options={{ title: "Payment result" }}
+          />
         </Stack.Navigator>
       )}
     </NavigationContainer>
@@ -115,13 +147,32 @@ export function AppNavigator() {
 
 function AuthenticatedStack() {
   const isWebDesktop = useIsWebDesktop();
+  const { user } = useAuth();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  useEffect(() => {
+    let isActive = true;
+    void consumePendingPaymentResult().then((pendingResult) => {
+      if (isActive && pendingResult) {
+        navigation.navigate("PaymentResult", pendingResult);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [navigation, user?.id]);
 
   return (
     <Stack.Navigator
       layout={({ children }) => (
         <View style={[styles.shell, isWebDesktop ? styles.shellDesktop : null]}>
           {isWebDesktop ? <DesktopSidebar /> : null}
-          <View style={styles.shellContent}>{children}</View>
+          <View style={styles.shellContent}>
+            <ProviderPayoutReminder />
+            {children}
+          </View>
         </View>
       )}
     >
@@ -159,8 +210,23 @@ function AuthenticatedStack() {
       />
       <Stack.Screen
         name="ProviderVerification"
-        component={ProviderHomeScreen}
+        component={ProviderVerificationScreen}
         options={{ title: "Verification" }}
+      />
+      <Stack.Screen
+        name="ProviderIdentityVerification"
+        component={ProviderIdentityVerificationScreen}
+        options={{ title: "ID verification" }}
+      />
+      <Stack.Screen
+        name="ProviderServiceVerification"
+        component={ProviderServiceVerificationScreen}
+        options={{ title: "Service verification" }}
+      />
+      <Stack.Screen
+        name="ProviderPayoutAccount"
+        component={ProviderPayoutAccountScreen}
+        options={{ title: "Payout account" }}
       />
       <Stack.Screen
         name="ProviderOperatingSettings"
@@ -203,6 +269,11 @@ function AuthenticatedStack() {
         name="Payments"
         component={PaymentsScreen}
         options={{ title: "Payments" }}
+      />
+      <Stack.Screen
+        name="PaymentResult"
+        component={PaymentResultScreen}
+        options={{ title: "Payment result" }}
       />
       <Stack.Screen
         name="CustomerFavourites"

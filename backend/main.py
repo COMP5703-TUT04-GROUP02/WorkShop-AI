@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi import HTTPException
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -22,6 +23,8 @@ from backend.routers import (
     provider,
     provider_verification,
     public,
+    payment,
+    marketplace,
     shared,
     websocket,
 )
@@ -52,6 +55,14 @@ OPENAPI_TAGS = [
         "description": "Provider-only endpoints: profile, quotes, completion, refunds, and earnings.",
     },
     {
+        "name": "Payment",
+        "description": "iyzico Sandbox payment callbacks and payment-provider integration.",
+    },
+    {
+        "name": "Marketplace",
+        "description": "Provider payout details and local validation.",
+    },
+    {
         "name": "Admin",
         "description": "Admin-only endpoints: users, provider verification, complaints, reviews, and platform stats.",
     },
@@ -78,6 +89,45 @@ app = FastAPI(
     openapi_tags=OPENAPI_TAGS,
 )
 
+
+def _normalize_file_schemas(value):
+    """Make FastAPI's OpenAPI 3.1 file schemas render in Swagger UI.
+
+    Pydantic emits ``contentMediaType`` for UploadFile values under OpenAPI
+    3.1. Swagger UI versions used by local deployments do not consistently
+    turn that representation into a file picker, especially for arrays. The
+    endpoint still receives real multipart UploadFile values; this only adds
+    the widely-supported ``format: binary`` hint to the generated contract.
+    """
+
+    if isinstance(value, dict):
+        if value.get("contentMediaType") == "application/octet-stream":
+            value.pop("contentMediaType", None)
+            value["format"] = "binary"
+        for child in value.values():
+            _normalize_file_schemas(child)
+    elif isinstance(value, list):
+        for child in value:
+            _normalize_file_schemas(child)
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    app.openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=OPENAPI_TAGS,
+    )
+    _normalize_file_schemas(app.openapi_schema)
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -97,6 +147,8 @@ app.include_router(public.router)
 app.include_router(customer.router)
 app.include_router(provider.router)
 app.include_router(provider_verification.router)
+app.include_router(payment.router)
+app.include_router(marketplace.router)
 app.include_router(admin.router)
 app.include_router(admin_verification.router)
 app.include_router(shared.router)

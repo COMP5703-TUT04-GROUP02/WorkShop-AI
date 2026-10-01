@@ -1,26 +1,32 @@
 import type { ProviderProfile } from "../types/provider";
 
 /**
- * WS-105. A provider is reviewed in two independent steps: identity first,
- * then qualification. Only an approved qualification unlocks schedule,
- * bookings, chat, portfolios and being searchable — filling in the profile
- * form is not enough.
+ * Provider identity and qualification are independently submitted and
+ * reviewed. Order eligibility also depends on the separate payout account;
+ * this helper describes the two verification applications only.
  *
- * WS-104 adds the two fields. Until it merges, a backend that only knows the
- * single verification_status still answers correctly: both steps fall back to
- * it, so an approved provider stays unlocked and a pending one stays gated.
+ * Older responses that only expose verification_status are still supported:
+ * both steps fall back to that value while newer responses expose the two
+ * independent statuses explicitly.
  */
-export type VerificationStatus = "approved" | "pending" | "rejected";
+export type VerificationStatus =
+  | "not_submitted"
+  | "approved"
+  | "pending"
+  | "rejected";
 
 /**
- * Qualification review cannot start before identity is approved, so that step
- * is neither approved nor under review — it has not begun. "pending" would
- * read as "an admin is looking at it", which is not true yet.
+ * The two applications are independent, so qualification is never locked by
+ * the identity application state.
  */
-export type StepState = VerificationStatus | "locked";
+export type StepState = VerificationStatus;
 
 function normalise(value: string | null | undefined): VerificationStatus {
-  if (value === "approved" || value === "rejected") {
+  if (
+    value === "not_submitted" ||
+    value === "approved" ||
+    value === "rejected"
+  ) {
     return value;
   }
 
@@ -31,7 +37,7 @@ export function getIdentityStatus(
   profile: ProviderProfile | null,
 ): VerificationStatus {
   if (!profile) {
-    return "pending";
+    return "not_submitted";
   }
 
   return normalise(
@@ -43,7 +49,7 @@ export function getQualificationStatus(
   profile: ProviderProfile | null,
 ): VerificationStatus {
   if (!profile) {
-    return "pending";
+    return "not_submitted";
   }
 
   return normalise(
@@ -54,10 +60,6 @@ export function getQualificationStatus(
 export function getQualificationStepState(
   profile: ProviderProfile | null,
 ): StepState {
-  if (getIdentityStatus(profile) !== "approved") {
-    return "locked";
-  }
-
   return getQualificationStatus(profile);
 }
 
@@ -74,7 +76,7 @@ export function describeStatus(status: StepState) {
     return "Not approved";
   }
 
-  return status === "locked" ? "Locked" : "Under review";
+  return status === "not_submitted" ? "Not submitted" : "Under review";
 }
 
 /**
@@ -83,7 +85,7 @@ export function describeStatus(status: StepState) {
  * the step has not started.
  */
 export function describeStepAction(state: StepState, step: "identity" | "qualification") {
-  if (state === "approved" || state === "locked") {
+  if (state === "approved") {
     return null;
   }
 
@@ -91,5 +93,9 @@ export function describeStepAction(state: StepState, step: "identity" | "qualifi
     return "Resubmit";
   }
 
-  return step === "identity" ? "Identity details" : "Update submission";
+  if (state === "not_submitted") {
+    return step === "identity" ? "Identity details" : "Service details";
+  }
+
+  return "Under review";
 }

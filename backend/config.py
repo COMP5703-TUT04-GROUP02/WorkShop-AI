@@ -80,6 +80,21 @@ DATABASE_URL = get_config(
     "postgresql+psycopg://workshop:workshop@127.0.0.1:5436/workshop",
 )
 
+IYZICO_BASE_URL = get_config(
+    "IYZICO_BASE_URL",
+    "https://sandbox-api.iyzipay.com",
+)
+IYZICO_API_KEY = get_config("IYZICO_API_KEY", "")
+IYZICO_SECRET_KEY = get_config("IYZICO_SECRET_KEY", "")
+IYZICO_CALLBACK_URL = get_config(
+    "IYZICO_CALLBACK_URL",
+    "http://localhost:8000/payments/iyzico/callback",
+)
+IYZICO_FRONTEND_RETURN_URL = get_config("IYZICO_FRONTEND_RETURN_URL", "")
+IYZICO_TIMEOUT_SECONDS = get_float_config("IYZICO_TIMEOUT_SECONDS", 15.0)
+IYZICO_CHECKOUT_TTL_SECONDS = get_int_config("IYZICO_CHECKOUT_TTL_SECONDS", 1800)
+PLATFORM_COMMISSION_RATE = get_config("PLATFORM_COMMISSION_RATE", "0.10")
+
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",

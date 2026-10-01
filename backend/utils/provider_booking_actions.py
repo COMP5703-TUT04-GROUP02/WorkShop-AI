@@ -5,6 +5,7 @@ All entries verify the provider owns the booking.
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -35,10 +36,117 @@ from backend.utils.payment import format_payment_response
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.refund import (
     add_refund_request_status_history,
+    execute_external_refund,
     format_refund_request_response,
 )
 from backend.utils.upload import delete_local_upload, save_booking_attachment_upload
 from backend.core.clock import utc_now
+
+
+async def start_provider_visit_action(
+    booking_id: int,
+    current_user: models.User,
+    db: Session,
+    proof_files: list[UploadFile] | None,
+):
+    """Record the provider's arrival; at least one evidence file is required."""
+    provider_profile = get_provider_profile_for_user(current_user.id, db)
+    booking = (
+        db.query(models.Booking)
+        .filter(
+            models.Booking.id == booking_id,
+            models.Booking.provider_profile_id == provider_profile.id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    ensure_booking_status(booking, [BookingStatus.visit_paid], "Visit fee must be paid before starting the visit")
+    if not proof_files:
+        raise HTTPException(status_code=400, detail="Arrival evidence photo or video is required")
+    saved = []
+    for file in proof_files:
+        if not file.filename:
+            continue
+        upload = await save_booking_attachment_upload(booking.id, file)
+        attachment = models.BookingAttachment(
+            booking_id=booking.id,
+            uploaded_by_user_id=current_user.id,
+            purpose="arrival_evidence",
+            original_file_name=upload["original_file_name"],
+            file_name=upload["file_name"],
+            file_url=upload["file_url"],
+            content_type=upload["content_type"],
+            size=upload["size"],
+            created_at=utc_now(),
+        )
+        db.add(attachment)
+        saved.append(attachment)
+    if not saved:
+        raise HTTPException(status_code=400, detail="Arrival evidence photo or video is required")
+    old_status = booking.status
+    booking.status = BookingStatus.provider_arrived
+    booking.arrival_started_at = utc_now()
+    booking.status_note = "Provider arrived and submitted visit evidence"
+    add_booking_status_history(booking, old_status, booking.status, booking.status_note, current_user, db)
+    db.commit()
+    db.refresh(booking)
+    return {"message": "Visit started", "booking": format_booking_detail_response(booking, db)}
+
+
+async def submit_final_quote_action(
+    booking_id: int,
+    quote_data: ProviderBookingQuoteCreate,
+    current_user: models.User,
+    db: Session,
+):
+    provider_profile = get_provider_profile_for_user(current_user.id, db)
+    booking = (
+        db.query(models.Booking)
+        .filter(
+            models.Booking.id == booking_id,
+            models.Booking.provider_profile_id == provider_profile.id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    ensure_booking_status(
+        booking,
+        [BookingStatus.provider_arrived, BookingStatus.awaiting_final_quote],
+        "A final quote can only be submitted after the provider starts the visit",
+    )
+    if quote_data.quote_amount is None:
+        raise HTTPException(status_code=422, detail="Final quote amount is required")
+    final_amount = Decimal(str(quote_data.quote_amount)).quantize(Decimal("0.01"))
+    booking.final_quote_amount = final_amount
+    booking.final_quote_message = quote_data.quote_message
+    booking.final_quote_declined_at = None
+    booking.final_quote_decline_reason = None
+    latest = (
+        db.query(models.BookingQuoteRevision)
+        .filter(models.BookingQuoteRevision.booking_id == booking.id)
+        .order_by(models.BookingQuoteRevision.revision_number.desc())
+        .with_for_update()
+        .first()
+    )
+    db.add(models.BookingQuoteRevision(
+        booking_id=booking.id,
+        revision_number=(latest.revision_number if latest else 0) + 1,
+        quote_amount=final_amount,
+        quote_message=quote_data.quote_message,
+        created_by_user_id=current_user.id,
+        created_at=utc_now(),
+    ))
+    old_status = booking.status
+    booking.status = BookingStatus.final_quote_sent
+    booking.status_note = "Final quote sent to customer for confirmation"
+    add_booking_status_history(booking, old_status, booking.status, booking.status_note, current_user, db)
+    db.commit()
+    db.refresh(booking)
+    return {"message": "Final quote sent", "booking": format_booking_detail_response(booking, db)}
 
 
 async def approve_provider_refund_request_action(
@@ -83,7 +191,7 @@ async def approve_provider_refund_request_action(
             models.Payment.booking_id == refund_request.booking_id,
             models.Payment.customer_id == refund_request.customer_id,
             models.Payment.provider_profile_id == provider_profile.id,
-            models.Payment.status == PaymentStatus.paid,
+            models.Payment.status.in_([PaymentStatus.paid, PaymentStatus.partially_refunded]),
         )
         .first()
     )
@@ -96,15 +204,18 @@ async def approve_provider_refund_request_action(
     ensure_booking_status(
         booking, [BookingStatus.refunding], "Only refunding bookings can be refunded"
     )
+    await execute_external_refund(payment, refund_request, db)
     now = utc_now()
     old_status = booking.status
     old_refund_status = refund_request.status
     refund_request.status = RefundRequestStatus.approved
     refund_request.responded_at = now
     refund_request.refunded_at = now
-    payment.status = PaymentStatus.refunded
-    payment.refunded_at = now
-    booking.status = BookingStatus.refunded
+    booking.status = (
+        BookingStatus.refunded
+        if refund_request.refund_amount >= payment.amount
+        else BookingStatus.partially_refunded
+    )
     booking.status_note = "Provider approved refund request"
     add_booking_status_history(
         booking, old_status, booking.status, booking.status_note, current_user, db
@@ -273,12 +384,61 @@ async def quote_provider_booking_action(
     ensure_booking_status(
         booking, [BookingStatus.pending], "Only pending bookings can receive a quote"
     )
+    if quote_data.visit_fee_amount is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Visit fee is required for the initial quote",
+        )
+    if quote_data.expected_service_amount is None and quote_data.quote_amount is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Expected service amount is required for the initial quote",
+        )
+    expected_service_amount = Decimal(
+        str(quote_data.expected_service_amount or quote_data.quote_amount)
+    ).quantize(Decimal("0.01"))
+    visit_fee_amount = Decimal(
+        str(quote_data.visit_fee_amount)
+    ).quantize(Decimal("0.01"))
+    if visit_fee_amount > expected_service_amount:
+        raise HTTPException(
+            status_code=422,
+            detail="Visit fee cannot exceed the expected service amount",
+        )
     old_status = booking.status
     booking.status = BookingStatus.quoted
-    booking.quote_amount = quote_data.quote_amount
+    # Keep quote_amount as a legacy alias for existing payment and AI paths;
+    # all new UI-facing initial-quote displays use visit_fee_amount and the
+    # explicit expected/total fields instead.
+    booking.quote_amount = expected_service_amount
     booking.quote_message = quote_data.quote_message
+    booking.expected_service_amount = expected_service_amount
+    booking.visit_fee_amount = visit_fee_amount
+    booking.final_quote_amount = None
+    booking.final_quote_message = None
+    booking.total_amount = expected_service_amount + visit_fee_amount
     booking.quoted_at = utc_now()
     booking.status_note = quote_data.quote_message
+    latest_revision = (
+        db.query(models.BookingQuoteRevision)
+        .filter(models.BookingQuoteRevision.booking_id == booking.id)
+        .order_by(models.BookingQuoteRevision.revision_number.desc())
+        .with_for_update()
+        .first()
+    )
+    db.add(
+        models.BookingQuoteRevision(
+            booking_id=booking.id,
+            revision_number=(latest_revision.revision_number if latest_revision else 0) + 1,
+            quote_amount=expected_service_amount,
+            quote_message=quote_data.quote_message,
+            expected_service_amount=expected_service_amount,
+            visit_fee_amount=visit_fee_amount,
+            total_amount=expected_service_amount + visit_fee_amount,
+            created_by_user_id=current_user.id,
+            created_at=utc_now(),
+        )
+    )
     add_booking_status_history(
         booking, old_status, booking.status, booking.status_note, current_user, db
     )
@@ -286,11 +446,13 @@ async def quote_provider_booking_action(
         booking,
         old_status,
         current_user.id,
-        f"Provider submitted a quote: {booking.quote_amount} TRY",
+        f"Provider submitted a quote: visit fee {booking.visit_fee_amount} TRY",
         booking.quote_message,
         db,
         {
             "quote_amount": booking.quote_amount,
+            "expected_service_amount": booking.expected_service_amount,
+            "visit_fee_amount": booking.visit_fee_amount,
             "quote_message": booking.quote_message,
             "quoted_at": booking.quoted_at,
             "currency": "TRY",
@@ -375,6 +537,8 @@ async def complete_provider_booking_action(
     current_user: models.User,
     db: Session,
     proof_files: list[UploadFile] | None = None,
+    final_quote_amount: float | None = None,
+    final_quote_message: str | None = None,
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
     booking = (
@@ -389,7 +553,9 @@ async def complete_provider_booking_action(
         raise HTTPException(status_code=404, detail="Booking not found")
 
     ensure_booking_status(
-        booking, [BookingStatus.accepted], "Only accepted bookings can be completed"
+        booking,
+        [BookingStatus.service_paid, BookingStatus.accepted],
+        "Only bookings with a paid service fee can be completed",
     )
 
     if not proof_files:
@@ -397,6 +563,9 @@ async def complete_provider_booking_action(
             status_code=400,
             detail="Completion proof photo or video is required",
         )
+
+    if final_quote_amount is not None and final_quote_amount <= 0:
+        raise HTTPException(status_code=400, detail="Final quote amount must be positive")
 
     saved_file_urls = []
     proof_attachments = []
@@ -409,6 +578,7 @@ async def complete_provider_booking_action(
             attachment = models.BookingAttachment(
                 booking_id=booking.id,
                 uploaded_by_user_id=current_user.id,
+                purpose="completion_proof",
                 original_file_name=upload_result["original_file_name"],
                 file_name=upload_result["file_name"],
                 file_url=upload_result["file_url"],
@@ -440,6 +610,29 @@ async def complete_provider_booking_action(
         for file_url in saved_file_urls:
             delete_local_upload(file_url)
         raise
+
+    if final_quote_amount is not None:
+        current_amount = Decimal(str(booking.quote_amount or 0)).quantize(Decimal("0.01"))
+        new_amount = Decimal(str(final_quote_amount)).quantize(Decimal("0.01"))
+        if new_amount != current_amount or final_quote_message is not None:
+            latest_revision = (
+                db.query(models.BookingQuoteRevision)
+                .filter(models.BookingQuoteRevision.booking_id == booking.id)
+                .order_by(models.BookingQuoteRevision.revision_number.desc())
+                .first()
+            )
+            booking.quote_amount = new_amount
+            booking.quote_message = final_quote_message
+            db.add(
+                models.BookingQuoteRevision(
+                    booking_id=booking.id,
+                    revision_number=(latest_revision.revision_number if latest_revision else 0) + 1,
+                    quote_amount=new_amount,
+                    quote_message=final_quote_message,
+                    created_by_user_id=current_user.id,
+                    created_at=utc_now(),
+                )
+            )
 
     old_status = booking.status
     booking.status = BookingStatus.awaiting_confirmation

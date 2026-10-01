@@ -152,6 +152,19 @@ def create_booking_status_chat_message(
     }
     if metadata:
         message_metadata.update(metadata)
+    # Keep the current quote split on every booking update. This lets the
+    # chat card show the payable visit fee even when the latest update was
+    # created by an accept/payment action that only supplied payment fields.
+    message_metadata.update(
+        {
+            "quote_amount": booking.quote_amount,
+            "expected_service_amount": booking.expected_service_amount,
+            "visit_fee_amount": booking.visit_fee_amount,
+            "final_quote_amount": booking.final_quote_amount,
+            "final_quote_message": booking.final_quote_message,
+            "quote_message": booking.quote_message,
+        }
+    )
 
     chat_message = models.ChatMessage(
         chat_room_id=chat_room.id,

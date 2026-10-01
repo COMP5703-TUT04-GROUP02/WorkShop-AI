@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.clock import utc_now
@@ -115,11 +115,31 @@ class Booking(Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     quote_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     quote_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_service_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    visit_fee_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    final_quote_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    final_quote_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     quoted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    arrival_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    final_quote_declined_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    final_quote_decline_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    final_quote_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    closed_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     status_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    onboarding_paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    onboarding_pause_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    onboarding_paused_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class BookingAttachment(Base):
@@ -131,6 +151,9 @@ class BookingAttachment(Base):
     )
     uploaded_by_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    purpose: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="customer_attachment", server_default="customer_attachment"
     )
     original_file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -160,6 +183,48 @@ class BookingStatusHistory(Base):
     )
 
 
+class BookingQuoteRevision(Base):
+    __tablename__ = "booking_quote_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "booking_id", "revision_number", name="uq_booking_quote_revision_number"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    booking_id: Mapped[int] = mapped_column(
+        ForeignKey("bookings.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    quote_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    quote_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_service_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    visit_fee_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    total_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    created_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    declined_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decline_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    customer_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    used_for_payment_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class Payment(Base):
     __tablename__ = "payments"
 
@@ -176,8 +241,35 @@ class Payment(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="TRY")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
-    payment_method: Mapped[str] = mapped_column(String(32), nullable=False, default="mock")
+    payment_stage: Mapped[str] = mapped_column(String(32), nullable=False, default="service_fee")
+    payment_method: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="iyzico_checkout"
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, index=True
+    )
+    processing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    checkout_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     external_payment_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    conversation_id: Mapped[str | None] = mapped_column(
+        String(128), unique=True, index=True, nullable=True
+    )
+    basket_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    iyzico_token: Mapped[str | None] = mapped_column(
+        String(255), unique=True, index=True, nullable=True
+    )
+    checkout_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    iyzico_payment_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    payment_transaction_id: Mapped[str | None] = mapped_column(
+        String(128), index=True, nullable=True
+    )
+    external_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -186,6 +278,26 @@ class Payment(Base):
     )
     refunded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    authorized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    voided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    capture_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "customer_id",
+            "idempotency_key",
+            name="uq_payments_customer_idempotency_key",
+        ),
     )
 
 
@@ -204,9 +316,6 @@ class RefundRequest(Base):
     )
     provider_profile_id: Mapped[int] = mapped_column(
         ForeignKey("provider_profiles.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    service_stage: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="in_progress"
     )
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
@@ -232,6 +341,10 @@ class RefundRequest(Base):
     refunded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    refund_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    external_refund_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class RefundRequestStatusHistory(Base):

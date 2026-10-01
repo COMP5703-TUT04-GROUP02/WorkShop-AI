@@ -412,13 +412,16 @@ export async function getProviderBookings(status?: string, page = 1, pageSize = 
 
 export async function quoteProviderBooking(
   bookingId: number,
-  quoteAmount: number,
+  expectedServiceAmount: number,
   quoteMessage: string | null,
+  visitFeeAmount: number,
 ) {
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/provider/bookings/${bookingId}/quote`,
     {
-      quote_amount: quoteAmount,
+      quote_amount: expectedServiceAmount,
+      expected_service_amount: expectedServiceAmount,
+      visit_fee_amount: visitFeeAmount,
       quote_message: quoteMessage,
     },
   );
@@ -447,6 +450,8 @@ export async function completeProviderBooking(
     fileName?: string | null;
     mimeType?: string | null;
   }>,
+  finalQuoteAmount?: number | null,
+  finalQuoteMessage?: string | null,
 ) {
   const formData = new FormData();
 
@@ -471,6 +476,13 @@ export async function completeProviderBooking(
     }
   }
 
+  if (finalQuoteAmount != null) {
+    formData.append("final_quote_amount", String(finalQuoteAmount));
+  }
+  if (finalQuoteMessage?.trim()) {
+    formData.append("final_quote_message", finalQuoteMessage.trim());
+  }
+
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/provider/bookings/${bookingId}/complete`,
     formData,
@@ -479,6 +491,34 @@ export async function completeProviderBooking(
     },
   );
 
+  return response.data.data;
+}
+
+export async function startProviderVisit(
+  bookingId: number,
+  proofFiles: Array<{ uri: string; fileName?: string | null; mimeType?: string | null }>,
+) {
+  const formData = new FormData();
+  for (const file of proofFiles) {
+    await appendUploadFile(formData, "proof_files", file);
+  }
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/provider/bookings/${bookingId}/start-visit`,
+    formData,
+    { timeout: 120000 },
+  );
+  return response.data.data;
+}
+
+export async function submitProviderFinalQuote(
+  bookingId: number,
+  amount: number,
+  message?: string | null,
+) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/provider/bookings/${bookingId}/final-quote`,
+    { quote_amount: amount, quote_message: message ?? null },
+  );
   return response.data.data;
 }
 

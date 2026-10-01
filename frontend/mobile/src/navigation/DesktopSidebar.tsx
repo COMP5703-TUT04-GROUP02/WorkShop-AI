@@ -130,6 +130,7 @@ function getSidebarItems(
     stackRoutes: [
       "AccountEdit",
       "ProviderVerification",
+      "ProviderPayoutAccount",
       "ProviderOperatingSettings",
       "AccountSecurity",
       "Help",

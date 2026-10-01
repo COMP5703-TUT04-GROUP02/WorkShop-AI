@@ -54,6 +54,40 @@ def get_provider_profile_for_user(user_id: int, db: Session):
     return provider_profile
 
 
+def get_or_create_provider_profile_for_onboarding(user: models.User, db: Session):
+    """Return a draft profile so payout onboarding can start independently."""
+
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.user_id == user.id)
+        .first()
+    )
+    if provider_profile:
+        return provider_profile
+
+    provider_profile = models.ProviderProfile(
+        user_id=user.id,
+        business_name=(user.name or "Provider").strip(),
+        bio="",
+        phone_number="",
+        address="",
+        service_province="",
+        tags="",
+        certificate_name="",
+        certificate_url="",
+        hourly_rate=0,
+        verification_status="pending",
+        entity_type="personal",
+        identity_verification_status=user.identity_verification_status or "not_submitted",
+        qualification_verification_status=(
+            user.qualification_verification_status or "not_submitted"
+        ),
+    )
+    db.add(provider_profile)
+    db.flush()
+    return provider_profile
+
+
 def add_provider_verification_history(
     profile: models.ProviderProfile,
     old_status: str,

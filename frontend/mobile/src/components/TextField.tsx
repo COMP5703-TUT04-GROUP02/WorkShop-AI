@@ -21,6 +21,7 @@ type TextFieldProps = {
   numberOfLines?: number;
   maxLength?: number;
   editable?: boolean;
+  error?: string;
 };
 
 export function TextField({
@@ -35,6 +36,7 @@ export function TextField({
   numberOfLines,
   maxLength,
   editable = true,
+  error,
 }: TextFieldProps) {
   return (
     <View style={styles.container}>
@@ -59,6 +61,11 @@ export function TextField({
         textAlignVertical={multiline ? "top" : "center"}
         value={value}
       />
+      {error ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -89,5 +96,10 @@ const styles = StyleSheet.create({
   inputDisabled: {
     backgroundColor: colors.surface,
     color: colors.mutedText,
+  },
+  error: {
+    color: colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

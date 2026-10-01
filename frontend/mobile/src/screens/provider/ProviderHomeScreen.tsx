@@ -20,6 +20,7 @@ import {
   getPublicProviderPortfolios,
   getPublicProviderReviews,
 } from "../../api/customer";
+import { getProviderSubmerchant } from "../../api/marketplace";
 import { DateTimeField } from "../../components/DateTimeField";
 import { LocationCascadePickerModal } from "../../components/LocationCascadePickerModal";
 import { LocationPickerModal } from "../../components/LocationPickerModal";
@@ -43,6 +44,7 @@ import type {
   QualificationVerificationApplication,
   VerificationStatus,
 } from "../../types/provider";
+import type { ProviderSubmerchant } from "../../types/marketplace";
 import type { Review } from "../../types/review";
 import { getErrorMessage } from "../../utils/errors";
 
@@ -52,11 +54,13 @@ const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
 const REVIEW_PAGE_SIZE = 10;
 
 export function ProviderHomeScreen() {
-  const { user } = useAuth();
-  const { refreshProviderProfileStatus } = useProviderProfileGate();
+  return <ProviderHomeContent />;
+}
+
+export function ProviderVerificationScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
-  const [identity, setIdentity] = useState<IdentityVerificationApplication | null>(null);
-  const [qualification, setQualification] = useState<QualificationVerificationApplication | null>(null);
+  const [payoutAccount, setPayoutAccount] = useState<ProviderSubmerchant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -66,16 +70,99 @@ export function ProviderHomeScreen() {
     try {
       const nextStatus = await getProviderVerificationStatus();
       setStatus(nextStatus);
-      if (!nextStatus) return;
-      const [identityResult, qualificationResult] = await Promise.allSettled([
-        nextStatus.identity_application_id ? getIdentityVerification() : Promise.resolve(null),
-        nextStatus.qualification_application_id ? getQualificationVerification() : Promise.resolve(null),
-      ]);
-      setIdentity(identityResult.status === "fulfilled" ? identityResult.value : null);
-      setQualification(qualificationResult.status === "fulfilled" ? qualificationResult.value : null);
-      await refreshProviderProfileStatus();
+      setPayoutAccount(await getProviderSubmerchant());
     } catch (error) {
       setMessage(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => void load(), [load]));
+
+  if (isLoading) return <ActivityIndicator color={colors.primary} style={styles.loader} />;
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.flex}>
+          <Text style={styles.title}>Provider verification</Text>
+          <Text style={styles.subtitle}>Complete the three independent steps before accepting new orders.</Text>
+        </View>
+        <SecondaryButton label="Refresh" onPress={() => void load()} />
+      </View>
+      <ProgressCard status={status} payoutStatus={payoutAccount?.status ?? "draft"} />
+      {message ? <Text style={styles.error}>{message}</Text> : null}
+      <VerificationEntryCard
+        label="1. ID verification"
+        status={status?.identity_status ?? "not_submitted"}
+        description="Submit your identity details and supporting document."
+        onPress={() => navigation.navigate("ProviderIdentityVerification")}
+      />
+      <VerificationEntryCard
+        label="2. Service verification"
+        status={status?.qualification_status ?? "not_submitted"}
+        description="Submit your service details, areas, and supporting files."
+        onPress={() => navigation.navigate("ProviderServiceVerification")}
+      />
+      <PayoutAccountStep
+        navigation={navigation}
+        status={payoutAccount?.status ?? "draft"}
+      />
+    </ScrollView>
+  );
+}
+
+export function ProviderIdentityVerificationScreen() {
+  const { user } = useAuth();
+  const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
+  const [application, setApplication] = useState<IdentityVerificationApplication | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const nextStatus = await getProviderVerificationStatus();
+      setStatus(nextStatus);
+      setApplication(nextStatus?.identity_application_id ? await getIdentityVerification() : null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => void load(), [load]));
+
+  if (isLoading) return <ActivityIndicator color={colors.primary} style={styles.loader} />;
+  return (
+    <ScrollView contentContainerStyle={styles.content} style={styles.container}>
+      <View style={styles.headerContent}>
+        <Text style={styles.title}>ID verification</Text>
+        <Text style={styles.subtitle}>Update your identity details and submit them for review.</Text>
+        <IdentityStep
+          application={application}
+          firstName={user?.first_name || ""}
+          lastName={user?.last_name || ""}
+          onSubmitted={() => void load()}
+          status={status?.identity_status ?? "not_submitted"}
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+export function ProviderServiceVerificationScreen() {
+  const { refreshProviderProfileStatus } = useProviderProfileGate();
+  const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
+  const [application, setApplication] = useState<QualificationVerificationApplication | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const nextStatus = await getProviderVerificationStatus();
+      setStatus(nextStatus);
+      setApplication(nextStatus?.qualification_application_id ? await getQualificationVerification() : null);
+      await refreshProviderProfileStatus();
     } finally {
       setIsLoading(false);
     }
@@ -84,32 +171,22 @@ export function ProviderHomeScreen() {
   useFocusEffect(useCallback(() => void load(), [load]));
 
   if (isLoading) return <ActivityIndicator color={colors.primary} style={styles.loader} />;
-
-  if (status?.qualification_status === "approved") {
-    return <ApprovedProviderHome />;
-  }
-
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.flex}>
-          <Text style={styles.title}>Provider verification</Text>
-          <Text style={styles.subtitle}>Complete each step to unlock provider tools.</Text>
-        </View>
-        <SecondaryButton label="Refresh" onPress={() => void load()} />
+      <View style={styles.headerContent}>
+        <Text style={styles.title}>Service verification</Text>
+        <Text style={styles.subtitle}>Update your service details and submit them for review.</Text>
+        <QualificationStep
+          application={application}
+          onSubmitted={() => void load()}
+          status={status?.qualification_status ?? "not_submitted"}
+        />
       </View>
-      <ProgressCard status={status} />
-      {message ? <Text style={styles.error}>{message}</Text> : null}
-      {status?.identity_status !== "approved" ? (
-        <IdentityStep application={identity} firstName={user?.first_name || ""} lastName={user?.last_name || ""} onSubmitted={() => void load()} status={status?.identity_status ?? "not_submitted"} />
-      ) : (
-        <QualificationStep application={qualification} onSubmitted={() => void load()} status={status.qualification_status} />
-      )}
     </ScrollView>
   );
 }
 
-function ApprovedProviderHome() {
+function ProviderHomeContent() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [serviceAreas, setServiceAreas] = useState<ProviderServiceArea[]>([]);
@@ -302,31 +379,107 @@ function formatReviewDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
-function ProgressCard({ status }: { status: ProviderVerificationStatus | null }) {
-  const steps: Array<[string, VerificationStatus]> = [
-    ["1. ID verification", status?.identity_status ?? "not_submitted"],
-    ["2. Service verification", status?.qualification_status ?? "locked"],
+function ProgressCard({
+  status,
+  payoutStatus,
+}: {
+  status: ProviderVerificationStatus | null;
+  payoutStatus: string;
+}) {
+  const steps = [
+    {
+      label: "1. ID verification",
+      value: status?.identity_status ?? "not_submitted",
+      complete: status?.identity_status === "approved",
+    },
+    {
+      label: "2. Service verification",
+      value: status?.qualification_status ?? "not_submitted",
+      complete: status?.qualification_status === "approved",
+    },
+    {
+      label: "3. Payout account",
+      value: payoutStatus,
+      complete: payoutStatus === "active",
+    },
   ];
   return (
     <View style={styles.stepper}>
-      {steps.map(([label, value], index) => (
+      {steps.map(({ label, value, complete }, index) => (
         <View key={label} style={styles.stepItem}>
-          <View style={[styles.stepDot, value === "approved" ? styles.stepDotApproved : null]}>
-            <Text style={[styles.stepNumber, value === "approved" ? styles.stepNumberApproved : null]}>
-              {value === "approved" ? "✓" : index + 1}
+          <View style={[styles.stepDot, complete ? styles.stepDotApproved : null]}>
+            <Text style={[styles.stepNumber, complete ? styles.stepNumberApproved : null]}>
+              {complete ? "✓" : index + 1}
             </Text>
           </View>
           <View style={styles.stepCopy}>
             <Text style={styles.progressLabel}>{label}</Text>
-            <StatusBadge
-              label={value === "locked" ? "Complete ID first" : undefined}
-              status={value}
-            />
+            {index < 2 ? <StatusBadge status={value as VerificationStatus} /> : <PayoutStatusBadge status={value} />}
           </View>
-          {index === 0 ? <View style={styles.stepConnector} /> : null}
+          {index < steps.length - 1 ? <View style={styles.stepConnector} /> : null}
         </View>
       ))}
     </View>
+  );
+}
+
+function PayoutAccountStep({
+  navigation,
+  status,
+}: {
+  navigation: NativeStackNavigationProp<RootStackParamList>;
+  status: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open payout account"
+      onPress={() => navigation.navigate("ProviderPayoutAccount")}
+      style={styles.card}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>3. Payout account</Text>
+        <PayoutStatusBadge status={status} />
+      </View>
+      <Text style={styles.hint}>
+        Add and synchronize the account that receives marketplace payouts.
+      </Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.link}>{status === "active" ? "Review payout details" : "Complete payout details"}</Text>
+        <ChevronRight color={colors.primary} size={20} />
+      </View>
+    </Pressable>
+  );
+}
+
+function VerificationEntryCard({
+  label,
+  status,
+  description,
+  onPress,
+}: {
+  label: string;
+  status: VerificationStatus;
+  description: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${label}`}
+      onPress={onPress}
+      style={styles.card}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>{label}</Text>
+        <StatusBadge status={status} />
+      </View>
+      <Text style={styles.hint}>{description}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.link}>{status === "approved" ? "Review submission" : "Open details"}</Text>
+        <ChevronRight color={colors.primary} size={20} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -351,14 +504,13 @@ function IdentityStep({ application, firstName, lastName, onSubmitted, status }:
     setIsSubmitting(true); setError("");
     try {
       await submitIdentityVerification({ dateOfBirth, documentType, files });
-      Alert.alert("Submitted", "Your identity application is now locked for review."); onSubmitted();
+      Alert.alert("Submitted", "Your identity application is now under review."); onSubmitted();
     } catch (submitError) { setError(getErrorMessage(submitError)); }
     finally { setIsSubmitting(false); }
   }
 
   return <View style={styles.card}>
     <View style={styles.cardHeader}><Text style={styles.cardTitle}>1. Identity verification</Text><StatusBadge status={status} /></View>
-    {application?.review_note ? <Text style={styles.rejection}>Admin note: {application.review_note}</Text> : null}
     {!canSubmit ? <ApplicationSummary rows={[
       ["Name", `${application?.submitted_first_name ?? firstName} ${application?.submitted_last_name ?? lastName}`],
       ["Date of birth", application?.date_of_birth ?? "-"], ["Document", documentLabel(application?.document_type)],
@@ -420,7 +572,7 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
         business_place_id: address.placeId, business_latitude: address.latitude, business_longitude: address.longitude,
         service_categories: categories, service_location_ids: areas.map((area) => area.id), qualification_files: uploaded.files,
       });
-      Alert.alert("Submitted", "Your service verification application is now locked for review."); onSubmitted();
+      Alert.alert("Submitted", "Your service verification application is now under review."); onSubmitted();
     } catch (submitError) { setError(getErrorMessage(submitError)); }
     finally { setIsSubmitting(false); }
   }
@@ -441,7 +593,6 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
 
   return <View style={styles.card}>
     <View style={styles.cardHeader}><Text style={styles.cardTitle}>2. Service verification</Text><StatusBadge status={status} /></View>
-    {application?.review_note ? <Text style={styles.rejection}>Admin note: {application.review_note}</Text> : null}
     {!canSubmit ? <ApplicationSummary rows={[
       ["Provider type", application?.entity_type ?? "-"], ["Display name", application?.display_name ?? "-"],
       ["Business address", application?.business_address ?? "-"], ["Services", application?.service_categories.map(getProviderTagLabel).join(", ") ?? "-"],
@@ -509,6 +660,10 @@ function ApplicationSummary({ rows, note }: { rows: Array<[string, string]>; not
 }
 function ReadOnlyRow({ label, value }: { label: string; value: string }) { return <View style={styles.readOnlyRow}><Text style={styles.muted}>{label}</Text><Text style={styles.readOnlyValue}>{value || "-"}</Text></View>; }
 function StatusBadge({ status, label }: { status: VerificationStatus; label?: string }) { return <Text style={[styles.badge, status === "approved" ? styles.badgeApproved : status === "rejected" ? styles.badgeRejected : null]}>{label ?? status.replace("_", " ")}</Text>; }
+function PayoutStatusBadge({ status }: { status: string }) {
+  const label = status === "active" ? "Approved" : status === "rejected" || status === "update_failed" ? "Needs update" : "Not submitted";
+  return <Text style={[styles.badge, status === "active" ? styles.badgeApproved : status === "rejected" || status === "update_failed" ? styles.badgeRejected : null]}>{label}</Text>;
+}
 function documentLabel(value?: string) { return value === "passport" ? "Passport" : value === "national_id" ? "National ID" : "-"; }
 
 const styles = StyleSheet.create({
