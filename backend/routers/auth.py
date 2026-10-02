@@ -183,7 +183,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         identity_verification_status=(
             "not_submitted" if user.role == "provider" else None
         ),
-        qualification_verification_status=("locked" if user.role == "provider" else None),
+        qualification_verification_status=("not_submitted" if user.role == "provider" else None),
     )
     db.add(new_user)
     db.flush()

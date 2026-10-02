@@ -83,9 +83,21 @@ def decide_identity_verification(
     application.reviewed_by_user_id = current_user.id
     application.reviewed_at = utc_now()
     provider.identity_verification_status = decision.status
-    provider.qualification_verification_status = (
-        "not_submitted" if decision.status == "approved" else "locked"
+    profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.user_id == provider.id)
+        .first()
     )
+    if profile is not None:
+        profile.identity_verification_status = decision.status
+        profile.verification_status = (
+            "approved"
+            if decision.status == "approved"
+            and profile.qualification_verification_status == "approved"
+            else decision.status
+        )
+    if provider.qualification_verification_status == "locked":
+        provider.qualification_verification_status = "not_submitted"
     db.commit()
     db.refresh(application)
     return success_response(
@@ -187,8 +199,14 @@ def _approve_qualification(application, provider, db: Session):
         profile.tags = tags_to_string([item.service_category for item in services])
         profile.certificate_name = first_file.original_file_name
         profile.certificate_url = first_file.file_url
-        profile.verification_status = "approved"
-        profile.identity_verification_status = "approved"
+        profile.verification_status = (
+            "approved"
+            if provider.identity_verification_status == "approved"
+            else "pending"
+        )
+        profile.identity_verification_status = (
+            provider.identity_verification_status or "not_submitted"
+        )
         profile.qualification_verification_status = "approved"
         profile.entity_type = application.entity_type
     profile.business_place_id = application.business_place_id
@@ -245,11 +263,6 @@ def decide_qualification_verification(
     provider = db.query(models.User).filter(models.User.id == application.user_id).first()
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider account not found")
-    if provider.identity_verification_status != "approved":
-        raise HTTPException(
-            status_code=409,
-            detail="Identity approval is required before qualification review",
-        )
     application.status = decision.status
     application.review_note = decision.review_note
     application.reviewed_by_user_id = current_user.id

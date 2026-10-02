@@ -29,6 +29,25 @@ def _provider(db_session, client):
     db_session.add(profile)
     db_session.commit()
     db_session.refresh(profile)
+    db_session.add(
+        models.ProviderSubmerchant(
+            provider_profile_id=profile.id,
+            submerchant_type="PERSONAL",
+            submerchant_external_id=f"test-ws101-provider-{profile.id}",
+            submerchant_key=f"test-ws101-submerchant-{profile.id}",
+            name="HTTP Provider",
+            email="ws101-http-provider@example.com",
+            gsm_number="+905551110099",
+            address="Istanbul",
+            iban="TR180006200119000006672315",
+            contact_name="HTTP",
+            contact_surname="Provider",
+            identity_number="10000000001",
+            currency="TRY",
+            status="active",
+        )
+    )
+    db_session.commit()
     return customer, profile
 
 

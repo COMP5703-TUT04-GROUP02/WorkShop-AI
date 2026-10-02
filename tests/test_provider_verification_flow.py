@@ -60,11 +60,11 @@ def test_provider_registration_starts_unverified_and_unqualified(client):
     )
     user = provider["user"]
     assert user["identity_verification_status"] == "not_submitted"
-    assert user["qualification_verification_status"] == "locked"
+    assert user["qualification_verification_status"] == "not_submitted"
     status = client.get("/provider/verification-status", headers=provider["headers"])
     assert status.status_code == 200
     assert status.json()["data"]["identity_status"] == "not_submitted"
-    assert status.json()["data"]["qualification_status"] == "locked"
+    assert status.json()["data"]["qualification_status"] == "not_submitted"
 
 
 def test_identity_date_of_birth_requires_exact_valid_iso_date(client):
@@ -135,20 +135,19 @@ def test_rejected_identity_unlocks_name_and_requires_rejection_note(client, db_s
     assert changed.status_code == 200
 
 
-def test_qualification_requires_identity_and_is_immutable_while_pending(client, db_session):
+def test_qualification_can_be_submitted_independently_and_is_immutable_while_pending(
+    client, db_session
+):
     provider = register_session(
         client, "qualification-provider@example.com", role="provider", name="Ada Provider"
     )
-    blocked_upload = client.post(
+    upload = client.post(
         "/provider/qualification-files/upload",
         files=[("files", ("license.pdf", b"qualification", "application/pdf"))],
         headers=provider["headers"],
     )
-    assert blocked_upload.status_code == 403
+    assert upload.status_code == 200, upload.text
 
-    admin = create_admin_session(client, db_session, email="qualification-admin@example.com")
-    identity_id = submit_identity(client, provider["headers"]).json()["data"]["id"]
-    assert approve_identity(client, admin["headers"], identity_id).status_code == 200
     submitted = submit_personal_qualification(client, provider["headers"], db_session)
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["display_name"] == "Ada Provider"

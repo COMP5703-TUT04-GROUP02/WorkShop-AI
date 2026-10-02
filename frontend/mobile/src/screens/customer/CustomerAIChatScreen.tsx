@@ -14,6 +14,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -164,6 +165,13 @@ export function CustomerAIChatScreen() {
     setActionLoadingId(card.action_id);
     try {
       const result = await confirmAIAction(card.action_id);
+      const paymentPageUrl =
+        typeof result?.result?.payment_page_url === "string"
+          ? result.result.payment_page_url
+          : null;
+      if (paymentPageUrl) {
+        await Linking.openURL(paymentPageUrl);
+      }
       setMessages((currentMessages) => [
         ...removeConfirmationCard(currentMessages, card.action_id),
         createAssistantMessage(

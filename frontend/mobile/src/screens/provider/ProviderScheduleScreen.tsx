@@ -22,6 +22,9 @@ import {
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { SecondaryButton } from "../../components/SecondaryButton";
+import { BookingPriceBreakdown } from "../../components/BookingPriceBreakdown";
+import { BookingContextInformation } from "../../components/BookingContextInformation";
+import { ProviderBookingDetailModal } from "../../components/ProviderBookingDetailModal";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { BookingDetail } from "../../types/booking";
@@ -446,9 +449,10 @@ export function ProviderScheduleScreen() {
         visible={jobListModalVisible}
       />
 
-      <BookingDetailModal
+      <ProviderBookingDetailModal
         booking={selectedBooking}
         onClose={() => setJobDetailModalVisible(false)}
+        showReadOnly
         visible={jobDetailModalVisible}
       />
     </ScreenContainer>
@@ -743,58 +747,6 @@ function JobListModal({
   );
 }
 
-function BookingDetailModal({
-  visible,
-  booking,
-  onClose,
-}: {
-  visible: boolean;
-  booking: BookingDetail | null;
-  onClose: () => void;
-}) {
-  if (!booking) {
-    return null;
-  }
-
-  return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
-          <ScrollView contentContainerStyle={styles.detailContent}>
-            <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
-            <DetailRow
-              label="Scheduled time"
-              value={`${formatShortDateTime(booking.scheduled_start_time)} - ${formatShortDateTime(
-                booking.scheduled_end_time,
-              )}`}
-            />
-            <DetailRow label="Service description" value={booking.service_description} />
-            <DetailRow label="Service address" value={booking.service_address} />
-            <DetailRow
-              label="Customer"
-              value={booking.customer?.name || `Customer #${booking.customer_id}`}
-            />
-            <DetailRow
-              label="Quote amount"
-              value={
-                booking.quote_amount === null
-                  ? "—"
-                  : `${Number(booking.quote_amount).toFixed(2)}`
-              }
-            />
-            <DetailRow label="Quote notes" value={booking.quote_message || "—"} />
-            <DetailRow label="Booked at" value={formatShortDateTime(booking.booking_at)} />
-            <DetailRow label="Notes" value={booking.status_note || "—"} />
-          </ScrollView>
-          <View style={styles.modalActions}>
-            <SecondaryButton label="Close" onPress={onClose} />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -937,6 +889,7 @@ function getBookingStatusLabel(status: string) {
   const labels: Record<string, string> = {
     accepted: "In progress",
     awaiting_confirmation: "Awaiting confirmation",
+    visit_completed_closed: "Closed",
   };
 
   return labels[status] ?? status;

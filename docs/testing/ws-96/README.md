@@ -25,8 +25,8 @@ the header, top right.
 ## 2. Payments — customer (WS-110)
 
 Real records: one `PAID` (225.32 TRY) and one `PENDING` (243.23 TRY), each with
-its booking and the provider. Taken through `POST /bookings/{id}/payments` then
-`PUT /payments/{id}/pay`, so these are genuine rows rather than fixtures.
+its booking and the provider. These are genuine payment rows tied to bookings,
+rather than fixtures. The current booking-level payment flow is used by the app.
 
 ![Customer payment history](02-payments-customer.png)
 

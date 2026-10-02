@@ -456,6 +456,7 @@ async def upload_booking_attachment(
     attachment = models.BookingAttachment(
         booking_id=booking.id,
         uploaded_by_user_id=current_user.id,
+        purpose="customer_attachment",
         original_file_name=upload_result["original_file_name"],
         file_name=upload_result["file_name"],
         file_url=upload_result["file_url"],

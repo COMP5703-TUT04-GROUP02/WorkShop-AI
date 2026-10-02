@@ -215,13 +215,7 @@ def build_customer_home_recommendations(
         customer_profile
     )
 
-    provider_query = (
-        db.query(models.ProviderProfile)
-        .filter(
-            models.ProviderProfile.qualification_verification_status
-            == ProviderVerificationStatus.approved
-        )
-    )
+    provider_query = db.query(models.ProviderProfile)
     provider_query = filter_provider_query_by_location(
         provider_query,
         db,

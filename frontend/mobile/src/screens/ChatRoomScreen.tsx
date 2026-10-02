@@ -14,6 +14,7 @@ import {
   Alert,
   AppState,
   FlatList,
+  Linking,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -34,14 +35,18 @@ import {
 import { getAccessToken } from "../api/client";
 import {
   acceptCustomerBookingQuote,
+  acceptCustomerFinalQuote,
   appealCustomerRefund,
   cancelCustomerBooking,
+  cancelCustomerBookingAfterVisit,
   cancelCustomerRefund,
   confirmCustomerBookingComplete,
   createCustomerReview,
   createCustomerBooking,
+  getCustomerPayments,
   payCustomerBooking,
   rejectCustomerBookingQuote,
+  rejectCustomerFinalQuote,
   requestCustomerRefund,
   updateCustomerPendingBooking,
 } from "../api/customer";
@@ -49,6 +54,8 @@ import {
   approveProviderRefundRequest,
   completeProviderBooking,
   quoteProviderBooking,
+  startProviderVisit,
+  submitProviderFinalQuote,
   rejectProviderRefundRequest,
   rejectProviderBooking,
 } from "../api/provider";
@@ -59,6 +66,13 @@ import {
   type BookingRequestFormState,
 } from "../components/BookingRequestModal";
 import { CompletionProofGallery } from "../components/CompletionProofGallery";
+import { BookingPriceBreakdown } from "../components/BookingPriceBreakdown";
+import { BookingCoreDetails } from "../components/BookingCoreDetails";
+import { BookingContextInformation } from "../components/BookingContextInformation";
+import { CustomerBookingDetailModal } from "../components/CustomerBookingDetailModal";
+import { ProviderBookingDetailModal } from "../components/ProviderBookingDetailModal";
+import { MarketplaceBreakdownCard } from "../components/MarketplaceBreakdownCard";
+import { ActionReasonModal } from "../components/ActionReasonModal";
 import { CustomerReviewModal } from "../components/CustomerReviewModal";
 import { DateTimeField } from "../components/DateTimeField";
 import { PrimaryButton } from "../components/PrimaryButton";
@@ -71,17 +85,33 @@ import { colors, radius, spacing } from "../theme/theme";
 import type {
   BookingDetail,
   BookingPayload,
-  RefundServiceStage,
+  BookingUploadFile,
+  PaymentSummary,
 } from "../types/booking";
 import type { ChatMessage } from "../types/chat";
 import { getErrorMessage } from "../utils/errors";
 import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
+import { useConfirmation } from "../utils/useConfirmation";
+import {
+  createPaymentIdempotencyKey,
+  shouldRotatePaymentIdempotencyKey,
+  indexLatestPayments,
+} from "../utils/payment";
+import {
+  canCustomerCancelBooking,
+  canCustomerRequestRefund as canCustomerRequestRefundForBooking,
+  getCustomerBookingListAction,
+  shouldShowBookingInChat,
+  shouldShowFinalQuote,
+  shouldShowInitialQuote,
+  shouldShowInitialQuoteHistory,
+  type CustomerBookingListAction,
+} from "../utils/bookingActions";
 import {
   getBookingStatusLabelForChat,
-  getRefundServiceStageLabel,
+  getPaymentStatusLabel,
   getRefundStatusLabel,
-  REFUND_SERVICE_STAGE_OPTIONS,
 } from "../constants/labels";
 
 type ChatRoomScreenProps = NativeStackScreenProps<RootStackParamList, "ChatRoom">;
@@ -92,18 +122,16 @@ type ChatDisplayItem = {
   variant: "message" | "booking" | "booking_update";
 };
 
-const CANCELLABLE_STATUSES = ["pending", "quoted", "awaiting_payment"];
-const PINNED_BOOKING_HIDDEN_STATUSES = [
-  "completed",
-  "cancelled",
-  "rejected",
-  "refunded",
-];
-const REFUND_SERVICE_STAGES = REFUND_SERVICE_STAGE_OPTIONS;
-
+type ChatReasonAction =
+  | "reject_booking"
+  | "reject_quote"
+  | "reject_final_quote"
+  | "refund"
+  | "reject_refund";
 export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const { user } = useAuth();
   const { markChatRoomRead } = useRealtime();
+  const { confirmationModal, requestConfirmation } = useConfirmation();
   const listRef = useRef<FlatList<ChatDisplayItem>>(null);
   const websocketRef = useRef<WebSocket | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -113,25 +141,35 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
+  const [selectedBookingPayment, setSelectedBookingPayment] = useState<PaymentSummary | null>(null);
   const [bookingForm, setBookingForm] = useState<BookingRequestFormState | null>(
     null,
   );
   const [quoteAmount, setQuoteAmount] = useState("");
+  const [visitFeeAmount, setVisitFeeAmount] = useState("");
+  const [quoteAmountError, setQuoteAmountError] = useState("");
+  const [visitFeeError, setVisitFeeError] = useState("");
   const [quoteMessage, setQuoteMessage] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [quoteRejectReason, setQuoteRejectReason] = useState("");
-  const [refundServiceStage, setRefundServiceStage] =
-    useState<RefundServiceStage>("in_progress");
-
   const [refundReason, setRefundReason] = useState("");
+  const [refundAmount, setRefundAmount] = useState("");
   const [refundAppealReason, setRefundAppealReason] = useState("");
   const [refundRejectReason, setRefundRejectReason] = useState("");
+  const [reasonAction, setReasonAction] = useState<ChatReasonAction | null>(null);
   const [proofAssets, setProofAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [quoteFiles, setQuoteFiles] = useState<BookingUploadFile[]>([]);
+  const [quoteFilesError, setQuoteFilesError] = useState("");
+  const [finalQuoteAmount, setFinalQuoteAmount] = useState("");
+  const [finalQuoteMessage, setFinalQuoteMessage] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
   const [reviewBooking, setReviewBooking] = useState<BookingDetail | null>(null);
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isBookingActionLoading, setIsBookingActionLoading] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const paymentInFlightRef = useRef(false);
+  const paymentIdempotencyKeysRef = useRef<Record<number, string>>({});
   const [isCreateBookingModalVisible, setIsCreateBookingModalVisible] =
     useState(false);
   const [createBookingForm, setCreateBookingForm] =
@@ -140,6 +178,37 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   );
   const [createBookingError, setCreateBookingError] = useState("");
   const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+
+  function confirmReasonAction() {
+    if (!selectedBooking || !reasonAction) {
+      return;
+    }
+    const reason =
+      reasonAction === "refund"
+        ? refundReason
+        : reasonAction === "reject_booking"
+          ? rejectReason
+          : reasonAction === "reject_refund"
+            ? refundRejectReason
+            : quoteRejectReason;
+    if (!reason.trim()) {
+      setBookingActionError("A reason is required for this action.");
+      return;
+    }
+    const action = reasonAction;
+    setReasonAction(null);
+    if (action === "reject_booking") {
+      void handleRejectBooking();
+    } else if (action === "reject_quote") {
+      void handleRejectQuote();
+    } else if (action === "reject_final_quote") {
+      void handleRejectFinalQuote();
+    } else if (action === "refund") {
+      void handleRequestRefund();
+    } else {
+      void handleRejectRefund();
+    }
+  }
 
   const [opponentOnline, setOpponentOnline] = useState(
     Boolean(route.params.opponentOnline),
@@ -158,9 +227,23 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     () => collapseBookingMessages(messages),
     [messages],
   );
-  const pinnedBookingItem = useMemo(
-    () => getLatestBookingCardItem(displayMessages),
+  const bookingCardIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          displayMessages
+            .filter((item) => item.variant === "booking")
+            .map((item) => getBookingIdFromMessage(item.message))
+            .filter((bookingId): bookingId is number => bookingId != null),
+        ),
+      ),
     [displayMessages],
+  );
+  const [bookingPreviews, setBookingPreviews] = useState<Record<number, BookingDetail>>({});
+  const [bookingPaymentsById, setBookingPaymentsById] = useState<Record<number, PaymentSummary>>({});
+  const pinnedBookingItem = useMemo(
+    () => getLatestBookingCardItem(displayMessages, bookingPreviews),
+    [bookingPreviews, displayMessages],
   );
   const chatListMessages = useMemo(
     () => displayMessages.filter((item) => item.variant !== "booking"),
@@ -170,6 +253,61 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     () => [...chatListMessages].reverse(),
     [chatListMessages],
   );
+
+  useEffect(() => {
+    let isActive = true;
+    const missingBookingIds = bookingCardIds.filter((bookingId) => !bookingPreviews[bookingId]);
+    if (missingBookingIds.length === 0) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    void Promise.all(
+      missingBookingIds.map(async (bookingId) => {
+        try {
+          return await getBookingById(bookingId);
+        } catch {
+          return null;
+        }
+      }),
+    ).then((results) => {
+      if (!isActive) return;
+      setBookingPreviews((current) => {
+        const next = { ...current };
+        results.forEach((booking) => {
+          if (booking) next[booking.id] = booking;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [bookingCardIds, bookingPreviews]);
+
+  useEffect(() => {
+    if (user?.role !== "customer" || bookingCardIds.length === 0) {
+      setBookingPaymentsById({});
+      return;
+    }
+
+    let isActive = true;
+    void getCustomerPayments(1, 100)
+      .then((result) => {
+        if (isActive) {
+          setBookingPaymentsById(indexLatestPayments(result?.items ?? []));
+        }
+      })
+      .catch(() => {
+        // The card can fall back to payment metadata from the chat message.
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [bookingCardIds, user?.role]);
 
   const scrollToLatestMessage = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -372,18 +510,53 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     try {
       const booking = await getBookingById(bookingId);
-      if (booking && isBookingActionableForRole(booking, user?.role)) {
+      if (booking && isBookingVisibleInActiveBookingsForDetail(booking, user?.role)) {
+        let payment: PaymentSummary | null = null;
+        if (user?.role === "customer") {
+          try {
+            const paymentResult = await getCustomerPayments(1, 100);
+            payment = indexLatestPayments(paymentResult?.items ?? [])[booking.id] ?? null;
+          } catch {
+            // The booking detail remains usable even if the payment list is unavailable.
+          }
+        }
         setSelectedBooking(booking);
+        setSelectedBookingPayment(payment);
         setBookingForm(createBookingFormFromDetail(booking));
-        setQuoteAmount(booking.quote_amount == null ? "" : String(booking.quote_amount));
+        setQuoteAmount(
+          booking.expected_service_amount == null
+            ? booking.quote_amount == null
+              ? ""
+              : String(booking.quote_amount)
+            : String(booking.expected_service_amount),
+        );
+        setVisitFeeAmount(
+          booking.visit_fee_amount == null ? "" : String(booking.visit_fee_amount),
+        );
+        setQuoteAmountError("");
+        setVisitFeeError("");
         setQuoteMessage("");
         setRejectReason("");
         setQuoteRejectReason("");
-        setRefundServiceStage(getDefaultRefundServiceStage(booking.status));
         setRefundReason("");
+        setRefundAmount("");
         setRefundAppealReason("");
         setRefundRejectReason("");
         setProofAssets([]);
+        setQuoteFiles([]);
+        setQuoteFilesError("");
+        setFinalQuoteAmount(
+          booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
+            ? ""
+            : booking.final_quote_amount == null
+              ? ""
+              : String(booking.final_quote_amount),
+        );
+        setFinalQuoteMessage(
+          booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
+            ? ""
+            : booking.final_quote_message || "",
+        );
         setBookingActionError("");
       }
     } catch (error) {
@@ -395,17 +568,25 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
   function closeBookingActionModal() {
     setSelectedBooking(null);
+    setSelectedBookingPayment(null);
     setBookingForm(null);
     setQuoteAmount("");
+    setVisitFeeAmount("");
     setQuoteMessage("");
     setRejectReason("");
     setQuoteRejectReason("");
-    setRefundServiceStage("in_progress");
     setRefundReason("");
+    setRefundAmount("");
     setRefundAppealReason("");
     setRefundRejectReason("");
     setProofAssets([]);
+    setQuoteFiles([]);
+    setQuoteFilesError("");
+    setFinalQuoteAmount("");
+    setFinalQuoteMessage("");
     setBookingActionError("");
+    setQuoteAmountError("");
+    setVisitFeeError("");
   }
 
   async function handleUpdateBooking() {
@@ -437,8 +618,19 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     }
 
     const amount = Number(quoteAmount);
+    const visitFee = Number(visitFeeAmount);
+    setQuoteAmountError("");
+    setVisitFeeError("");
     if (!Number.isFinite(amount) || amount <= 0) {
-      setBookingActionError("Enter a quote amount greater than 0.");
+      setQuoteAmountError("Enter an expected service amount greater than 0.");
+      return;
+    }
+    if (!Number.isFinite(visitFee) || visitFee <= 0) {
+      setVisitFeeError("Enter a visit fee greater than 0.");
+      return;
+    }
+    if (visitFee > amount) {
+      setVisitFeeError("Visit fee cannot exceed the expected service amount.");
       return;
     }
 
@@ -449,11 +641,20 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         selectedBooking.id,
         amount,
         quoteMessage.trim() || null,
+        visitFee,
+        quoteFiles,
       );
       setSelectedBooking(null);
       await loadMessages();
     } catch (error) {
-      setBookingActionError(getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
+        setVisitFeeError(errorMessage);
+      } else if (/file|attachment/i.test(errorMessage)) {
+        setQuoteFilesError(errorMessage);
+      } else {
+        setBookingActionError(errorMessage);
+      }
     } finally {
       setIsBookingActionLoading(false);
     }
@@ -493,7 +694,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     try {
       const result = await acceptCustomerBookingQuote(selectedBooking.id);
       const chatMessage = result?.chat_message;
-      setSelectedBooking(null);
+      setSelectedBooking(result?.booking ?? await getBookingById(selectedBooking.id));
       if (chatMessage) {
         setMessages((currentMessages) => [...currentMessages, chatMessage]);
       } else {
@@ -530,6 +731,107 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     }
   }
 
+  async function handleAcceptFinalQuote() {
+    if (!selectedBooking) {
+      return;
+    }
+
+    setIsBookingActionLoading(true);
+    setBookingActionError("");
+    try {
+      const result = await acceptCustomerFinalQuote(selectedBooking.id);
+      setSelectedBooking(result?.booking ?? await getBookingById(selectedBooking.id));
+      await loadMessages();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
+        setVisitFeeError(errorMessage);
+      } else {
+        setBookingActionError(errorMessage);
+      }
+    } finally {
+      setIsBookingActionLoading(false);
+    }
+  }
+
+  async function handleChatPrimaryAction(
+    bookingId: number,
+    action: CustomerBookingListAction,
+    paymentStage: "visit_fee" | "service_fee" = "visit_fee",
+  ) {
+    if (action === "pay") {
+      void handlePayBooking(bookingId, paymentStage);
+      return;
+    }
+    if (isBookingActionLoading) {
+      return;
+    }
+
+    setIsBookingActionLoading(true);
+    setBookingActionError("");
+    try {
+      if (action === "accept_quote") {
+        await acceptCustomerBookingQuote(bookingId);
+        await loadMessages();
+        return;
+      }
+      if (action === "accept_final_quote") {
+        await acceptCustomerFinalQuote(bookingId);
+        await loadMessages();
+        return;
+      }
+
+      const result = await confirmCustomerBookingComplete(bookingId);
+      if (result?.payment_page_url) {
+        await Linking.openURL(result.payment_page_url);
+        setBookingActionError(
+          "The final quote changed. Complete the new authorization, then confirm again.",
+        );
+        await loadMessages();
+        return;
+      }
+
+      await loadMessages();
+      if (result?.booking) {
+        setReviewError("");
+        setReviewBooking(result.booking);
+      }
+    } catch (error) {
+      setBookingActionError(getErrorMessage(error));
+    } finally {
+      setIsBookingActionLoading(false);
+    }
+  }
+
+  async function handleRejectFinalQuote() {
+    if (!selectedBooking) {
+      return;
+    }
+
+    const reason = quoteRejectReason.trim();
+    if (!reason) {
+      setBookingActionError("Enter a reason for declining the final quote.");
+      return;
+    }
+
+    setIsBookingActionLoading(true);
+    setBookingActionError("");
+    try {
+      await rejectCustomerFinalQuote(selectedBooking.id, reason);
+      setSelectedBooking(null);
+      await loadMessages();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
+        setVisitFeeError(errorMessage);
+      } else {
+        setBookingActionError(errorMessage);
+      }
+    } finally {
+      setIsBookingActionLoading(false);
+    }
+  }
+
   async function handleCancelBooking() {
     if (!selectedBooking) {
       return;
@@ -548,16 +850,67 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     }
   }
 
-  async function handlePayBooking(bookingId?: number) {
+  async function handlePayBooking(
+    bookingId?: number,
+    paymentStageOverride?: "visit_fee" | "service_fee",
+  ) {
     const targetBookingId = bookingId ?? selectedBooking?.id;
-    if (!targetBookingId) {
+    if (!targetBookingId || paymentInFlightRef.current) {
+      return;
+    }
+
+    paymentInFlightRef.current = true;
+    setIsPaymentLoading(true);
+    setIsBookingActionLoading(true);
+    setBookingActionError("");
+    try {
+      const idempotencyKey =
+        paymentIdempotencyKeysRef.current[targetBookingId] ??
+        (paymentIdempotencyKeysRef.current[targetBookingId] =
+          createPaymentIdempotencyKey());
+      const paymentStage =
+        paymentStageOverride ??
+        (selectedBooking?.status === "awaiting_service_payment"
+          ? "service_fee"
+          : "visit_fee");
+      const result = await payCustomerBooking(
+        targetBookingId,
+        "iyzico_checkout",
+        idempotencyKey,
+        paymentStage,
+      );
+
+      if (shouldRotatePaymentIdempotencyKey(result?.payment)) {
+        delete paymentIdempotencyKeysRef.current[targetBookingId];
+      }
+
+      if (result?.payment_page_url) {
+        delete paymentIdempotencyKeysRef.current[targetBookingId];
+        await Linking.openURL(result.payment_page_url);
+      }
+
+      if (bookingId || !selectedBooking) {
+        setSelectedBooking(null);
+      }
+      await loadMessages();
+    } catch (error) {
+      setBookingActionError(getErrorMessage(error));
+    } finally {
+      paymentInFlightRef.current = false;
+      setIsPaymentLoading(false);
+      setIsBookingActionLoading(false);
+    }
+  }
+
+  async function handleCancelAfterVisit() {
+    if (!selectedBooking) {
       return;
     }
 
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await payCustomerBooking(targetBookingId);
+      await cancelCustomerBookingAfterVisit(selectedBooking.id);
       setSelectedBooking(null);
       await loadMessages();
     } catch (error) {
@@ -565,6 +918,26 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     } finally {
       setIsBookingActionLoading(false);
     }
+  }
+
+  function confirmCancelBooking() {
+    if (!selectedBooking) return;
+    requestConfirmation({
+      title: "Cancel booking?",
+      message: "This booking will be cancelled and this action cannot be undone. Any paid amount will not be refunded automatically. If you need a refund, use the refund process separately.",
+      onConfirm: () => void handleCancelBooking(),
+      confirmLabel: "Cancel",
+    });
+  }
+
+  function confirmCancelAfterVisit() {
+    if (!selectedBooking) return;
+    requestConfirmation({
+      title: "Cancel booking?",
+      message: "The booking will be closed without requesting a refund. Any paid amount will not be refunded automatically. If you need a refund, use the refund process separately.",
+      onConfirm: () => void handleCancelAfterVisit(),
+      confirmLabel: "Cancel",
+    });
   }
 
   async function handleRequestRefund() {
@@ -578,10 +951,26 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       return;
     }
 
+    const parsedAmount = refundAmount.trim() ? Number(refundAmount) : undefined;
+    if (
+      parsedAmount !== undefined &&
+      (!Number.isFinite(parsedAmount) ||
+        parsedAmount <= 0 ||
+        (selectedBooking.quote_amount != null &&
+          parsedAmount > selectedBooking.quote_amount))
+    ) {
+      setBookingActionError("Refund amount must be greater than 0 and no more than the paid amount.");
+      return;
+    }
+
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await requestCustomerRefund(selectedBooking.id, refundServiceStage, reason);
+      await requestCustomerRefund(
+        selectedBooking.id,
+        reason,
+        parsedAmount,
+      );
       setSelectedBooking(null);
       await loadMessages();
     } catch (error) {
@@ -609,6 +998,16 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     } finally {
       setIsBookingActionLoading(false);
     }
+  }
+
+  function confirmCancelRefund() {
+    if (!selectedBooking) return;
+    requestConfirmation({
+      title: "Cancel refund request?",
+      message: "The refund request will be withdrawn. You can submit a new request later if the booking remains eligible.",
+      onConfirm: () => void handleCancelRefund(),
+      confirmLabel: "Cancel refund",
+    });
   }
 
   async function handleAppealRefund() {
@@ -647,6 +1046,15 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setBookingActionError("");
     try {
       const result = await confirmCustomerBookingComplete(bookingToReview.id);
+      if (result?.payment_page_url) {
+        setSelectedBooking(result.booking ?? bookingToReview);
+        await Linking.openURL(result.payment_page_url);
+        setBookingActionError(
+          "The final quote changed. Complete the new authorization, then confirm again.",
+        );
+        await loadMessages();
+        return;
+      }
       setSelectedBooking(null);
       await loadMessages();
       setReviewError("");
@@ -704,6 +1112,73 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setProofAssets(result.assets);
   }
 
+  async function handleStartVisit() {
+    if (!selectedBooking || proofAssets.length === 0) {
+      setBookingActionError("Add at least one photo or video as arrival evidence.");
+      return;
+    }
+
+    setIsBookingActionLoading(true);
+    setBookingActionError("");
+    try {
+      await startProviderVisit(
+        selectedBooking.id,
+        proofAssets.map((asset) => ({
+          uri: asset.uri,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+        })),
+      );
+      setSelectedBooking(null);
+      await loadMessages();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
+        setVisitFeeError(errorMessage);
+      } else {
+        setBookingActionError(errorMessage);
+      }
+    } finally {
+      setIsBookingActionLoading(false);
+    }
+  }
+
+  async function handleSubmitFinalQuote() {
+    if (!selectedBooking) {
+      return;
+    }
+
+    const amount = Number(finalQuoteAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setBookingActionError("Enter a final quote amount greater than 0.");
+      return;
+    }
+
+    setIsBookingActionLoading(true);
+    setBookingActionError("");
+    try {
+      await submitProviderFinalQuote(
+        selectedBooking.id,
+        amount,
+        finalQuoteMessage.trim() || null,
+        quoteFiles,
+      );
+      setSelectedBooking(null);
+      await loadMessages();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.toLowerCase().includes("visit fee cannot exceed")) {
+        setVisitFeeError(errorMessage);
+      } else if (/file|attachment/i.test(errorMessage)) {
+        setQuoteFilesError(errorMessage);
+      } else {
+        setBookingActionError(errorMessage);
+      }
+    } finally {
+      setIsBookingActionLoading(false);
+    }
+  }
+
   async function handleCompleteBooking() {
     if (!selectedBooking) {
       return;
@@ -712,7 +1187,6 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       setBookingActionError("Add at least one photo or video as completion proof.");
       return;
     }
-
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
@@ -723,6 +1197,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           fileName: asset.fileName,
           mimeType: asset.mimeType,
         })),
+        null,
+        null,
       );
       setSelectedBooking(null);
       await loadMessages();
@@ -834,17 +1310,27 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
                 isMine={pinnedBookingItem.message.sender_id === user?.id}
                 isPinned
                 message={pinnedBookingItem.message}
+                bookingPreview={bookingPreviews[getBookingIdFromMessage(pinnedBookingItem.message) ?? -1]}
+                bookingPayment={bookingPaymentsById[getBookingIdFromMessage(pinnedBookingItem.message) ?? -1]}
                 onBookingPress={() =>
                   void handleBookingPress(pinnedBookingItem.message)
                 }
-                onPayBooking={() => {
+                onPrimaryAction={(action) => {
                   const bookingId = getBookingIdFromMessage(
                     pinnedBookingItem.message,
                   );
                   if (bookingId) {
-                    void handlePayBooking(bookingId);
+                    void handleChatPrimaryAction(
+                      bookingId,
+                      action,
+                      getPaymentStageFromBooking(
+                        bookingPreviews[bookingId],
+                        pinnedBookingItem.message,
+                      ),
+                    );
                   }
                 }}
+                isActionLoading={isBookingActionLoading}
                 userRole={user?.role}
               />
             </View>
@@ -871,13 +1357,20 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
                 displayVariant={item.variant}
                 isMine={item.message.sender_id === user?.id}
                 message={item.message}
+                bookingPreview={bookingPreviews[getBookingIdFromMessage(item.message) ?? -1]}
+                bookingPayment={bookingPaymentsById[getBookingIdFromMessage(item.message) ?? -1]}
                 onBookingPress={() => void handleBookingPress(item.message)}
-                onPayBooking={() => {
+                onPrimaryAction={(action) => {
                   const bookingId = getBookingIdFromMessage(item.message);
                   if (bookingId) {
-                    void handlePayBooking(bookingId);
+                    void handleChatPrimaryAction(
+                      bookingId,
+                      action,
+                      getPaymentStageFromBooking(bookingPreviews[bookingId], item.message),
+                    );
                   }
                 }}
+                isActionLoading={isBookingActionLoading}
                 userRole={user?.role}
               />
             )}
@@ -913,71 +1406,117 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         </Pressable>
       </View>
 
-      <BookingActionModal
-        booking={selectedBooking}
-        bookingForm={bookingForm}
-        isLoading={isBookingActionLoading}
-        onClose={closeBookingActionModal}
-        onQuote={() => void handleQuoteBooking()}
-        onReject={() => void handleRejectBooking()}
-        onAcceptQuote={() => void handleAcceptQuote()}
-        onRejectQuote={() => void handleRejectQuote()}
-        onCancelBooking={() => void handleCancelBooking()}
-        onPayBooking={() => void handlePayBooking()}
-        onUpdate={() => void handleUpdateBooking()}
-        onRequestRefund={() => void handleRequestRefund()}
-        onCancelRefund={() => void handleCancelRefund()}
-        onAppealRefund={() => void handleAppealRefund()}
-        onConfirmComplete={() => void handleConfirmComplete()}
-        onPickCompletionProof={() => void handlePickCompletionProof()}
-        onCompleteBooking={() => void handleCompleteBooking()}
-        onApproveRefund={() => void handleApproveRefund()}
-        onRejectRefund={() => void handleRejectRefund()}
-        actionError={bookingActionError}
-        proofAssets={proofAssets}
-        quoteAmount={quoteAmount}
-        quoteMessage={quoteMessage}
-        quoteRejectReason={quoteRejectReason}
-        refundAppealReason={refundAppealReason}
-        refundReason={refundReason}
-        refundRejectReason={refundRejectReason}
-        refundServiceStage={refundServiceStage}
-        rejectReason={rejectReason}
-        setBookingForm={setBookingForm}
-        setQuoteAmount={(value) => {
-          setQuoteAmount(value);
-          setBookingActionError("");
-        }}
-        setQuoteMessage={(value) => {
-          setQuoteMessage(value);
-          setBookingActionError("");
-        }}
-        setQuoteRejectReason={(value) => {
-          setQuoteRejectReason(value);
-          setBookingActionError("");
-        }}
-        setRefundAppealReason={(value) => {
-          setRefundAppealReason(value);
-          setBookingActionError("");
-        }}
-        setRefundReason={(value) => {
-          setRefundReason(value);
-          setBookingActionError("");
-        }}
-        setRefundRejectReason={(value) => {
-          setRefundRejectReason(value);
-          setBookingActionError("");
-        }}
-        setRefundServiceStage={(value) => {
-          setRefundServiceStage(value);
-          setBookingActionError("");
-        }}
-        setRejectReason={(value) => {
-          setRejectReason(value);
-          setBookingActionError("");
-        }}
-        userRole={user?.role}
-      />
+      {user?.role === "provider" ? (
+        <ProviderBookingDetailModal
+          actionError={bookingActionError}
+          booking={selectedBooking}
+          finalQuoteAmount={finalQuoteAmount}
+          finalQuoteMessage={finalQuoteMessage}
+          isActing={isBookingActionLoading}
+          onApproveRefund={() => void handleApproveRefund()}
+          onClose={closeBookingActionModal}
+          onComplete={() => void handleCompleteBooking()}
+          onPickCompletionProof={() => void handlePickCompletionProof()}
+          onQuote={() => void handleQuoteBooking()}
+          onReject={() => setReasonAction("reject_booking")}
+          onRejectRefund={() => setReasonAction("reject_refund")}
+          onStartVisit={() => void handleStartVisit()}
+          onSubmitFinalQuote={() => void handleSubmitFinalQuote()}
+          payment={selectedBookingPayment}
+          proofAssets={proofAssets}
+          quoteFiles={quoteFiles}
+          quoteFilesError={quoteFilesError}
+          setQuoteFiles={(files) => {
+            setQuoteFiles(files);
+            setQuoteFilesError("");
+          }}
+          quoteAmount={quoteAmount}
+          quoteAmountError={quoteAmountError}
+          quoteMessage={quoteMessage}
+          setFinalQuoteAmount={(value) => { setFinalQuoteAmount(value); setBookingActionError(""); }}
+          setFinalQuoteMessage={(value) => { setFinalQuoteMessage(value); setBookingActionError(""); }}
+          setQuoteAmount={(value) => { setQuoteAmount(value); setQuoteAmountError(""); setBookingActionError(""); }}
+          setQuoteMessage={(value) => { setQuoteMessage(value); setBookingActionError(""); }}
+          setVisitFeeAmount={(value) => { setVisitFeeAmount(value); setVisitFeeError(""); setBookingActionError(""); }}
+          visitFeeAmount={visitFeeAmount}
+          visitFeeError={visitFeeError}
+        />
+      ) : (
+        <CustomerBookingDetailModal
+          actionError={bookingActionError}
+          booking={selectedBooking}
+          bookingForm={bookingForm}
+          isActing={isBookingActionLoading}
+          onAcceptFinalQuote={() => void handleAcceptFinalQuote()}
+          onAcceptQuote={() => void handleAcceptQuote()}
+          onAppealRefund={() => void handleAppealRefund()}
+          onCancel={confirmCancelBooking}
+          onCancelAfterVisit={confirmCancelAfterVisit}
+          onCancelRefund={confirmCancelRefund}
+          onClose={closeBookingActionModal}
+          onConfirmComplete={() => void handleConfirmComplete()}
+          onPay={() => void handlePayBooking()}
+          onRejectFinalQuote={() => setReasonAction("reject_final_quote")}
+          onRejectQuote={() => setReasonAction("reject_quote")}
+          onRequestRefund={() => setReasonAction("refund")}
+          onUpdate={() => void handleUpdateBooking()}
+          payment={selectedBookingPayment}
+          refundAppealReason={refundAppealReason}
+          refundAmount={refundAmount}
+          refundReason={refundReason}
+          setBookingForm={setBookingForm}
+          setRefundAmount={(value) => { setRefundAmount(value); setBookingActionError(""); }}
+          setRefundAppealReason={(value) => { setRefundAppealReason(value); setBookingActionError(""); }}
+          setRefundReason={(value) => { setRefundReason(value); setBookingActionError(""); }}
+        />
+      )}
+
+      {selectedBooking && reasonAction ? (
+        <ActionReasonModal
+          amount={refundAmount}
+          amountLabel="Refund amount (optional)"
+          confirmLabel={reasonAction === "refund" ? "Request refund" : "Submit"}
+          onCancel={() => setReasonAction(null)}
+          onChangeAmount={reasonAction === "refund" ? setRefundAmount : undefined}
+          onChangeReason={(value) => {
+            if (reasonAction === "refund") {
+              setRefundReason(value);
+            } else if (reasonAction === "reject_booking") {
+              setRejectReason(value);
+            } else if (reasonAction === "reject_refund") {
+              setRefundRejectReason(value);
+            } else {
+              setQuoteRejectReason(value);
+            }
+            setBookingActionError("");
+          }}
+          onConfirm={confirmReasonAction}
+          reason={
+            reasonAction === "refund"
+              ? refundReason
+              : reasonAction === "reject_booking"
+                ? rejectReason
+                : reasonAction === "reject_refund"
+                  ? refundRejectReason
+                  : quoteRejectReason
+          }
+          reasonLabel={reasonAction === "refund" ? "Refund reason" : "Reason"}
+          title={
+            reasonAction === "refund"
+              ? "Request a refund"
+              : reasonAction === "reject_booking"
+                ? "Decline booking"
+                : reasonAction === "reject_refund"
+                  ? "Reject refund"
+                  : reasonAction === "reject_final_quote"
+                    ? "Decline final quote"
+                    : "Decline quote"
+          }
+          error={bookingActionError}
+        />
+      ) : null}
+
+      {confirmationModal}
 
       <CustomerReviewModal
         booking={reviewBooking}
@@ -1032,18 +1571,24 @@ function ChatHeaderTitle({
 function MessageBubble({
   displayVariant,
   message,
+  bookingPreview,
+  bookingPayment,
   isMine,
   isPinned = false,
   onBookingPress,
-  onPayBooking,
+  onPrimaryAction,
+  isActionLoading,
   userRole,
 }: {
   displayVariant: ChatDisplayItem["variant"];
   message: ChatMessage;
+  bookingPreview?: BookingDetail;
+  bookingPayment?: PaymentSummary | null;
   isMine: boolean;
   isPinned?: boolean;
   onBookingPress: () => void;
-  onPayBooking: () => void;
+  onPrimaryAction: (action: CustomerBookingListAction) => void;
+  isActionLoading: boolean;
   userRole?: string;
 }) {
   const isBookingMessage =
@@ -1065,8 +1610,11 @@ function MessageBubble({
           isMine={isMine}
           isPinned={isPinned}
           message={message}
+          bookingPreview={bookingPreview}
+          bookingPayment={bookingPayment}
           onPress={onBookingPress}
-          onPayBooking={onPayBooking}
+          onPrimaryAction={onPrimaryAction}
+          isActionLoading={isActionLoading}
           userRole={userRole}
         />
       ) : (
@@ -1094,11 +1642,12 @@ function BookingStatusUpdate({
   const status =
     typeof metadata.new_status === "string" ? metadata.new_status : "";
   const detail = typeof metadata.detail === "string" ? metadata.detail : "";
-  const title = status
-    ? `Booking update: ${getBookingStatusLabelForChat(status)}`
-    : typeof metadata.title === "string"
+  const title =
+    typeof metadata.title === "string"
       ? metadata.title
-      : "Booking updated";
+      : status
+        ? `Booking update: ${getBookingStatusLabelForChat(status)}`
+        : "Booking updated";
 
   return (
     <View
@@ -1116,17 +1665,23 @@ function BookingStatusUpdate({
 
 function BookingMessageCard({
   message,
+  bookingPreview,
+  bookingPayment,
   isMine,
   isPinned = false,
   onPress,
-  onPayBooking,
+  onPrimaryAction,
+  isActionLoading,
   userRole,
 }: {
   message: ChatMessage;
+  bookingPreview?: BookingDetail;
+  bookingPayment?: PaymentSummary | null;
   isMine: boolean;
   isPinned?: boolean;
   onPress: () => void;
-  onPayBooking: () => void;
+  onPrimaryAction: (action: CustomerBookingListAction) => void;
+  isActionLoading: boolean;
   userRole?: string;
 }) {
   const metadata = message.metadata ?? {};
@@ -1149,21 +1704,55 @@ function BookingMessageCard({
   const endTime =
     typeof metadata.scheduled_end_time === "string" ? metadata.scheduled_end_time : "";
   const status =
-    typeof metadata.status === "string"
+    bookingPreview?.status ||
+    (typeof metadata.status === "string"
       ? metadata.status
       : typeof metadata.new_status === "string"
         ? metadata.new_status
         : message.message_type === "booking_created"
           ? "pending"
-          : "";
-  const refundStatus =
-    typeof metadata.refund_status === "string" ? metadata.refund_status : "";
+          : "");
   const quoteAmount =
-    typeof metadata.quote_amount === "number" ? metadata.quote_amount : null;
+    typeof metadata.quote_amount === "number"
+      ? metadata.quote_amount
+      : bookingPreview?.expected_service_amount ?? bookingPreview?.quote_amount ?? null;
+  const visitFeeAmount =
+    typeof metadata.visit_fee_amount === "number"
+      ? metadata.visit_fee_amount
+      : bookingPreview?.visit_fee_amount ?? null;
+  const finalQuoteAmount =
+    typeof metadata.final_quote_amount === "number"
+      ? metadata.final_quote_amount
+      : bookingPreview?.final_quote_amount ?? null;
+  const initialQuoteMessage =
+    typeof metadata.quote_message === "string"
+      ? metadata.quote_message
+      : bookingPreview?.quote_message || "";
+  const finalQuoteMessage =
+    typeof metadata.final_quote_message === "string"
+      ? metadata.final_quote_message
+      : bookingPreview?.final_quote_message || "";
   const quoteMessage =
-    typeof metadata.quote_message === "string" ? metadata.quote_message : "";
-  const canPay = userRole === "customer" && status === "awaiting_payment";
-  const canOpenOrder = isBookingPreviewActionable(status, refundStatus, userRole);
+    finalQuoteAmount != null && finalQuoteMessage
+      ? finalQuoteMessage
+      : initialQuoteMessage;
+  const paymentStatus =
+    bookingPayment?.status ||
+    (typeof metadata.payment_status === "string"
+      ? metadata.payment_status
+      : null);
+  const primaryAction =
+    userRole === "customer"
+      ? getCustomerBookingListAction(
+          { status },
+          paymentStatus ? { status: paymentStatus } : null,
+        )
+      : null;
+  const canOpenOrder = isBookingVisibleInActiveBookings(status, userRole);
+  const payableAmount =
+    status === "awaiting_service_payment"
+      ? finalQuoteAmount ?? quoteAmount
+      : visitFeeAmount ?? quoteAmount;
 
   return (
     <Pressable
@@ -1204,8 +1793,10 @@ function BookingMessageCard({
           </Text>
         </View>
       ) : null}
-      {quoteAmount != null ? (
-        <Text style={styles.bookingQuoteText}>Quote: {formatMoney(quoteAmount)}</Text>
+      {quoteAmount != null || visitFeeAmount != null ? (
+        <Text style={styles.bookingQuoteText}>
+          {status === "awaiting_service_payment" ? "Service amount" : "Visit fee"}: {formatMoney(payableAmount)}
+        </Text>
       ) : null}
       {quoteMessage ? (
         <Text numberOfLines={2} style={styles.bookingQuoteMessage}>
@@ -1213,16 +1804,32 @@ function BookingMessageCard({
         </Text>
       ) : null}
       {canOpenOrder ? <Text style={styles.bookingHint}>Tap to view booking</Text> : null}
-      {canPay ? (
+      {primaryAction ? (
         <Pressable
           accessibilityRole="button"
-          disabled={false}
-          onPress={onPayBooking}
+          disabled={isActionLoading}
+          onPress={() => onPrimaryAction(primaryAction)}
           style={styles.bookingPayButton}
         >
-          <Text style={styles.bookingPayButtonText}>
-            {formatPayLabel(quoteAmount)}
-          </Text>
+          {isActionLoading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.bookingPayButtonText}>
+              {primaryAction === "accept_quote"
+                ? "Accept quote"
+                : primaryAction === "accept_final_quote"
+                  ? "Accept final quote"
+                  : primaryAction === "confirm_complete"
+                    ? "Confirm complete"
+                    : paymentStatus === "checkout_created"
+                      ? "Continue payment"
+                      : formatPayLabel(
+                          status === "awaiting_service_payment"
+                            ? finalQuoteAmount ?? quoteAmount
+                            : visitFeeAmount ?? quoteAmount,
+                        )}
+            </Text>
+          )}
         </Pressable>
       ) : null}
       <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>
@@ -1230,532 +1837,6 @@ function BookingMessageCard({
   );
 }
 
-function BookingActionModal({
-  booking,
-  bookingForm,
-  isLoading,
-  actionError,
-  onClose,
-  onUpdate,
-  onQuote,
-  onReject,
-  onAcceptQuote,
-  onRejectQuote,
-  onCancelBooking,
-  onPayBooking,
-  proofAssets,
-  quoteAmount,
-  quoteMessage,
-  quoteRejectReason,
-  refundAppealReason,
-  refundReason,
-  refundRejectReason,
-  refundServiceStage,
-  rejectReason,
-  onRequestRefund,
-  onCancelRefund,
-  onAppealRefund,
-  onConfirmComplete,
-  onPickCompletionProof,
-  onCompleteBooking,
-  onApproveRefund,
-  onRejectRefund,
-  setBookingForm,
-  setQuoteAmount,
-  setQuoteMessage,
-  setQuoteRejectReason,
-  setRefundAppealReason,
-  setRefundReason,
-  setRefundRejectReason,
-  setRefundServiceStage,
-  setRejectReason,
-  userRole,
-}: {
-  booking: BookingDetail | null;
-  bookingForm: BookingRequestFormState | null;
-  isLoading: boolean;
-  actionError: string;
-  onClose: () => void;
-  onUpdate: () => void;
-  onQuote: () => void;
-  onReject: () => void;
-  onAcceptQuote: () => void;
-  onRejectQuote: () => void;
-  onCancelBooking: () => void;
-  onPayBooking: () => void;
-  onRequestRefund: () => void;
-  onCancelRefund: () => void;
-  onAppealRefund: () => void;
-  onConfirmComplete: () => void;
-  onPickCompletionProof: () => void;
-  onCompleteBooking: () => void;
-  onApproveRefund: () => void;
-  onRejectRefund: () => void;
-  proofAssets: ImagePicker.ImagePickerAsset[];
-  quoteAmount: string;
-  quoteMessage: string;
-  quoteRejectReason: string;
-  refundAppealReason: string;
-  refundReason: string;
-  refundRejectReason: string;
-  refundServiceStage: RefundServiceStage;
-  rejectReason: string;
-  setBookingForm: (value: BookingRequestFormState | null) => void;
-  setQuoteAmount: (value: string) => void;
-  setQuoteMessage: (value: string) => void;
-  setQuoteRejectReason: (value: string) => void;
-  setRefundAppealReason: (value: string) => void;
-  setRefundReason: (value: string) => void;
-  setRefundRejectReason: (value: string) => void;
-  setRefundServiceStage: (value: RefundServiceStage) => void;
-  setRejectReason: (value: string) => void;
-  userRole?: string;
-}) {
-  if (!booking) {
-    return null;
-  }
-
-  const canCustomerEdit = userRole === "customer" && booking?.status === "pending";
-  const canCustomerReviewQuote =
-    userRole === "customer" && booking?.status === "quoted";
-  const canCustomerPay =
-    userRole === "customer" && booking?.status === "awaiting_payment";
-  const canCustomerCancel =
-    userRole === "customer" &&
-    CANCELLABLE_STATUSES.includes(String(booking?.status));
-  const canCustomerRequestRefund =
-    userRole === "customer" &&
-    ["accepted", "awaiting_confirmation"].includes(String(booking?.status));
-  const canCustomerConfirmComplete =
-    userRole === "customer" && booking?.status === "awaiting_confirmation";
-  const canCustomerCancelRefund =
-    userRole === "customer" &&
-    booking?.status === "refunding" &&
-    ["pending", "rejected"].includes(
-      String(booking?.current_refund_request?.status || ""),
-    );
-  const canCustomerAppealRefund =
-    userRole === "customer" &&
-    booking?.status === "refunding" &&
-    booking?.current_refund_request?.status === "rejected";
-  const canProviderRespond = userRole === "provider" && booking?.status === "pending";
-  const canProviderComplete = userRole === "provider" && booking?.status === "accepted";
-  const canProviderProcessRefund =
-    userRole === "provider" &&
-    booking?.status === "refunding" &&
-    booking?.current_refund_request?.status === "pending";
-  const hasAnyAction =
-    canCustomerEdit ||
-    canCustomerReviewQuote ||
-    canCustomerPay ||
-    canCustomerCancel ||
-    canCustomerRequestRefund ||
-    canCustomerConfirmComplete ||
-    canCustomerCancelRefund ||
-    canCustomerAppealRefund ||
-    canProviderRespond ||
-    canProviderComplete ||
-    canProviderProcessRefund;
-
-  function updateFormField(field: keyof BookingRequestFormState, value: string) {
-    if (!bookingForm) {
-      return;
-    }
-
-    setBookingForm({
-      ...bookingForm,
-      [field]: value,
-    });
-  }
-
-  return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      transparent
-      visible
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-              <View style={styles.detailBox}>
-                <Text style={styles.detailLabel}>Current status</Text>
-                <Text style={styles.detailValue}>{getBookingStatusLabelForChat(booking.status)}</Text>
-                <Text style={styles.detailLabel}>
-                  {userRole === "provider" ? "Customer" : "Provider"}
-                </Text>
-                <Text style={styles.detailValue}>
-                  {userRole === "provider"
-                    ? booking.customer?.name || `Customer #${booking.customer_id}`
-                    : booking.provider?.business_name ||
-                      `Provider #${booking.provider_profile_id}`}
-                </Text>
-                <Text style={styles.detailLabel}>Booking title</Text>
-                <Text style={styles.detailValue}>{booking.title}</Text>
-                <Text style={styles.detailLabel}>Service description</Text>
-                <Text style={styles.detailValue}>{booking.service_description}</Text>
-                <Text style={styles.detailLabel}>Service address</Text>
-                <Text style={styles.detailValue}>{booking.service_address}</Text>
-                <Text style={styles.detailLabel}>Scheduled time</Text>
-                <Text style={styles.detailValue}>
-                  {formatShortDateTime(booking.scheduled_start_time)} -{" "}
-                  {formatShortDateTime(booking.scheduled_end_time)}
-                </Text>
-                {booking.quote_amount != null ? (
-                  <>
-                    <Text style={styles.detailLabel}>Quote</Text>
-                    <Text style={styles.detailValue}>
-                      {formatMoney(booking.quote_amount)}
-                    </Text>
-                  </>
-                ) : null}
-                {booking.quote_message ? (
-                  <>
-                    <Text style={styles.detailLabel}>Quote notes</Text>
-                    <Text style={styles.detailValue}>{booking.quote_message}</Text>
-                  </>
-                ) : null}
-                {booking.status_note ? (
-                  <>
-                    <Text style={styles.detailLabel}>Notes</Text>
-                    <Text style={styles.detailValue}>{booking.status_note}</Text>
-                  </>
-                ) : null}
-                {booking.current_refund_request ? (
-                  <>
-                    <Text style={styles.detailLabel}>Refund status</Text>
-                    <Text style={styles.detailValue}>
-                      {getRefundStatusLabel(booking.current_refund_request.status)}
-                    </Text>
-                    <Text style={styles.detailLabel}>Refund stage</Text>
-                    <Text style={styles.detailValue}>
-                      {getRefundServiceStageLabel(
-                        booking.current_refund_request.service_stage,
-                      )}
-                    </Text>
-                    <Text style={styles.detailLabel}>Refund reason</Text>
-                    <Text style={styles.detailValue}>
-                      {booking.current_refund_request.reason}
-                    </Text>
-                    <Text style={styles.detailLabel}>Provider response</Text>
-                    <Text style={styles.detailValue}>
-                      {booking.current_refund_request.provider_note || "—"}
-                    </Text>
-                    <Text style={styles.detailLabel}>Appeal reason</Text>
-                    <Text style={styles.detailValue}>
-                      {booking.current_refund_request.appeal_reason || "—"}
-                    </Text>
-                    <Text style={styles.detailLabel}>Support response</Text>
-                    <Text style={styles.detailValue}>
-                      {booking.current_refund_request.admin_note || "—"}
-                    </Text>
-                  </>
-                ) : null}
-              </View>
-
-              {userRole === "customer" ? (
-                <CompletionProofGallery booking={booking} />
-              ) : null}
-
-              {canCustomerEdit && bookingForm ? (
-                <>
-                  <TextField
-                    label="Booking title"
-                    onChangeText={(value) => updateFormField("title", value)}
-                    value={bookingForm.title}
-                  />
-                  <TextField
-                    label="Service description"
-                    multiline
-                    numberOfLines={3}
-                    onChangeText={(value) =>
-                      updateFormField("serviceDescription", value)
-                    }
-                    value={bookingForm.serviceDescription}
-                  />
-                  <TextField
-                    label="Service address"
-                    onChangeText={(value) => updateFormField("serviceAddress", value)}
-                    value={bookingForm.serviceAddress}
-                  />
-                  <DateTimeField
-                    label="Start time"
-                    onChange={(value) =>
-                      updateFormField("scheduledStartTime", value)
-                    }
-                    value={bookingForm.scheduledStartTime}
-                  />
-                  <DateTimeField
-                    label="End time"
-                    onChange={(value) =>
-                      updateFormField("scheduledEndTime", value)
-                    }
-                    value={bookingForm.scheduledEndTime}
-                  />
-                </>
-              ) : null}
-
-              {canCustomerReviewQuote ? (
-                <>
-                  <TextField
-                    label="Decline reason"
-                    multiline
-                    numberOfLines={2}
-                    onChangeText={setQuoteRejectReason}
-                    placeholder="Required to decline this quote"
-                    value={quoteRejectReason}
-                  />
-                </>
-              ) : null}
-
-              {canCustomerPay ? (
-                <Text style={styles.payHint}>
-                  This demo charges {formatMoney(booking.quote_amount)} automatically.
-                </Text>
-              ) : null}
-
-              {canProviderRespond ? (
-                <>
-                  <TextField
-                    keyboardType="decimal-pad"
-                    label="Quote amount"
-                    onChangeText={setQuoteAmount}
-                    placeholder="e.g. 120 TRY"
-                    value={quoteAmount}
-                  />
-                  <TextField
-                    label="Quote notes"
-                    multiline
-                    numberOfLines={2}
-                    onChangeText={setQuoteMessage}
-                    placeholder="Optional notes"
-                    value={quoteMessage}
-                  />
-                  <TextField
-                    label="Rejection reason"
-                    multiline
-                    numberOfLines={2}
-                    onChangeText={setRejectReason}
-                    placeholder="Required to decline this booking"
-                    value={rejectReason}
-                  />
-                </>
-              ) : null}
-
-              {canCustomerRequestRefund ? (
-                <>
-                  <View style={styles.stageBox}>
-                    <Text style={styles.detailLabel}>Refund stage</Text>
-                    <View style={styles.stageOptions}>
-                      {REFUND_SERVICE_STAGES.map((stage) => (
-                        <Pressable
-                          accessibilityRole="button"
-                          key={stage.value}
-                          onPress={() => setRefundServiceStage(stage.value)}
-                          style={[
-                            styles.stageButton,
-                            refundServiceStage === stage.value
-                              ? styles.stageButtonActive
-                              : null,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.stageButtonText,
-                              refundServiceStage === stage.value
-                                ? styles.stageButtonTextActive
-                                : null,
-                            ]}
-                          >
-                            {stage.label}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                  <TextField
-                    label="Refund reason"
-                    multiline
-                    numberOfLines={3}
-                    onChangeText={setRefundReason}
-                    placeholder="Reason for refund"
-                    value={refundReason}
-                  />
-                </>
-              ) : null}
-
-              {canCustomerAppealRefund ? (
-                <TextField
-                  label="Appeal reason"
-                  multiline
-                  numberOfLines={3}
-                  onChangeText={setRefundAppealReason}
-                  placeholder="Reason for appeal"
-                  value={refundAppealReason}
-                />
-              ) : null}
-
-              {canProviderComplete ? (
-                <View style={styles.proofBox}>
-                  <Text style={styles.detailLabel}>Completion proof</Text>
-                  <Text style={styles.proofText}>
-                    {proofAssets.length > 0
-                      ? `Selected ${proofAssets.length} files`
-                      : "Add photos or video of the completed work"}
-                  </Text>
-                  {proofAssets.length > 0 ? (
-                    <View style={styles.proofFileList}>
-                      {proofAssets.map((asset, index) => (
-                        <Text key={`${asset.uri}-${index}`} style={styles.proofFileText}>
-                          {asset.fileName || `Completion proof ${index + 1}`}
-                        </Text>
-                      ))}
-                    </View>
-                  ) : null}
-                  <SecondaryButton
-                    disabled={isLoading}
-                    label="Add proof"
-                    onPress={onPickCompletionProof}
-                  />
-                </View>
-              ) : null}
-
-              {canProviderProcessRefund ? (
-                <TextField
-                  label="Decline reason"
-                  multiline
-                  numberOfLines={3}
-                  onChangeText={setRefundRejectReason}
-                  placeholder="Required to decline this refund"
-                  value={refundRejectReason}
-                />
-              ) : null}
-
-              {!hasAnyAction ? (
-                <Text style={styles.noActionText}>No actions available for this booking status.</Text>
-              ) : null}
-
-              {actionError ? (
-                <Text style={styles.modalErrorText}>{actionError}</Text>
-              ) : null}
-
-          </ScrollView>
-
-          <View style={styles.modalActions}>
-            <SecondaryButton disabled={isLoading} label="Close" onPress={onClose} />
-            {canCustomerCancel ? (
-              <SecondaryButton
-                disabled={isLoading}
-                label="Cancel booking"
-                onPress={onCancelBooking}
-              />
-            ) : null}
-            {canCustomerEdit ? (
-              <PrimaryButton
-                disabled={isLoading}
-                isLoading={isLoading}
-                label="Save changes"
-                onPress={onUpdate}
-              />
-            ) : null}
-            {canCustomerReviewQuote ? (
-              <>
-                <SecondaryButton
-                  disabled={isLoading}
-                  label="Decline quote"
-                  onPress={onRejectQuote}
-                />
-                <PrimaryButton
-                  disabled={isLoading}
-                  isLoading={isLoading}
-                  label="Accept quote"
-                  onPress={onAcceptQuote}
-                />
-              </>
-            ) : null}
-            {canCustomerPay ? (
-              <PrimaryButton
-                disabled={isLoading}
-                isLoading={isLoading}
-                label={formatPayLabel(booking.quote_amount)}
-                onPress={onPayBooking}
-              />
-            ) : null}
-            {canCustomerConfirmComplete ? (
-              <PrimaryButton
-                disabled={isLoading}
-                isLoading={isLoading}
-                label="Confirm complete"
-                onPress={onConfirmComplete}
-              />
-            ) : null}
-            {canCustomerRequestRefund ? (
-              <SecondaryButton
-                disabled={isLoading}
-                label="Request refund"
-                onPress={onRequestRefund}
-              />
-            ) : null}
-            {canCustomerCancelRefund ? (
-              <SecondaryButton
-                disabled={isLoading}
-                label="Cancel refund"
-                onPress={onCancelRefund}
-              />
-            ) : null}
-            {canCustomerAppealRefund ? (
-              <PrimaryButton
-                disabled={isLoading}
-                isLoading={isLoading}
-                label="Submit appeal"
-                onPress={onAppealRefund}
-              />
-            ) : null}
-            {canProviderRespond ? (
-              <>
-                <SecondaryButton
-                  disabled={isLoading}
-                  label="Decline booking"
-                  onPress={onReject}
-                />
-                <PrimaryButton
-                  disabled={isLoading}
-                  isLoading={isLoading}
-                  label="Send quote"
-                  onPress={onQuote}
-                />
-              </>
-            ) : null}
-            {canProviderComplete ? (
-              <PrimaryButton
-                disabled={isLoading}
-                isLoading={isLoading}
-                label="Mark complete"
-                onPress={onCompleteBooking}
-              />
-            ) : null}
-            {canProviderProcessRefund ? (
-              <>
-                <SecondaryButton
-                  disabled={isLoading}
-                  label="Reject refund"
-                  onPress={onRejectRefund}
-                />
-                <PrimaryButton
-                  disabled={isLoading}
-                  isLoading={isLoading}
-                  label="Approve refund"
-                  onPress={onApproveRefund}
-                />
-              </>
-            ) : null}
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 function createBookingFormFromDetail(
   booking: BookingDetail,
@@ -1914,6 +1995,10 @@ function mergeBookingPreviewMetadata(
 
   for (const key of [
     "quote_amount",
+    "expected_service_amount",
+    "visit_fee_amount",
+    "final_quote_amount",
+    "final_quote_message",
     "quote_message",
     "quoted_at",
     "currency",
@@ -1923,7 +2008,6 @@ function mergeBookingPreviewMetadata(
     "paid_at",
     "refund_request_id",
     "refund_status",
-    "service_stage",
     "provider_note",
     "appeal_reason",
     "completed_at",
@@ -1940,19 +2024,52 @@ function mergeBookingPreviewMetadata(
   return merged;
 }
 
-function getLatestBookingCardItem(items: ChatDisplayItem[]) {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    if (
-      items[index].variant === "booking" &&
-      !PINNED_BOOKING_HIDDEN_STATUSES.includes(
-        getBookingPreviewStatus(items[index].message),
-      )
-    ) {
-      return items[index];
+function getLatestBookingCardItem(
+  items: ChatDisplayItem[],
+  bookingPreviews: Record<number, BookingDetail>,
+) {
+  const bookingCards = new Map<number, ChatDisplayItem>();
+
+  for (const item of items) {
+    if (item.variant !== "booking") {
+      continue;
+    }
+
+    const bookingId = getBookingIdFromMessage(item.message);
+    if (bookingId) {
+      bookingCards.set(bookingId, item);
     }
   }
 
-  return null;
+  let latestActivity: { item: ChatDisplayItem; timestamp: number } | null = null;
+
+  for (const item of items) {
+    const bookingId = getBookingIdFromMessage(item.message);
+    if (!bookingId) {
+      continue;
+    }
+
+    const bookingCard = bookingCards.get(bookingId);
+    const messageStatus = bookingCard
+      ? getBookingPreviewStatus(bookingCard.message)
+      : "";
+    const currentStatus = bookingPreviews[bookingId]?.status;
+    if (
+      bookingCard &&
+      shouldShowBookingInChat(messageStatus) &&
+      shouldShowBookingInChat(currentStatus)
+    ) {
+      const timestamp = Date.parse(item.message.created_at);
+      if (!latestActivity || timestamp >= latestActivity.timestamp) {
+        latestActivity = {
+          item: bookingCard,
+          timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
+        };
+      }
+    }
+  }
+
+  return latestActivity?.item ?? null;
 }
 
 function getBookingPreviewStatus(message: ChatMessage) {
@@ -1988,6 +2105,23 @@ function getBookingIdFromMessage(message: ChatMessage) {
   return null;
 }
 
+function getPaymentStageFromMessage(message: ChatMessage): "visit_fee" | "service_fee" {
+  return getBookingPreviewStatus(message) === "awaiting_service_payment"
+    ? "service_fee"
+    : "visit_fee";
+}
+
+function getPaymentStageFromBooking(
+  booking: BookingDetail | undefined,
+  message: ChatMessage,
+): "visit_fee" | "service_fee" {
+  return booking
+    ? booking.status === "awaiting_service_payment"
+      ? "service_fee"
+      : "visit_fee"
+    : getPaymentStageFromMessage(message);
+}
+
 function formatMessageContent(message: ChatMessage) {
   if (message.attachments.length > 0 || message.message_type === "attachment") {
     const hasPicture = message.attachments.some((attachment) =>
@@ -2000,57 +2134,22 @@ function formatMessageContent(message: ChatMessage) {
   return message.message || " ";
 }
 
-function isBookingPreviewActionable(
+function isBookingVisibleInActiveBookings(
   status: string,
-  refundStatus: string,
   userRole?: string,
 ) {
-  if (userRole === "customer") {
-    if (
-      CANCELLABLE_STATUSES.includes(status) ||
-      ["accepted", "awaiting_confirmation"].includes(status)
-    ) {
-      return true;
-    }
-
-    return (
-      status === "refunding" &&
-      ["pending", "rejected"].includes(refundStatus)
-    );
-  }
-
-  if (userRole === "provider") {
-    if (["pending", "accepted"].includes(status)) {
-      return true;
-    }
-
-    return status === "refunding" && refundStatus === "pending";
-  }
-
-  return false;
-}
-
-function isBookingActionableForRole(
-  booking: BookingDetail,
-  userRole?: string,
-) {
-  return isBookingPreviewActionable(
-    String(booking.status),
-    String(booking.current_refund_request?.status || ""),
-    userRole,
+  return (
+    (userRole === "customer" || userRole === "provider") &&
+    Boolean(status) &&
+    shouldShowBookingInChat(status)
   );
 }
 
-function getDefaultRefundServiceStage(status: string): RefundServiceStage {
-  if (status === "awaiting_confirmation") {
-    return "service_completed";
-  }
-
-  if (status === "accepted") {
-    return "in_progress";
-  }
-
-  return "not_started";
+function isBookingVisibleInActiveBookingsForDetail(
+  booking: BookingDetail,
+  userRole?: string,
+) {
+  return isBookingVisibleInActiveBookings(String(booking.status), userRole);
 }
 
 function formatMessageTime(value: string) {

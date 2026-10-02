@@ -4,13 +4,19 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 
 import { getCustomerPayments } from "../api/customer";
 import { getProviderPayments } from "../api/provider";
+import { MarketplaceBreakdownCard } from "../components/MarketplaceBreakdownCard";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../theme/theme";
 import type { PaymentHistoryEntry } from "../types/booking";
+import {
+  getBookingStatusLabel,
+  getPaymentStatusLabel,
+} from "../constants/labels";
 import { formatDateTime } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 import { formatMoney } from "../utils/money";
+import { getPaymentStatusTone } from "../utils/payment";
 
 /**
  * WS-110. History only: what was charged, for which booking, and when.
@@ -117,6 +123,19 @@ function PaymentRow({
         {counterparty ? ` · ${counterparty}` : ""}
       </Text>
 
+      <View style={styles.stateRow}>
+        <Text style={styles.stateLabel}>Payment</Text>
+        <Text style={styles.stateValue}>{getPaymentStatusLabel(payment.status)}</Text>
+      </View>
+      {payment.booking?.status ? (
+        <View style={styles.stateRow}>
+          <Text style={styles.stateLabel}>Booking</Text>
+          <Text style={styles.stateValue}>
+            {getBookingStatusLabel(payment.booking.status)}
+          </Text>
+        </View>
+      ) : null}
+
       <Text style={styles.cardMeta}>
         {payment.paid_at
           ? `Paid ${formatDateTime(payment.paid_at)}`
@@ -125,21 +144,27 @@ function PaymentRow({
           ? ` · Refunded ${formatDateTime(payment.refunded_at)}`
           : ""}
       </Text>
+      {isProvider ? (
+        <MarketplaceBreakdownCard payment={payment} />
+      ) : null}
     </View>
   );
 }
 
 function StatusPill({ status }: { status: string }) {
+  const paymentTone = getPaymentStatusTone(status);
   const tone =
-    status === "paid"
+    paymentTone === "success"
       ? styles.pillPaid
-      : status === "refunded"
+      : paymentTone === "muted"
         ? styles.pillRefunded
-        : styles.pillPending;
+        : paymentTone === "danger"
+          ? styles.pillFailed
+          : styles.pillPending;
 
   return (
     <View style={[styles.pill, tone]}>
-      <Text style={styles.pillText}>{status.toUpperCase()}</Text>
+      <Text style={styles.pillText}>{getPaymentStatusLabel(status)}</Text>
     </View>
   );
 }
@@ -194,6 +219,22 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
+  stateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  stateLabel: {
+    color: colors.mutedText,
+    fontSize: 13,
+  },
+  stateValue: {
+    color: colors.text,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "right",
+  },
   cardMeta: {
     color: colors.mutedText,
     fontSize: 13,
@@ -211,6 +252,9 @@ const styles = StyleSheet.create({
   },
   pillPending: {
     backgroundColor: colors.border,
+  },
+  pillFailed: {
+    backgroundColor: "#FDEEEE",
   },
   pillText: {
     color: colors.text,

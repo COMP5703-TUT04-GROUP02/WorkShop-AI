@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Bell } from "lucide-react-native";
 import type { ComponentType } from "react";
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { useAuth } from "../context/AuthContext";
@@ -329,8 +329,11 @@ function withRequiredProviderProfile<P extends object>(
 ) {
   return function RequiredProviderProfileScreen(props: P) {
     const { user } = useAuth();
-    const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
-      useProviderProfileGate();
+    const {
+      isProviderProfileLoading,
+      isProviderProfileRequired,
+      showProviderProfileRequiredMessage,
+    } = useProviderProfileGate();
     const navigation =
       useNavigation<BottomTabNavigationProp<MainTabParamList>>();
 
@@ -346,6 +349,14 @@ function withRequiredProviderProfile<P extends object>(
       user?.role,
     ]);
 
+    if (user?.role === "provider" && isProviderProfileLoading) {
+      return (
+        <View style={guardStyles.loader}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      );
+    }
+
     if (user?.role === "provider" && isProviderProfileRequired) {
       return null;
     }
@@ -353,3 +364,12 @@ function withRequiredProviderProfile<P extends object>(
     return <ScreenComponent {...props} />;
   };
 }
+
+const guardStyles = StyleSheet.create({
+  loader: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+});

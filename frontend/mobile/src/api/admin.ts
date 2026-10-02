@@ -1,7 +1,8 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
-import type { RefundRequestSummary } from "../types/booking";
+import type { PaymentHistoryEntry, RefundRequestSummary } from "../types/booking";
 import type { PaginatedData } from "../types/chat";
+import type { AdminSubmerchant } from "../types/marketplace";
 import type {
   IdentityVerificationApplication,
   ProviderPortfolio,
@@ -184,6 +185,47 @@ export async function rejectAdminRefundAppeal(
     admin_note: adminNote,
   });
 
+  return response.data.data;
+}
+
+export async function getAdminSubmerchants(page = 1, pageSize = 20) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<AdminSubmerchant>>
+  >("/admin/submerchants", {
+    params: { page, page_size: pageSize },
+  });
+  return response.data.data;
+}
+
+export async function getAdminPayments(
+  page = 1,
+  pageSize = 20,
+  filters?: {
+    status?: string;
+    settlementStatus?: string;
+    providerProfileId?: number;
+    bookingId?: number;
+  },
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<PaymentHistoryEntry>>
+  >("/admin/payments", {
+    params: {
+      page,
+      page_size: pageSize,
+      status: filters?.status || undefined,
+      settlement_status: filters?.settlementStatus || undefined,
+      provider_profile_id: filters?.providerProfileId,
+      booking_id: filters?.bookingId,
+    },
+  });
+  return response.data.data;
+}
+
+export async function retryAdminSettlement(paymentId: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ message: string; payment: PaymentHistoryEntry }>
+  >(`/admin/payments/${paymentId}/settlement/retry`);
   return response.data.data;
 }
 
