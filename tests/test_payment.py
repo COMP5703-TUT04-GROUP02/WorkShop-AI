@@ -139,6 +139,55 @@ def test_payment_callback_is_idempotent(client, marketplace):
     assert second.json()["data"]["booking"]["status"] == "visit_paid"
 
 
+def test_payment_callback_returns_to_the_checkout_browser_origin(client, marketplace):
+    customer = marketplace["customer"]["headers"]
+    provider = marketplace["provider"]["headers"]
+    provider_id = marketplace["provider_profile"]["id"]
+    booking_id = _create_checkout(client, customer, provider_id)
+
+    client.put(
+        f"/provider/bookings/{booking_id}/quote",
+        json={"quote_amount": 180, "visit_fee_amount": 30},
+        headers=provider,
+    )
+    client.put(f"/customer/bookings/{booking_id}/accept-quote", headers=customer)
+
+    frontend_origin = "http://127.0.0.1:8090"
+    checkout = client.put(
+        f"/customer/bookings/{booking_id}/pay",
+        json={"payment_method": "iyzico_checkout"},
+        headers={
+            **customer,
+            "Origin": "http://localhost:8090",
+            "Idempotency-Key": "return-origin-test",
+        },
+    )
+    assert checkout.status_code == 200, checkout.text
+
+    continued_checkout = client.put(
+        f"/customer/bookings/{booking_id}/pay",
+        json={"payment_method": "iyzico_checkout"},
+        headers={
+            **customer,
+            "Origin": frontend_origin,
+            "Idempotency-Key": "return-origin-test",
+        },
+    )
+    assert continued_checkout.status_code == 200, continued_checkout.text
+    assert continued_checkout.json()["data"]["token"] == checkout.json()["data"]["token"]
+
+    callback = client.post(
+        "/payments/iyzico/callback",
+        data={"token": checkout.json()["data"]["token"]},
+        follow_redirects=False,
+    )
+
+    assert callback.status_code == 303, callback.text
+    assert callback.headers["location"].startswith(
+        f"{frontend_origin}/payment-result?booking_id={booking_id}&payment_status=paid"
+    )
+
+
 def test_payment_callback_rejects_amount_mismatch(client, marketplace, fake_iyzico):
     customer = marketplace["customer"]["headers"]
     provider = marketplace["provider"]["headers"]

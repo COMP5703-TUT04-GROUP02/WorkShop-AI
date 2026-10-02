@@ -389,6 +389,7 @@ async def create_customer_refund_request_action(
             BookingStatus.final_quote_sent,
             BookingStatus.awaiting_service_payment,
             BookingStatus.service_paid,
+            BookingStatus.awaiting_confirmation,
             BookingStatus.completed,
         ],
         "Refunds are available after the provider starts the visit",
@@ -921,6 +922,7 @@ async def pay_customer_booking_action(
     db: Session,
     idempotency_key: str | None = None,
     payment_stage: str = "visit_fee",
+    frontend_return_url: str | None = None,
 ):
     if current_user.role != "customer":
         raise HTTPException(status_code=403, detail="Only customers can pay bookings")
@@ -1000,6 +1002,22 @@ async def pay_customer_booking_action(
     now = utc_now()
     if keyed_payment and keyed_payment.booking_id == booking.id:
         payment = keyed_payment
+
+    if (
+        payment
+        and payment.status in [
+            PaymentStatus.checkout_created,
+            PaymentStatus.processing,
+        ]
+        and frontend_return_url
+        and payment.frontend_return_url != frontend_return_url
+    ):
+        payment.frontend_return_url = frontend_return_url
+        db.commit()
+        db.refresh(payment)
+        db.refresh(booking)
+
+    if keyed_payment and keyed_payment.booking_id == booking.id:
         if payment.status in [
             PaymentStatus.authorized,
             PaymentStatus.paid,
@@ -1164,6 +1182,8 @@ async def pay_customer_booking_action(
 
     payment.idempotency_key = payment.idempotency_key or normalized_idempotency_key
     payment.payment_method = "iyzico_checkout"
+    if frontend_return_url:
+        payment.frontend_return_url = frontend_return_url
     payment.conversation_id = payment.conversation_id or (
         f"booking-{booking.id}-payment-{payment.id}"
     )
@@ -1616,7 +1636,6 @@ async def close_final_quote_negotiation_action(
             BookingStatus.awaiting_service_payment,
             BookingStatus.service_paid,
             BookingStatus.accepted,
-            BookingStatus.awaiting_confirmation,
         ],
         "This booking cannot be cancelled at this stage",
     )
@@ -1663,9 +1682,21 @@ async def _complete_direct_paid_booking(
     booking.completed_at = now
     booking.status_note = "Customer confirmed service completion"
     add_booking_status_history(booking, old_status, booking.status, booking.status_note, current_user, db)
+    booking_status_chat_message = create_booking_status_chat_message(
+        booking,
+        old_status,
+        current_user.id,
+        "Customer confirmed service completion",
+        booking.status_note,
+        db,
+        {"completed_at": booking.completed_at},
+    )
     db.commit()
     db.refresh(payment)
     db.refresh(booking)
+    if booking_status_chat_message:
+        db.refresh(booking_status_chat_message)
+        await push_chat_message_to_room_members(booking_status_chat_message, db)
     return {
         "message": "Booking completed successfully",
         "booking": format_booking_detail_response(booking, db),

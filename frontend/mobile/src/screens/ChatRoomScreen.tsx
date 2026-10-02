@@ -102,6 +102,7 @@ import {
   canCustomerCancelBooking,
   canCustomerRequestRefund as canCustomerRequestRefundForBooking,
   getCustomerBookingListAction,
+  shouldShowBookingInChat,
   shouldShowFinalQuote,
   shouldShowInitialQuote,
   shouldShowInitialQuoteHistory,
@@ -121,13 +122,6 @@ type ChatDisplayItem = {
   variant: "message" | "booking" | "booking_update";
 };
 
-const PINNED_BOOKING_HIDDEN_STATUSES = [
-  "completed",
-  "cancelled",
-  "refunded",
-  "partially_refunded",
-  "visit_completed_closed",
-];
 type ChatReasonAction =
   | "reject_booking"
   | "reject_quote"
@@ -248,8 +242,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const [bookingPreviews, setBookingPreviews] = useState<Record<number, BookingDetail>>({});
   const [bookingPaymentsById, setBookingPaymentsById] = useState<Record<number, PaymentSummary>>({});
   const pinnedBookingItem = useMemo(
-    () => getLatestBookingCardItem(displayMessages),
-    [displayMessages],
+    () => getLatestBookingCardItem(displayMessages, bookingPreviews),
+    [bookingPreviews, displayMessages],
   );
   const chatListMessages = useMemo(
     () => displayMessages.filter((item) => item.variant !== "booking"),
@@ -2030,7 +2024,10 @@ function mergeBookingPreviewMetadata(
   return merged;
 }
 
-function getLatestBookingCardItem(items: ChatDisplayItem[]) {
+function getLatestBookingCardItem(
+  items: ChatDisplayItem[],
+  bookingPreviews: Record<number, BookingDetail>,
+) {
   const bookingCards = new Map<number, ChatDisplayItem>();
 
   for (const item of items) {
@@ -2053,11 +2050,14 @@ function getLatestBookingCardItem(items: ChatDisplayItem[]) {
     }
 
     const bookingCard = bookingCards.get(bookingId);
+    const messageStatus = bookingCard
+      ? getBookingPreviewStatus(bookingCard.message)
+      : "";
+    const currentStatus = bookingPreviews[bookingId]?.status;
     if (
       bookingCard &&
-      !PINNED_BOOKING_HIDDEN_STATUSES.includes(
-        getBookingPreviewStatus(bookingCard.message),
-      )
+      shouldShowBookingInChat(messageStatus) &&
+      shouldShowBookingInChat(currentStatus)
     ) {
       const timestamp = Date.parse(item.message.created_at);
       if (!latestActivity || timestamp >= latestActivity.timestamp) {
@@ -2141,7 +2141,7 @@ function isBookingVisibleInActiveBookings(
   return (
     (userRole === "customer" || userRole === "provider") &&
     Boolean(status) &&
-    !PINNED_BOOKING_HIDDEN_STATUSES.includes(status)
+    shouldShowBookingInChat(status)
   );
 }
 

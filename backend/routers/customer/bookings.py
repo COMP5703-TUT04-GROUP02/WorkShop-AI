@@ -5,7 +5,7 @@ Booking state changes live in `utils/customer_booking_actions.py`; routers handl
 """
 
 from datetime import datetime, timezone
-from fastapi import Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, File, Form, Header, HTTPException, Request, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from backend import models
@@ -25,6 +25,7 @@ from backend.utils.chat import (
     format_chat_room_response_with_unread,
     push_chat_message_to_room_members,
 )
+from backend.utils.payment_redirect import payment_result_url_for_request
 from backend.utils.complaint import (
     add_complaint_status_history,
     format_complaint_response,
@@ -272,6 +273,7 @@ async def update_pending_booking(
 async def pay_booking_by_booking_id(
     booking_id: int,
     payment_data: PaymentCreate,
+    request: Request,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     current_user: models.User = Depends(require_customer),
     db: Session = Depends(get_db),
@@ -284,6 +286,7 @@ async def pay_booking_by_booking_id(
             db,
             idempotency_key=idempotency_key,
             payment_stage=payment_data.payment_stage.value,
+            frontend_return_url=payment_result_url_for_request(request),
         )
     )
 

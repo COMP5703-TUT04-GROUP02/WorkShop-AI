@@ -26,7 +26,8 @@ router = ApiRouter(tags=["Payment"])
 
 
 def _frontend_result_redirect(payment: models.Payment):
-    if not IYZICO_FRONTEND_RETURN_URL:
+    frontend_return_url = payment.frontend_return_url or IYZICO_FRONTEND_RETURN_URL
+    if not frontend_return_url:
         return None
 
     query = urlencode(
@@ -35,9 +36,9 @@ def _frontend_result_redirect(payment: models.Payment):
             "payment_status": payment.status,
         }
     )
-    separator = "&" if "?" in IYZICO_FRONTEND_RETURN_URL else "?"
+    separator = "&" if "?" in frontend_return_url else "?"
     return RedirectResponse(
-        url=f"{IYZICO_FRONTEND_RETURN_URL}{separator}{query}",
+        url=f"{frontend_return_url}{separator}{query}",
         status_code=303,
     )
 

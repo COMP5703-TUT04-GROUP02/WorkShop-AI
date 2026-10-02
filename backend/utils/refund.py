@@ -17,6 +17,7 @@ REFUND_RESTORABLE_BOOKING_STATUSES = [
     BookingStatus.final_quote_sent,
     BookingStatus.awaiting_service_payment,
     BookingStatus.service_paid,
+    BookingStatus.awaiting_confirmation,
     BookingStatus.completed,
 ]
 

@@ -14,6 +14,7 @@ import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
 import { useAuth } from "../../context/AuthContext";
 import { useProviderPayoutStatus } from "../../context/ProviderPayoutStatusContext";
+import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
 import type {
   ProviderSubmerchant,
   ProviderSubmerchantPayload,
@@ -63,6 +64,7 @@ const EMPTY_FORM: FormState = {
 export function ProviderPayoutAccountScreen() {
   const { user } = useAuth();
   const { refresh: refreshPayoutStatus } = useProviderPayoutStatus();
+  const { refreshProviderProfileStatus } = useProviderProfileGate();
   const [submerchant, setSubmerchant] = useState<ProviderSubmerchant | null>(null);
   const [form, setForm] = useState<FormState>({
     ...EMPTY_FORM,
@@ -131,7 +133,10 @@ export function ProviderPayoutAccountScreen() {
         : await createProviderSubmerchant(payload);
       setSubmerchant(result);
       setForm(toFormState(result));
-      await refreshPayoutStatus();
+      await Promise.all([
+        refreshPayoutStatus(),
+        refreshProviderProfileStatus(),
+      ]);
       if (result.status === "rejected" || result.status === "update_failed") {
         setMessage(
           result.iyzico_error_message ||

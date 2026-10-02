@@ -140,6 +140,14 @@ def test_booking_quote_pay_complete_review_flow(client, marketplace):
     )
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["data"]["booking"]["status"] == "completed"
+    completed_messages = _booking_status_chat_messages(
+        client, customer, booking["chat_room_id"]
+    )
+    assert completed_messages[-1]["metadata"]["new_status"] == "completed"
+    assert (
+        completed_messages[-1]["metadata"]["title"]
+        == "Customer confirmed service completion"
+    )
 
     reviewed = client.post(
         f"/bookings/{booking_id}/review",
@@ -360,6 +368,29 @@ def test_refund_and_complaint_on_paid_booking(client, marketplace):
         headers=provider,
     )
     assert completed.status_code == 200, completed.text
+    assert completed.json()["data"]["booking"]["status"] == "awaiting_confirmation"
+
+    confirm_stage_refund = client.post(
+        f"/bookings/{booking_id}/refund-requests",
+        json={"reason": "The completed work needs a refund before confirmation"},
+        headers=customer,
+    )
+    assert confirm_stage_refund.status_code == 200, confirm_stage_refund.text
+    assert confirm_stage_refund.json()["data"]["refund_request"]["previous_booking_status"] == "awaiting_confirmation"
+    restored_confirmation = client.put(
+        f"/refund-requests/{confirm_stage_refund.json()['data']['refund_request']['id']}/cancel",
+        headers=customer,
+    )
+    assert restored_confirmation.status_code == 200, restored_confirmation.text
+    assert restored_confirmation.json()["data"]["booking"]["status"] == "awaiting_confirmation"
+
+    cancel_at_confirmation = client.put(
+        f"/customer/bookings/{booking_id}/close-final-quote",
+        json={"status_note": "This action must not bypass the refund flow"},
+        headers=customer,
+    )
+    assert cancel_at_confirmation.status_code == 400, cancel_at_confirmation.text
+
     confirmed = client.put(
         f"/customer/bookings/{booking_id}/confirm-complete",
         headers=customer,

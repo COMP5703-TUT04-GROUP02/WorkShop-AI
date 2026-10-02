@@ -54,11 +54,23 @@ const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
 const REVIEW_PAGE_SIZE = 10;
 
 export function ProviderHomeScreen() {
+  const { isProviderProfileLoading, isProviderProfileRequired } =
+    useProviderProfileGate();
+
+  if (isProviderProfileLoading) {
+    return <ActivityIndicator color={colors.primary} style={styles.loader} />;
+  }
+
+  if (isProviderProfileRequired) {
+    return <ProviderVerificationScreen />;
+  }
+
   return <ProviderHomeContent />;
 }
 
 export function ProviderVerificationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { refreshProviderProfileStatus } = useProviderProfileGate();
   const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
   const [payoutAccount, setPayoutAccount] = useState<ProviderSubmerchant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,12 +83,13 @@ export function ProviderVerificationScreen() {
       const nextStatus = await getProviderVerificationStatus();
       setStatus(nextStatus);
       setPayoutAccount(await getProviderSubmerchant());
+      await refreshProviderProfileStatus();
     } catch (error) {
       setMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshProviderProfileStatus]);
 
   useFocusEffect(useCallback(() => void load(), [load]));
 

@@ -38,7 +38,6 @@ import {
 } from "../screens/provider/ProviderHomeScreen";
 import { ProviderPayoutAccountScreen } from "../screens/provider/ProviderPayoutAccountScreen";
 import { ProviderOperatingSettingsScreen } from "../screens/provider/ProviderOperatingSettingsScreen";
-import { ProviderPayoutReminder } from "../components/ProviderPayoutReminder";
 import { useAuth } from "../context/AuthContext";
 import { ProviderPayoutStatusProvider } from "../context/ProviderPayoutStatusContext";
 import { consumePendingPaymentResult } from "../utils/pendingPaymentResult";
@@ -71,10 +70,10 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
-// WS-105: the qualification gate covers a provider's working surfaces only —
-// chats and portfolios here, schedule and bookings in RoleTabs. Account,
-// security, help, payments, notifications and booking history stay open while
-// a provider waits for review.
+// The combined onboarding gate covers a provider's working surfaces only —
+// chats and portfolios here, schedule and bookings in RoleTabs. Account and
+// verification routes stay open so all three onboarding steps can be completed
+// in any order.
 const GuardedChatRoomScreen = withRequiredProviderProfile(ChatRoomScreen);
 const GuardedProviderPortfolioListScreen = withRequiredProviderProfile(
   ProviderPortfolioListScreen,
@@ -170,7 +169,6 @@ function AuthenticatedStack() {
         <View style={[styles.shell, isWebDesktop ? styles.shellDesktop : null]}>
           {isWebDesktop ? <DesktopSidebar /> : null}
           <View style={styles.shellContent}>
-            <ProviderPayoutReminder />
             {children}
           </View>
         </View>
@@ -314,8 +312,11 @@ function withRequiredProviderProfile<P extends object>(
 ) {
   return function RequiredProviderProfileStackScreen(props: P) {
     const { user } = useAuth();
-    const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
-      useProviderProfileGate();
+    const {
+      isProviderProfileLoading,
+      isProviderProfileRequired,
+      showProviderProfileRequiredMessage,
+    } = useProviderProfileGate();
     const navigation =
       useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -340,6 +341,14 @@ function withRequiredProviderProfile<P extends object>(
       showProviderProfileRequiredMessage,
       user?.role,
     ]);
+
+    if (user?.role === "provider" && isProviderProfileLoading) {
+      return (
+        <View style={styles.loadingScreen}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      );
+    }
 
     if (user?.role === "provider" && isProviderProfileRequired) {
       return null;

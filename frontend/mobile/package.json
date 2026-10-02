@@ -39,6 +39,7 @@
     "test:locations": "tsc --ignoreConfig src/features/locations/location-cascade-state.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/locations/__tests__/location-cascade-state.test.cjs",
     "test:provider-search": "tsc --ignoreConfig src/features/provider-search/search-filter-state.ts src/features/provider-search/provider-card-display.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/features/provider-search/__tests__/*.test.cjs",
     "test:payment": "tsc --ignoreConfig src/utils/payment.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/payment.test.cjs",
+    "test:booking-actions": "tsc --ignoreConfig src/utils/bookingActions.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingActions.test.cjs",
     "test:iban": "tsc --ignoreConfig src/utils/iban.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/iban.test.cjs",
     "test:marketplace": "tsc --ignoreConfig src/utils/marketplace.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/marketplace.test.cjs"
   },

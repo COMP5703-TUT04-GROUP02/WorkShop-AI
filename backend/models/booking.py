@@ -268,6 +268,7 @@ class Payment(Base):
         String(255), unique=True, index=True, nullable=True
     )
     checkout_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    frontend_return_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     iyzico_payment_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
     payment_transaction_id: Mapped[str | None] = mapped_column(
         String(128), index=True, nullable=True

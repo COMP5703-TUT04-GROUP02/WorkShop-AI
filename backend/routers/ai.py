@@ -4,12 +4,13 @@ AI chat, LangChain tool debugging, pending actions, async tasks, Milvus sync.
 DB-changing AI ops create `AIPendingAction` first; frontend confirms via `/ai/actions/confirm`.
 """
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 from celery.result import AsyncResult
 import logging
 from backend.auth import get_current_user, get_db, require_admin
+from backend.utils.payment_redirect import payment_result_url_for_request
 from backend.schemas import (
     AIActionConfirmRequest,
     AIActionType,
@@ -456,6 +457,7 @@ def cancel_ai_action(
 @router.post("/ai/actions/confirm")
 async def confirm_ai_action(
     request_data: AIActionConfirmRequest,
+    request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -496,6 +498,7 @@ async def confirm_ai_action(
                 current_user,
                 db,
                 idempotency_key=f"ai-action-{action.id}",
+                frontend_return_url=payment_result_url_for_request(request),
             )
         elif action_type == AIActionType.reject_quote:
             result = await reject_customer_booking_quote_action(

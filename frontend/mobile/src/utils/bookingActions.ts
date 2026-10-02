@@ -14,6 +14,7 @@ export const CUSTOMER_REFUNDABLE_BOOKING_STATUSES = [
   "final_quote_sent",
   "awaiting_service_payment",
   "service_paid",
+  "awaiting_confirmation",
   "completed",
 ] as const;
 
@@ -25,8 +26,15 @@ export const CUSTOMER_POST_VISIT_CANCELLABLE_BOOKING_STATUSES = [
   "awaiting_service_payment",
   "service_paid",
   "accepted",
-  "awaiting_confirmation",
 ] as const;
+
+const CHAT_HIDDEN_BOOKING_STATUSES = new Set([
+  "completed",
+  "cancelled",
+  "refunded",
+  "partially_refunded",
+  "visit_completed_closed",
+]);
 
 const BLOCKING_REFUND_REQUEST_STATUSES = new Set([
   "pending",
@@ -65,6 +73,10 @@ export function canCustomerRequestRefund(
       BLOCKING_REFUND_REQUEST_STATUSES.has(booking.current_refund_request.status)
     )
   );
+}
+
+export function shouldShowBookingInChat(status?: string | null) {
+  return !CHAT_HIDDEN_BOOKING_STATUSES.has(String(status ?? ""));
 }
 
 export function isFinalQuoteStage(booking: Pick<BookingDetail, "status">) {
