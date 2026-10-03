@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { Check } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import {
@@ -52,6 +53,9 @@ export function AuthScreen() {
 
   const isRegisterMode = mode === "register";
   const isWebDesktop = useIsWebDesktop();
+  // This screen has no header, so keep the form clear of the status bar,
+  // notch and home indicator. Insets are zero on web.
+  const insets = useSafeAreaInsets();
   const normalizedEmail = email.trim().toLowerCase();
   // Editing the address after a code went out means the code no longer fits.
   const hasCodeForEmail = codeSentTo !== "" && codeSentTo === normalizedEmail;
@@ -170,7 +174,11 @@ export function AuthScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={[styles.keyboardView, isWebDesktop ? styles.keyboardViewDesktop : null]}
+      style={[
+        styles.keyboardView,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
+        isWebDesktop ? styles.keyboardViewDesktop : null,
+      ]}
     >
       {isWebDesktop ? (
         <View style={styles.hero}>

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { sendEmailCode, verifyEmail } from "../api/auth";
 import { PrimaryButton } from "../components/PrimaryButton";
@@ -31,6 +32,8 @@ export function VerifyEmailScreen() {
   const [notice, setNotice] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const hasSentFirstCode = useRef(false);
+  // No header here either, so stay clear of the status bar and home indicator.
+  const insets = useSafeAreaInsets();
 
   async function sendCode() {
     setIsSending(true);
@@ -82,57 +85,65 @@ export function VerifyEmailScreen() {
   }
 
   return (
-    <ScreenContainer contentStyle={styles.content}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Verify your email</Text>
-        <Text style={styles.description}>
-          {notice || `Sending a code to ${user?.email ?? "your email"}...`}
-        </Text>
-        <Text style={styles.description}>
-          Enter it below to finish setting up your account.
-        </Text>
+    <View
+      style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+    >
+      <ScreenContainer contentStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Verify your email</Text>
+          <Text style={styles.description}>
+            {notice || `Sending a code to ${user?.email ?? "your email"}...`}
+          </Text>
+          <Text style={styles.description}>
+            Enter it below to finish setting up your account.
+          </Text>
 
-        <TextField
-          keyboardType="number-pad"
-          label="Verification code"
-          maxLength={6}
-          onChangeText={(value) => setCode(value.replace(/[^0-9]/g, ""))}
-          placeholder="123456"
-          value={code}
-        />
-        <Text style={styles.hint}>{EMAIL_CODE_HINT}</Text>
-
-        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-
-        <View style={styles.actions}>
-          <PrimaryButton
-            disabled={!SIX_DIGITS.test(code)}
-            isLoading={isVerifying}
-            label="Verify email"
-            onPress={() => void handleVerify()}
+          <TextField
+            keyboardType="number-pad"
+            label="Verification code"
+            maxLength={6}
+            onChangeText={(value) => setCode(value.replace(/[^0-9]/g, ""))}
+            placeholder="123456"
+            value={code}
           />
-          <SecondaryButton
-            disabled={resendIn > 0 || isSending}
-            label={
-              isSending
-                ? "Sending..."
-                : resendIn > 0
-                  ? `Resend code (${resendIn}s)`
-                  : "Resend code"
-            }
-            onPress={() => void sendCode()}
-          />
-          <SecondaryButton label="Sign out" onPress={() => void signOut()} />
+          <Text style={styles.hint}>{EMAIL_CODE_HINT}</Text>
+
+          {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
+          <View style={styles.actions}>
+            <PrimaryButton
+              disabled={!SIX_DIGITS.test(code)}
+              isLoading={isVerifying}
+              label="Verify email"
+              onPress={() => void handleVerify()}
+            />
+            <SecondaryButton
+              disabled={resendIn > 0 || isSending}
+              label={
+                isSending
+                  ? "Sending..."
+                  : resendIn > 0
+                    ? `Resend code (${resendIn}s)`
+                    : "Resend code"
+              }
+              onPress={() => void sendCode()}
+            />
+            <SecondaryButton label="Sign out" onPress={() => void signOut()} />
+          </View>
+          <Text style={styles.hint}>
+            Wrong address? Sign out and register again with the right email.
+          </Text>
         </View>
-        <Text style={styles.hint}>
-          Wrong address? Sign out and register again with the right email.
-        </Text>
-      </View>
-    </ScreenContainer>
+      </ScreenContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   content: {
     alignItems: "center",
     justifyContent: "center",
