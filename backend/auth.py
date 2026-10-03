@@ -293,6 +293,24 @@ def get_current_user(
     return get_user_from_token(token, db)
 
 
+EMAIL_NOT_VERIFIED_DETAIL = "Verify your email address to continue"
+
+
+def ensure_email_verified(user: models.User) -> models.User:
+    """Customers and providers must confirm their email before using the app.
+
+    Admins are created by seed or by hand and are exempt. Account endpoints
+    (/me, /auth/*) stay open so an unverified user can verify or sign out.
+    """
+    if user.role != "admin" and user.email_verified_at is None:
+        raise HTTPException(status_code=403, detail=EMAIL_NOT_VERIFIED_DETAIL)
+    return user
+
+
+def require_verified_user(current_user: models.User = Depends(get_current_user)):
+    return ensure_email_verified(current_user)
+
+
 def require_role(required_role: str, current_user: models.User):
     if current_user.role != required_role:
         raise HTTPException(
@@ -303,11 +321,11 @@ def require_role(required_role: str, current_user: models.User):
 
 
 def require_customer(current_user: models.User = Depends(get_current_user)):
-    return require_role("customer", current_user)
+    return ensure_email_verified(require_role("customer", current_user))
 
 
 def require_provider(current_user: models.User = Depends(get_current_user)):
-    return require_role("provider", current_user)
+    return ensure_email_verified(require_role("provider", current_user))
 
 
 def require_admin(current_user: models.User = Depends(get_current_user)):

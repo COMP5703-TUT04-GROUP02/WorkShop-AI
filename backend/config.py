@@ -74,6 +74,18 @@ APPLE_TOKEN_ISSUER = get_config(
     "https://appleid.apple.com",
 )
 
+# Email delivery. "console" logs the message instead of sending it, so local
+# runs and CI need no mailbox. "smtp" sends through the server below; for Gmail
+# use smtp.gmail.com:587 with an App Password.
+EMAIL_BACKEND = get_config("WORKSHOP_EMAIL_BACKEND", "console")
+SMTP_HOST = get_config("WORKSHOP_SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = get_int_config("WORKSHOP_SMTP_PORT", 587)
+SMTP_USERNAME = get_config("WORKSHOP_SMTP_USERNAME", "")
+SMTP_PASSWORD = get_config("WORKSHOP_SMTP_PASSWORD", "")
+SMTP_TIMEOUT_SECONDS = get_float_config("WORKSHOP_SMTP_TIMEOUT_SECONDS", 10.0)
+EMAIL_FROM = get_config("WORKSHOP_EMAIL_FROM", SMTP_USERNAME)
+EMAIL_FROM_NAME = get_config("WORKSHOP_EMAIL_FROM_NAME", "Workshop AI")
+
 
 DATABASE_URL = get_config(
     "WORKSHOP_DATABASE_URL",

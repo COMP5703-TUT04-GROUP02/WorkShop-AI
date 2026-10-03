@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime, time
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -28,6 +28,14 @@ class SocialAuthProvider(str, Enum):
     apple = "apple"
 
 
+def _validate_six_digit_code(value: str) -> str:
+    # Shape check only. Email codes are checked against the mailed code;
+    # phone verification is still a demo that accepts any six digits.
+    if not re.fullmatch(r"\d{6}", value or ""):
+        raise ValueError("Verification code must be exactly 6 digits")
+    return value
+
+
 class UserRegister(BaseModel):
     first_name: str
     last_name: str
@@ -36,6 +44,13 @@ class UserRegister(BaseModel):
     confirm_password: str
     tos_accepted: bool = Field(strict=True)
     role: UserRole
+    # The code mailed by POST /register/email-code; proves the address first.
+    email_code: str
+
+    @field_validator("email_code")
+    @classmethod
+    def validate_email_code(cls, value):
+        return _validate_six_digit_code(value)
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -179,19 +194,13 @@ class RefreshTokenRequest(BaseModel):
         return value
 
 
-def _validate_demo_verification_code(value: str) -> str:
-    if not re.fullmatch(r"\d{6}", value or ""):
-        raise ValueError("Verification code must be exactly 6 digits")
-    return value
-
-
 class MockVerificationRequest(BaseModel):
     code: str
 
     @field_validator("code")
     @classmethod
     def validate_demo_code(cls, value):
-        return _validate_demo_verification_code(value)
+        return _validate_six_digit_code(value)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -212,14 +221,44 @@ class ChangePasswordRequest(BaseModel):
         return self
 
 
+class EmailCodeVerifyRequest(BaseModel):
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value):
+        return _validate_six_digit_code(value)
+
+
+class RegisterEmailCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class SendEmailCodeRequest(BaseModel):
+    purpose: Literal["verify_email", "change_email"]
+    new_email: EmailStr | None = None
+
+    @model_validator(mode="after")
+    def validate_new_email_for_change(self):
+        if self.purpose == "change_email" and self.new_email is None:
+            raise ValueError("new_email is required to change the email")
+        return self
+
+
+class SendEmailCodeResponse(BaseModel):
+    sent_to: str
+    expires_in_seconds: int
+    resend_after_seconds: int
+
+
 class ChangeEmailRequest(BaseModel):
     new_email: EmailStr
     code: str
 
     @field_validator("code")
     @classmethod
-    def validate_demo_code(cls, value):
-        return _validate_demo_verification_code(value)
+    def validate_code(cls, value):
+        return _validate_six_digit_code(value)
 
 
 class AdminUserStatusUpdate(BaseModel):

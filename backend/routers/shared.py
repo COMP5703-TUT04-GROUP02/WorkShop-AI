@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from fastapi import Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from backend import models
-from backend.auth import get_current_user, get_db
+from backend.auth import get_db, require_verified_user
 from backend.utils.booking import (
     ensure_customer_owns_booking,
     format_booking_detail_response,
@@ -78,7 +78,7 @@ def get_chat_messages(
     message_type: ChatMessageType | None = None,
     page: int = 1,
     page_size: int = 50,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
@@ -108,7 +108,7 @@ def get_chat_messages(
 async def upload_chat_attachment(
     chat_room_id: int,
     file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
@@ -142,7 +142,7 @@ async def upload_chat_attachment(
 def delete_unsent_chat_attachment(
     chat_room_id: int,
     attachment_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
@@ -185,7 +185,7 @@ def delete_unsent_chat_attachment(
 async def send_chat_message(
     chat_room_id: int,
     message_data: ChatMessageCreate,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
@@ -289,7 +289,7 @@ def get_notifications(
     unread_only: bool = False,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.Notification).filter(
@@ -307,7 +307,7 @@ def get_notifications(
 
 @router.get("/notifications/summary")
 def get_notification_summary(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: models.User = Depends(require_verified_user), db: Session = Depends(get_db)
 ):
     unread_count = get_notification_unread_count(current_user.id, db)
     latest_notification = (
@@ -330,7 +330,7 @@ def get_notification_summary(
 
 @router.put("/notifications/read-all")
 def mark_all_notifications_as_read(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: models.User = Depends(require_verified_user), db: Session = Depends(get_db)
 ):
     notifications = (
         db.query(models.Notification)
@@ -357,7 +357,7 @@ def mark_all_notifications_as_read(
 @router.put("/notifications/{notification_id}/read")
 def mark_notification_as_read(
     notification_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     notification = (
@@ -393,7 +393,7 @@ def get_chat_bookings(
     chat_room_id: int,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     chat_room = get_chat_room_or_404(chat_room_id, db)
@@ -413,7 +413,7 @@ def get_chat_bookings(
 @router.get("/bookings/{booking_id}")
 def get_booking_by_id(
     booking_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
@@ -447,7 +447,7 @@ def get_booking_by_id(
 async def upload_booking_attachment(
     booking_id: int,
     file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     booking = get_booking_for_user_or_404(booking_id, current_user, db)
@@ -481,7 +481,7 @@ def get_booking_attachments(
     booking_id: int,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     booking = get_booking_for_user_or_404(booking_id, current_user, db)
@@ -504,7 +504,7 @@ def get_booking_attachments(
 def delete_booking_attachment(
     booking_id: int,
     attachment_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     booking = get_booking_for_user_or_404(booking_id, current_user, db)
@@ -537,7 +537,7 @@ def get_booking_status_history(
     booking_id: int,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     get_booking_by_id(booking_id, current_user, db)

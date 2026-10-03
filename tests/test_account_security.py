@@ -1,5 +1,11 @@
 from backend.constants import DEMO_PASSWORD
-from tests.conftest import create_admin_session, login, register, register_session
+from tests.conftest import (
+    create_admin_session,
+    last_emailed_code,
+    login,
+    register,
+    register_session,
+)
 
 
 def _auth_headers(client, email, password=DEMO_PASSWORD):
@@ -8,13 +14,16 @@ def _auth_headers(client, email, password=DEMO_PASSWORD):
     return {"Authorization": f"Bearer {session.json()['data']['access_token']}"}
 
 
-def test_register_starts_unverified_until_confirm(client):
-    created = register(client, email="verify-me@example.com")
+def test_legacy_unverified_account_can_verify_with_mailed_code(client):
+    # An account from before sign-up codes, which still has to verify.
+    created = register(client, email="verify-me@example.com", verified=False)
     assert created.status_code == 200
-    assert created.json()["data"]["user"]["email_verified"] is False
 
     headers = _auth_headers(client, "verify-me@example.com")
-    confirmed = client.post("/auth/verify-email", json={"code": "123456"}, headers=headers)
+    sent = client.post("/auth/email-code", json={"purpose": "verify_email"}, headers=headers)
+    assert sent.status_code == 200, sent.text
+    code = last_emailed_code("verify-me@example.com")
+    confirmed = client.post("/auth/verify-email", json={"code": code}, headers=headers)
 
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["data"]["email_verified"] is True
@@ -189,13 +198,24 @@ def test_change_password_revokes_existing_sessions(client):
     assert new_login.status_code == 200
 
 
-def test_change_email_uses_mock_code_and_updates_login(client):
+def test_change_email_uses_mailed_code_and_updates_login(client):
     register(client, email="old-email@example.com")
     headers = _auth_headers(client, "old-email@example.com")
 
+    sent = client.post(
+        "/auth/email-code",
+        json={"purpose": "change_email", "new_email": "next-email@example.com"},
+        headers=headers,
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["data"]["sent_to"] == "next-email@example.com"
+
     changed = client.post(
         "/auth/change-email",
-        json={"new_email": "next-email@example.com", "code": "123456"},
+        json={
+            "new_email": "next-email@example.com",
+            "code": last_emailed_code("next-email@example.com"),
+        },
         headers=headers,
     )
     assert changed.status_code == 200, changed.text
@@ -215,8 +235,8 @@ def test_change_email_rejects_taken_address(client):
     customer = register_session(client, "changer@example.com")
 
     rejected = client.post(
-        "/auth/change-email",
-        json={"new_email": "taken@example.com", "code": "123456"},
+        "/auth/email-code",
+        json={"purpose": "change_email", "new_email": "taken@example.com"},
         headers=customer["headers"],
     )
     assert rejected.status_code == 400
@@ -228,8 +248,8 @@ def test_change_email_rejects_taken_address_ignoring_case(client):
     customer = register_session(client, "changer@example.com")
 
     rejected = client.post(
-        "/auth/change-email",
-        json={"new_email": "Taken@Example.COM", "code": "123456"},
+        "/auth/email-code",
+        json={"purpose": "change_email", "new_email": "Taken@Example.COM"},
         headers=customer["headers"],
     )
     assert rejected.status_code == 400

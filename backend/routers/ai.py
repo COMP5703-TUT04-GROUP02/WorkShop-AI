@@ -9,7 +9,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 from celery.result import AsyncResult
 import logging
-from backend.auth import get_current_user, get_db, require_admin
+from backend.auth import get_db, require_admin, require_verified_user
 from backend.utils.payment_redirect import payment_result_url_for_request
 from backend.schemas import (
     AIActionConfirmRequest,
@@ -199,7 +199,7 @@ def get_ai_tasks(
     status: str | None = None,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.AsyncTask)
@@ -218,7 +218,7 @@ def get_ai_tasks(
 @router.get("/ai/tasks/{task_id}")
 def get_ai_task_status(
     task_id: str,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     async_task = (
@@ -236,7 +236,7 @@ def get_ai_task_status(
 @router.post("/ai/chat")
 def enqueue_ai_chat(
     request_data: AIChatRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     task = ai_chat_task.delay(current_user.id, request_data.model_dump())
@@ -249,7 +249,7 @@ def enqueue_ai_chat(
 @router.post("/ai/chat/async")
 def enqueue_ai_chat_alias(
     request_data: AIChatRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(enqueue_ai_chat(request_data, current_user, db))
@@ -258,7 +258,7 @@ def enqueue_ai_chat_alias(
 @router.post("/ai/chat/sync", response_model=ApiResponse[AIChatResponseData])
 def ai_chat_sync(
     request_data: AIChatRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -277,7 +277,7 @@ def ai_chat_sync(
 def get_ai_chat_messages(
     page: int = 1,
     page_size: int = 50,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     expire_user_pending_actions(current_user.id, db)
@@ -341,7 +341,7 @@ def sync_ai_action_statuses_in_chat_history(
 
 @router.delete("/ai/chat/messages")
 def clear_ai_chat_messages(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: models.User = Depends(require_verified_user), db: Session = Depends(get_db)
 ):
     deleted_count = delete_ai_chat_messages(current_user.id, db)
     return success_response(
@@ -354,7 +354,7 @@ def clear_ai_chat_messages(
 
 @router.get("/ai/tools")
 def get_ai_tools(
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(get_langchain_tool_summaries(current_user, db))
@@ -363,7 +363,7 @@ def get_ai_tools(
 @router.post("/ai/tools/run")
 def run_ai_tool(
     request_data: AIToolExecuteRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(
@@ -379,7 +379,7 @@ def run_ai_tool(
 @router.post("/ai/tools/agent-preview")
 def preview_ai_tool_agent(
     request_data: AIToolAgentPreviewRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(
@@ -398,7 +398,7 @@ def get_ai_tool_call_logs(
     status: str | None = None,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.AIToolCallLog)
@@ -421,7 +421,7 @@ def get_ai_pending_actions(
     status: AIPendingActionStatus | None = None,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     expire_user_pending_actions(current_user.id, db)
@@ -440,7 +440,7 @@ def get_ai_pending_actions(
 @router.put("/ai/actions/{action_id}/cancel")
 def cancel_ai_action(
     action_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     pending_action = cancel_ai_pending_action(action_id, current_user, db)
@@ -458,7 +458,7 @@ def cancel_ai_action(
 async def confirm_ai_action(
     request_data: AIActionConfirmRequest,
     request: Request,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     action = get_confirmable_ai_pending_action(
@@ -595,7 +595,7 @@ async def confirm_ai_action(
 @router.get("/ai/actions/{action_id}")
 def get_ai_pending_action(
     action_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     action = get_ai_pending_action_or_404(action_id, current_user, db)

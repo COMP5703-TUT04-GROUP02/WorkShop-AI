@@ -7,7 +7,7 @@ from backend.auth import create_password_identity
 from backend.constants import DEMO_PASSWORD
 from backend.services.social_auth_service import VerifiedSocialIdentity
 from backend.utils.formatters import format_user_response
-from tests.conftest import login, register_session
+from tests.conftest import login, register_email_code, register_session
 
 
 def registration_payload(role="customer"):
@@ -19,12 +19,15 @@ def registration_payload(role="customer"):
         "confirm_password": DEMO_PASSWORD,
         "tos_accepted": True,
         "role": role,
+        "email_code": "123456",
     }
 
 
 @pytest.mark.parametrize("role", ["customer", "provider"])
 def test_register_persists_split_name_and_server_terms_time(client, db_session, role):
-    response = client.post("/register", json=registration_payload(role))
+    payload = registration_payload(role)
+    payload["email_code"] = register_email_code(client, payload["email"])
+    response = client.post("/register", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()["data"]["user"]
     assert (data["first_name"], data["last_name"], data["name"]) == (

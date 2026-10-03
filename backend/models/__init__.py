@@ -46,6 +46,7 @@ from backend.models.address_book import CustomerAddress
 from backend.models.marketplace import PaymentSettlement, ProviderSubmerchant
 from backend.models.user import (
     AuthenticationIdentity,
+    EmailVerificationCode,
     RefreshToken,
     SocialAccount,
     User,
@@ -57,6 +58,7 @@ __all__ = [
     "AIToolCallLog",
     "AsyncTask",
     "AuthenticationIdentity",
+    "EmailVerificationCode",
     "Booking",
     "BookingAttachment",
     "BookingQuoteRevision",

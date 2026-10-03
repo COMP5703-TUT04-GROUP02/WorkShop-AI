@@ -26,6 +26,8 @@ os.environ["WORKSHOP_JWT_ALGORITHM"] = "RS256"
 os.environ["WORKSHOP_JWT_PRIVATE_KEY"] = _private
 os.environ["WORKSHOP_JWT_PUBLIC_KEY"] = _public
 os.environ.setdefault("WORKSHOP_DATABASE_URL", "sqlite://")
+# Keep mailed codes in memory so tests can read them and never reach a real inbox.
+os.environ["WORKSHOP_EMAIL_BACKEND"] = "memory"
 # Tests must not call a live vendor. Empty values also block dotenv from filling keys.
 for _llm_key in (
     "QWEN_API_KEY",
@@ -162,16 +164,56 @@ def db_session():
 
 @pytest.fixture
 def client(db_session):
+    from backend.services.email_service import OUTBOX
+
+    OUTBOX.clear()
     return TestClient(app)
+
+
+def last_emailed_code(to: str) -> str:
+    """The six-digit code in the newest email sent to `to`."""
+    import re
+
+    from backend.services.email_service import OUTBOX
+
+    for message in reversed(OUTBOX):
+        if message.to == to:
+            return re.search(r"\b(\d{6})\b", message.body).group(1)
+    raise AssertionError(f"No email was sent to {to}")
 
 
 def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def register(client, email="customer@example.com", password=DEMO_PASSWORD, role="customer", name="Test User"):
+def register_email_code(client, email):
+    """Ask for a sign-up code and return it from the in-memory outbox."""
+    sent = client.post("/register/email-code", json={"email": email})
+    assert sent.status_code == 200, sent.text
+    return last_emailed_code(email.strip().lower())
+
+
+def register(
+    client,
+    email="customer@example.com",
+    password=DEMO_PASSWORD,
+    role="customer",
+    name="Test User",
+    verified=True,
+):
+    """Register through the API, including the mailed sign-up code.
+
+    New accounts start verified. Pass verified=False to clear that afterwards
+    and get an account like the ones created before sign-up codes existed.
+    """
     first_name, last_name = name.split(" ", 1)
-    return client.post(
+    code_response = client.post("/register/email-code", json={"email": email})
+    email_code = (
+        last_emailed_code(email.strip().lower())
+        if code_response.status_code == 200
+        else "000000"
+    )
+    response = client.post(
         "/register",
         json={
             "first_name": first_name,
@@ -181,8 +223,24 @@ def register(client, email="customer@example.com", password=DEMO_PASSWORD, role=
             "confirm_password": password,
             "tos_accepted": True,
             "role": role,
+            "email_code": email_code,
         },
     )
+    if not verified and response.status_code == 200:
+        set_email_verified_in_db(response.json()["data"]["user"]["id"], False)
+    return response
+
+
+def set_email_verified_in_db(user_id: int, verified: bool):
+    from backend.core.clock import utc_now
+
+    db = SessionLocal()
+    try:
+        user = db.get(models.User, user_id)
+        user.email_verified_at = utc_now() if verified else None
+        db.commit()
+    finally:
+        db.close()
 
 
 def login(client, email="customer@example.com", password=DEMO_PASSWORD):
@@ -193,8 +251,8 @@ def login(client, email="customer@example.com", password=DEMO_PASSWORD):
     )
 
 
-def register_session(client, email, role="customer", name="Test User"):
-    created = register(client, email=email, role=role, name=name)
+def register_session(client, email, role="customer", name="Test User", verified=True):
+    created = register(client, email=email, role=role, name=name, verified=verified)
     assert created.status_code == 200, created.text
     session = login(client, email=email)
     assert session.status_code == 200, session.text
