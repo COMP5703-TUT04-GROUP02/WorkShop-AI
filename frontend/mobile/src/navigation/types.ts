@@ -18,6 +18,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
+  VerifyEmail: undefined;
   Legal: {
     document: LegalDocument;
   };

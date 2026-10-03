@@ -1,7 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import { Check } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,10 +13,12 @@ import {
   View,
 } from "react-native";
 
+import { sendRegisterEmailCode } from "../api/auth";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RoleSegmentedControl } from "../components/RoleSegmentedControl";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { TextField } from "../components/TextField";
+import { EMAIL_CODE_HINT } from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/types";
@@ -40,13 +42,55 @@ export function AuthScreen() {
   const [role, setRole] = useState<RegisterRequest["role"]>("customer");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Sign-up proves the email first: a code is mailed to it and must be
+  // entered before the account is created.
+  const [emailCode, setEmailCode] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState("");
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [codeMessage, setCodeMessage] = useState("");
 
   const isRegisterMode = mode === "register";
   const isWebDesktop = useIsWebDesktop();
+  const normalizedEmail = email.trim().toLowerCase();
+  // Editing the address after a code went out means the code no longer fits.
+  const hasCodeForEmail = codeSentTo !== "" && codeSentTo === normalizedEmail;
+
+  useEffect(() => {
+    if (resendIn <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setResendIn((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   function toggleMode() {
     setMode(isRegisterMode ? "login" : "register");
     setErrorMessage("");
+    setCodeMessage("");
+  }
+
+  async function handleSendCode() {
+    setErrorMessage("");
+    setCodeMessage("");
+
+    if (!normalizedEmail.includes("@")) {
+      setErrorMessage("Enter your email address first.");
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const sent = await sendRegisterEmailCode(normalizedEmail);
+      setCodeSentTo(sent.sent_to);
+      setEmailCode("");
+      setResendIn(sent.resend_after_seconds);
+      setCodeMessage(`We sent a 6-digit code to ${sent.sent_to}.`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSendingCode(false);
+    }
   }
 
   function showSocialLoginTodo(provider: "Google" | "Apple") {
@@ -61,6 +105,14 @@ export function AuthScreen() {
   function findRegisterProblem() {
     if (!firstName.trim() || !lastName.trim()) {
       return "Enter your first name and last name.";
+    }
+
+    if (!hasCodeForEmail) {
+      return "Tap Send code to get a verification code for your email.";
+    }
+
+    if (!/^\d{6}$/.test(emailCode)) {
+      return "Enter the 6-digit code from your email.";
     }
 
     if (password !== confirmPassword) {
@@ -101,6 +153,7 @@ export function AuthScreen() {
           confirm_password: confirmPassword,
           tos_accepted: termsAccepted,
           role,
+          email_code: emailCode,
           // Names are stored as typed: FDS C-R05 says not to uppercase on save.
           name: `${first} ${last}`.trim(),
         });
@@ -169,13 +222,59 @@ export function AuthScreen() {
             </>
           ) : null}
 
-          <TextField
-            keyboardType="email-address"
-            label="Email"
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            value={email}
-          />
+          {isRegisterMode ? (
+            <View style={styles.emailCodeBlock}>
+              <View style={styles.emailRow}>
+                <View style={styles.emailField}>
+                  <TextField
+                    keyboardType="email-address"
+                    label="Email"
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    value={email}
+                  />
+                </View>
+                <SecondaryButton
+                  disabled={isSendingCode || (hasCodeForEmail && resendIn > 0)}
+                  label={
+                    isSendingCode
+                      ? "Sending..."
+                      : !hasCodeForEmail
+                        ? "Send code"
+                        : resendIn > 0
+                          ? `Resend (${resendIn}s)`
+                          : "Resend"
+                  }
+                  onPress={() => void handleSendCode()}
+                  style={styles.sendCodeButton}
+                />
+              </View>
+              {hasCodeForEmail ? (
+                <>
+                  <TextField
+                    keyboardType="number-pad"
+                    label="Email verification code"
+                    maxLength={6}
+                    onChangeText={(value) => setEmailCode(value.replace(/[^0-9]/g, ""))}
+                    placeholder="123456"
+                    value={emailCode}
+                  />
+                  {codeMessage ? (
+                    <Text style={styles.codeHint}>{codeMessage}</Text>
+                  ) : null}
+                  <Text style={styles.codeHint}>{EMAIL_CODE_HINT}</Text>
+                </>
+              ) : null}
+            </View>
+          ) : (
+            <TextField
+              keyboardType="email-address"
+              label="Email"
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              value={email}
+            />
+          )}
 
           <TextField
             label="Password"
@@ -416,6 +515,26 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: "600",
+  },
+  emailCodeBlock: {
+    gap: spacing.sm,
+  },
+  emailRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.sm,
+  },
+  emailField: {
+    flex: 1,
+  },
+  sendCodeButton: {
+    minHeight: 48,
+    minWidth: 120,
+  },
+  codeHint: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 18,
   },
   errorText: {
     color: colors.danger,

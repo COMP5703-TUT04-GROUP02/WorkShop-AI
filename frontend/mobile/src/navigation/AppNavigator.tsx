@@ -23,6 +23,7 @@ import { NotificationsScreen } from "../screens/NotificationsScreen";
 import { NotificationSettingsScreen } from "../screens/NotificationSettingsScreen";
 import { PaymentsScreen } from "../screens/PaymentsScreen";
 import { PaymentResultScreen } from "../screens/PaymentResultScreen";
+import { VerifyEmailScreen } from "../screens/VerifyEmailScreen";
 import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
@@ -111,9 +112,23 @@ export function AppNavigator() {
     );
   }
 
+  // New accounts verify their email during sign-up. Older unverified
+  // customers and providers confirm it here before anything else loads;
+  // the backend refuses their other endpoints until then. Admins are exempt.
+  const needsEmailVerification =
+    user !== null && user.role !== "admin" && !user.email_verified;
+
   return (
     <NavigationContainer linking={linking} theme={navigationTheme}>
-      {user ? (
+      {needsEmailVerification ? (
+        <Stack.Navigator>
+          <Stack.Screen
+            name="VerifyEmail"
+            component={VerifyEmailScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Navigator>
+      ) : user ? (
         <RealtimeProvider>
           <ProviderPayoutStatusProvider>
             <ProviderProfileGateProvider>
