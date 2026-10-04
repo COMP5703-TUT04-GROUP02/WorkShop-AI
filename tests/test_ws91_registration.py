@@ -88,23 +88,28 @@ def test_legacy_name_only_user_can_login_and_get_profile(client, db_session):
     assert response.json()["data"]["tos_accepted_at"] is None
 
 
-def test_social_login_keeps_name_only_account_compatible(client, monkeypatch):
+def test_social_sign_up_stores_split_names_and_terms(client, monkeypatch):
     monkeypatch.setattr(
         "backend.routers.auth.verify_social_identity",
-        lambda provider, token: VerifiedSocialIdentity(
+        lambda provider, token, nonce=None: VerifiedSocialIdentity(
             provider="google",
             provider_user_id="ws91-social-sub",
             email="social-ws91@example.com",
             name="Social Person",
+            given_name="Social",
+            family_name="Person",
         ),
     )
-    response = client.post("/social-login", json={"provider": "google", "id_token": "fake-token"})
+    response = client.post(
+        "/social-login",
+        json={"provider": "google", "id_token": "fake-token", "tos_accepted": True},
+    )
     assert response.status_code == 200, response.text
     user = response.json()["data"]["user"]
     assert user["name"] == "Social Person"
-    assert user["first_name"] is None
-    assert user["last_name"] is None
-    assert user["tos_accepted_at"] is None
+    assert user["first_name"] == "Social"
+    assert user["last_name"] == "Person"
+    assert user["tos_accepted_at"] is not None
 
 
 @pytest.mark.parametrize("role", ["customer", "provider"])

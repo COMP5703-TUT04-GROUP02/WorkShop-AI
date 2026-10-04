@@ -145,9 +145,17 @@ class TokenResponse(BaseModel):
 class SocialLoginRequest(BaseModel):
     provider: SocialAuthProvider
     id_token: str
+    # The raw nonce the app generated before sign-in. Apple tokens carry its
+    # SHA-256 and must match; Google tokens carry it as is when one was sent.
+    nonce: str | None = None
+    # Role and Terms only matter when this sign-in creates the account.
     role: UserRole = UserRole.customer
+    tos_accepted: bool = False
+    # Apple returns the user's name to the app once, on first consent, and
+    # never inside the token, so the app forwards it.
+    first_name: str | None = None
+    last_name: str | None = None
     name: str | None = None
-    email: EmailStr | None = None
 
     @field_validator("id_token")
     @classmethod
@@ -157,13 +165,13 @@ class SocialLoginRequest(BaseModel):
 
         return value
 
-    @field_validator("name")
+    @field_validator("name", "first_name", "last_name", "nonce")
     @classmethod
-    def validate_name_not_empty_when_provided(cls, value):
-        if value is not None and not value.strip():
-            raise ValueError("Name cannot be empty")
+    def blank_to_none(cls, value):
+        if value is None or not value.strip():
+            return None
 
-        return value
+        return value.strip()
 
 
 class SocialLoginResponseData(TokenResponse):

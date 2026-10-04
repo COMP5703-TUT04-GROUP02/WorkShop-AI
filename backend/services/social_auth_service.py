@@ -1,11 +1,14 @@
 """Third-party login token verification.
 
 After Google/Apple auth the frontend receives an id_token.
-The backend verifies signature, expiry, issuer, and client id.
+The backend verifies signature, expiry, issuer, client id and, when the app
+sent one, the nonce that ties the token to this sign-in attempt.
 """
 
 from dataclasses import dataclass
 from functools import lru_cache
+from hashlib import sha256
+from hmac import compare_digest
 from urllib.request import urlopen
 import json
 
@@ -26,21 +29,28 @@ GOOGLE_TOKEN_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
 class VerifiedSocialIdentity:
     provider: str
     provider_user_id: str
+    # Only set when the provider has verified the address.
     email: str | None
     name: str | None
+    given_name: str | None = None
+    family_name: str | None = None
 
 
-def verify_social_identity(provider: str, id_token: str) -> VerifiedSocialIdentity:
+def verify_social_identity(
+    provider: str,
+    id_token: str,
+    nonce: str | None = None,
+) -> VerifiedSocialIdentity:
     if provider == "google":
-        return verify_google_identity(id_token)
+        return verify_google_identity(id_token, nonce)
 
     if provider == "apple":
-        return verify_apple_identity(id_token)
+        return verify_apple_identity(id_token, nonce)
 
     raise HTTPException(status_code=400, detail="Unsupported social login provider")
 
 
-def verify_google_identity(id_token: str) -> VerifiedSocialIdentity:
+def verify_google_identity(id_token: str, nonce: str | None = None) -> VerifiedSocialIdentity:
     if not GOOGLE_CLIENT_IDS:
         raise HTTPException(
             status_code=500,
@@ -68,6 +78,10 @@ def verify_google_identity(id_token: str) -> VerifiedSocialIdentity:
     if payload.get("email") and payload.get("email_verified") is not True:
         raise HTTPException(status_code=401, detail="Google email is not verified")
 
+    # Google echoes the nonce unchanged.
+    if nonce is not None and not _same(payload.get("nonce"), nonce):
+        raise HTTPException(status_code=401, detail="Google token nonce does not match")
+
     provider_user_id = payload.get("sub")
     if not provider_user_id:
         raise HTTPException(status_code=401, detail="Google token has no subject")
@@ -77,10 +91,12 @@ def verify_google_identity(id_token: str) -> VerifiedSocialIdentity:
         provider_user_id=provider_user_id,
         email=payload.get("email"),
         name=payload.get("name"),
+        given_name=payload.get("given_name"),
+        family_name=payload.get("family_name"),
     )
 
 
-def verify_apple_identity(id_token: str) -> VerifiedSocialIdentity:
+def verify_apple_identity(id_token: str, nonce: str | None = None) -> VerifiedSocialIdentity:
     if not APPLE_CLIENT_IDS:
         raise HTTPException(
             status_code=500,
@@ -105,16 +121,31 @@ def verify_apple_identity(id_token: str) -> VerifiedSocialIdentity:
     if payload.get("aud") not in APPLE_CLIENT_IDS:
         raise HTTPException(status_code=401, detail="Invalid Apple token audience")
 
+    # The app hands Apple the SHA-256 of its raw nonce, so the token carries
+    # the hash. A nonce is required: without it a leaked token could be replayed.
+    if nonce is None:
+        raise HTTPException(status_code=400, detail="Apple sign-in needs a nonce")
+    if not _same(payload.get("nonce"), sha256(nonce.encode("utf-8")).hexdigest()):
+        raise HTTPException(status_code=401, detail="Apple token nonce does not match")
+
     provider_user_id = payload.get("sub")
     if not provider_user_id:
         raise HTTPException(status_code=401, detail="Apple token has no subject")
 
+    # Apple sends email_verified as "true" or true. Relay addresses
+    # (privaterelay.appleid.com) are verified too.
+    email_verified = str(payload.get("email_verified", "")).lower() == "true"
+
     return VerifiedSocialIdentity(
         provider="apple",
         provider_user_id=provider_user_id,
-        email=payload.get("email"),
+        email=payload.get("email") if email_verified else None,
         name=None,
     )
+
+
+def _same(actual, expected: str) -> bool:
+    return isinstance(actual, str) and compare_digest(actual, expected)
 
 
 def find_apple_signing_key(key_id: str | None):
