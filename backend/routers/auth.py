@@ -100,6 +100,7 @@ def resolve_social_login_user(
     verified_identity = verify_social_identity(
         request_data.provider.value,
         request_data.id_token,
+        request_data.nonce,
     )
 
     social_account = (
@@ -118,16 +119,21 @@ def resolve_social_login_user(
             raise HTTPException(status_code=401, detail="Linked user does not exist")
 
         ensure_user_can_login(user)
-        social_account.provider_email = verified_identity.email
-        social_account.provider_name = verified_identity.name or request_data.name
+        # Apple only sends the email on some sign-ins; keep the one on file.
+        if verified_identity.email:
+            social_account.provider_email = verified_identity.email
+        social_account.provider_name = verified_identity.name or social_account.provider_name
         social_account.last_login_at = now
         return user, False, False
 
-    email = normalize_email(verified_identity.email or request_data.email)
+    # Only an address the provider verified may create or claim an account.
+    # The app's own copy is never trusted: it would let anyone sign in to
+    # an existing account by naming its email.
+    email = normalize_email(verified_identity.email)
     if not email:
         raise HTTPException(
             status_code=400,
-            detail="Social login did not provide an email address",
+            detail="Social login did not provide a verified email address",
         )
 
     user = find_user_by_email(db, email)
@@ -135,11 +141,23 @@ def resolve_social_login_user(
 
     if user:
         ensure_user_can_login(user)
+        # Signing in with a provider that verified this address proves it.
+        if user.email_verified_at is None:
+            mark_email_verified(user)
     else:
-        fallback_name = email.split("@", maxsplit=1)[0]
-        new_user_name = verified_identity.name or request_data.name or fallback_name
+        if not request_data.tos_accepted:
+            raise HTTPException(
+                status_code=409,
+                detail="No account yet. Accept the Terms of Use to create one.",
+            )
+
+        first_name, last_name, display_name = _social_names(request_data, verified_identity, email)
+        is_provider = request_data.role.value == "provider"
         user = models.User(
-            name=new_user_name,
+            name=display_name,
+            first_name=first_name,
+            last_name=last_name,
+            tos_accepted_at=now,
             email=email,
             role=request_data.role.value,
             is_active=True,
@@ -147,6 +165,8 @@ def resolve_social_login_user(
             last_login_at=None,
             email_verified_at=now,
             created_at=now,
+            identity_verification_status="not_submitted" if is_provider else None,
+            qualification_verification_status="not_submitted" if is_provider else None,
         )
         db.add(user)
         db.flush()
@@ -165,6 +185,27 @@ def resolve_social_login_user(
     db.flush()
 
     return user, is_new_user, True
+
+
+def _social_names(request_data: SocialLoginRequest, identity, email: str):
+    """First, last and display name for a new social account.
+
+    Google puts the names in its token. Apple does not, so the app sends what
+    Apple gave it on first consent. Without either, the email's local part
+    stands in, as the user can edit it later.
+    """
+    first = identity.given_name or request_data.first_name
+    last = identity.family_name or request_data.last_name
+    full = identity.name or request_data.name
+
+    if not first and not last and full:
+        first, _, last = full.partition(" ")
+    if not first:
+        first = email.split("@", maxsplit=1)[0]
+
+    first = first.strip()
+    last = (last or "").strip() or None
+    return first, last, " ".join(part for part in (first, last) if part)
 
 
 @router.post(

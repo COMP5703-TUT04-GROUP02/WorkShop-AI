@@ -67,7 +67,8 @@ REFRESH_TOKEN_EXPIRE_DAYS = get_int_config(
 )
 
 GOOGLE_CLIENT_IDS = get_list_config("WORKSHOP_GOOGLE_CLIENT_IDS", [])
-APPLE_CLIENT_IDS = get_list_config("WORKSHOP_APPLE_CLIENT_IDS", [])
+# The iOS bundle ID from frontend/mobile/app.json is Apple's token audience.
+APPLE_CLIENT_IDS = get_list_config("WORKSHOP_APPLE_CLIENT_IDS", ["com.comp5703.workshopai"])
 GOOGLE_MAPS_API_KEY = get_config("WORKSHOP_GOOGLE_MAPS_API_KEY", "")
 APPLE_TOKEN_ISSUER = get_config(
     "WORKSHOP_APPLE_TOKEN_ISSUER",

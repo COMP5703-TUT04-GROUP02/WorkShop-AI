@@ -24,7 +24,7 @@ This is a working demo, not a production deployment.
 - Cancellation closes the booking without automatically refunding paid fees. Refunds follow Customer request → Provider review → Admin appeal, with at most one successful full/partial refund per booking.
 - Payment APIs cover both payment stages, callback verification, checkout idempotency, Marketplace settlement retry, and refunds. Customer completion confirmation does not charge the card again.
 - Marketplace settlement approval and full/partial refunds are confirmed by iyzico before local terminal states are written. The app does not claim to know when a provider receives money.
-- Google and Apple buttons on the sign-in screen are placeholders until OAuth client IDs are configured.
+- Google sign-in shows on each platform once its OAuth client ID is set; on iOS and Android it needs a development build (`npx expo run:ios`), not Expo Go. Sign in with Apple is iOS only. See [Google and Apple sign-in](#google-and-apple-sign-in).
 - Address autocomplete needs a server-side Google Places API (New) key. The rest of the app runs without it.
 - Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
 - Provider ID verification, Service verification, and Payout account can be submitted independently. New orders require both Admin approvals and an active iyzico payout account; seeded providers' existing bookings remain viewable.
@@ -230,7 +230,7 @@ Copy `.env.example` and adjust as needed. The values most people change first:
 | `LLM_API_KEY` / vendor `*_API_KEY`                         | API key for the selected vendor                                                                                                                           |
 | `LLM_BASE_URL` / `LLM_MODEL`                               | Optional overrides for the provider preset                                                                                                                |
 | `EMBEDDING_*`                                              | Review vectors. Compose defaults to local TEI (`Qwen3-Embedding-0.6B`, 1024). Leave blank in Docker; uncomment the host URL only for a local API process. |
-| `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | OAuth audience checks for `/social-login`                                                                                                                 |
+| `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | Token audiences for `/social-login`: Google OAuth client IDs; Apple defaults to the iOS bundle ID                                                           |
 | `WORKSHOP_GOOGLE_MAPS_API_KEY`                             | Server-only key for the Places API (New) proxy                                                                                                             |
 | `WORKSHOP_EMAIL_BACKEND`                                   | `console` logs verification codes (default); `smtp` mails them                                                                                             |
 | `WORKSHOP_SMTP_USERNAME` / `WORKSHOP_SMTP_PASSWORD`        | Project mailbox `5703.workshop.ai@gmail.com` (default) and its App Password; ask the team for the password, never commit it                                 |
@@ -243,6 +243,27 @@ Copy `.env.example` and adjust as needed. The values most people change first:
 
 
 Vector search uses Milvus plus local TEI embeddings. The recommended Docker stack starts both. A split local API process can skip them and still run bookings and chat. For review search on the host API, start TEI with `docker compose up -d tei` and uncomment the `EMBEDDING_*` host values in `.env`.
+
+## Google and Apple sign-in
+
+The app gets an ID token from Google or Apple and posts it to `/social-login`. The backend checks the signature, audience, nonce and a verified email, then signs in the linked account, links an existing account with that email, or creates one. A new account needs the Terms accepted, so the app asks for them on the sign-up form.
+
+**Apple** (iOS only). The bundle ID is `com.comp5703.workshopai`.
+
+1. In the Apple Developer account, add the bundle ID under Identifiers with **Sign in with Apple** enabled.
+2. Build and run a development build: `cd frontend/mobile && npx expo run:ios`. Pick the team when Xcode asks.
+3. The simulator or device must be signed in to an Apple ID.
+
+Expo Go can test it too, with `WORKSHOP_APPLE_CLIENT_IDS=com.comp5703.workshopai,host.exp.Exponent`.
+
+**Google**
+
+1. In Google Cloud Console, configure the OAuth consent screen and create three OAuth client IDs:
+   - iOS, bundle ID `com.comp5703.workshopai`
+   - Android, package `com.comp5703.workshopai` and the signing key's SHA-1
+   - Web application, with `http://localhost:8081` and `http://localhost:8090` as authorized JavaScript origins and redirect URIs
+2. Put them in `frontend/mobile/.env` as `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, and all three, comma-separated, in the root `.env` as `WORKSHOP_GOOGLE_CLIENT_IDS`.
+3. iOS and Android need a development build (`npx expo run:ios` / `npx expo run:android`); Expo Go cannot receive the redirect. Web works with `npm run web`.
 
 ## Language models
 

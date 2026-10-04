@@ -51,6 +51,27 @@ export type RegisterRequest = {
   name: string;
 };
 
+export type SocialProvider = "google" | "apple";
+
+export type SocialLoginRequest = {
+  provider: SocialProvider;
+  id_token: string;
+  /** The raw nonce; the backend checks it against the one inside the token. */
+  nonce?: string;
+  /** Role and Terms are only read when this sign-in creates the account. */
+  role?: Exclude<UserRole, "admin">;
+  tos_accepted?: boolean;
+  /** Apple gives the name to the app once, on first consent, never in the token. */
+  first_name?: string;
+  last_name?: string;
+};
+
+export type SocialLoginResponse = TokenResponse & {
+  provider: SocialProvider;
+  is_new_user: boolean;
+  linked_social_account: boolean;
+};
+
 export type UserProfilePatchPayload = {
   name?: string;
   first_name?: string;
