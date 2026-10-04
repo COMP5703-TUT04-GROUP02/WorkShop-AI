@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from backend import models
-from backend.auth import get_current_user, get_db, require_provider
+from backend.auth import get_db, require_provider, require_verified_user
 from backend.config import VERIFICATION_UPLOAD_DIR
 from backend.schemas.provider_verification import (
     IdentityDocumentType,
@@ -73,7 +73,7 @@ def _parse_date_of_birth(value: str) -> date:
 def download_verification_file(
     kind: str,
     filename: str,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     if kind not in {"identity", "qualification"} or Path(filename).name != filename:

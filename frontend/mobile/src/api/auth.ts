@@ -110,7 +110,41 @@ export async function uploadCurrentUserAvatar(payload: {
   return unwrapData(response);
 }
 
-/** WS-85. Mock verification: the backend accepts any six digits. */
+export type EmailCodePurpose = "verify_email" | "change_email";
+
+export type SendEmailCodeResult = {
+  sent_to: string;
+  expires_in_seconds: number;
+  resend_after_seconds: number;
+};
+
+/**
+ * Sign-up step one: mails a code to an address that has no account yet.
+ * Fails with 429 while the resend wait runs.
+ */
+export async function sendRegisterEmailCode(email: string) {
+  const response = await apiClient.post<ApiResponse<SendEmailCodeResult>>(
+    "/register/email-code",
+    { email },
+  );
+
+  return unwrapData(response);
+}
+
+/**
+ * Mails a six-digit code. "verify_email" goes to the current address,
+ * "change_email" to `newEmail`. Fails with 429 while the resend wait runs.
+ */
+export async function sendEmailCode(purpose: EmailCodePurpose, newEmail?: string) {
+  const response = await apiClient.post<ApiResponse<SendEmailCodeResult>>(
+    "/auth/email-code",
+    newEmail === undefined ? { purpose } : { purpose, new_email: newEmail },
+  );
+
+  return unwrapData(response);
+}
+
+/** Checks the code mailed by sendEmailCode("verify_email"). */
 export async function verifyEmail(code: string) {
   const response = await apiClient.post<ApiResponse<User>>("/auth/verify-email", {
     code,
@@ -119,7 +153,10 @@ export async function verifyEmail(code: string) {
   return unwrapData(response);
 }
 
-/** WS-85. Fails with a clear message when the profile has no phone number. */
+/**
+ * WS-85. Still a demo: any six digits pass. Fails with a clear message when
+ * the profile has no phone number.
+ */
 export async function verifyPhone(code: string) {
   const response = await apiClient.post<ApiResponse<User>>("/auth/verify-phone", {
     code,
@@ -141,7 +178,7 @@ export async function changePassword(payload: {
   return unwrapData(response);
 }
 
-/** WS-88. Confirmed with the same six-digit demo code as WS-85. */
+/** WS-88. Confirmed with the code mailed by sendEmailCode("change_email"). */
 export async function changeEmail(payload: { newEmail: string; code: string }) {
   const response = await apiClient.post<ApiResponse<User>>("/auth/change-email", {
     new_email: payload.newEmail,

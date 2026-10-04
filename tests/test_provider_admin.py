@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from backend import models
+from tests.conftest import register_email_code
 
 
 def test_public_providers_hide_pending_profiles(client, marketplace):
@@ -149,6 +150,7 @@ def test_customer_provider_detail_favorite_state_is_customer_specific(
             "confirm_password": "Password123",
             "tos_accepted": True,
             "role": "customer",
+            "email_code": register_email_code(client, "second-customer@example.com"),
         },
     )
     assert created.status_code == 200, created.text

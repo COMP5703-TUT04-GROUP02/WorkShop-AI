@@ -2,7 +2,7 @@
 
 import secrets
 
-from fastapi import Depends, File, HTTPException, UploadFile
+from fastapi import Depends, File, HTTPException, Request, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -29,10 +29,14 @@ from backend.schemas import (
     AvatarUploadResponse,
     ChangeEmailRequest,
     ChangePasswordRequest,
+    EmailCodeVerifyRequest,
     MockVerificationRequest,
     OAuthTokenResponse,
     RefreshTokenRequest,
+    RegisterEmailCodeRequest,
     RegisterResponseData,
+    SendEmailCodeRequest,
+    SendEmailCodeResponse,
     SocialLoginRequest,
     SocialLoginResponseData,
     TokenResponse,
@@ -40,6 +44,11 @@ from backend.schemas import (
     UserProfileUpdate,
     UserRegister,
     UserResponse,
+)
+from backend.services.email_verification_service import (
+    EmailCodePurpose,
+    consume_email_code,
+    send_email_code,
 )
 from backend.services.social_auth_service import verify_social_identity
 from backend.utils.formatters import format_user_response
@@ -158,6 +167,32 @@ def resolve_social_login_user(
     return user, is_new_user, True
 
 
+@router.post(
+    "/register/email-code",
+    response_model=ApiResponse[SendEmailCodeResponse],
+)
+def request_register_email_code(
+    request_data: RegisterEmailCodeRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Step one of sign-up: mail a code to prove the address before an account exists."""
+    email = normalize_email(str(request_data.email))
+    if find_user_by_email(db, email):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    requested_ip = request.client.host if request.client else None
+    result = send_email_code(
+        db,
+        None,
+        EmailCodePurpose.register,
+        email,
+        requested_ip=requested_ip,
+    )
+    db.commit()
+    return success_response(result, message="Verification code sent")
+
+
 @router.post("/register", response_model=ApiResponse[RegisterResponseData])
 def register(user: UserRegister, db: Session = Depends(get_db)):
     if user.role == "admin":
@@ -166,15 +201,17 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             detail="Admin accounts cannot be created from public registration",
         )
     validate_password_policy(user.password)
-    existing_user = find_user_by_email(db, user.email)
+    email = normalize_email(user.email)
+    existing_user = find_user_by_email(db, email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+    consume_email_code(db, None, EmailCodePurpose.register, email, user.email_code)
     new_user = models.User(
         name=f"{user.first_name} {user.last_name}",
         first_name=user.first_name,
         last_name=user.last_name,
         tos_accepted_at=get_now(),
-        email=normalize_email(user.email),
+        email=email,
         role=user.role,
         is_active=True,
         is_banned=False,
@@ -187,7 +224,8 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     )
     db.add(new_user)
     db.flush()
-    create_password_identity(new_user, user.password, db)
+    # The mailed code above proved the address, so the account starts verified.
+    create_password_identity(new_user, user.password, db, verified=True)
     db.commit()
     db.refresh(new_user)
     return success_response(
@@ -371,12 +409,49 @@ async def upload_me_avatar(
     )
 
 
-@router.post("/auth/verify-email", response_model=ApiResponse[UserResponse])
-def verify_email(
-    request_data: MockVerificationRequest,
+def ensure_email_available(db: Session, email: str, current_user: models.User):
+    existing_user = find_user_by_email(db, email)
+    if existing_user and existing_user.id != current_user.id:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+
+@router.post("/auth/email-code", response_model=ApiResponse[SendEmailCodeResponse])
+def request_email_code(
+    request_data: SendEmailCodeRequest,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    purpose = EmailCodePurpose(request_data.purpose)
+
+    if purpose == EmailCodePurpose.change_email:
+        email = normalize_email(str(request_data.new_email))
+        if email == normalize_email(current_user.email):
+            raise HTTPException(
+                status_code=400,
+                detail="This is already your sign-in email",
+            )
+        ensure_email_available(db, email, current_user)
+    else:
+        email = normalize_email(current_user.email)
+
+    result = send_email_code(db, current_user, purpose, email)
+    db.commit()
+    return success_response(result, message="Verification code sent")
+
+
+@router.post("/auth/verify-email", response_model=ApiResponse[UserResponse])
+def verify_email(
+    request_data: EmailCodeVerifyRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    consume_email_code(
+        db,
+        current_user,
+        EmailCodePurpose.verify_email,
+        normalize_email(current_user.email),
+        request_data.code,
+    )
     identity = get_password_identity(current_user, db)
     mark_email_verified(current_user, identity)
     db.commit()
@@ -435,16 +510,19 @@ def change_email(
     db: Session = Depends(get_db),
 ):
     new_email = normalize_email(str(request_data.new_email))
+    ensure_email_available(db, new_email, current_user)
+    consume_email_code(
+        db,
+        current_user,
+        EmailCodePurpose.change_email,
+        new_email,
+        request_data.code,
+    )
+
     identity = get_password_identity(current_user, db)
-
-    if new_email != normalize_email(current_user.email):
-        existing_user = find_user_by_email(db, new_email)
-        if existing_user and existing_user.id != current_user.id:
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-        current_user.email = new_email
-        if identity is not None:
-            identity.provider_subject = new_email
+    current_user.email = new_email
+    if identity is not None:
+        identity.provider_subject = new_email
 
     mark_email_verified(current_user, identity)
     db.commit()

@@ -41,6 +41,8 @@ export type RegisterRequest = {
   confirm_password: string;
   tos_accepted: boolean;
   role: Exclude<UserRole, "admin">;
+  /** The code mailed by sendRegisterEmailCode; the account starts verified. */
+  email_code: string;
   /**
    * WS-92. The joined display name, which chat and bookings still read.
    * WS-91 builds it on the server and ignores this field; until that lands,

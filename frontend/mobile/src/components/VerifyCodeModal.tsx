@@ -7,11 +7,15 @@ import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
 
 /**
- * WS-85. The shared demo verification step: any six digits are accepted, which
- * is what the backend enforces too. Used by email and phone verification and by
- * the change-email flow (WS-88), so the wording and the rule live in one place.
+ * WS-85. The shared six-digit verification step, used by email and phone
+ * verification and by the change-email flow (WS-88).
+ *
+ * Email codes are mailed by the backend; pass `onResend` to offer a new one
+ * once the resend wait is over. Phone verification is still a demo.
  */
-export const VERIFY_CODE_HINT = "Enter any 6 digits. Demo only.";
+export const PHONE_CODE_HINT = "Phone verification is a demo: enter any 6 digits.";
+export const EMAIL_CODE_HINT =
+  "Check your inbox and spam folder. The code expires in 10 minutes.";
 
 const SIX_DIGITS = /^\d{6}$/;
 
@@ -21,6 +25,10 @@ type VerifyCodeModalProps = {
   description: string;
   isSubmitting?: boolean;
   errorMessage?: string;
+  hint: string;
+  /** Seconds before "Resend code" unlocks, counted from when the modal opens. */
+  resendAfterSeconds?: number;
+  onResend?: () => Promise<void>;
   onCancel: () => void;
   onSubmit: (code: string) => void;
 };
@@ -31,17 +39,48 @@ export function VerifyCodeModal({
   description,
   isSubmitting = false,
   errorMessage = "",
+  hint,
+  resendAfterSeconds = 0,
+  onResend,
   onCancel,
   onSubmit,
 }: VerifyCodeModalProps) {
   const [code, setCode] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+  const [isResending, setIsResending] = useState(false);
 
-  // Reopening the modal should never show the previous attempt.
+  // Reopening the modal should never show the previous attempt. A code was
+  // just sent, so the resend wait starts again too.
   useEffect(() => {
     if (visible) {
       setCode("");
+      setResendIn(resendAfterSeconds);
     }
-  }, [visible]);
+  }, [visible, resendAfterSeconds]);
+
+  useEffect(() => {
+    if (!visible || resendIn <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setResendIn((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [visible, resendIn]);
+
+  async function handleResend() {
+    if (!onResend) {
+      return;
+    }
+    setIsResending(true);
+    try {
+      await onResend();
+      setCode("");
+      setResendIn(resendAfterSeconds);
+    } catch {
+      // The parent shows the reason through errorMessage.
+    } finally {
+      setIsResending(false);
+    }
+  }
 
   const isComplete = SIX_DIGITS.test(code);
 
@@ -65,7 +104,7 @@ export function VerifyCodeModal({
             placeholder="123456"
             value={code}
           />
-          <Text style={styles.hint}>{VERIFY_CODE_HINT}</Text>
+          <Text style={styles.hint}>{hint}</Text>
 
           {errorMessage ? (
             <Text style={styles.error}>{errorMessage}</Text>
@@ -78,6 +117,19 @@ export function VerifyCodeModal({
               label="Confirm"
               onPress={() => onSubmit(code)}
             />
+            {onResend ? (
+              <SecondaryButton
+                disabled={resendIn > 0 || isResending}
+                label={
+                  isResending
+                    ? "Sending..."
+                    : resendIn > 0
+                      ? `Resend code (${resendIn}s)`
+                      : "Resend code"
+                }
+                onPress={() => void handleResend()}
+              />
+            ) : null}
             <SecondaryButton label="Cancel" onPress={onCancel} />
           </View>
         </View>

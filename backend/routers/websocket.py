@@ -11,7 +11,7 @@ from fastapi import HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 
 from backend import models
-from backend.auth import get_user_from_token
+from backend.auth import ensure_email_verified, get_user_from_token
 from backend.database import SessionLocal
 from backend.schemas import NotificationRelatedType, NotificationType
 from backend.services.redis_service import set_user_offline, set_user_online
@@ -195,7 +195,7 @@ async def chat_websocket(
 
     try:
         try:
-            current_user = get_user_from_token(token, db)
+            current_user = ensure_email_verified(get_user_from_token(token, db))
             chat_room = get_chat_room_or_404(chat_room_id, db)
             ensure_chat_room_member(chat_room, current_user, db)
         except HTTPException as error:
@@ -499,7 +499,7 @@ async def user_websocket(websocket: WebSocket):
 
     try:
         try:
-            current_user = get_user_from_token(token, db)
+            current_user = ensure_email_verified(get_user_from_token(token, db))
         except HTTPException as error:
             await close_websocket_with_error(
                 websocket,

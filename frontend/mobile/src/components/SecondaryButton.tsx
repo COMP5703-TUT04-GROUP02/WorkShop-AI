@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
 
@@ -6,12 +6,14 @@ type SecondaryButtonProps = {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function SecondaryButton({
   label,
   onPress,
   disabled = false,
+  style,
 }: SecondaryButtonProps) {
   return (
     <Pressable
@@ -20,6 +22,7 @@ export function SecondaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        style,
         pressed && !disabled ? styles.buttonPressed : null,
         disabled ? styles.buttonDisabled : null,
       ]}

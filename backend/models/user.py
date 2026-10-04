@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
@@ -116,5 +116,35 @@ class SocialAccount(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
     last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class EmailVerificationCode(Base):
+    """A one-time code mailed to prove control of an address, during
+    registration or for a signed-in user.
+
+    Only a salted hash of the code is stored. A row is spent once it is
+    used, replaced by a newer code, or has run out of attempts.
+    """
+
+    __tablename__ = "email_verification_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # Empty for registration codes, which are sent before the user exists.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    requested_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    code_salt: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
