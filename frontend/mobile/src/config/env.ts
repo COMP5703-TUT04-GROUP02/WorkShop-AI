@@ -45,3 +45,12 @@ export const API_BASE_URL = resolveApiBaseUrl();
 
 export const WS_BASE_URL = resolveWsBaseUrl();
 
+
+// Google OAuth client IDs, one per platform, from Google Cloud Console. The
+// backend accepts tokens for the same IDs (WORKSHOP_GOOGLE_CLIENT_IDS). The
+// Google button only appears on a platform whose ID is set.
+export const GOOGLE_CLIENT_IDS = {
+  ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+  android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+  web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+};

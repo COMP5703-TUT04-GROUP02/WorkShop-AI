@@ -4,6 +4,8 @@ import { apiClient, setSessionTokens } from "./client";
 import type {
   ApiResponse,
   RegisterRequest,
+  SocialLoginRequest,
+  SocialLoginResponse,
   TokenResponse,
   User,
   UserProfilePatchPayload,
@@ -41,6 +43,21 @@ export async function registerUser(payload: RegisterRequest) {
   await apiClient.post("/register", payload);
 
   return loginWithPassword(payload.email, payload.password);
+}
+
+/**
+ * Exchanges a Google or Apple ID token for a session. Fails with 409 when no
+ * account exists yet and the Terms were not accepted.
+ */
+export async function loginWithSocial(payload: SocialLoginRequest) {
+  const response = await apiClient.post<ApiResponse<SocialLoginResponse>>(
+    "/social-login",
+    payload,
+  );
+  const data = unwrapData(response);
+  setSessionTokens(data.access_token, data.refresh_token);
+
+  return data;
 }
 
 export async function refreshAccessToken(refreshToken: string) {
