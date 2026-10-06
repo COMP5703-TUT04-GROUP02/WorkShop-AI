@@ -69,6 +69,8 @@ import {
   shouldShowInitialQuote,
   shouldShowInitialQuoteHistory,
 } from "../../utils/bookingActions";
+import { createLatestRequestGuard } from "../../utils/latestRequest";
+import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
 
 const HIDDEN_ORDER_STATUSES = [
   "completed",
@@ -84,6 +86,7 @@ export function CustomerBookingsScreen() {
     NativeStackNavigationProp<RootStackParamList>
   >();
   const { confirmationModal, requestConfirmation } = useConfirmation();
+  const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
     Record<number, PaymentSummary>
@@ -183,12 +186,16 @@ export function CustomerBookingsScreen() {
     }, [loadBookings]),
   );
 
+  useEffect(
+    () => () => openBookingRequestGuard.invalidate(),
+    [openBookingRequestGuard],
+  );
+
   async function openBooking(booking: BookingDetail) {
-    try {
-      setSelectedBooking((await getBookingById(booking.id)) ?? booking);
-    } catch {
-      setSelectedBooking(booking);
-    }
+    const requestGeneration = openBookingRequestGuard.begin();
+    const detail = await resolveBookingReferenceDetail(booking, getBookingById);
+    if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
+    setSelectedBooking(detail);
     setRejectReason("");
     setRefundReason("");
     setRefundAmount("");
@@ -206,6 +213,7 @@ export function CustomerBookingsScreen() {
   }
 
   function closeBooking() {
+    openBookingRequestGuard.invalidate();
     setSelectedBooking(null);
     setRejectReason("");
     setRefundReason("");
@@ -215,8 +223,11 @@ export function CustomerBookingsScreen() {
     setReasonAction(null);
   }
 
-  function openReasonDialog(booking: BookingDetail, action: ReasonAction) {
-    setSelectedBooking(booking);
+  async function openReasonDialog(booking: BookingDetail, action: ReasonAction) {
+    const requestGeneration = openBookingRequestGuard.begin();
+    const detail = await resolveBookingReferenceDetail(booking, getBookingById);
+    if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
+    setSelectedBooking(detail);
     setReasonAction(action);
     setActionError("");
   }
@@ -264,7 +275,9 @@ export function CustomerBookingsScreen() {
     try {
       const result = await action();
       if (result?.booking) {
-        updateSelectedBooking(result.booking);
+        updateSelectedBooking(
+          await resolveBookingReferenceDetail(result.booking, getBookingById),
+        );
       }
       await loadBookings();
       Alert.alert("Success", successMessage);
@@ -337,7 +350,9 @@ export function CustomerBookingsScreen() {
       );
       const payment = result?.payment;
       if (result?.booking) {
-        updateSelectedBooking(result.booking);
+        updateSelectedBooking(
+          await resolveBookingReferenceDetail(result.booking, getBookingById),
+        );
       }
       if (payment) {
         setPaymentsByBookingId((current) => ({
@@ -476,7 +491,12 @@ export function CustomerBookingsScreen() {
     try {
       const result = await confirmCustomerBookingComplete(booking.id);
       if (result?.payment_page_url) {
-        updateSelectedBooking(result.booking ?? booking);
+        updateSelectedBooking(
+          await resolveBookingReferenceDetail(
+            result.booking ?? booking,
+            getBookingById,
+          ),
+        );
         await Linking.openURL(result.payment_page_url);
         setMessage("The final quote changed. Complete the new authorization, then confirm again.");
         await loadBookings();
@@ -580,9 +600,9 @@ export function CustomerBookingsScreen() {
         onConfirmComplete={() => selectedBooking && void handleConfirmComplete(selectedBooking)}
         onPay={() => selectedBooking && void handlePayBooking(selectedBooking)}
         onOpenProvider={openProvider}
-        onRejectQuote={() => selectedBooking && openReasonDialog(selectedBooking, "decline_quote")}
-        onRejectFinalQuote={() => selectedBooking && openReasonDialog(selectedBooking, "decline_final_quote")}
-        onRequestRefund={() => selectedBooking && openReasonDialog(selectedBooking, "refund")}
+        onRejectQuote={() => selectedBooking && void openReasonDialog(selectedBooking, "decline_quote")}
+        onRejectFinalQuote={() => selectedBooking && void openReasonDialog(selectedBooking, "decline_final_quote")}
+        onRequestRefund={() => selectedBooking && void openReasonDialog(selectedBooking, "refund")}
         refundAppealReason={refundAppealReason}
         refundAmount={refundAmount}
         refundReason={refundReason}

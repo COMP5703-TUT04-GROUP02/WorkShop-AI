@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const {
   buildReferencePricePresentation,
+  resolveBookingReferenceDetail,
   shouldShowCustomerReferencePrice,
 } = require("../../../.test-build/utils/referencePrice.js");
 
@@ -57,8 +58,31 @@ test("presentation never returns input or validation behavior", () => {
   assert.equal("validation" in presentation, false);
 });
 
-test("customer reference is limited to visible initial and final quotes", () => {
-  assert.equal(shouldShowCustomerReferencePrice("quoted"), true);
-  assert.equal(shouldShowCustomerReferencePrice("final_quote_sent"), true);
-  assert.equal(shouldShowCustomerReferencePrice("pending"), false);
+test("customer reference follows visible quote data rather than status alone", () => {
+  assert.equal(shouldShowCustomerReferencePrice({ status: "quoted", quote_amount: 1000 }), true);
+  assert.equal(shouldShowCustomerReferencePrice({ status: "final_quote_sent", final_quote_amount: 1200 }), true);
+  assert.equal(shouldShowCustomerReferencePrice({ status: "refunding", quote_amount: 1000 }), true);
+  assert.equal(shouldShowCustomerReferencePrice({ status: "pending", last_declined_quote: { quote_amount: 1000 } }), true);
+  assert.equal(shouldShowCustomerReferencePrice({ status: "pending" }), false);
+});
+
+test("action responses are refreshed from the shared detail endpoint", async () => {
+  const actionBooking = { id: 12, status: "quoted" };
+  const detailBooking = { ...actionBooking, reference_price_range: history };
+  const resolved = await resolveBookingReferenceDetail(
+    actionBooking,
+    async (bookingId) => {
+      assert.equal(bookingId, 12);
+      return detailBooking;
+    },
+  );
+  assert.equal(resolved, detailBooking);
+});
+
+test("detail refresh failure preserves the available booking", async () => {
+  const actionBooking = { id: 12, status: "quoted" };
+  const resolved = await resolveBookingReferenceDetail(actionBooking, async () => {
+    throw new Error("offline");
+  });
+  assert.equal(resolved, actionBooking);
 });

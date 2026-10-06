@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +43,8 @@ import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
 import { indexLatestPayments } from "../../utils/payment";
+import { createLatestRequestGuard } from "../../utils/latestRequest";
+import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
 import {
   shouldShowFinalQuote,
   shouldShowInitialQuote,
@@ -60,6 +62,7 @@ const HIDDEN_ORDER_STATUSES = [
 type ProviderReasonAction = "reject_booking" | "reject_refund";
 
 export function ProviderBookingsScreen() {
+  const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
     Record<number, PaymentHistoryEntry>
@@ -136,13 +139,15 @@ export function ProviderBookingsScreen() {
     }, [loadBookings]),
   );
 
+  useEffect(
+    () => () => openBookingRequestGuard.invalidate(),
+    [openBookingRequestGuard],
+  );
+
   async function openBooking(booking: BookingDetail) {
-    let detail = booking;
-    try {
-      detail = (await getBookingById(booking.id)) ?? booking;
-    } catch {
-      // Preserve the existing list-detail experience if the detail refresh fails.
-    }
+    const requestGeneration = openBookingRequestGuard.begin();
+    const detail = await resolveBookingReferenceDetail(booking, getBookingById);
+    if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
 
     setSelectedBooking(detail);
     setSelectedPayment(paymentsByBookingId[booking.id] ?? null);
@@ -180,6 +185,7 @@ export function ProviderBookingsScreen() {
   }
 
   function closeBooking() {
+    openBookingRequestGuard.invalidate();
     setSelectedBooking(null);
     setSelectedPayment(null);
     setQuoteAmount("");

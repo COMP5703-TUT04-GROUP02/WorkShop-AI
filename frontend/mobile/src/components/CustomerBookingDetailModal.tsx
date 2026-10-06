@@ -127,7 +127,7 @@ export function CustomerBookingDetailModal({
               <BookingCoreDetails booking={booking} includeLifecycleDates={includeLifecycleDates} onOpenProvider={onOpenProvider} role="customer" />
               <BookingAttachments booking={booking} />
               <BookingPriceBreakdown booking={booking} showFinalQuote={shouldShowFinalQuote(booking)} showInitialQuote={shouldShowInitialQuote(booking)} showPreviousDeclined={shouldShowInitialQuoteHistory(booking)} />
-              {shouldShowCustomerReferencePrice(booking.status) ? (
+              {shouldShowCustomerReferencePrice(booking) ? (
                 <ReferencePriceRange audience="customer" range={booking.reference_price_range} />
               ) : null}
               <BookingContextInformation booking={booking} />

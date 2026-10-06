@@ -95,6 +95,7 @@ import { getErrorMessage } from "../utils/errors";
 import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
 import { useConfirmation } from "../utils/useConfirmation";
+import { resolveBookingReferenceDetail } from "../utils/referencePrice";
 import {
   createPaymentIdempotencyKey,
   shouldRotatePaymentIdempotencyKey,
@@ -718,7 +719,12 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     try {
       const result = await acceptCustomerBookingQuote(selectedBooking.id);
       const chatMessage = result?.chat_message;
-      setSelectedBooking(result?.booking ?? await getBookingById(selectedBooking.id));
+      setSelectedBooking(
+        await resolveBookingReferenceDetail(
+          result?.booking ?? selectedBooking,
+          getBookingById,
+        ),
+      );
       if (chatMessage) {
         setMessages((currentMessages) => [...currentMessages, chatMessage]);
       } else {
@@ -764,7 +770,12 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setBookingActionError("");
     try {
       const result = await acceptCustomerFinalQuote(selectedBooking.id);
-      setSelectedBooking(result?.booking ?? await getBookingById(selectedBooking.id));
+      setSelectedBooking(
+        await resolveBookingReferenceDetail(
+          result?.booking ?? selectedBooking,
+          getBookingById,
+        ),
+      );
       await loadMessages();
     } catch (error) {
       const errorMessage = getErrorMessage(error);

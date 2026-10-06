@@ -1,21 +1,6 @@
-import type { ReferencePriceRange } from "../types/booking";
+import type { BookingDetail, ReferencePriceRange } from "../types/booking";
 
 export type ReferencePriceAudience = "provider" | "customer";
-
-const CUSTOMER_QUOTE_VISIBLE_STATUSES = new Set([
-  "quoted",
-  "awaiting_payment",
-  "awaiting_visit_payment",
-  "visit_paid",
-  "provider_arrived",
-  "awaiting_final_quote",
-  "final_quote_sent",
-  "awaiting_service_payment",
-  "service_paid",
-  "accepted",
-  "awaiting_confirmation",
-  "completed",
-]);
 
 const wholeNumberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
@@ -48,6 +33,35 @@ export function buildReferencePricePresentation(
   };
 }
 
-export function shouldShowCustomerReferencePrice(status: string) {
-  return CUSTOMER_QUOTE_VISIBLE_STATUSES.has(status);
+export function shouldShowCustomerReferencePrice(
+  booking: Pick<
+    BookingDetail,
+    | "status"
+    | "quote_amount"
+    | "expected_service_amount"
+    | "visit_fee_amount"
+    | "final_quote_amount"
+    | "last_declined_quote"
+    | "last_declined_final_quote"
+  >,
+) {
+  return Boolean(
+    booking.quote_amount != null ||
+      booking.expected_service_amount != null ||
+      booking.visit_fee_amount != null ||
+      booking.final_quote_amount != null ||
+      booking.last_declined_quote != null ||
+      booking.last_declined_final_quote != null,
+  );
+}
+
+export async function resolveBookingReferenceDetail<T extends { id: number }>(
+  booking: T,
+  loadDetail: (bookingId: number) => Promise<T | null | undefined>,
+) {
+  try {
+    return (await loadDetail(booking.id)) ?? booking;
+  } catch {
+    return booking;
+  }
 }
