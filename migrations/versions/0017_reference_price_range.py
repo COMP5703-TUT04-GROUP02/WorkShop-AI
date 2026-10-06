@@ -11,14 +11,38 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("bookings") as batch:
-        batch.add_column(sa.Column("service_category", sa.String(64), nullable=True))
-        batch.create_index(
-            "ix_bookings_service_category", ["service_category"], unique=False
-        )
+    bind = op.get_bind()
+    columns = {
+        column["name"] for column in sa.inspect(bind).get_columns("bookings")
+    }
+    if "service_category" not in columns:
+        with op.batch_alter_table("bookings") as batch:
+            batch.add_column(
+                sa.Column("service_category", sa.String(64), nullable=True)
+            )
+
+    indexes = {
+        index["name"] for index in sa.inspect(bind).get_indexes("bookings")
+    }
+    if "ix_bookings_service_category" not in indexes:
+        with op.batch_alter_table("bookings") as batch:
+            batch.create_index(
+                "ix_bookings_service_category", ["service_category"], unique=False
+            )
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("bookings") as batch:
-        batch.drop_index("ix_bookings_service_category")
-        batch.drop_column("service_category")
+    bind = op.get_bind()
+    indexes = {
+        index["name"] for index in sa.inspect(bind).get_indexes("bookings")
+    }
+    if "ix_bookings_service_category" in indexes:
+        with op.batch_alter_table("bookings") as batch:
+            batch.drop_index("ix_bookings_service_category")
+
+    columns = {
+        column["name"] for column in sa.inspect(bind).get_columns("bookings")
+    }
+    if "service_category" in columns:
+        with op.batch_alter_table("bookings") as batch:
+            batch.drop_column("service_category")
