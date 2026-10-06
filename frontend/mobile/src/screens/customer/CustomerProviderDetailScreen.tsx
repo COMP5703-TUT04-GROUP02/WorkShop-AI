@@ -236,7 +236,7 @@ export function CustomerProviderDetailScreen({
       : null;
 
     if (!provider || !payload) {
-      setBookingError("Enter a title (maximum 30 words), description, address, and schedule.");
+      setBookingError("Select a service and enter a title (maximum 30 words), description, address, and schedule.");
       return;
     }
 
@@ -418,6 +418,7 @@ export function CustomerProviderDetailScreen({
         isLoading={isSubmittingBooking}
         onClose={() => setIsBookingModalVisible(false)}
         onSubmit={() => void handleCreateBooking()}
+        serviceCategories={detail?.provider.tags ?? []}
         setBookingForm={setBookingForm}
         visible={isBookingModalVisible}
       />

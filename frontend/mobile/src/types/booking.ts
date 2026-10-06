@@ -33,6 +33,7 @@ export type BookingDetail = {
   provider_profile_id: number;
   chat_room_id: number | null;
   title: string;
+  service_category: string | null;
   service_description: string;
   service_address: string;
   service_latitude: number;
@@ -224,6 +225,7 @@ export type PaymentHistoryEntry = PaymentSummary & {
 export type BookingPayload = {
   provider_profile_id?: number;
   chat_room_id?: number | null;
+  service_category: string;
   title: string;
   service_description: string;
   service_address: string;

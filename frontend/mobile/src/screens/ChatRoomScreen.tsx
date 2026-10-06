@@ -43,6 +43,7 @@ import {
   confirmCustomerBookingComplete,
   createCustomerReview,
   createCustomerBooking,
+  getCustomerProviderDetail,
   getCustomerPayments,
   payCustomerBooking,
   rejectCustomerBookingQuote,
@@ -89,6 +90,7 @@ import type {
   PaymentSummary,
 } from "../types/booking";
 import type { ChatMessage } from "../types/chat";
+import type { ProviderProfile } from "../types/provider";
 import { getErrorMessage } from "../utils/errors";
 import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
@@ -178,6 +180,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   );
   const [createBookingError, setCreateBookingError] = useState("");
   const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+  const [bookingProvider, setBookingProvider] = useState<ProviderProfile | null>(null);
 
   function confirmReasonAction() {
     if (!selectedBooking || !reasonAction) {
@@ -223,6 +226,26 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
   const canCreateBooking =
     user?.role === "customer" && Boolean(route.params.providerProfileId);
+
+  useEffect(() => {
+    if (!canCreateBooking || !route.params.providerProfileId) {
+      setBookingProvider(null);
+      return;
+    }
+
+    let isActive = true;
+    void getCustomerProviderDetail(route.params.providerProfileId)
+      .then((detail) => {
+        if (isActive) setBookingProvider(detail?.provider ?? null);
+      })
+      .catch(() => {
+        if (isActive) setBookingProvider(null);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [canCreateBooking, route.params.providerProfileId]);
   const displayMessages = useMemo(
     () => collapseBookingMessages(messages),
     [messages],
@@ -333,7 +356,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
             accessibilityRole="button"
             disabled={isCreatingBooking}
             onPress={() => {
-              setCreateBookingForm(createDefaultBookingRequestForm());
+              setCreateBookingForm(createDefaultBookingRequestForm(bookingProvider));
               setCreateBookingError("");
               setIsCreateBookingModalVisible(true);
             }}
@@ -346,6 +369,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     });
   }, [
     canCreateBooking,
+    bookingProvider,
     isCreatingBooking,
     navigation,
     opponentOnline,
@@ -1262,12 +1286,13 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     }
 
     const payload = buildBookingRequestPayload({
+      provider: bookingProvider,
       providerProfileId: route.params.providerProfileId,
       chatRoomId: route.params.chatRoomId,
       form: createBookingForm,
     });
     if (!payload) {
-      setCreateBookingError("Enter a title (maximum 30 words), description, address, and schedule.");
+      setCreateBookingError("Select a service and enter a title (maximum 30 words), description, address, and schedule.");
       return;
     }
 
@@ -1532,6 +1557,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         isLoading={isCreatingBooking}
         onClose={() => setIsCreateBookingModalVisible(false)}
         onSubmit={() => void handleCreateBookingFromChat()}
+        serviceCategories={bookingProvider?.tags ?? []}
         setBookingForm={setCreateBookingForm}
         visible={isCreateBookingModalVisible}
       />
@@ -1843,6 +1869,7 @@ function createBookingFormFromDetail(
 ): BookingRequestFormState {
   return {
     title: booking.title,
+    serviceCategory: booking.service_category ?? "",
     serviceDescription: booking.service_description,
     serviceAddress: booking.service_address,
     scheduledStartTime: toEditableDateTime(booking.scheduled_start_time),
@@ -1867,6 +1894,7 @@ function buildUpdatePayload(
   }
 
   return {
+    service_category: booking.service_category ?? "",
     title: form.title.trim(),
     service_description: form.serviceDescription.trim(),
     service_address: form.serviceAddress.trim(),
