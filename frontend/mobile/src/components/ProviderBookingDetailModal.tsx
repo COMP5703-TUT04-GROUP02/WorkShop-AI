@@ -8,6 +8,7 @@ import { BookingPriceBreakdown } from "./BookingPriceBreakdown";
 import { MarketplaceBreakdownCard } from "./MarketplaceBreakdownCard";
 import { PrimaryButton } from "./PrimaryButton";
 import { QuoteAttachmentPicker } from "./QuoteAttachmentPicker";
+import { ReferencePriceRange } from "./ReferencePriceRange";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
 import { getBookingStatusLabel, getPaymentStatusLabel, getRefundStatusLabel } from "../constants/labels";
@@ -134,6 +135,7 @@ export function ProviderBookingDetailModal({
 
             {canRespond ? (
               <>
+                <ReferencePriceRange audience="provider" range={booking.reference_price_range} />
                 <TextField error={quoteAmountError} keyboardType="decimal-pad" label="Expected service amount" onChangeText={setQuoteAmount} placeholder="Expected work amount" value={quoteAmount} />
                 <TextField error={visitFeeError} keyboardType="decimal-pad" label="Visit fee" onChangeText={setVisitFeeAmount} placeholder="Amount paid before the visit" value={visitFeeAmount} />
                 <MarketplaceBreakdownCard amount={Number(quoteAmount) + Number(visitFeeAmount)} serviceAmount={quoteAmount} title="Provider income estimate" visitFeeAmount={visitFeeAmount} />
@@ -146,6 +148,7 @@ export function ProviderBookingDetailModal({
 
             {canSubmitFinalQuote ? (
               <>
+                <ReferencePriceRange audience="provider" range={booking.reference_price_range} />
                 <TextField keyboardType="decimal-pad" label="Final quote amount" onChangeText={setFinalQuoteAmount} placeholder="Enter the final amount" value={finalQuoteAmount} />
                 <MarketplaceBreakdownCard
                   amount={finalQuoteAmount.trim() ? Number(finalQuoteAmount) + Number(booking.visit_fee_amount ?? 0) : null}

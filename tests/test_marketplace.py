@@ -187,6 +187,7 @@ def test_incomplete_provider_remains_recommendable_but_not_bookable(client, mark
         "/bookings",
         data={
             "provider_profile_id": str(provider_profile_id),
+            "service_category": "plumbing",
             "title": "Booking request",
             "service_description": "Kitchen pipe leak, needs on-site repair",
             "service_address": "Sultanahmet, Istanbul",

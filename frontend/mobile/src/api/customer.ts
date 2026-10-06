@@ -150,6 +150,7 @@ export async function createCustomerBooking(payload: BookingPayload) {
     formData.append("chat_room_id", String(payload.chat_room_id));
   }
   formData.append("title", payload.title);
+  formData.append("service_category", payload.service_category);
   formData.append("service_description", payload.service_description);
   formData.append("service_address", payload.service_address);
   formData.append("service_latitude", String(payload.service_latitude));

@@ -27,6 +27,14 @@ def _provider(db_session, client):
         qualification_verification_status="approved",
     )
     db_session.add(profile)
+    db_session.flush()
+    db_session.add(
+        models.ProviderApprovedService(
+            provider_profile_id=profile.id,
+            service_category="plumbing",
+            is_enabled=True,
+        )
+    )
     db_session.commit()
     db_session.refresh(profile)
     db_session.add(
@@ -100,6 +108,7 @@ def _stub_booking_side_effects(monkeypatch):
 def _form(provider_id, title):
     return {
         "provider_profile_id": str(provider_id),
+        "service_category": "plumbing",
         "title": title,
         "service_description": "Repair",
         "service_address": "Address",

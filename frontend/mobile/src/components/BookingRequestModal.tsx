@@ -1,11 +1,16 @@
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { getProviderTagLabel } from "../constants/providerTags";
 import { colors, spacing } from "../theme/theme";
 import type { BookingPayload, BookingUploadFile } from "../types/booking";
 import type { ProviderProfile } from "../types/provider";
 import { formatDateTimeInput } from "../utils/datetime";
+import {
+  getDefaultServiceCategory,
+  isCanonicalServiceSelection,
+} from "../utils/bookingService";
 import { DateTimeField } from "./DateTimeField";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
@@ -13,6 +18,7 @@ import { TextField } from "./TextField";
 
 export type BookingRequestFormState = {
   title: string;
+  serviceCategory: string;
   serviceDescription: string;
   serviceAddress: string;
   scheduledStartTime: string;
@@ -25,6 +31,7 @@ type BookingRequestModalProps = {
   bookingForm: BookingRequestFormState;
   errorMessage: string;
   isLoading: boolean;
+  serviceCategories: string[];
   onClose: () => void;
   onSubmit: () => void;
   setBookingForm: (value: BookingRequestFormState) => void;
@@ -40,6 +47,7 @@ export function BookingRequestModal({
   bookingForm,
   errorMessage,
   isLoading,
+  serviceCategories,
   onClose,
   onSubmit,
   setBookingForm,
@@ -116,6 +124,26 @@ export function BookingRequestModal({
               value={bookingForm.title}
             />
             <Text style={styles.hint}>Maximum 30 words.</Text>
+            <View style={styles.serviceField}>
+              <Text style={styles.serviceLabel}>Service</Text>
+              <View style={styles.serviceOptions}>
+                {serviceCategories.map((category) => {
+                  const selected = bookingForm.serviceCategory === category;
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      key={category}
+                      onPress={() => updateFormField("serviceCategory", category)}
+                      style={[styles.serviceOption, selected ? styles.serviceOptionSelected : null]}
+                    >
+                      <Text style={[styles.serviceOptionText, selected ? styles.serviceOptionTextSelected : null]}>
+                        {getProviderTagLabel(category)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
             <TextField
               label="Service description"
               multiline
@@ -190,6 +218,7 @@ export function createDefaultBookingRequestForm(
 
   return {
     title: "",
+    serviceCategory: getDefaultServiceCategory(provider?.tags ?? []),
     serviceDescription: "",
     serviceAddress: provider?.address || "Istanbul",
     scheduledStartTime: formatDateTimeInput(start),
@@ -215,7 +244,8 @@ export function buildBookingRequestPayload({
     !form.serviceDescription.trim() ||
     !form.serviceAddress.trim() ||
     !form.scheduledStartTime.trim() ||
-    !form.scheduledEndTime.trim()
+    !form.scheduledEndTime.trim() ||
+    !isCanonicalServiceSelection(form.serviceCategory, provider?.tags ?? [])
   ) {
     return null;
   }
@@ -223,6 +253,7 @@ export function buildBookingRequestPayload({
   return {
     provider_profile_id: providerProfileId,
     chat_room_id: chatRoomId ?? null,
+    service_category: form.serviceCategory,
     title: form.title.trim(),
     service_description: form.serviceDescription.trim(),
     service_address: form.serviceAddress.trim(),
@@ -268,6 +299,38 @@ const styles = StyleSheet.create({
   hint: {
     color: colors.mutedText,
     fontSize: 12,
+  },
+  serviceField: {
+    gap: spacing.sm,
+  },
+  serviceLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  serviceOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  serviceOption: {
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  serviceOptionSelected: {
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
+  },
+  serviceOptionText: {
+    color: colors.mutedText,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  serviceOptionTextSelected: {
+    color: colors.primary,
   },
   attachmentBox: {
     gap: spacing.sm,

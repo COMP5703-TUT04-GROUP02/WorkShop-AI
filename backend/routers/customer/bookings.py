@@ -101,6 +101,7 @@ router = ApiRouter(tags=["Customer"])
 @router.post("/bookings", response_model=ApiResponse[BookingCreateResponseData])
 async def create_booking(
     provider_profile_id: int = Form(...),
+    service_category: str = Form(...),
     title: str = Form(...),
     service_description: str = Form(...),
     service_address: str = Form(...),
@@ -121,6 +122,7 @@ async def create_booking(
             provider_profile_id=provider_profile_id,
             chat_room_id=chat_room_id,
             title=title,
+            service_category=service_category,
             service_description=service_description,
             service_address=service_address,
             service_latitude=service_latitude,
@@ -579,5 +581,4 @@ async def reject_booking_complete(
             db,
         )
     )
-
 

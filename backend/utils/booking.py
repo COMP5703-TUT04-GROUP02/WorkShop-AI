@@ -360,8 +360,18 @@ def get_booking_last_declined_final_quote(booking: models.Booking, db: Session):
     }
 
 
-def format_booking_detail_response(booking: models.Booking, db: Session):
+def format_booking_detail_response(
+    booking: models.Booking,
+    db: Session,
+    *,
+    include_reference_price_range: bool = False,
+):
     result = format_booking_response(booking)
+
+    if include_reference_price_range:
+        from backend.utils.reference_price import calculate_reference_price_range
+
+        result["reference_price_range"] = calculate_reference_price_range(booking, db)
 
     customer = (
         db.query(models.User).filter(models.User.id == booking.customer_id).first()

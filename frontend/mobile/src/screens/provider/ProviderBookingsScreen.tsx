@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,7 @@ import {
   rejectProviderRefundRequest,
   rejectProviderBooking,
 } from "../../api/provider";
+import { getBookingById } from "../../api/chat";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownCard";
 import { ProviderBookingDetailModal as SharedProviderBookingDetailModal } from "../../components/ProviderBookingDetailModal";
@@ -42,6 +43,8 @@ import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
 import { indexLatestPayments } from "../../utils/payment";
+import { createLatestRequestGuard } from "../../utils/latestRequest";
+import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
 import {
   shouldShowFinalQuote,
   shouldShowInitialQuote,
@@ -59,6 +62,7 @@ const HIDDEN_ORDER_STATUSES = [
 type ProviderReasonAction = "reject_booking" | "reject_refund";
 
 export function ProviderBookingsScreen() {
+  const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
     Record<number, PaymentHistoryEntry>
@@ -135,36 +139,45 @@ export function ProviderBookingsScreen() {
     }, [loadBookings]),
   );
 
-  function openBooking(booking: BookingDetail) {
-    setSelectedBooking(booking);
+  useEffect(
+    () => () => openBookingRequestGuard.invalidate(),
+    [openBookingRequestGuard],
+  );
+
+  async function openBooking(booking: BookingDetail) {
+    const requestGeneration = openBookingRequestGuard.begin();
+    const detail = await resolveBookingReferenceDetail(booking, getBookingById);
+    if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
+
+    setSelectedBooking(detail);
     setSelectedPayment(paymentsByBookingId[booking.id] ?? null);
     setQuoteAmount(
-      booking.expected_service_amount == null
-        ? booking.quote_amount == null
+      detail.expected_service_amount == null
+        ? detail.quote_amount == null
           ? ""
-          : String(booking.quote_amount)
-        : String(booking.expected_service_amount),
+          : String(detail.quote_amount)
+        : String(detail.expected_service_amount),
     );
     setVisitFeeAmount(
-      booking.visit_fee_amount == null ? "" : String(booking.visit_fee_amount),
+      detail.visit_fee_amount == null ? "" : String(detail.visit_fee_amount),
     );
-    setQuoteMessage(booking.quote_message || "");
+    setQuoteMessage(detail.quote_message || "");
     setQuoteFiles([]);
     setQuoteFilesError("");
     setRejectReason("");
     setRefundRejectReason("");
     setProofAssets([]);
     setFinalQuoteAmount(
-      booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
+      detail.status === "awaiting_final_quote" && detail.final_quote_declined_at
         ? ""
-        : booking.final_quote_amount == null
+        : detail.final_quote_amount == null
           ? ""
-          : String(booking.final_quote_amount),
+          : String(detail.final_quote_amount),
     );
     setFinalQuoteMessage(
-      booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
+      detail.status === "awaiting_final_quote" && detail.final_quote_declined_at
         ? ""
-        : booking.final_quote_message || "",
+        : detail.final_quote_message || "",
     );
     setActionError("");
     setQuoteAmountError("");
@@ -172,6 +185,7 @@ export function ProviderBookingsScreen() {
   }
 
   function closeBooking() {
+    openBookingRequestGuard.invalidate();
     setSelectedBooking(null);
     setSelectedPayment(null);
     setQuoteAmount("");

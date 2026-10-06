@@ -420,13 +420,21 @@ def get_booking_by_id(
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     if current_user.role == "admin":
-        return success_response(format_booking_detail_response(booking, db))
+        return success_response(
+            format_booking_detail_response(
+                booking, db, include_reference_price_range=True
+            )
+        )
     if current_user.role == "customer":
         if booking.customer_id != current_user.id:
             raise HTTPException(
                 status_code=403, detail="You can only view your own bookings"
             )
-        return success_response(format_booking_detail_response(booking, db))
+        return success_response(
+            format_booking_detail_response(
+                booking, db, include_reference_price_range=True
+            )
+        )
     if current_user.role == "provider":
         provider_profile = get_provider_profile_for_user(current_user.id, db)
         if booking.provider_profile_id != provider_profile.id:
@@ -434,7 +442,11 @@ def get_booking_by_id(
                 status_code=403,
                 detail="You can only view bookings for your provider profile",
             )
-        return success_response(format_booking_detail_response(booking, db))
+        return success_response(
+            format_booking_detail_response(
+                booking, db, include_reference_price_range=True
+            )
+        )
     raise HTTPException(
         status_code=403, detail="You do not have permission to view this booking"
     )
