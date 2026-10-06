@@ -41,6 +41,7 @@ class BookingCreate(BaseModel):
     provider_profile_id: int
     chat_room_id: int | None = None
     title: str
+    service_category: str
     service_description: str
     service_address: str
     service_latitude: float = Field(ge=-90, le=90)
@@ -69,7 +70,7 @@ class BookingCreate(BaseModel):
         }
     }
 
-    @field_validator("service_description", "service_address")
+    @field_validator("service_category", "service_description", "service_address")
     @classmethod
     def validate_text_not_empty(cls, value):
         if not value.strip():
@@ -181,6 +182,7 @@ class BookingBaseResponse(BaseModel):
     provider_profile_id: int
     chat_room_id: int | None = None
     title: str
+    service_category: str | None = None
     service_description: str
     service_address: str
     service_latitude: float
@@ -348,4 +350,3 @@ class BookingUpdateResponseData(BaseModel):
     message: str
     booking: BookingDetailResponse
     chat_message: ChatMessageResponse | None = None
-

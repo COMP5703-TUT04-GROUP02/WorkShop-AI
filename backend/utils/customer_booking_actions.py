@@ -91,6 +91,22 @@ async def create_customer_booking_action(
         raise HTTPException(status_code=404, detail="Provider profile not found")
     require_provider_can_accept_orders(provider_profile, db)
 
+    enabled_service = (
+        db.query(models.ProviderApprovedService)
+        .filter(
+            models.ProviderApprovedService.provider_profile_id == provider_profile.id,
+            models.ProviderApprovedService.service_category
+            == booking_data.service_category,
+            models.ProviderApprovedService.is_enabled.is_(True),
+        )
+        .first()
+    )
+    if enabled_service is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Selected service is not enabled for this provider",
+        )
+
     ensure_provider_available_for_datetime_range(
         provider_profile.id,
         scheduled_start_time,
@@ -130,6 +146,7 @@ async def create_customer_booking_action(
             provider_profile_id=booking_data.provider_profile_id,
             chat_room_id=chat_room.id,
             title=booking_data.title,
+            service_category=booking_data.service_category,
             service_description=booking_data.service_description,
             service_address=booking_data.service_address,
             service_latitude=booking_data.service_latitude,

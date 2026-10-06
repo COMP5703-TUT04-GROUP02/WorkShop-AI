@@ -535,6 +535,7 @@ def test_unapproved_provider_cannot_be_booked(client):
         "/bookings",
         data={
             "provider_profile_id": str(profile["id"]),
+            "service_category": "plumbing",
             "title": "Tap repair",
             "service_description": "Tap repair",
             "service_address": "Kadikoy, Istanbul",

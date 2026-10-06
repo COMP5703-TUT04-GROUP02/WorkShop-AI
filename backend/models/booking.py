@@ -93,6 +93,9 @@ class Booking(Base):
         ForeignKey("chat_rooms.id", ondelete="SET NULL"), index=True, nullable=True
     )
     title: Mapped[str] = mapped_column(Text, nullable=False, default="Booking")
+    service_category: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
     service_description: Mapped[str] = mapped_column(Text, nullable=False)
     service_address: Mapped[str] = mapped_column(String(512), nullable=False)
     service_latitude: Mapped[float] = mapped_column(Float, nullable=False)
