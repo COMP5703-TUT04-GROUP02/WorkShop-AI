@@ -23,6 +23,7 @@ import {
   rejectProviderRefundRequest,
   rejectProviderBooking,
 } from "../../api/provider";
+import { getBookingById } from "../../api/chat";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownCard";
 import { ProviderBookingDetailModal as SharedProviderBookingDetailModal } from "../../components/ProviderBookingDetailModal";
@@ -135,36 +136,43 @@ export function ProviderBookingsScreen() {
     }, [loadBookings]),
   );
 
-  function openBooking(booking: BookingDetail) {
-    setSelectedBooking(booking);
+  async function openBooking(booking: BookingDetail) {
+    let detail = booking;
+    try {
+      detail = (await getBookingById(booking.id)) ?? booking;
+    } catch {
+      // Preserve the existing list-detail experience if the detail refresh fails.
+    }
+
+    setSelectedBooking(detail);
     setSelectedPayment(paymentsByBookingId[booking.id] ?? null);
     setQuoteAmount(
-      booking.expected_service_amount == null
-        ? booking.quote_amount == null
+      detail.expected_service_amount == null
+        ? detail.quote_amount == null
           ? ""
-          : String(booking.quote_amount)
-        : String(booking.expected_service_amount),
+          : String(detail.quote_amount)
+        : String(detail.expected_service_amount),
     );
     setVisitFeeAmount(
-      booking.visit_fee_amount == null ? "" : String(booking.visit_fee_amount),
+      detail.visit_fee_amount == null ? "" : String(detail.visit_fee_amount),
     );
-    setQuoteMessage(booking.quote_message || "");
+    setQuoteMessage(detail.quote_message || "");
     setQuoteFiles([]);
     setQuoteFilesError("");
     setRejectReason("");
     setRefundRejectReason("");
     setProofAssets([]);
     setFinalQuoteAmount(
-      booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
+      detail.status === "awaiting_final_quote" && detail.final_quote_declined_at
         ? ""
-        : booking.final_quote_amount == null
+        : detail.final_quote_amount == null
           ? ""
-          : String(booking.final_quote_amount),
+          : String(detail.final_quote_amount),
     );
     setFinalQuoteMessage(
-      booking.status === "awaiting_final_quote" && booking.final_quote_declined_at
+      detail.status === "awaiting_final_quote" && detail.final_quote_declined_at
         ? ""
-        : booking.final_quote_message || "",
+        : detail.final_quote_message || "",
     );
     setActionError("");
     setQuoteAmountError("");

@@ -68,6 +68,15 @@ export type BookingDetail = {
   last_declined_quote?: BookingQuoteRevision | null;
   last_declined_final_quote?: BookingQuoteRevision | null;
   current_quote_revision_id?: number | null;
+  reference_price_range?: ReferencePriceRange;
+};
+
+export type ReferencePriceRange = {
+  has_history: boolean;
+  minimum: number | null;
+  maximum: number | null;
+  currency: "TRY" | string;
+  sample_count: number;
 };
 
 export type BookingQuoteRevision = {

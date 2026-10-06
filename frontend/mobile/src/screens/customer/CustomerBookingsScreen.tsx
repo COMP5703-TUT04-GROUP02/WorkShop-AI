@@ -31,6 +31,7 @@ import {
   rejectCustomerFinalQuote,
   requestCustomerRefund,
 } from "../../api/customer";
+import { getBookingById } from "../../api/chat";
 import { CustomerReviewModal } from "../../components/CustomerReviewModal";
 import { useConfirmation } from "../../utils/useConfirmation";
 import { CompletionProofGallery } from "../../components/CompletionProofGallery";
@@ -182,14 +183,26 @@ export function CustomerBookingsScreen() {
     }, [loadBookings]),
   );
 
-  function openBooking(booking: BookingDetail) {
-    setSelectedBooking(booking);
+  async function openBooking(booking: BookingDetail) {
+    try {
+      setSelectedBooking((await getBookingById(booking.id)) ?? booking);
+    } catch {
+      setSelectedBooking(booking);
+    }
     setRejectReason("");
     setRefundReason("");
     setRefundAmount("");
     setRefundAppealReason("");
     setActionError("");
     setReasonAction(null);
+  }
+
+  function updateSelectedBooking(booking: BookingDetail) {
+    setSelectedBooking((current) => ({
+      ...booking,
+      reference_price_range:
+        booking.reference_price_range ?? current?.reference_price_range,
+    }));
   }
 
   function closeBooking() {
@@ -251,7 +264,7 @@ export function CustomerBookingsScreen() {
     try {
       const result = await action();
       if (result?.booking) {
-        setSelectedBooking(result.booking);
+        updateSelectedBooking(result.booking);
       }
       await loadBookings();
       Alert.alert("Success", successMessage);
@@ -324,7 +337,7 @@ export function CustomerBookingsScreen() {
       );
       const payment = result?.payment;
       if (result?.booking) {
-        setSelectedBooking(result.booking);
+        updateSelectedBooking(result.booking);
       }
       if (payment) {
         setPaymentsByBookingId((current) => ({
@@ -463,7 +476,7 @@ export function CustomerBookingsScreen() {
     try {
       const result = await confirmCustomerBookingComplete(booking.id);
       if (result?.payment_page_url) {
-        setSelectedBooking(result.booking ?? booking);
+        updateSelectedBooking(result.booking ?? booking);
         await Linking.openURL(result.payment_page_url);
         setMessage("The final quote changed. Complete the new authorization, then confirm again.");
         await loadBookings();

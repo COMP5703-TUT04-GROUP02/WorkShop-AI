@@ -7,6 +7,7 @@ import { BookingAttachments } from "./BookingAttachments";
 import { DateTimeField } from "./DateTimeField";
 import type { BookingRequestFormState } from "./BookingRequestModal";
 import { PrimaryButton } from "./PrimaryButton";
+import { ReferencePriceRange } from "./ReferencePriceRange";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
 import { getBookingStatusLabel, getPaymentStatusLabel, getRefundStatusLabel } from "../constants/labels";
@@ -23,6 +24,7 @@ import {
   shouldShowInitialQuoteHistory,
 } from "../utils/bookingActions";
 import { getPaymentAction } from "../utils/payment";
+import { shouldShowCustomerReferencePrice } from "../utils/referencePrice";
 
 export type CustomerBookingDetailModalProps = {
   actionError?: string;
@@ -125,6 +127,9 @@ export function CustomerBookingDetailModal({
               <BookingCoreDetails booking={booking} includeLifecycleDates={includeLifecycleDates} onOpenProvider={onOpenProvider} role="customer" />
               <BookingAttachments booking={booking} />
               <BookingPriceBreakdown booking={booking} showFinalQuote={shouldShowFinalQuote(booking)} showInitialQuote={shouldShowInitialQuote(booking)} showPreviousDeclined={shouldShowInitialQuoteHistory(booking)} />
+              {shouldShowCustomerReferencePrice(booking.status) ? (
+                <ReferencePriceRange audience="customer" range={booking.reference_price_range} />
+              ) : null}
               <BookingContextInformation booking={booking} />
               {booking.current_refund_request ? <RefundDetails booking={booking} payment={payment} /> : null}
             </View>
