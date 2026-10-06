@@ -27,6 +27,7 @@ def test_booking_title_is_required_and_limited_to_30_words():
     with pytest.raises(ValueError):
         BookingCreate(
             provider_profile_id=1,
+            service_category="plumbing",
             title=" ".join(["word"] * 31),
             service_description="Repair",
             service_address="Address",
@@ -73,6 +74,7 @@ def test_booking_create_and_update_time_contract_normalizes_naive_and_aware_inpu
 
     BookingCreate(
         provider_profile_id=1,
+        service_category="plumbing",
         title="Mixed time",
         service_description="Repair",
         service_address="Address",
@@ -106,6 +108,13 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
     )
     db_session.add(provider)
     db_session.flush()
+    db_session.add(
+        models.ProviderApprovedService(
+            provider_profile_id=provider.id,
+            service_category="plumbing",
+            is_enabled=True,
+        )
+    )
     db_session.add(
         models.ProviderSubmerchant(
             provider_profile_id=provider.id,
@@ -163,6 +172,7 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
 
     create_data = BookingCreate(
         provider_profile_id=provider.id,
+        service_category="plumbing",
         title="Initial booking",
         service_description="Repair",
         service_address="Address",
