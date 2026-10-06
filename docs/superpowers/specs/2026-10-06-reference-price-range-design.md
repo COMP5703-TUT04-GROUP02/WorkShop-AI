@@ -22,7 +22,7 @@ The implementation must reuse the application's canonical service classification
 
 New booking requests must supply a service selected from the target provider's enabled approved services. The backend validates that the service is currently enabled for that provider before creating the booking.
 
-The customer app uses the provider's existing enabled service tags as the choices. It automatically selects the service when only one is available and requires an explicit choice when multiple services are available. The selected value is stored as a booking-time snapshot and is not changed when the provider later changes enabled services.
+The customer app uses the provider's existing enabled service tags as the choices. It automatically selects the service when only one is available and requires an explicit choice when multiple services are available. The client must submit the canonical `service_category` value associated with the selected approved service, not a localized or presentation-only label. The selected canonical value is stored as a booking-time snapshot and is not changed when the provider later changes enabled services.
 
 Existing bookings remain nullable and are not guessed or backfilled. A legacy booking without a service classification cannot contribute to, or receive, a historical range.
 
@@ -36,9 +36,11 @@ A historical booking is eligible when:
 - it has at least one persisted formal quote revision created by the normal initial-quote or final-quote submission flow;
 - it is not the current booking.
 
-Each eligible historical booking contributes at most one sample. For each eligible booking, the persisted formal `BookingQuoteRevision` with the highest `revision_number` is selected and its `quote_amount` is the sample value. Earlier revisions from the same booking do not contribute additional samples. This prevents bookings with more quote revisions from receiving disproportionate weight.
+Each eligible historical booking contributes at most one sample. For each eligible booking, the persisted formal `BookingQuoteRevision` with the highest `revision_number` is selected and its `quote_amount` is the sample value. The existing `(booking_id, revision_number)` unique constraint guarantees one revision at that position; the query also uses `created_at DESC, id DESC` as stable tie-breakers. Earlier revisions from the same booking do not contribute additional samples. This prevents bookings with more quote revisions from receiving disproportionate weight.
 
 The selected latest revision can be an initial, revised, or final quote, including a formal revision that was later declined. Draft input is never persisted and therefore never contributes. Excluding the entire current booking prevents self-reference across its initial, revised, and final quotes. Visit fees are not part of the reference price calculation.
+
+The feature benchmarks formally quoted market prices, not accepted or completed transaction prices. A formally submitted quote remains a valid observation even when the customer later declines it.
 
 ## Calculation and Rounding
 
@@ -55,7 +57,7 @@ No time, location, rating, duration, urgency, or provider-specific weighting is 
 
 ## Backend Contract
 
-A focused backend utility calculates the range so both roles use identical data and rules. Booking detail formatting calls it and adds:
+A focused backend utility calculates the range so both roles use identical data and rules. Booking detail formatting calls it and adds the following object. The implementation must keep this calculation out of booking-list serialization or batch it for lists so the feature does not introduce a per-booking N+1 query pattern.
 
 ```json
 {
