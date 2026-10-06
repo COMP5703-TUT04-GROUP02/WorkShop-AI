@@ -68,6 +68,7 @@ Utils contain real business actions. Routers mostly validate input, enforce auth
 | `utils/refund.py` | Refund formatting and status history |
 | `utils/complaint.py` | Complaint formatting and status history |
 | `utils/review.py` | Review formatting, rating stats, visibility |
+| `utils/review_risk.py` | Fake-review scoring rules, signals, moderation records |
 | `utils/chat.py` | Chat rooms, messages, booking/system messages |
 | `utils/websocket_manager.py` | WebSocket connections and push |
 | `utils/notification.py` | Notifications and unread counts |
@@ -156,6 +157,7 @@ Main tables (see `models/`):
 | `RefundRequest` | Refund requests |
 | `RefundRequestStatusHistory` | Refund status history |
 | `Review` | Reviews |
+| `ReviewRiskAssessment` | Fake-review score, signals and the admin decision |
 | `Complaint` | Complaints |
 | `ComplaintStatusHistory` | Complaint status history |
 | `Notification` | In-app notifications |

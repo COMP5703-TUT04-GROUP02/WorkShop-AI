@@ -41,6 +41,7 @@ import { formatMoney } from "../../utils/money";
 import { getPaymentStatusLabel } from "../../constants/labels";
 import { AISubscriptionPanel } from "./AISubscriptionPanel";
 import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
+import { ReviewRiskPanel } from "./ReviewRiskPanel";
 
 const PAGE_SIZE = 20;
 
@@ -377,6 +378,10 @@ export function AdminDashboardScreen() {
 
       <View style={styles.section}>
         <ProviderVerificationAdminPanel />
+      </View>
+
+      <View style={styles.section}>
+        <ReviewRiskPanel />
       </View>
 
       <MarketplaceSection

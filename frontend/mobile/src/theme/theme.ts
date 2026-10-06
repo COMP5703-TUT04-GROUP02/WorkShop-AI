@@ -7,6 +7,7 @@ export const colors = {
   primary: "#10A37F",
   primaryPressed: "#0E8F70",
   danger: "#D92D20",
+  warning: "#B54708",
 };
 
 export const spacing = {

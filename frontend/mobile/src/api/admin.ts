@@ -4,6 +4,12 @@ import type { PaymentHistoryEntry, RefundRequestSummary } from "../types/booking
 import type { PaginatedData } from "../types/chat";
 import type { AdminSubmerchant } from "../types/marketplace";
 import type {
+  FlaggedReview,
+  ReviewRiskLevel,
+  ReviewRiskRescanResult,
+  ReviewRiskStatus,
+} from "../types/reviewRisk";
+import type {
   IdentityVerificationApplication,
   ProviderPortfolio,
   ProviderProfile,
@@ -340,5 +346,52 @@ export async function clearLLMApiKey() {
   const response = await apiClient.delete<ApiResponse<LLMOauthStatus>>(
     "/ai/oauth/key",
   );
+  return response.data.data;
+}
+
+/** The fake-review queue. Without a level filter this is medium and high only. */
+export async function getFlaggedReviews(
+  page = 1,
+  pageSize = 20,
+  filters: { level?: ReviewRiskLevel; status?: ReviewRiskStatus } = {},
+) {
+  const response = await apiClient.get<ApiResponse<PaginatedData<FlaggedReview>>>(
+    "/admin/reviews/risk",
+    {
+      params: {
+        page,
+        page_size: pageSize,
+        level: filters.level,
+        status: filters.status,
+      },
+    },
+  );
+
+  return response.data.data;
+}
+
+/** Confirming hides the review from the provider's profile; dismissing keeps it. */
+export async function decideFlaggedReview(
+  reviewId: number,
+  status: Exclude<ReviewRiskStatus, "pending">,
+  note?: string,
+) {
+  const response = await apiClient.put<
+    ApiResponse<{ flagged_review: FlaggedReview }>
+  >(`/admin/reviews/${reviewId}/risk/decision`, {
+    status,
+    note: note?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
+export async function rescanReviewRisk() {
+  const response = await apiClient.post<ApiResponse<ReviewRiskRescanResult>>(
+    "/admin/reviews/risk/rescan",
+    {},
+    { timeout: 60000 },
+  );
+
   return response.data.data;
 }

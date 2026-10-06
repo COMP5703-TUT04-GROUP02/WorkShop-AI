@@ -73,6 +73,9 @@ class NotificationType(str, Enum):
     provider_profile_rejected = "provider_profile_rejected"
     provider_portfolio_approved = "provider_portfolio_approved"
     provider_portfolio_rejected = "provider_portfolio_rejected"
+    review_flagged = "review_flagged"
+    review_reported_by_provider = "review_reported_by_provider"
+    review_removed_as_fake = "review_removed_as_fake"
 
 class NotificationRelatedType(str, Enum):
     chat_room = "chat_room"
@@ -82,6 +85,7 @@ class NotificationRelatedType(str, Enum):
     complaint = "complaint"
     provider_profile = "provider_profile"
     provider_portfolio = "provider_portfolio"
+    review = "review"
 
 class ReviewCreate(BaseModel):
     rating: int = Field(ge=1, le=5)
@@ -115,3 +119,70 @@ class RatingSummaryResponse(BaseModel):
 class ReviewVisibilityUpdate(BaseModel):
     is_visible: bool
 
+
+class ReviewRiskLevel(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+class ReviewRiskStatus(str, Enum):
+    pending = "pending"
+    confirmed_fake = "confirmed_fake"
+    dismissed = "dismissed"
+
+class ReviewRiskSignalResponse(BaseModel):
+    code: str
+    label: str
+    weight: int
+    detail: str
+
+class ReviewRiskAssessmentResponse(BaseModel):
+    id: int
+    review_id: int
+    provider_profile_id: int
+    score: int
+    level: ReviewRiskLevel
+    status: ReviewRiskStatus
+    signals: list[ReviewRiskSignalResponse]
+    reported_by_provider: bool
+    provider_report_reason: str | None = None
+    provider_reported_at: str | None = None
+    decided_by_user_id: int | None = None
+    decided_at: str | None = None
+    decision_note: str | None = None
+    evaluated_at: str | None = None
+    created_at: str | None = None
+
+class FlaggedReviewResponse(BaseModel):
+    risk: ReviewRiskAssessmentResponse
+    review: ReviewDetailResponse | None = None
+    provider_business_name: str | None = None
+
+class ReviewRiskDecisionUpdate(BaseModel):
+    status: ReviewRiskStatus
+    note: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_decision_status(cls, value):
+        if value == ReviewRiskStatus.pending:
+            raise ValueError("A decision must either confirm or dismiss the review")
+
+        return value
+
+class ProviderReviewReportCreate(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason_not_empty(cls, value):
+        if not value.strip():
+            raise ValueError("Reason cannot be empty")
+
+        return value
+
+class ReviewRiskRescanResponse(BaseModel):
+    scanned: int
+    high: int
+    medium: int
+    low: int

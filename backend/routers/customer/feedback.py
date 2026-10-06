@@ -59,6 +59,7 @@ from backend.utils.refund import (
     format_refund_request_response,
 )
 from backend.utils.review import format_review_detail_response
+from backend.utils.review_risk import upsert_review_risk_assessment
 from backend.utils.review_embedding_queue import (
     enqueue_review_embedding_delete,
     enqueue_review_embedding_sync,
@@ -88,6 +89,7 @@ from backend.schemas import (
     RefundAppealCreate,
     RefundRequestStatus,
     ReviewCreate,
+    ReviewRiskLevel,
     ReviewUpdate,
 )
 from backend.utils.response import success_response
@@ -237,6 +239,17 @@ def create_review(
     db.add(new_review)
     db.commit()
     db.refresh(new_review)
+    risk = upsert_review_risk_assessment(new_review, db)
+    if risk.level == ReviewRiskLevel.high.value:
+        create_admin_notifications(
+            "Review flagged as likely fake",
+            f"A new review scored {risk.score} on the fake-review checks",
+            NotificationType.review_flagged,
+            NotificationRelatedType.review,
+            new_review.id,
+            db,
+        )
+        db.commit()
     embedding_task_id = enqueue_review_embedding_sync(new_review, db, current_user.id)
     return success_response(
         {
@@ -288,6 +301,7 @@ def update_review(
     review.comment = review_data.comment
     db.commit()
     db.refresh(review)
+    upsert_review_risk_assessment(review, db)
     embedding_task_id = enqueue_review_embedding_sync(review, db, current_user.id)
     return success_response(
         {

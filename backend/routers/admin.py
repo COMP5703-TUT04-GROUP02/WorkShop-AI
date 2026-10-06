@@ -32,7 +32,7 @@ from backend.utils.formatters import (
     format_provider_portfolio_response,
     format_user_response,
 )
-from backend.utils.notification import create_notification
+from backend.utils.notification import create_notification, get_provider_user_id
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
 from backend.utils.marketplace import format_submerchant_response
@@ -47,6 +47,11 @@ from backend.utils.refund import (
     ensure_refund_can_restore_previous_booking_status,
 )
 from backend.utils.review import format_review_detail_response
+from backend.utils.review_risk import (
+    format_flagged_review_response,
+    get_review_risk_assessment,
+    upsert_review_risk_assessment,
+)
 from backend.utils.review_embedding_queue import (
     enqueue_review_embedding_delete,
     enqueue_review_embedding_sync,
@@ -66,6 +71,9 @@ from backend.schemas import (
     ProviderPortfolioVerificationUpdate,
     ProviderVerificationUpdate,
     RefundRequestStatus,
+    ReviewRiskDecisionUpdate,
+    ReviewRiskLevel,
+    ReviewRiskStatus,
     ReviewVisibilityUpdate,
     SettlementStatus,
 )
@@ -167,6 +175,28 @@ def get_admin_dashboard(
                 .count(),
                 "hidden": db.query(models.Review)
                 .filter(models.Review.is_visible == 0)
+                .count(),
+                "flagged_high": db.query(models.ReviewRiskAssessment)
+                .filter(models.ReviewRiskAssessment.level == ReviewRiskLevel.high.value)
+                .count(),
+                "flagged_medium": db.query(models.ReviewRiskAssessment)
+                .filter(
+                    models.ReviewRiskAssessment.level == ReviewRiskLevel.medium.value
+                )
+                .count(),
+                "awaiting_decision": db.query(models.ReviewRiskAssessment)
+                .filter(
+                    models.ReviewRiskAssessment.status == ReviewRiskStatus.pending.value,
+                    models.ReviewRiskAssessment.level.in_(
+                        [ReviewRiskLevel.high.value, ReviewRiskLevel.medium.value]
+                    ),
+                )
+                .count(),
+                "confirmed_fake": db.query(models.ReviewRiskAssessment)
+                .filter(
+                    models.ReviewRiskAssessment.status
+                    == ReviewRiskStatus.confirmed_fake.value
+                )
                 .count(),
             },
             "chats": {
@@ -1168,3 +1198,127 @@ def update_review_visibility(
             "review": format_review_detail_response(review, db),
         }
     )
+
+
+@router.get("/admin/reviews/risk")
+def get_flagged_reviews(
+    level: ReviewRiskLevel | None = None,
+    status: ReviewRiskStatus | None = None,
+    provider_profile_id: int | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """The fake-review queue: scored reviews, worst first."""
+    query = db.query(models.ReviewRiskAssessment)
+    if level:
+        query = query.filter(models.ReviewRiskAssessment.level == level.value)
+    else:
+        query = query.filter(
+            models.ReviewRiskAssessment.level.in_(
+                [ReviewRiskLevel.high.value, ReviewRiskLevel.medium.value]
+            )
+        )
+    if status:
+        query = query.filter(models.ReviewRiskAssessment.status == status.value)
+    if provider_profile_id:
+        query = query.filter(
+            models.ReviewRiskAssessment.provider_profile_id == provider_profile_id
+        )
+    query = query.order_by(
+        models.ReviewRiskAssessment.score.desc(),
+        models.ReviewRiskAssessment.evaluated_at.desc(),
+    )
+    assessments, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for assessment in assessments:
+        result.append(format_flagged_review_response(assessment, db))
+    return success_response(build_paginated_response(result, total, page, page_size))
+
+
+@router.get("/admin/reviews/{review_id}/risk")
+def get_review_risk(
+    review_id: int,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    assessment = get_review_risk_assessment(review_id, db)
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Review risk assessment not found")
+    return success_response(format_flagged_review_response(assessment, db))
+
+
+@router.put("/admin/reviews/{review_id}/risk/decision")
+def decide_review_risk(
+    review_id: int,
+    decision_data: ReviewRiskDecisionUpdate,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Confirm a review as fake, which hides it, or dismiss the flag."""
+    assessment = get_review_risk_assessment(review_id, db)
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Review risk assessment not found")
+    review = db.query(models.Review).filter(models.Review.id == review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    assessment.status = decision_data.status.value
+    assessment.decision_note = decision_data.note
+    assessment.decided_by_user_id = current_user.id
+    assessment.decided_at = utc_now()
+
+    embedding_task_id = None
+    if decision_data.status == ReviewRiskStatus.confirmed_fake:
+        review.is_visible = 0
+        db.commit()
+        db.refresh(review)
+        embedding_task_id = enqueue_review_embedding_delete(review, db, current_user.id)
+        provider_user_id = get_provider_user_id(review.provider_profile_id, db)
+        if provider_user_id:
+            create_notification(
+                provider_user_id,
+                "A review was removed",
+                "A review on your profile was removed after a fake-review check.",
+                NotificationType.review_removed_as_fake,
+                NotificationRelatedType.review,
+                review.id,
+                db,
+            )
+    db.commit()
+    db.refresh(assessment)
+
+    return success_response(
+        {
+            "message": "Review risk decision saved successfully",
+            "embedding_task_id": embedding_task_id,
+            "flagged_review": format_flagged_review_response(assessment, db),
+        }
+    )
+
+
+@router.post("/admin/reviews/risk/rescan")
+def rescan_review_risk(
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Re-score every review, so rule changes apply to what is already stored."""
+    reviews = db.query(models.Review).order_by(models.Review.id.asc()).all()
+    counts = {
+        ReviewRiskLevel.high.value: 0,
+        ReviewRiskLevel.medium.value: 0,
+        ReviewRiskLevel.low.value: 0,
+    }
+    for review in reviews:
+        assessment = upsert_review_risk_assessment(review, db)
+        counts[assessment.level] += 1
+    return success_response(
+        {
+            "scanned": len(reviews),
+            "high": counts[ReviewRiskLevel.high.value],
+            "medium": counts[ReviewRiskLevel.medium.value],
+            "low": counts[ReviewRiskLevel.low.value],
+        }
+    )
+

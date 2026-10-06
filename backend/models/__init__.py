@@ -21,6 +21,7 @@ from backend.models.feedback import (
     ComplaintStatusHistory,
     Notification,
     Review,
+    ReviewRiskAssessment,
 )
 from backend.models.provider import (
     ProviderAvailability,
@@ -92,6 +93,7 @@ __all__ = [
     "RefundRequest",
     "RefundRequestStatusHistory",
     "Review",
+    "ReviewRiskAssessment",
     "SocialAccount",
     "ServiceLocation",
     "CustomerAddress",

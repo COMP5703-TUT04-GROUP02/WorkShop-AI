@@ -12,6 +12,7 @@ import {
   getProviderVerificationStatus,
   getQualificationVerification,
   type LocalVerificationFile,
+  reportProviderReview,
   submitIdentityVerification,
   submitQualificationVerification,
   uploadQualificationFiles,
@@ -375,6 +376,32 @@ function formatRating(profile: ProviderProfile | null) {
 }
 
 function ReviewRow({ review }: { review: Review }) {
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [isReported, setIsReported] = useState(false);
+  const [reportError, setReportError] = useState("");
+
+  async function submitReport() {
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      setReportError("Tell us why you think this review is fake.");
+      return;
+    }
+    setIsSending(true);
+    setReportError("");
+    try {
+      await reportProviderReview(review.id, trimmed);
+      setIsReported(true);
+      setIsReportOpen(false);
+      setReason("");
+    } catch (error) {
+      setReportError(getErrorMessage(error));
+    } finally {
+      setIsSending(false);
+    }
+  }
+
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
@@ -382,6 +409,50 @@ function ReviewRow({ review }: { review: Review }) {
         <Text style={styles.reviewDate}>{formatReviewDate(review.created_at)}</Text>
       </View>
       <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
+
+      {isReported ? (
+        <Text style={styles.reviewReportedText}>
+          Reported. An admin will check this review.
+        </Text>
+      ) : isReportOpen ? (
+        <View style={styles.reviewReportForm}>
+          <TextField
+            label="Why is this review fake?"
+            value={reason}
+            onChangeText={setReason}
+            placeholder="For example: this customer never booked us"
+            multiline
+            numberOfLines={3}
+            maxLength={1000}
+            autoCapitalize="sentences"
+            error={reportError}
+          />
+          <View style={styles.reviewReportActions}>
+            <View style={styles.reviewReportButton}>
+              <PrimaryButton
+                label="Send report"
+                onPress={() => void submitReport()}
+                isLoading={isSending}
+              />
+            </View>
+            <View style={styles.reviewReportButton}>
+              <SecondaryButton
+                label="Cancel"
+                onPress={() => {
+                  setIsReportOpen(false);
+                  setReason("");
+                  setReportError("");
+                }}
+                disabled={isSending}
+              />
+            </View>
+          </View>
+        </View>
+      ) : (
+        <Pressable accessibilityRole="button" onPress={() => setIsReportOpen(true)}>
+          <Text style={styles.reviewReportLink}>Report as fake</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -718,6 +789,11 @@ const styles = StyleSheet.create({
   reviewTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
   ratingText: { color: colors.text, fontSize: 15, fontWeight: "800" },
   reviewDate: { color: colors.mutedText, fontSize: 13 },
+  reviewReportLink: { color: colors.mutedText, fontSize: 13, textDecorationLine: "underline" },
+  reviewReportedText: { color: colors.warning, fontSize: 13 },
+  reviewReportForm: { gap: spacing.sm },
+  reviewReportActions: { flexDirection: "row", gap: spacing.sm },
+  reviewReportButton: { flex: 1 },
   reviewComment: { color: colors.text, fontSize: 15, lineHeight: 22 },
   emptyText: { color: colors.mutedText, fontSize: 14, lineHeight: 21 },
   footerLoader: { paddingVertical: spacing.lg },

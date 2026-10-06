@@ -35,6 +35,44 @@ class Review(Base):
     )
 
 
+class ReviewRiskAssessment(Base):
+    """Fake-review score for one review, plus the admin decision on it."""
+
+    __tablename__ = "review_risk_assessments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    review_id: Mapped[int] = mapped_column(
+        ForeignKey("reviews.id", ondelete="CASCADE"), unique=True, index=True, nullable=False
+    )
+    provider_profile_id: Mapped[int] = mapped_column(
+        ForeignKey("provider_profiles.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    level: Mapped[str] = mapped_column(String(16), nullable=False, default="low", index=True)
+    signals: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending", index=True
+    )
+    reported_by_provider: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    provider_report_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider_reported_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decided_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class Complaint(Base):
     __tablename__ = "complaints"
 

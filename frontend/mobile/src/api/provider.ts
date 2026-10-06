@@ -580,3 +580,14 @@ export async function getProviderPayments(page = 1, pageSize = 20) {
 
   return response.data.data;
 }
+
+/** A provider accusing a review on their own profile of being fake. */
+export async function reportProviderReview(reviewId: number, reason: string) {
+  const response = await apiClient.post<
+    ApiResponse<{ review_id: number; reported_by_provider: boolean; status: string }>
+  >(`/provider/reviews/${reviewId}/report`, {
+    reason,
+  });
+
+  return response.data.data;
+}

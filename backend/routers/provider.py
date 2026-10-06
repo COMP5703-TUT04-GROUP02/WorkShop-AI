@@ -31,7 +31,12 @@ from backend.utils.formatters import (
     tags_to_string,
 )
 from backend.utils.verification import apply_phone_number_change
+from backend.utils.notification import create_admin_notifications
 from backend.utils.pagination import build_paginated_response, paginate_query
+from backend.utils.review_risk import (
+    get_review_risk_assessment,
+    upsert_review_risk_assessment,
+)
 from backend.utils.payment import format_payment_response
 from backend.utils.booking_quote_upload import QUOTE_UPLOAD_OPENAPI, parse_quote_request
 from backend.utils.provider_booking_actions import (
@@ -88,6 +93,10 @@ from backend.schemas import (
     ProviderProfileCreate,
     ProviderPortfolioResponse,
     ProviderRefundRejectCreate,
+    ProviderReviewReportCreate,
+    ReviewRiskStatus,
+    NotificationRelatedType,
+    NotificationType,
     ProviderVerificationStatus,
     RefundRequestStatus,
 )
@@ -193,6 +202,62 @@ def create_provider_profile(
         {
             "message": "Provider profile created successfully",
             "profile": format_provider_profile_response(new_profile, db),
+        }
+    )
+
+
+@router.post("/provider/reviews/{review_id}/report")
+def report_review_as_fake(
+    review_id: int,
+    report_data: ProviderReviewReportCreate,
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    """Let a provider accuse a review on their own profile of being fake."""
+    profile = get_provider_profile_for_user(current_user.id, db)
+    review = (
+        db.query(models.Review)
+        .filter(
+            models.Review.id == review_id,
+            models.Review.provider_profile_id == profile.id,
+        )
+        .first()
+    )
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    existing = get_review_risk_assessment(review.id, db)
+    if (
+        existing
+        and existing.reported_by_provider == 1
+        and existing.status == ReviewRiskStatus.pending.value
+    ):
+        raise HTTPException(
+            status_code=400, detail="You have already reported this review"
+        )
+
+    assessment = upsert_review_risk_assessment(
+        review,
+        db,
+        reported_by_provider=True,
+        report_reason=report_data.reason.strip(),
+    )
+    create_admin_notifications(
+        "Review reported as fake",
+        f"{profile.business_name} reported a review on their profile",
+        NotificationType.review_reported_by_provider,
+        NotificationRelatedType.review,
+        review.id,
+        db,
+    )
+    db.commit()
+
+    return success_response(
+        {
+            "message": "Review reported successfully",
+            "review_id": review.id,
+            "reported_by_provider": True,
+            "status": assessment.status,
         }
     )
 
