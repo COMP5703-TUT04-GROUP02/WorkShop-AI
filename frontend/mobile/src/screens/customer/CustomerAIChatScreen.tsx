@@ -31,6 +31,7 @@ import {
   getAIChatMessages,
   sendAIChatMessage,
 } from "../../api/ai";
+import { HelpLink } from "../../components/HelpLink";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type {
@@ -38,6 +39,7 @@ import type {
   AIChatResponse,
   AIConfirmationCard,
   AIBookingDraft,
+  AIHelpArticle,
   AIProviderRecommendation,
 } from "../../types/ai";
 import { getErrorMessage } from "../../utils/errors";
@@ -352,6 +354,7 @@ function AIMessageBubble({
   const recommendations = message.response?.recommendations ?? [];
   const confirmationCard = message.response?.confirmation_card ?? null;
   const bookingDraft = message.response?.booking_draft ?? null;
+  const helpArticles = message.response?.help_articles ?? [];
 
   return (
     <View style={[styles.messageBlock, isUser ? styles.messageBlockUser : null]}>
@@ -397,6 +400,15 @@ function AIMessageBubble({
                   <ChevronRight color={colors.primary} size={16} />
                 </View>
               </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {!isUser && helpArticles.length > 0 ? (
+          <View style={styles.helpArticleList}>
+            <Text style={styles.helpArticleTitle}>Open in Help and Support</Text>
+            {helpArticles.map((article) => (
+              <HelpLink key={article.id} faqId={article.id} label={article.question} />
             ))}
           </View>
         ) : null}
@@ -747,6 +759,7 @@ function buildHistoryAIResponse(
     booking_draft: readObject(metadata.booking_draft) as AIBookingDraft | null,
     next_question: readString(metadata.next_question),
     tool_error: readObject(metadata.tool_error),
+    help_articles: readHelpArticles(metadata.help_articles),
   };
 }
 
@@ -796,6 +809,15 @@ function normalizeRecommendation(value: unknown): AIProviderRecommendation | nul
         readNumber(readObject(data.stats)?.completed_bookings),
     },
   };
+}
+
+function readHelpArticles(value: unknown): AIHelpArticle[] {
+  return (readArray(value) ?? []).flatMap((item) => {
+    const article = readObject(item);
+    const id = readString(article?.id);
+    const question = readString(article?.question);
+    return id && question ? [{ id, question }] : [];
+  });
 }
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -1036,6 +1058,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 12,
     fontWeight: "800",
+  },
+  helpArticleList: {
+    gap: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  helpArticleTitle: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   infoCard: {
     gap: spacing.xs,

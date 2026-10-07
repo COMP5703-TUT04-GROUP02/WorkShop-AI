@@ -5,6 +5,7 @@ import { BookingCoreDetails } from "./BookingCoreDetails";
 import { BookingPriceBreakdown } from "./BookingPriceBreakdown";
 import { BookingAttachments } from "./BookingAttachments";
 import { DateTimeField } from "./DateTimeField";
+import { HelpLink } from "./HelpLink";
 import type { BookingRequestFormState } from "./BookingRequestModal";
 import { PrimaryButton } from "./PrimaryButton";
 import { ReferencePriceRange } from "./ReferencePriceRange";
@@ -23,6 +24,7 @@ import {
   shouldShowInitialQuote,
   shouldShowInitialQuoteHistory,
 } from "../utils/bookingActions";
+import { getBookingHelpLinks, isPaymentFailed } from "../utils/bookingHelp";
 import { getPaymentAction } from "../utils/payment";
 import { shouldShowCustomerReferencePrice } from "../utils/referencePrice";
 
@@ -106,6 +108,13 @@ export function CustomerBookingDetailModal({
   const canConfirmComplete = Boolean(onConfirmComplete) && booking.status === "awaiting_confirmation";
   const canCancelRefund = Boolean(onCancelRefund) && booking.status === "refunding" && ["pending", "rejected"].includes(String(booking.current_refund_request?.status || ""));
   const canAppealRefund = Boolean(onAppealRefund) && booking.status === "refunding" && booking.current_refund_request?.status === "rejected";
+  const helpLinks = getBookingHelpLinks({
+    paymentFailed: isPaymentFailed(payment?.status, payment?.failure_message),
+    canCancelAfterVisit,
+    canRequestRefund,
+    canAppealRefund,
+    canConfirmComplete,
+  });
   const hasAnyAction = canEdit || canReviewQuote || canReviewFinalQuote || canPay || canCancel || canCancelAfterVisit || canRequestRefund || canConfirmComplete || canCancelRefund || canAppealRefund;
 
   function updateFormField(field: keyof BookingRequestFormState, value: string) {
@@ -160,6 +169,11 @@ export function CustomerBookingDetailModal({
               </>
             ) : null}
             {canAppealRefund ? <TextField label="Appeal reason" multiline numberOfLines={3} onChangeText={setRefundAppealReason} placeholder="Reason for appeal" value={refundAppealReason} /> : null}
+            {helpLinks.length > 0 ? (
+              <View>
+                {helpLinks.map((link) => <HelpLink key={link.faqId} faqId={link.faqId} label={link.label} onBeforeNavigate={onClose} />)}
+              </View>
+            ) : null}
             {!hasAnyAction ? <Text style={styles.noAction}>No actions available for this booking status.</Text> : null}
             {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
           </ScrollView>
