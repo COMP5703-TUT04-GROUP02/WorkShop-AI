@@ -16,6 +16,11 @@ _CATEGORY = re.compile(r"^## (?P<title>.+?)\s*$")
 _ENTRY_ID = re.compile(r"^### (?P<id>[A-Z]+-[A-Z]+-\d{3})\s*$")
 _QUESTION = re.compile(r"^\*\*Question:\s*(?P<text>.+?)\*\*\s*$")
 _ANSWER = re.compile(r"^\*\*Answer:\*\*\s*(?P<text>.+?)\s*$")
+_WORD = re.compile(r"[a-z0-9]+")
+_STOPWORDS = frozenset(
+    "a an and are be can do does for how i if in is it my of on or the to what "
+    "when where why will with you your".split()
+)
 
 
 class FaqFormatError(ValueError):
@@ -67,3 +72,51 @@ def get_faq(audience: str) -> list[dict]:
     if audience not in FAQ_AUDIENCES:
         raise KeyError(audience)
     return parse_faq((FAQ_DIR / f"{audience}.md").read_text(encoding="utf-8"))
+
+
+def _stem(word: str) -> str:
+    # Just enough to match "fails"/"failed" and "cancel"/"cancelled"; not a
+    # real stemmer.
+    for suffix in ("ing", "ed", "es", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            word = word[: -len(suffix)]
+            break
+    word = word.rstrip("e") or word
+    if len(word) > 3 and word[-1] == word[-2]:
+        word = word[:-1]
+    return word
+
+
+def _terms(text: str) -> set[str]:
+    return {
+        _stem(word)
+        for word in _WORD.findall(text.lower())
+        if word not in _STOPWORDS
+    }
+
+
+def search_faq(audience: str, query: str, limit: int = 3) -> list[dict]:
+    """Rank entries by shared words, counting a match in the question 3x.
+
+    Weak matches (under half the best score) are left out.
+    """
+    query_terms = _terms(query)
+    if not query_terms:
+        return []
+
+    scored = []
+    for category in get_faq(audience):
+        for item in category["items"]:
+            score = 3 * len(query_terms & _terms(item["question"])) + len(
+                query_terms & _terms(item["answer"])
+            )
+            if score:
+                scored.append((score, {**item, "category": category["title"]}))
+
+    if not scored:
+        return []
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    # One shared filler word ("before", "page") should not drag in an unrelated
+    # answer next to a strong match.
+    floor = scored[0][0] / 2
+    return [item for score, item in scored[:limit] if score >= floor]

@@ -892,6 +892,58 @@ def build_booking_flow_response_from_tool_result(
     )
 
 
+def build_help_articles_response_from_tool_result(
+    request_data: AIChatRequest,
+    current_user: models.User,
+    tool_calling_result: dict,
+    tool_result: dict,
+    request_metadata: dict,
+    db: Session,
+):
+    result = tool_result["result"]
+    intent = {
+        "intent": "help_articles",
+        "confidence": 1,
+        "reason": "LangChain tool calling chose search_help_articles",
+    }
+    # Only what the app needs to link each answer into Help and Support.
+    help_articles = [
+        {"id": article["id"], "question": article["question"]}
+        for article in result.get("articles", [])
+    ]
+    response = {
+        "message": request_data.message,
+        "service_province": request_data.service_province,
+        "max_price": request_data.max_price,
+        "latitude": request_data.latitude,
+        "longitude": request_data.longitude,
+        "max_distance_km": request_data.max_distance_km,
+        "scheduled_start_time": request_data.scheduled_start_time,
+        "scheduled_end_time": request_data.scheduled_end_time,
+        "candidate_provider_ids": request_data.candidate_provider_ids,
+        "type": "help_articles",
+        "intent": intent,
+        "answer": result.get("answer") or tool_calling_result.get("answer") or "",
+        "help_articles": help_articles,
+        "tool_calls": tool_calling_result.get("tool_calls", []),
+        "assistant_metadata": {
+            "intent": intent,
+            "tool_name": tool_result["tool_name"],
+            "tool_args": tool_result.get("tool_args", {}),
+            "help_articles": help_articles,
+            "answer_source": "help_articles_tool",
+        },
+    }
+
+    return save_tool_calling_exchange(
+        request_data,
+        current_user,
+        response,
+        request_metadata,
+        db,
+    )
+
+
 def build_platform_capabilities_response_from_tool_result(
     request_data: AIChatRequest,
     current_user: models.User,
@@ -1410,6 +1462,16 @@ def build_tool_calling_response_from_result(
 
     if tool_result["tool_name"] == "get_booking_status":
         return build_booking_status_response_from_tool_result(
+            request_data,
+            current_user,
+            tool_calling_result,
+            tool_result,
+            request_metadata,
+            db,
+        )
+
+    if tool_result["tool_name"] == "search_help_articles":
+        return build_help_articles_response_from_tool_result(
             request_data,
             current_user,
             tool_calling_result,

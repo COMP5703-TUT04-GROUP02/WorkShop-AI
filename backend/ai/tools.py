@@ -48,6 +48,7 @@ from backend.utils.provider_eligibility import require_provider_can_accept_order
 from backend.utils.notification import create_notification
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.service_locations import resolve_location_context
+from backend.services.faq_service import search_faq
 
 PLATFORM_CAPABILITIES = [
     "Recommend providers by service need, e.g. cleaning, childcare, elderly care, electrician, plumbing, painter, locksmith, technician, moving.",
@@ -68,6 +69,30 @@ def get_platform_capabilities_tool(question: str | None = None):
             f"{index}. {capability}"
             for index, capability in enumerate(PLATFORM_CAPABILITIES, start=1)
         ),
+    }
+
+
+HELP_ARTICLE_NOT_FOUND_ANSWER = (
+    "I could not find a help article for that. You can browse every answer "
+    "under Account > Help and Support."
+)
+
+
+def search_help_articles_tool(query: str):
+    """Answer with the best FAQ match verbatim.
+
+    Every match, the best one included, is returned in articles; the app shows
+    them as links into Help and Support.
+    """
+    articles = search_faq("customer", query)
+    if not articles:
+        return {"query": query, "articles": [], "answer": HELP_ARTICLE_NOT_FOUND_ANSWER}
+
+    best = articles[0]
+    return {
+        "query": query,
+        "articles": articles,
+        "answer": f"**{best['question']}**\n\n{best['answer']}",
     }
 
 

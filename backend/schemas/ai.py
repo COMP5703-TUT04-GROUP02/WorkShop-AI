@@ -215,6 +215,7 @@ class AIChatResponseData(BaseModel):
     no_core_tag_matched: bool | None = None
     query: str | None = None
     capabilities: list[str] | None = None
+    help_articles: list[dict[str, Any]] | None = None
 
     review_context_source: str | None = None
     review_context: Any = None
