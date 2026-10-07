@@ -11,6 +11,7 @@ from backend.schemas.places import *  # noqa: F403
 from backend.schemas.location import *  # noqa: F403
 from backend.schemas.address_book import *  # noqa: F403
 from backend.schemas.marketplace import *  # noqa: F403
+from backend.schemas.faq import *  # noqa: F403
 
 ApiResponse[CustomerHomeRecommendationResponseData].model_rebuild()
 ApiResponse[CustomerProviderSearchResponseData].model_rebuild()
@@ -140,3 +141,4 @@ __all__ = [
     "SettlementStatus",
 ]
 __all__ += ["PlaceSuggestion", "PlacesAutocompleteResponse", "PlaceDetailsResponse"]
+__all__ += ["FaqAudience", "FaqItemResponse", "FaqCategoryResponse", "FaqResponse"]
