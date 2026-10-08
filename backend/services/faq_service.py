@@ -74,6 +74,31 @@ def get_faq(audience: str) -> list[dict]:
     return parse_faq((FAQ_DIR / f"{audience}.md").read_text(encoding="utf-8"))
 
 
+def get_faq_items(audience: str, faq_ids: list[str]) -> list[dict]:
+    """Entries for the given ids, in the order asked; unknown ids are skipped."""
+    by_id = {
+        item["id"]: {**item, "category": category["title"]}
+        for category in get_faq(audience)
+        for item in category["items"]
+    }
+    seen = set()
+    items = []
+    for faq_id in faq_ids:
+        if faq_id in by_id and faq_id not in seen:
+            seen.add(faq_id)
+            items.append(by_id[faq_id])
+    return items
+
+
+def faq_catalog(audience: str) -> str:
+    """One "ID: question" line per entry, for a model to choose from."""
+    return "\n".join(
+        f"{item['id']}: {item['question']}"
+        for category in get_faq(audience)
+        for item in category["items"]
+    )
+
+
 def _stem(word: str) -> str:
     # Just enough to match "fails"/"failed" and "cancel"/"cancelled"; not a
     # real stemmer.

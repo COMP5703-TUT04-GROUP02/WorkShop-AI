@@ -150,3 +150,30 @@ def test_search_faq_drops_weak_matches_next_to_a_strong_one():
 
     assert ids[0] == "CUST-PAY-006"
     assert "CUST-DIS-003" not in ids
+
+
+def test_help_tool_uses_ids_the_model_picked_in_order():
+    result = search_help_articles_tool(
+        query="why pay twice", faq_ids=["CUST-PAY-004", "CUST-NOPE-001", "CUST-PAY-004", "CUST-PAY-001"]
+    )
+
+    assert [article["id"] for article in result["articles"]] == ["CUST-PAY-004", "CUST-PAY-001"]
+    assert result["answer"].startswith("**Why are there two payment stages?**")
+
+
+def test_help_tool_falls_back_to_keywords_when_ids_are_unknown():
+    result = search_help_articles_tool(query="partial refund", faq_ids=["CUST-NOPE-001"])
+
+    assert result["articles"][0]["id"] == "CUST-REF-005"
+
+
+def test_help_tool_description_lists_every_faq_id():
+    from backend.ai.langchain_tools import build_langchain_tools
+
+    class Customer:
+        id = 1
+        role = "customer"
+
+    tool = next(t for t in build_langchain_tools(Customer(), None) if t.name == "search_help_articles")
+    ids = [item["id"] for category in get_faq("customer") for item in category["items"]]
+    assert all(f"{faq_id}: " in tool.description for faq_id in ids)

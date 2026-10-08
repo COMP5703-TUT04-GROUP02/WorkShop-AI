@@ -48,7 +48,7 @@ from backend.utils.provider_eligibility import require_provider_can_accept_order
 from backend.utils.notification import create_notification
 from backend.utils.provider import get_provider_profile_for_user
 from backend.utils.service_locations import resolve_location_context
-from backend.services.faq_service import search_faq
+from backend.services.faq_service import get_faq_items, search_faq
 
 PLATFORM_CAPABILITIES = [
     "Recommend providers by service need, e.g. cleaning, childcare, elderly care, electrician, plumbing, painter, locksmith, technician, moving.",
@@ -78,13 +78,17 @@ HELP_ARTICLE_NOT_FOUND_ANSWER = (
 )
 
 
-def search_help_articles_tool(query: str):
+def search_help_articles_tool(query: str = "", faq_ids: list[str] | None = None):
     """Answer with the best FAQ match verbatim.
 
-    Every match, the best one included, is returned in articles; the app shows
-    them as links into Help and Support.
+    The model picks faq_ids from the catalog in the tool description, which
+    handles any language and paraphrase; keyword search on query is only the
+    fallback when it picks none (or only unknown ids). Every match, the best
+    one first, is returned in articles; the app links them into Help.
     """
-    articles = search_faq("customer", query)
+    articles = get_faq_items("customer", faq_ids or [])[:3] or search_faq(
+        "customer", query
+    )
     if not articles:
         return {"query": query, "articles": [], "answer": HELP_ARTICLE_NOT_FOUND_ANSWER}
 
