@@ -33,7 +33,7 @@ def test_openai_uses_vendor_key_and_gpt_model():
     assert settings.provider == "openai"
     assert settings.api_key == "sk-test"
     assert settings.base_url == "https://api.openai.com/v1"
-    assert settings.model == "gpt-6-astra"
+    assert settings.model == "gpt-6.1-sol"
     assert settings.embedding_model == "text-embedding-3-large"
     assert settings.supports_embeddings is True
 
