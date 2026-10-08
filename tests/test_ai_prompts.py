@@ -104,3 +104,14 @@ def test_booking_draft_continuation_does_not_research_providers():
     assert "Do not call search_providers" in text
     assert "prepare_booking_draft_action" in text
     assert "user's language" in text
+
+
+def test_tool_calling_prompt_refund_rule_matches_backend():
+    text = TOOL_CALLING_SYSTEM_PROMPT
+    refund_line = next(
+        line for line in text.splitlines() if line.startswith("- Request a refund:")
+    )
+    assert "after the booking is completed" not in refund_line
+    assert "provider_arrived" in refund_line
+    assert "paid payment" in refund_line
+    assert "one successful refund" in refund_line

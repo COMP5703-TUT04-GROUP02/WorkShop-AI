@@ -136,3 +136,57 @@ def test_admin_milvus_health_reports_status(client, marketplace, monkeypatch):
     response = client.get("/ai/health/milvus", headers=marketplace["admin"]["headers"])
     assert response.status_code == 200
     assert response.json()["data"]["milvus"] == "ok"
+
+
+def test_booking_flow_knowledge_uses_current_statuses():
+    from backend.ai.tools import BOOKING_FLOW_STEPS, BOOKING_STATUS_EXPLANATIONS
+    from backend.schemas.booking import BookingStatus
+
+    valid = {status.value for status in BookingStatus}
+    assert set(BOOKING_STATUS_EXPLANATIONS) <= valid
+    for legacy in ("accepted", "awaiting_payment"):
+        assert legacy not in BOOKING_STATUS_EXPLANATIONS
+
+    for status in (
+        "awaiting_visit_payment",
+        "visit_paid",
+        "provider_arrived",
+        "awaiting_final_quote",
+        "final_quote_sent",
+        "awaiting_service_payment",
+        "service_paid",
+        "awaiting_confirmation",
+        "completed",
+        "refunding",
+    ):
+        assert status in BOOKING_STATUS_EXPLANATIONS
+
+    flow = " ".join(BOOKING_FLOW_STEPS)
+    ordered = ["visit_paid", "provider_arrived", "final_quote_sent", "service_paid", "awaiting_confirmation", "completed"]
+    positions = [flow.index(status) for status in ordered]
+    assert positions == sorted(positions)
+    assert "never refunds automatically" in flow
+    assert "appeal" in flow
+
+
+def test_explain_booking_flow_topics_match_refund_and_cancel_rules():
+    from backend.ai.tools import BOOKING_STATUS_EXPLANATIONS, explain_booking_flow_tool
+
+    refund = explain_booking_flow_tool("refund")["statuses"]
+    assert "provider_arrived" in refund
+    assert "refunding" in refund
+    assert any("appeal" in action for action in refund["refunding"]["next_actions"])
+
+    cancel = explain_booking_flow_tool("cancel")["statuses"]
+    assert set(cancel) >= {"pending", "quoted", "awaiting_visit_payment", "cancelled"}
+    assert "not refunded automatically" in cancel["visit_completed_closed"]["meaning"]
+
+    payment = explain_booking_flow_tool("payment")["statuses"]
+    assert {"awaiting_visit_payment", "awaiting_service_payment"} <= set(payment)
+
+    for topic in ("pending", "quote", "final_quote", "visit", "pay", "complete", "complaint", "reject"):
+        statuses = explain_booking_flow_tool(topic)["statuses"]
+        assert statuses
+        assert set(statuses) <= set(BOOKING_STATUS_EXPLANATIONS)
+
+    assert set(explain_booking_flow_tool(None)["statuses"]) == set(BOOKING_STATUS_EXPLANATIONS)
