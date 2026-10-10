@@ -108,6 +108,7 @@ __all__ = [
     "ReviewDetailResponse",
     "RatingSummaryResponse",
     "ReviewVisibilityUpdate",
+    "LowValueReviewHideRequest",
     "AIProviderRecommendRequest",
     "AIChatRequest",
     "AIIntentResponse",

@@ -14,3 +14,9 @@ export type Review = {
   embedding_synced_at: string | null;
   customer?: User | null;
 };
+
+/** A visible review whose booking was too cheap to be a real job. */
+export type LowValueReview = Review & {
+  booking_total_amount: number | null;
+  provider_business_name: string | null;
+};
