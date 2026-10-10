@@ -29,7 +29,8 @@ TOOL_CALLING_SYSTEM_PROMPT = """You are Workshop AI's tool-calling assistant. Ch
 - Reviews, price, attitude, or reputation: summarize_provider_reviews.
 - Chat with a known provider_profile_id: create_chat_room.
 - One booking's status, quote, payment, refund, or next step: get_booking_status.
-- How booking, quotes, payment, refunds, complaints, or cancellation work: explain_booking_flow.
+- Customer how-to or policy questions (account, sign-in, payment problems, cancellation, refunds, reviews, AI confirmations): search_help_articles with a short English query. Prefer it over explain_booking_flow for customers.
+- What booking statuses mean or the overall booking flow: explain_booking_flow.
 - What you can do or how to use you, including minor typos: get_platform_capabilities.
 - Cancel a booking: prepare_cancel_booking_action (confirmation draft only).
 - Request a refund: prepare_refund_request_action with booking_id and reason after the booking is completed.
@@ -85,7 +86,8 @@ def build_tool_calling_user_message(
     return (
         f"User message: {message}\n\n"
         "Available context: "
-        f"{json.dumps(context, ensure_ascii=False)}"
+        # Actionable bookings carry datetimes, which json.dumps cannot encode.
+        f"{json.dumps(jsonable_encoder(context), ensure_ascii=False)}"
     )
 
 

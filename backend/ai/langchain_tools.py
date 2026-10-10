@@ -17,6 +17,7 @@ from backend import models
 from backend.ai.tools import (
     create_chat_room_tool,
     explain_booking_flow_tool,
+    search_help_articles_tool,
     get_platform_capabilities_tool,
     get_booking_status_tool,
     prepare_approve_refund_action_tool,
@@ -35,6 +36,7 @@ from backend.ai.tools import (
     search_providers_tool,
     summarize_provider_reviews_tool,
 )
+from backend.services.faq_service import faq_catalog
 from backend.constants import AI_RECOMMENDATION_PROVIDER_TAGS
 from backend.services.redis_service import get_last_provider_recommendation_context
 from backend.utils.ai_chat import (
@@ -101,6 +103,20 @@ class ExplainBookingFlowToolInput(BaseModel):
     topic: str | None = Field(
         default=None,
         description="Booking flow topic, e.g. quote, payment, acceptance, refund, complaint, cancel",
+    )
+
+
+class SearchHelpArticlesToolInput(BaseModel):
+    faq_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "IDs from the help catalog in the tool description that answer the "
+            "question, best match first, at most 3. Leave empty if none fits."
+        ),
+    )
+    query: str = Field(
+        default="",
+        description="The customer's question as a short English phrase.",
     )
 
 
@@ -279,6 +295,11 @@ def build_langchain_tools(current_user: models.User, db: Session):
 
     def get_platform_capabilities(question: str | None = None):
         return jsonable_encoder(get_platform_capabilities_tool(question=question))
+
+    def search_help_articles(query: str = "", faq_ids: list[str] | None = None):
+        return jsonable_encoder(
+            search_help_articles_tool(query=query, faq_ids=faq_ids)
+        )
 
     def prepare_create_booking_action(
         provider_profile_id: int,
@@ -497,6 +518,18 @@ def build_langchain_tools(current_user: models.User, db: Session):
     ]
 
     customer_tools = [
+        StructuredTool.from_function(
+            func=search_help_articles,
+            name="search_help_articles",
+            description=(
+                "Answer how-to and policy questions from the customer help centre: "
+                "account, sign-in, verification, booking requests, quotes, payment "
+                "problems, cancellation, refunds, reviews, and AI confirmations. "
+                "Pick faq_ids from this catalog by meaning, whatever language the "
+                "customer writes in:\n" + faq_catalog("customer")
+            ),
+            args_schema=SearchHelpArticlesToolInput,
+        ),
         StructuredTool.from_function(
             func=search_providers,
             name="search_providers",

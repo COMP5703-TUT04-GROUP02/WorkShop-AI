@@ -79,6 +79,11 @@ export type AIBookingDraft = {
   next_question?: string | null;
 };
 
+export type AIHelpArticle = {
+  id: string;
+  question: string;
+};
+
 export type AIChatResponse = AIChatRequest & {
   type: string;
   answer: string;
@@ -92,6 +97,7 @@ export type AIChatResponse = AIChatRequest & {
   booking_draft?: AIBookingDraft | null;
   next_question?: string | null;
   tool_error?: Record<string, unknown> | null;
+  help_articles?: AIHelpArticle[] | null;
 };
 
 export type AIChatHistoryPage = PaginatedData<AIChatHistoryMessage>;

@@ -51,7 +51,8 @@ export type RootStackParamList = {
   ProviderPayoutAccount: undefined;
   ProviderOperatingSettings: undefined;
   AccountSecurity: undefined;
-  Help: undefined;
+  // faqId opens the FAQ on that answer, e.g. CUST-PAY-007.
+  Help: { faqId?: string } | undefined;
   BookingHistory: undefined;
   Notifications: undefined;
   NotificationSettings: undefined;

@@ -1,6 +1,7 @@
 """Public API.
 
-Unauthenticated data: approved providers, public profiles, reviews, portfolios, ratings.
+Unauthenticated data: approved providers, public profiles, reviews, portfolios, ratings,
+and the help-centre FAQ.
 """
 
 from datetime import datetime
@@ -27,6 +28,8 @@ from backend.utils.review import (
 )
 from backend.schemas import (
     ApiResponse,
+    FaqAudience,
+    FaqResponse,
     PaginatedData,
     ProviderProfileWithRatingResponse,
     ProviderPortfolioResponse,
@@ -38,6 +41,7 @@ from backend.schemas import (
     ServiceLocationListResponse,
     ServiceLocationResponse,
 )
+from backend.services.faq_service import get_faq
 from backend.services.places_service import (
     autocomplete as places_autocomplete,
     enforce_rate_limit,
@@ -345,3 +349,8 @@ def get_review_by_id(review_id: int, db: Session = Depends(get_db)):
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
     return success_response(format_review_detail_response(review, db))
+
+
+@router.get("/faq", response_model=ApiResponse[FaqResponse])
+def get_help_faq(audience: FaqAudience = Query(default="customer")):
+    return success_response({"audience": audience, "categories": get_faq(audience)})

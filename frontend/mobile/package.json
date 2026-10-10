@@ -47,6 +47,8 @@
     "test:booking-service": "tsc --ignoreConfig src/utils/bookingService.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingService.test.cjs",
     "test:reference-price": "tsc --ignoreConfig src/utils/referencePrice.ts src/utils/latestRequest.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/referencePrice.test.cjs src/utils/__tests__/latestRequest.test.cjs",
     "test:iban": "tsc --ignoreConfig src/utils/iban.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/iban.test.cjs",
+    "test:booking-help": "tsc --ignoreConfig src/utils/bookingHelp.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingHelp.test.cjs",
+    "test:faq": "tsc --ignoreConfig src/features/help/faq-filter.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/features/help/__tests__/faq-filter.test.cjs",
     "test:marketplace": "tsc --ignoreConfig src/utils/marketplace.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/marketplace.test.cjs"
   },
   "private": true

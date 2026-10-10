@@ -69,3 +69,15 @@ def test_hello_uses_local_casual_answer(client, marketplace, monkeypatch):
     body = response.json()["data"]
     assert body["type"] == "casual_chat"
     assert body["answer"] == CASUAL_LOCAL_ANSWER
+
+
+def test_tool_calling_context_accepts_datetimes():
+    from datetime import datetime, timezone
+
+    from backend.ai.tool_calling import build_tool_calling_user_message
+
+    message = build_tool_calling_user_message(
+        "cancel this booking",
+        {"actionable_context": {"bookings": [{"created_at": datetime(2026, 10, 7, tzinfo=timezone.utc)}]}},
+    )
+    assert "2026-10-07T00:00:00+00:00" in message

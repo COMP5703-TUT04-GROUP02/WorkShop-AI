@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getCustomerBookings, getCustomerPayments } from "../api/customer";
+import { HelpLink } from "../components/HelpLink";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { getBookingStatusLabel, getPaymentStatusLabel } from "../constants/labels";
@@ -158,6 +159,9 @@ export function PaymentResultScreen({
             ) : null}
             {payment?.failure_message ? (
               <Text style={styles.errorText}>{payment.failure_message}</Text>
+            ) : null}
+            {!isPaid && !isAuthorized && !isRefunded && !isVoided ? (
+              <HelpLink faqId="CUST-PAY-007" label="Payment not going through?" />
             ) : null}
           </>
         )}
