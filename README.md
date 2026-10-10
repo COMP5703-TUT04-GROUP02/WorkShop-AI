@@ -277,7 +277,7 @@ Set `LLM_PROVIDER` and the matching key, or save the same values from the dashbo
 | `LLM_PROVIDER`         | Key                                  | Default model     | API host                         |
 | ---------------------- | ------------------------------------ | ----------------- | -------------------------------- |
 | `qwen` (default)       | `LLM_API_KEY` or `QWEN_API_KEY`      | `qwen3.8-max`     | DashScope compatible-mode        |
-| `openai` (alias `gpt`) | `OPENAI_API_KEY`                     | `gpt-6-astra`     | `https://api.openai.com/v1`      |
+| `openai` (alias `gpt`) | `OPENAI_API_KEY`                     | `gpt-6.1-sol`     | `https://api.openai.com/v1`      |
 | `claude`               | `ANTHROPIC_API_KEY`                  | `claude-sonnet-5` | `https://api.anthropic.com/v1`   |
 | `kimi`                 | `KIMI_API_KEY` or `MOONSHOT_API_KEY` | `kimi-k3`         | `https://api.moonshot.cn/v1`     |
 | `kimi-code`            | `KIMI_CODE_API_KEY`                  | `k3`              | `https://api.kimi.com/coding/v1` |

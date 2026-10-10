@@ -46,7 +46,7 @@ PRESETS: dict[str, dict[str, object]] = {
     "openai": {
         "label": "OpenAI",
         "base_url": "https://api.openai.com/v1",
-        "model": "gpt-6-astra",
+        "model": "gpt-6.1-sol",
         "key_env": ("OPENAI_API_KEY", "LLM_API_KEY"),
         "embedding_model": "text-embedding-3-large",
         "embedding_dimension": 1024,

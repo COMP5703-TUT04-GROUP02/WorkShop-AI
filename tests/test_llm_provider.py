@@ -33,7 +33,7 @@ def test_openai_uses_vendor_key_and_gpt_model():
     assert settings.provider == "openai"
     assert settings.api_key == "sk-test"
     assert settings.base_url == "https://api.openai.com/v1"
-    assert settings.model == "gpt-6-astra"
+    assert settings.model == "gpt-6.1-sol"
     assert settings.embedding_model == "text-embedding-3-large"
     assert settings.supports_embeddings is True
 
@@ -105,3 +105,25 @@ def test_new_vendors_use_official_hosts():
 def test_unknown_vendor_is_rejected():
     with pytest.raises(ValueError, match="Unknown LLM_PROVIDER"):
         resolve_llm_settings(_getenv({"LLM_PROVIDER": "mistral"}))
+
+
+@pytest.mark.parametrize(("provider", "uses_responses"), [("openai", True), ("qwen", False)])
+def test_only_openai_chat_goes_through_the_responses_api(monkeypatch, provider, uses_responses):
+    from types import SimpleNamespace
+
+    from langchain_core.messages import AIMessage
+
+    from backend.ai import clients
+
+    monkeypatch.setattr(clients, "get_llm_auth_mode", lambda: "key")
+    monkeypatch.setattr(
+        clients,
+        "resolve_chat_settings",
+        lambda: SimpleNamespace(
+            provider=provider, model="m", api_key="test-key", base_url="https://example.test/v1"
+        ),
+    )
+
+    assert bool(clients.get_qwen_chat_model().use_responses_api) is uses_responses
+    blocks = AIMessage(content=[{"type": "reasoning", "summary": []}, {"type": "text", "text": "hi"}])
+    assert clients.get_message_content(blocks) == "hi"

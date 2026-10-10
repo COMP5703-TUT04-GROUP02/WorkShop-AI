@@ -70,6 +70,10 @@ def get_qwen_chat_model(
         kwargs["default_headers"] = headers
     if chat.provider not in {"openai", "grok"}:
         kwargs["temperature"] = LLM_TEMPERATURE if temperature is None else temperature
+    if chat.provider == "openai":
+        # Current OpenAI reasoning models reject function tools on
+        # /v1/chat/completions unless reasoning is turned off.
+        kwargs["use_responses_api"] = True
     return ChatOpenAI(**kwargs)
 
 
@@ -96,7 +100,8 @@ def get_message_content(response):
     if isinstance(response.content, str):
         return response.content
 
-    return str(response.content)
+    # Responses API replies are content blocks (reasoning, text, ...).
+    return response.text
 
 
 def invoke_qwen_chat(
