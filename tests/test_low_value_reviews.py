@@ -253,3 +253,197 @@ def test_a_brand_new_provider_with_no_cheap_reviews_sees_an_empty_sweep(
     )
     assert response.json()["data"]["total"] == 0
     assert response.json()["data"]["items"] == []
+
+
+# --- the mirror: putting wrongly hidden reviews back -------------------------
+
+
+def test_the_restore_sweep_lists_only_hidden_expensive_reviews(
+    client, db_session, marketplace
+):
+    customer_id = marketplace["customer"]["user"]["id"]
+    profile_id = marketplace["provider_profile"]["id"]
+    hidden_expensive = review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "800.00"),
+        is_visible=0,
+    )
+    hidden_cheap = review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "5.00"),
+        is_visible=0,
+    )
+    visible_expensive = review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "900.00"),
+        is_visible=1,
+    )
+
+    response = client.get(
+        "/admin/reviews/high-value-hidden", headers=marketplace["admin"]["headers"]
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+
+    assert data["threshold"] == 100.0
+    ids = [item["id"] for item in data["items"]]
+    assert ids == [hidden_expensive.id]
+    assert hidden_cheap.id not in ids
+    assert visible_expensive.id not in ids
+    assert data["items"][0]["booking_total_amount"] == 800.0
+
+
+def test_the_restore_threshold_is_inclusive(client, db_session, marketplace):
+    """A booking exactly on the threshold is expensive enough to come back."""
+    customer_id = marketplace["customer"]["user"]["id"]
+    profile_id = marketplace["provider_profile"]["id"]
+    on_threshold = review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "100.00"),
+        is_visible=0,
+    )
+
+    response = client.get(
+        "/admin/reviews/high-value-hidden",
+        params={"threshold": 100},
+        headers=marketplace["admin"]["headers"],
+    )
+    assert [item["id"] for item in response.json()["data"]["items"]] == [on_threshold.id]
+
+
+def test_restore_lists_the_dearest_first(client, db_session, marketplace):
+    customer_id = marketplace["customer"]["user"]["id"]
+    profile_id = marketplace["provider_profile"]["id"]
+    for amount in ("300.00", "900.00", "500.00"):
+        review_for(
+            db_session,
+            completed_booking(db_session, customer_id, profile_id, amount),
+            is_visible=0,
+        )
+
+    response = client.get(
+        "/admin/reviews/high-value-hidden", headers=marketplace["admin"]["headers"]
+    )
+    amounts = [item["booking_total_amount"] for item in response.json()["data"]["items"]]
+    assert amounts == [900.0, 500.0, 300.0]
+
+
+def test_showing_puts_them_back_on_the_profile_and_into_the_rating(
+    client, db_session, marketplace
+):
+    customer_id = marketplace["customer"]["user"]["id"]
+    profile_id = marketplace["provider_profile"]["id"]
+    restored = review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "800.00"),
+        rating=2,
+        comment="Late and left a mess",
+        is_visible=0,
+    )
+    review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "900.00"),
+        rating=4,
+        comment="Solid work",
+        is_visible=1,
+    )
+
+    before = client.get(f"/providers/{profile_id}")
+    assert before.json()["data"]["review_count"] == 1
+    assert before.json()["data"]["average_rating"] == 4.0
+
+    response = client.post(
+        "/admin/reviews/high-value-hidden/show",
+        json={"threshold": 100},
+        headers=marketplace["admin"]["headers"],
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["restored"] == 1
+    assert response.json()["data"]["review_ids"] == [restored.id]
+
+    db_session.refresh(restored)
+    assert restored.is_visible == 1
+
+    after = client.get(f"/providers/{profile_id}")
+    assert after.json()["data"]["review_count"] == 2
+    assert after.json()["data"]["average_rating"] == 3.0
+    public = client.get(f"/providers/{profile_id}/reviews")
+    assert restored.id in [item["id"] for item in public.json()["data"]["items"]]
+
+
+def test_hiding_then_restoring_returns_to_the_starting_state(
+    client, db_session, marketplace
+):
+    """A sweep run at too high an amount is undone by the mirror sweep."""
+    cheap, borderline, genuine = seed_three(db_session, marketplace)
+    headers = marketplace["admin"]["headers"]
+    profile_id = marketplace["provider_profile"]["id"]
+    before = client.get(f"/providers/{profile_id}").json()["data"]
+
+    # Swept far too aggressively: everything under 1000 TRY goes.
+    hidden = client.post(
+        "/admin/reviews/low-value/hide", json={"threshold": 1000}, headers=headers
+    )
+    assert hidden.json()["data"]["hidden"] == 3
+
+    # Bring back everything that sat on a properly priced job.
+    restored = client.post(
+        "/admin/reviews/high-value-hidden/show",
+        json={"threshold": 100},
+        headers=headers,
+    )
+    assert sorted(restored.json()["data"]["review_ids"]) == sorted(
+        [borderline.id, genuine.id]
+    )
+
+    db_session.refresh(cheap)
+    db_session.refresh(borderline)
+    db_session.refresh(genuine)
+    # The token-priced one stays hidden; the real ones are back.
+    assert cheap.is_visible == 0
+    assert borderline.is_visible == 1
+    assert genuine.is_visible == 1
+
+    after = client.get(f"/providers/{profile_id}").json()["data"]
+    assert after["review_count"] == before["review_count"] - 1
+
+
+def test_running_the_restore_twice_changes_nothing_the_second_time(
+    client, db_session, marketplace
+):
+    customer_id = marketplace["customer"]["user"]["id"]
+    profile_id = marketplace["provider_profile"]["id"]
+    review_for(
+        db_session,
+        completed_booking(db_session, customer_id, profile_id, "800.00"),
+        is_visible=0,
+    )
+    headers = marketplace["admin"]["headers"]
+
+    first = client.post(
+        "/admin/reviews/high-value-hidden/show", json={"threshold": 100}, headers=headers
+    )
+    second = client.post(
+        "/admin/reviews/high-value-hidden/show", json={"threshold": 100}, headers=headers
+    )
+
+    assert first.json()["data"]["restored"] == 1
+    assert second.json()["data"]["restored"] == 0
+
+
+def test_only_an_admin_can_run_the_restore(client, db_session, marketplace):
+    customer = marketplace["customer"]["headers"]
+    provider = marketplace["provider"]["headers"]
+
+    assert (
+        client.get("/admin/reviews/high-value-hidden", headers=customer).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/admin/reviews/high-value-hidden/show",
+            json={"threshold": 100},
+            headers=provider,
+        ).status_code
+        == 403
+    )

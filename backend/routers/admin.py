@@ -47,9 +47,10 @@ from backend.utils.refund import (
     ensure_refund_can_restore_previous_booking_status,
 )
 from backend.utils.review import (
+    build_hidden_high_value_review_query,
     build_low_value_review_query,
-    format_low_value_review_response,
     format_review_detail_response,
+    format_review_with_booking_response,
 )
 from backend.utils.review_embedding_queue import (
     enqueue_review_embedding_delete,
@@ -70,6 +71,7 @@ from backend.schemas import (
     ProviderPortfolioVerificationUpdate,
     ProviderVerificationUpdate,
     RefundRequestStatus,
+    HighValueReviewShowRequest,
     LowValueReviewHideRequest,
     ReviewVisibilityUpdate,
     SettlementStatus,
@@ -1205,7 +1207,7 @@ def get_low_value_reviews(
     result = []
     for review, total_amount, business_name in rows:
         result.append(
-            format_low_value_review_response(review, total_amount, business_name, db)
+            format_review_with_booking_response(review, total_amount, business_name, db)
         )
     response = build_paginated_response(result, total, page, page_size)
     response["data"]["threshold"] = float(limit)
@@ -1241,4 +1243,58 @@ def hide_low_value_reviews(
             "review_ids": hidden_ids,
         }
     )
+
+
+@router.get("/admin/reviews/high-value-hidden")
+def get_hidden_high_value_reviews(
+    threshold: float = float(LOW_VALUE_REVIEW_THRESHOLD),
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Hidden reviews whose booking was expensive enough to have been a real job."""
+    limit = _parse_review_threshold(threshold)
+    query = build_hidden_high_value_review_query(limit, db)
+    rows, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for review, total_amount, business_name in rows:
+        result.append(
+            format_review_with_booking_response(review, total_amount, business_name, db)
+        )
+    response = build_paginated_response(result, total, page, page_size)
+    response["data"]["threshold"] = float(limit)
+    return response
+
+
+@router.post("/admin/reviews/high-value-hidden/show")
+def show_hidden_high_value_reviews(
+    show_data: HighValueReviewShowRequest,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Make every hidden review at or above the threshold visible again."""
+    limit = _parse_review_threshold(show_data.threshold)
+    rows = build_hidden_high_value_review_query(limit, db).all()
+
+    restored_reviews = [review for review, _amount, _name in rows]
+    for review in restored_reviews:
+        review.is_visible = 1
+    db.commit()
+
+    restored_ids = []
+    for review in restored_reviews:
+        db.refresh(review)
+        restored_ids.append(review.id)
+        enqueue_review_embedding_sync(review, db, current_user.id)
+
+    return success_response(
+        {
+            "message": f"{len(restored_ids)} reviews made visible",
+            "threshold": float(limit),
+            "restored": len(restored_ids),
+            "review_ids": restored_ids,
+        }
+    )
+
 

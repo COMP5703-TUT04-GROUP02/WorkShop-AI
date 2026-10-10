@@ -367,3 +367,27 @@ export async function hideLowValueReviews(threshold: number) {
 
   return response.data.data;
 }
+
+/** Hidden reviews whose booking total is at or above `threshold`, dearest first. */
+export async function getHiddenHighValueReviews(
+  threshold: number,
+  page = 1,
+  pageSize = 20,
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<LowValueReview> & { threshold: number }>
+  >("/admin/reviews/high-value-hidden", {
+    params: { threshold, page, page_size: pageSize },
+  });
+
+  return response.data.data;
+}
+
+/** Makes every hidden review at or above `threshold` visible again. */
+export async function showHiddenHighValueReviews(threshold: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ threshold: number; restored: number; review_ids: number[] }>
+  >("/admin/reviews/high-value-hidden/show", { threshold }, { timeout: 60000 });
+
+  return response.data.data;
+}
