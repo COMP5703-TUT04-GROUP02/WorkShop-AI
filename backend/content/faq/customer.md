@@ -205,7 +205,7 @@ Questions are grouped by category, and each question has a stable ID so it can b
 
 **Question: What should I do if the provider does not arrive?**
 
-**Answer:** Check the booking status and contact the provider through the related chat. Do not confirm completion. Use the actions available on the booking to cancel or request a refund when the booking and payment status allow it.
+**Answer:** Check the booking status and contact the provider through the related chat. Do not confirm completion. A refund can only be requested after the provider has started the visit, and cancelling a paid booking closes it without a refund, so contact us under Help and Support before you cancel.
 
 ### CUST-SVC-003
 
@@ -237,25 +237,25 @@ Questions are grouped by category, and each question has a stable ID so it can b
 
 **Question: Can I cancel after the visit fee has been paid?**
 
-**Answer:** The booking may be closed after the visit-fee stage when the Cancel action is available. Closing or cancelling a booking does not automatically refund a paid fee. Submit a separate refund request if you want paid money to be reviewed for refund.
+**Answer:** Yes, while the Cancel action is available. Cancelling at this stage closes the booking without refunding anything, and a closed booking can no longer request a refund. If you want money back, use Request refund before you cancel.
 
 ### CUST-REF-003
 
 **Question: Does cancelling a booking automatically refund my payment?**
 
-**Answer:** No. Cancellation closes the booking but does not automatically refund a paid visit fee or service fee. Refunds use a separate request and review process.
+**Answer:** No. Cancelling closes the booking without refunding a paid visit fee or service fee, and a closed booking can no longer request a refund. If you want a refund, request it with Request refund first.
 
 ### CUST-REF-004
 
 **Question: When can I request a refund?**
 
-**Answer:** A refund can be requested after the provider starts the visit, when the booking has a paid payment and the Request refund action is available. Each booking can be refunded successfully only once, and you cannot start another request while an earlier request for the same payment is still open.
+**Answer:** A refund can be requested after the provider starts the visit, when the booking has a paid payment and the Request refund action is available. It is not available before the provider arrives, or after the booking has been cancelled or closed. Each booking can be refunded successfully only once, and you cannot start another request while an earlier request for the same payment is still open.
 
 ### CUST-REF-005
 
 **Question: Can I request a partial refund?**
 
-**Answer:** Yes. Enter a refund amount that is greater than zero and no more than the paid amount. Leave the refund amount blank to request a refund of the full paid amount. A reason is required for every refund request.
+**Answer:** Yes. Enter a refund amount that is greater than zero and no more than your most recent payment for the booking. If you paid both a visit fee and a service fee, that is the service fee. Leave the amount blank to request that full payment. A reason is required for every refund request.
 
 ### CUST-REF-006
 
@@ -279,7 +279,7 @@ Questions are grouped by category, and each question has a stable ID so it can b
 
 **Question: How long does a refund take?**
 
-**Answer:** Workshop AI does not currently promise a refund processing time. The booking is only marked as fully or partially refunded after the payment processor confirms the refund.
+**Answer:** The review by the provider, and by Workshop AI if you appeal, has no fixed time. Once a refund is approved, the booking is marked as fully or partially refunded after the payment processor confirms it, and the money usually appears in your account within 14 business days.
 
 ## Reviews
 
