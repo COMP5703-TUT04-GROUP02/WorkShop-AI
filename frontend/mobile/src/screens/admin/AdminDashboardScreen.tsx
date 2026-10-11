@@ -40,6 +40,10 @@ import { formatDateTime } from "../../utils/datetime";
 import { formatMoney } from "../../utils/money";
 import { getPaymentStatusLabel } from "../../constants/labels";
 import { AISubscriptionPanel } from "./AISubscriptionPanel";
+import {
+  HiddenReviewRestorePanel,
+  LowValueReviewPanel,
+} from "./ReviewSweepPanels";
 import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
 
 const PAGE_SIZE = 20;
@@ -377,6 +381,14 @@ export function AdminDashboardScreen() {
 
       <View style={styles.section}>
         <ProviderVerificationAdminPanel />
+      </View>
+
+      <View style={styles.section}>
+        <LowValueReviewPanel />
+      </View>
+
+      <View style={styles.section}>
+        <HiddenReviewRestorePanel />
       </View>
 
       <MarketplaceSection

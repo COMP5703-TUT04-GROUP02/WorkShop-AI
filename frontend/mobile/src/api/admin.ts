@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
 import type { PaymentHistoryEntry, RefundRequestSummary } from "../types/booking";
 import type { PaginatedData } from "../types/chat";
+import type { LowValueReview } from "../types/review";
 import type { AdminSubmerchant } from "../types/marketplace";
 import type {
   IdentityVerificationApplication,
@@ -340,5 +341,53 @@ export async function clearLLMApiKey() {
   const response = await apiClient.delete<ApiResponse<LLMOauthStatus>>(
     "/ai/oauth/key",
   );
+  return response.data.data;
+}
+
+/** Visible reviews whose booking total is under `threshold`, cheapest first. */
+export async function getLowValueReviews(
+  threshold: number,
+  page = 1,
+  pageSize = 20,
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<LowValueReview> & { threshold: number }>
+  >("/admin/reviews/low-value", {
+    params: { threshold, page, page_size: pageSize },
+  });
+
+  return response.data.data;
+}
+
+/** Hides every visible review whose booking total is under `threshold`. */
+export async function hideLowValueReviews(threshold: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ threshold: number; hidden: number; review_ids: number[] }>
+  >("/admin/reviews/low-value/hide", { threshold }, { timeout: 60000 });
+
+  return response.data.data;
+}
+
+/** Hidden reviews whose booking total is at or above `threshold`, dearest first. */
+export async function getHiddenHighValueReviews(
+  threshold: number,
+  page = 1,
+  pageSize = 20,
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<LowValueReview> & { threshold: number }>
+  >("/admin/reviews/high-value-hidden", {
+    params: { threshold, page, page_size: pageSize },
+  });
+
+  return response.data.data;
+}
+
+/** Makes every hidden review at or above `threshold` visible again. */
+export async function showHiddenHighValueReviews(threshold: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ threshold: number; restored: number; review_ids: number[] }>
+  >("/admin/reviews/high-value-hidden/show", { threshold }, { timeout: 60000 });
+
   return response.data.data;
 }
