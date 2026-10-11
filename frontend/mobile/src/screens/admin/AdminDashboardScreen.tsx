@@ -45,6 +45,7 @@ import {
   LowValueReviewPanel,
 } from "./ReviewSweepPanels";
 import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
+import { ReviewEmbeddingAdminPanel } from "./ReviewEmbeddingAdminPanel";
 
 const PAGE_SIZE = 20;
 
@@ -378,6 +379,8 @@ export function AdminDashboardScreen() {
       {message ? <Text style={styles.errorText}>{message}</Text> : null}
 
       <AISubscriptionPanel />
+
+      <ReviewEmbeddingAdminPanel />
 
       <View style={styles.section}>
         <ProviderVerificationAdminPanel />
