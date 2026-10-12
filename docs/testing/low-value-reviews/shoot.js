@@ -1,6 +1,9 @@
-// Evidence for the two review sweeps. Every screenshot is backed by an
-// assertion, and the run is a round trip: the three reviews it hides are put
-// back by the restore sweep, so the database ends where it started.
+// Evidence for the two admin review sweeps.
+//
+// Every screenshot is backed by an assertion, and the run is a round trip: the
+// three reviews it hides are put back at the end, so the database finishes
+// exactly where it started. It also captures the customer-facing provider page
+// before and after, which is where the effect that matters actually shows up.
 const { chromium } = require("playwright");
 
 const APP = "http://localhost:8090";
@@ -9,6 +12,8 @@ const PASSWORD = "Demo1234";
 
 const field = (p, ph) => p.getByPlaceholder(ph).locator("visible=true").first();
 const button = (p, n) => p.getByRole("button", { name: n, exact: true }).locator("visible=true").first();
+const thresholdBox = (p, i) => p.getByPlaceholder("100").locator("visible=true").nth(i);
+const checkButton = (p, i) => p.getByRole("button", { name: "Check", exact: true }).locator("visible=true").nth(i);
 
 let passed = 0, failed = 0;
 function check(label, ok, detail = "") {
@@ -17,83 +22,110 @@ function check(label, ok, detail = "") {
 }
 const shot = async (p, n) => { await p.screenshot({ path: `${OUT}/${n}.png` }); console.log(`      saved ${n}.png`); };
 
-// Each panel owns one threshold box; nth(0) is the hide sweep, nth(1) restore.
-const thresholdBox = (p, index) => p.getByPlaceholder("100").locator("visible=true").nth(index);
-const checkButton = (p, index) => p.getByRole("button", { name: "Check", exact: true }).locator("visible=true").nth(index);
-
-(async () => {
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1280, height: 1150 } });
-  page.on("dialog", (d) => void d.accept());
-
+async function signIn(page, email) {
   await page.goto(APP, { waitUntil: "networkidle" });
   await page.waitForTimeout(2500);
-  await field(page, "you@example.com").fill("demo_admin@workshop.ai");
+  await field(page, "you@example.com").fill(email);
   await field(page, "Minimum 8 characters").fill(PASSWORD);
   await button(page, "Sign in").click();
   await page.waitForTimeout(9000);
+}
+
+// The provider carrying a five-star review on a 52.60 TRY booking.
+async function openLocksmith(page) {
+  await page.goto(APP, { waitUntil: "networkidle" });
+  await page.waitForTimeout(4000);
+  await field(page, "Search services or businesses").fill("locksmith");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(6000);
+  await page.getByText("Istanbul Rapid Locksmith").locator("visible=true").first().click();
+  await page.waitForTimeout(6000);
+  if (!page.url().includes("providerId=7")) throw new Error("wrong provider: " + page.url());
+  return (await page.evaluate(() => document.body.innerText))
+    .match(/[\d.]+ stars · \d+ reviews/)[0];
+}
+
+(async () => {
+  const browser = await chromium.launch();
+  const admin = await browser.newPage({ viewport: { width: 1280, height: 1150 } });
+  const customer = await browser.newPage({ viewport: { width: 1280, height: 1150 } });
+  for (const p of [admin, customer]) p.on("dialog", (d) => void d.accept());
+
+  // ---------- the rating before anything is touched
+  await signIn(customer, "demo_customer_5@workshop.ai");
+  const ratingBefore = await openLocksmith(customer);
+  check("the farmed rating is live on the public profile", ratingBefore === "4.0 stars · 10 reviews", ratingBefore);
+  await shot(customer, "01-rating-before");
 
   // ---------- the hide sweep
-  const hideHeading = page.getByText("Reviews bought with cheap bookings", { exact: true }).locator("visible=true").first();
+  await signIn(admin, "demo_admin@workshop.ai");
+  const hideHeading = admin.getByText("Reviews bought with cheap bookings", { exact: true }).locator("visible=true").first();
   await hideHeading.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(3000);
-  check("the admin dashboard carries the hide sweep", await hideHeading.isVisible());
+  await admin.waitForTimeout(3000);
+  check("the admin console carries the hide sweep", await hideHeading.isVisible());
 
-  const defaultCount = page.getByText(/^20 reviews matched/).locator("visible=true").first();
+  const defaultCount = admin.getByText(/^20 reviews matched/).locator("visible=true").first();
   check("it checks every visible review at the 100 TRY default", await defaultCount.isVisible());
-  await shot(page, "01-default-check");
+  await shot(admin, "02-sweep-default");
 
-  const cheapest = page.getByText("51.80 TRY").locator("visible=true").first();
+  const cheapest = admin.getByText("51.80 TRY").locator("visible=true").first();
   check("each row shows the booking total behind the review", await cheapest.isVisible());
   await cheapest.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1200);
-  await shot(page, "02-list-with-amounts");
+  await admin.waitForTimeout(1200);
+  await shot(admin, "03-sweep-list");
 
-  await thresholdBox(page, 0).fill("53");
-  await page.waitForTimeout(400);
-  await checkButton(page, 0).click();
-  await page.waitForTimeout(4500);
-  const narrowed = page.getByText(/^3 reviews matched/).locator("visible=true").first();
+  await thresholdBox(admin, 0).fill("53");
+  await admin.waitForTimeout(400);
+  await checkButton(admin, 0).click();
+  await admin.waitForTimeout(4500);
+  const narrowed = admin.getByText(/^3 reviews matched/).locator("visible=true").first();
   check("the threshold is the admin's to set", await narrowed.isVisible());
   await narrowed.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1000);
-  await shot(page, "03-threshold-changed");
+  await admin.waitForTimeout(1000);
+  await shot(admin, "04-sweep-narrowed");
 
-  await button(page, "Hide these 3 reviews").click();
-  await page.waitForTimeout(8000);
-  const hidden = page.getByText(/3 reviews are now hidden/).locator("visible=true").first();
+  await button(admin, "Hide these 3 reviews").click();
+  await admin.waitForTimeout(8000);
+  const hidden = admin.getByText(/3 reviews are now hidden/).locator("visible=true").first();
   check("hiding reports what it did", await hidden.isVisible());
   await hidden.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1000);
-  await shot(page, "04-hidden");
+  await admin.waitForTimeout(1000);
+  await shot(admin, "05-sweep-hidden");
 
-  // ---------- the restore sweep
-  const restoreHeading = page.getByText("Restore hidden reviews on real bookings", { exact: true }).locator("visible=true").first();
+  // ---------- the rating has actually moved
+  const ratingAfter = await openLocksmith(customer);
+  // The API returns 3.89; the profile renders it with one decimal.
+  check("the farmed star is out of the public rating", ratingAfter === "3.9 stars · 9 reviews", ratingAfter);
+  await shot(customer, "06-rating-after");
+
+  // ---------- the mirror sweep
+  const restoreHeading = admin.getByText("Restore hidden reviews on real bookings", { exact: true }).locator("visible=true").first();
   await restoreHeading.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(2500);
-  check("the dashboard carries the mirror sweep", await restoreHeading.isVisible());
+  await admin.waitForTimeout(2500);
+  check("the console carries the mirror sweep", await restoreHeading.isVisible());
 
-  await thresholdBox(page, 1).fill("50");
-  await page.waitForTimeout(400);
-  await checkButton(page, 1).click();
-  await page.waitForTimeout(4500);
-  const found = page.getByText(/^3 reviews matched/).locator("visible=true").last();
-  check("the restore sweep finds the three that were just hidden", await found.isVisible());
+  await thresholdBox(admin, 1).fill("50");
+  await admin.waitForTimeout(400);
+  await checkButton(admin, 1).click();
+  await admin.waitForTimeout(4500);
+  const found = admin.getByText(/^3 reviews matched/).locator("visible=true").last();
+  check("the mirror sweep finds the three just hidden, dearest first", await found.isVisible());
   await found.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1200);
-  await shot(page, "05-restore-check");
+  await admin.waitForTimeout(1200);
+  await shot(admin, "07-restore-check");
 
-  await button(page, "Make these 3 reviews visible").click();
-  await page.waitForTimeout(8000);
-  const restored = page.getByText(/3 reviews are visible again/).locator("visible=true").first();
+  await button(admin, "Make these 3 reviews visible").click();
+  await admin.waitForTimeout(8000);
+  const restored = admin.getByText(/3 reviews are visible again/).locator("visible=true").first();
   check("restoring reports what it did", await restored.isVisible());
   await restored.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1000);
-  await shot(page, "06-restored");
+  await admin.waitForTimeout(1000);
+  await shot(admin, "08-restored");
 
-  const empty = page.getByText(/No hidden review is attached to a booking at or above this amount/).locator("visible=true").first();
-  check("nothing is left hidden above that amount", await empty.isVisible());
-  await shot(page, "07-nothing-left-hidden");
+  // ---------- and the rating is back
+  const ratingRestored = await openLocksmith(customer);
+  check("the rating returns to where it started", ratingRestored === ratingBefore, ratingRestored);
+  await shot(customer, "09-rating-restored");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   await browser.close();

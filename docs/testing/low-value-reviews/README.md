@@ -1,74 +1,80 @@
 # Review visibility sweeps: test evidence
 
-## What this does
+## The problem
 
-A review has two states, visible and hidden. This adds two mirror actions to the
-admin dashboard, each one check and one click.
+A provider can lift their own star rating without doing any work. Have an
+accomplice place a booking for a trivial amount, accept it, and have them leave
+five stars. The booking is real and the review is real, so nothing about the
+record looks forged — but the rating is a lie, and the customers who rely on it
+are the ones who pay for it.
 
-**Hide reviews bought with cheap bookings.** Checks every **visible** review and
-finds the ones whose booking total was below an amount — too cheap to have been
-a real job. That is how a provider farms their own rating: have someone place a
-token-priced order and leave five stars for it. Hiding removes the review from
-the provider's public profile **and from their average rating**, because
-`get_provider_rating_summary` only counts visible reviews. The farmed stars stop
-lifting the score.
+## What was built
 
-**Restore hidden reviews on real bookings.** The mirror. Checks every **hidden**
-review and finds the ones whose booking was at or above an amount, then makes
-them visible again. This is the way back from a sweep run at too high a number,
-without hunting for reviews one at a time.
+Two mirrored admin actions, each one check and one click.
 
-| | Scans | Comparison | Order | Result |
+| Operation | Scans | Keeps the ones where | Order | Result |
 | --- | --- | --- | --- | --- |
-| Hide | visible reviews | `< threshold` | cheapest first | hidden |
-| Restore | hidden reviews | `>= threshold` | dearest first | visible |
+| Hide cheap | visible reviews | `booking total < threshold` | cheapest first | hidden |
+| Restore real | hidden reviews | `booking total >= threshold` | dearest first | visible |
+
+The first removes farmed reviews. The second is the way back if the first is
+run too aggressively, bringing every review that sits on a properly priced job
+back at once instead of one at a time.
+
+Hiding is not cosmetic: `get_provider_rating_summary` counts **visible reviews
+only**, so a hidden review drops out of the provider's average as well as off
+their profile. That is the whole point.
 
 The hide comparison is strict and the restore comparison is inclusive, so the
-same number used on both sides is a clean round trip: nothing falls between them
-and nothing is caught twice.
+same amount on both sides is a closed round trip — nothing falls in the gap
+between them, and nothing is caught by both.
 
 ## The threshold
 
-Default **100 TRY** on both, editable before each run.
+Default **100 TRY**, editable before each run. It came from the platform's own
+data rather than a guess: the median provider charges **119 TRY an hour**, so a
+booking under 100 TRY cannot pay for even one hour of anyone's time. The number
+does not have to be exactly right, because every matching review is listed —
+with the booking total that paid for it — before anything changes.
 
-100 TRY came from the data rather than a guess: the median provider on the
-platform charges 119 TRY an hour, so a booking under 100 TRY cannot pay for even
-one hour of a typical provider's time. It does not have to be exactly right,
-because the admin sees the full list, with the booking total that paid for each
-review, before anything changes.
+## The evidence
 
-## Hiding
+**Istanbul Rapid Locksmith** carries a five-star review on a **52.60 TRY**
+booking. Before anything is touched, that farmed star is live on the public
+profile: **4.0 stars from 10 reviews**.
 
-The sweep runs on load at the default and reports how many reviews it matched.
+![The rating before](01-rating-before.png)
 
-![The hide sweep at its default threshold](01-default-check.png)
+The sweep runs on load at the default and reports what it matched.
 
-Every row carries the booking total, the provider, the rating and the comment,
-so the admin decides on evidence rather than on a count.
+![The sweep at its default](02-sweep-default.png)
 
-![The list, cheapest first](02-list-with-amounts.png)
+Each row carries the booking total that paid for the review, so the admin is
+deciding on evidence rather than on a count.
 
-Narrowing the threshold to 53 TRY cuts the list from 20 reviews to 3.
+![The list, cheapest first](03-sweep-list.png)
 
-![A narrower threshold](03-threshold-changed.png)
+Narrowing to 53 TRY cuts the list from 20 reviews to 3.
 
-Hiding says what it did.
+![A narrower threshold](04-sweep-narrowed.png)
 
-![Hidden](04-hidden.png)
+![Hidden](05-sweep-hidden.png)
 
-## Restoring
+**This is the test that matters.** The same public profile now reads **3.9 stars
+from 9 reviews** — the farmed star is out of the average, not merely off the
+page.
 
-The mirror sweep, set to 50 TRY, finds exactly the three that were just hidden —
-dearest first this time.
+![The rating after](06-rating-after.png)
 
-![The restore sweep](05-restore-check.png)
+The mirror sweep, set to 50 TRY, finds exactly those three, dearest first.
 
-![Restored](06-restored.png)
+![The mirror sweep](07-restore-check.png)
 
-![Nothing left hidden](07-nothing-left-hidden.png)
+![Restored](08-restored.png)
 
-Because the evidence run is a round trip, it leaves the database exactly where
-it started: 300 visible reviews before and after.
+And the rating returns to where it started.
+
+![The rating restored](09-rating-restored.png)
 
 ## How these were captured
 
@@ -79,18 +85,24 @@ node docs/testing/low-value-reviews/shoot.js
 A clean run prints:
 
 ```
-PASS  the admin dashboard carries the hide sweep
+PASS  the farmed rating is live on the public profile — 4.0 stars · 10 reviews
+PASS  the admin console carries the hide sweep
 PASS  it checks every visible review at the 100 TRY default
 PASS  each row shows the booking total behind the review
 PASS  the threshold is the admin's to set
 PASS  hiding reports what it did
-PASS  the dashboard carries the mirror sweep
-PASS  the restore sweep finds the three that were just hidden
+PASS  the farmed star is out of the public rating — 3.9 stars · 9 reviews
+PASS  the console carries the mirror sweep
+PASS  the mirror sweep finds the three just hidden, dearest first
 PASS  restoring reports what it did
-PASS  nothing is left hidden above that amount
+PASS  the rating returns to where it started — 4.0 stars · 10 reviews
 
-9 passed, 0 failed
+11 passed, 0 failed
 ```
+
+The run is a round trip, so it leaves the database exactly where it started:
+300 visible reviews before and after. The API returns the rating as `3.89`; the
+profile renders it with one decimal.
 
 ## Automated tests
 
