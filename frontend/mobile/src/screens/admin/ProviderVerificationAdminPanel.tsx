@@ -24,7 +24,11 @@ type Selection =
   | { kind: "identity"; item: IdentityVerificationApplication }
   | { kind: "qualification"; item: QualificationVerificationApplication };
 
-export function ProviderVerificationAdminPanel() {
+export function ProviderVerificationAdminPanel({
+  mode = "all",
+}: {
+  mode?: "all" | "identity" | "qualification";
+}) {
   const [identities, setIdentities] = useState<IdentityVerificationApplication[]>([]);
   const [qualifications, setQualifications] = useState<QualificationVerificationApplication[]>([]);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -38,17 +42,17 @@ export function ProviderVerificationAdminPanel() {
     setMessage("");
     try {
       const [nextIdentities, nextQualifications] = await Promise.all([
-        getAdminIdentityVerifications(),
-        getAdminQualificationVerifications(),
+        mode === "qualification" ? Promise.resolve([]) : getAdminIdentityVerifications(),
+        mode === "identity" ? Promise.resolve([]) : getAdminQualificationVerifications(),
       ]);
-      setIdentities(nextIdentities);
-      setQualifications(nextQualifications);
+      setIdentities(nextIdentities ?? []);
+      setQualifications(nextQualifications ?? []);
     } catch (error) {
       setMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => void load(), [load]);
 
@@ -79,15 +83,15 @@ export function ProviderVerificationAdminPanel() {
   }
 
   return <View style={styles.section}>
-    <View style={styles.header}><View style={styles.flex}><Text style={styles.title}>Provider verification</Text><Text style={styles.subtitle}>Identity and service verification are reviewed separately.</Text></View><SecondaryButton label="Refresh" onPress={() => void load()} disabled={isLoading || isActing} /></View>
+    <View style={styles.header}><View style={styles.flex}><Text style={styles.title}>{mode === "identity" ? "Identity applications" : mode === "qualification" ? "Qualification applications" : "Provider verification"}</Text><Text style={styles.subtitle}>{mode === "identity" ? "Review provider identity details and protected documents." : mode === "qualification" ? "Review service details, locations, and qualification files." : "Identity and service verification are reviewed separately."}</Text></View><SecondaryButton label="Refresh" onPress={() => void load()} disabled={isLoading || isActing} /></View>
     {message ? <Text style={styles.error}>{message}</Text> : null}
     {isLoading ? <ActivityIndicator color={colors.primary} /> : <>
-      <Queue title="Identity applications" empty="No identity applications pending review.">
+      {mode !== "qualification" ? <Queue title="Identity applications" empty="No identity applications pending review.">
         {identities.map((item) => <ReviewCard key={item.id} active={selection?.kind === "identity" && selection.item.id === item.id} title={`${item.submitted_first_name} ${item.submitted_last_name}`} subtitle={`Provider user #${item.user_id} · ${item.document_type.replace("_", " ")}`} onPress={() => { setSelection({ kind: "identity", item }); setRejectReason(""); }} />)}
-      </Queue>
-      <Queue title="Service verification applications" empty="No service verification applications pending review.">
+      </Queue> : null}
+      {mode !== "identity" ? <Queue title="Service verification applications" empty="No service verification applications pending review.">
         {qualifications.map((item) => <ReviewCard key={item.id} active={selection?.kind === "qualification" && selection.item.id === item.id} title={item.display_name} subtitle={`${item.entity_type} · ${item.service_categories.map(getProviderTagLabel).join(", ")}`} onPress={() => { setSelection({ kind: "qualification", item }); setRejectReason(""); }} />)}
-      </Queue>
+      </Queue> : null}
     </>}
     {selection ? <View style={styles.detail}>
       <View style={styles.header}><Text style={styles.detailTitle}>{selection.kind === "identity" ? "Identity review" : "Service verification review"}</Text><Pressable onPress={() => setSelection(null)}><Text style={styles.link}>Close</Text></Pressable></View>

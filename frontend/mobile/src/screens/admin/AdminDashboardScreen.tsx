@@ -1,4 +1,5 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { X } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
@@ -39,13 +40,7 @@ import { getErrorMessage } from "../../utils/errors";
 import { formatDateTime } from "../../utils/datetime";
 import { formatMoney } from "../../utils/money";
 import { getPaymentStatusLabel } from "../../constants/labels";
-import { AISubscriptionPanel } from "./AISubscriptionPanel";
-import {
-  HiddenReviewRestorePanel,
-  LowValueReviewPanel,
-} from "./ReviewSweepPanels";
-import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
-import { ReviewEmbeddingAdminPanel } from "./ReviewEmbeddingAdminPanel";
+import type { RootStackParamList } from "../../navigation/types";
 
 const PAGE_SIZE = 20;
 
@@ -56,8 +51,71 @@ type AdminPaymentFilters = {
   bookingId?: number;
 };
 
+type OperationsSection = "portfolio" | "refunds" | "payments" | "payouts";
+
+const ADMIN_AREAS: Array<{
+  description: string;
+  route: keyof RootStackParamList;
+  title: string;
+}> = [
+  { title: "Identity verification", description: "Review provider identity documents.", route: "AdminIdentityVerification" },
+  { title: "Qualification verification", description: "Review provider service qualifications.", route: "AdminQualificationVerification" },
+  { title: "Portfolio review", description: "Approve or reject provider portfolio submissions.", route: "AdminPortfolioReview" },
+  { title: "Refund disputes", description: "Resolve customer refund appeals.", route: "AdminRefundDisputes" },
+  { title: "Payments & settlements", description: "Inspect payments and retry failed settlements.", route: "AdminPaymentsSettlements" },
+  { title: "Provider payout accounts", description: "Inspect provider marketplace payout status.", route: "AdminPayoutAccounts" },
+  { title: "Review management", description: "Hide low-value reviews or restore valid ones.", route: "AdminReviewManagement" },
+  { title: "Customer AI config", description: "Manage the customer AI model connection.", route: "AdminCustomerAIConfig" },
+  { title: "Review embedding / search", description: "Monitor and rebuild review embeddings.", route: "AdminReviewEmbedding" },
+];
+
 export function AdminDashboardScreen() {
-  const [pendingProfiles, setPendingProfiles] = useState<ProviderProfile[]>([]);
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} style={styles.container}>
+      <View>
+        <Text style={styles.title}>Admin management</Text>
+        <Text style={styles.subtitle}>
+          Choose a workspace. Account and security settings remain under Account.
+        </Text>
+      </View>
+      <View style={styles.hubGrid}>
+        {ADMIN_AREAS.map((area) => (
+          <Pressable
+            accessibilityRole="button"
+            key={area.route}
+            onPress={() => navigation.navigate(area.route as never)}
+            style={({ pressed }) => [styles.hubCard, pressed ? styles.cardPressed : null]}
+          >
+            <Text style={styles.hubCardTitle}>{area.title}</Text>
+            <Text style={styles.hubCardDescription}>{area.description}</Text>
+            <Text style={styles.hubCardLink}>Open workspace</Text>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+export function AdminPortfolioReviewScreen() {
+  return <AdminOperationsScreen section="portfolio" />;
+}
+
+export function AdminRefundDisputesScreen() {
+  return <AdminOperationsScreen section="refunds" />;
+}
+
+export function AdminPaymentsSettlementsScreen() {
+  return <AdminOperationsScreen section="payments" />;
+}
+
+export function AdminPayoutAccountsScreen() {
+  return <AdminOperationsScreen section="payouts" />;
+}
+
+function AdminOperationsScreen({ section }: { section: OperationsSection }) {
   const [pendingPortfolios, setPendingPortfolios] = useState<ProviderPortfolio[]>([]);
   const [pendingAppeals, setPendingAppeals] = useState<RefundRequestSummary[]>([]);
   const [submerchants, setSubmerchants] = useState<AdminSubmerchant[]>([]);
@@ -68,14 +126,10 @@ export function AdminDashboardScreen() {
   const [retryQueuedPaymentIds, setRetryQueuedPaymentIds] = useState<
     Record<number, boolean>
   >({});
-  const [selectedProfile, setSelectedProfile] = useState<ProviderProfile | null>(
-    null,
-  );
   const [selectedPortfolio, setSelectedPortfolio] =
     useState<ProviderPortfolio | null>(null);
   const [selectedAppeal, setSelectedAppeal] =
     useState<RefundRequestSummary | null>(null);
-  const [profileRejectReason, setProfileRejectReason] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [appealAdminNote, setAppealAdminNote] = useState("");
   const [message, setMessage] = useState("");
@@ -90,24 +144,31 @@ export function AdminDashboardScreen() {
     setIsLoading(true);
     setMessage("");
     try {
-      const [portfolioResult, appealResult, submerchantResult, paymentResult] = await Promise.all([
-        getPendingProviderPortfolios(1, PAGE_SIZE),
-        getPendingRefundAppeals(1, PAGE_SIZE),
-        getAdminSubmerchants(1, PAGE_SIZE),
-        getAdminPayments(requestedPaymentPage, PAGE_SIZE, requestedPaymentFilters),
-      ]);
-      setPendingPortfolios(portfolioResult?.items ?? []);
-      setPendingAppeals(appealResult?.items ?? []);
-      setSubmerchants(submerchantResult?.items ?? []);
-      setMarketplacePayments(paymentResult?.items ?? []);
-      setPaymentPage(paymentResult?.page ?? requestedPaymentPage);
-      setPaymentTotalPages(paymentResult?.total_pages ?? 1);
+      if (section === "portfolio") {
+        const result = await getPendingProviderPortfolios(1, PAGE_SIZE);
+        setPendingPortfolios(result?.items ?? []);
+      } else if (section === "refunds") {
+        const result = await getPendingRefundAppeals(1, PAGE_SIZE);
+        setPendingAppeals(result?.items ?? []);
+      } else if (section === "payouts") {
+        const result = await getAdminSubmerchants(1, PAGE_SIZE);
+        setSubmerchants(result?.items ?? []);
+      } else {
+        const result = await getAdminPayments(
+          requestedPaymentPage,
+          PAGE_SIZE,
+          requestedPaymentFilters,
+        );
+        setMarketplacePayments(result?.items ?? []);
+        setPaymentPage(result?.page ?? requestedPaymentPage);
+        setPaymentTotalPages(result?.total_pages ?? 1);
+      }
     } catch (error) {
       setMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, [paymentFilters, paymentPage]);
+  }, [paymentFilters, paymentPage, section]);
 
   function handlePaymentFiltersChange(nextFilters: AdminPaymentFilters) {
     setPaymentFilters(nextFilters);
@@ -156,75 +217,6 @@ export function AdminDashboardScreen() {
       void loadPendingReviews();
     }, [loadPendingReviews]),
   );
-
-  async function openProfile(providerProfileId: number) {
-    setActionError("");
-    setProfileRejectReason("");
-    try {
-      const result = await getAdminProviderProfile(providerProfileId);
-      setSelectedProfile(result);
-    } catch (error) {
-      setMessage(getErrorMessage(error));
-    }
-  }
-
-  function closeProfile() {
-    setSelectedProfile(null);
-    setProfileRejectReason("");
-    setActionError("");
-  }
-
-  async function approveProfile() {
-    if (!selectedProfile) {
-      return;
-    }
-
-    setIsActing(true);
-    setActionError("");
-    try {
-      await updateAdminProviderProfileVerification(
-        selectedProfile.id,
-        "approved",
-        "Provider profile approved",
-      );
-      await loadPendingReviews();
-      Alert.alert("Approved", "Provider profile approved.");
-      closeProfile();
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setIsActing(false);
-    }
-  }
-
-  async function rejectProfile() {
-    if (!selectedProfile) {
-      return;
-    }
-
-    const cleanReason = profileRejectReason.trim();
-    if (!cleanReason) {
-      setActionError("Enter a rejection reason.");
-      return;
-    }
-
-    setIsActing(true);
-    setActionError("");
-    try {
-      await updateAdminProviderProfileVerification(
-        selectedProfile.id,
-        "rejected",
-        cleanReason,
-      );
-      await loadPendingReviews();
-      Alert.alert("Declined", "The provider has been notified.");
-      closeProfile();
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setIsActing(false);
-    }
-  }
 
   async function openPortfolio(portfolioId: number) {
     setActionError("");
@@ -366,8 +358,24 @@ export function AdminDashboardScreen() {
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Admin dashboard</Text>
-          <Text style={styles.subtitle}>Provider verification, portfolio, and refund review</Text>
+          <Text style={styles.title}>
+            {section === "portfolio"
+              ? "Portfolio review"
+              : section === "refunds"
+                ? "Refund disputes"
+                : section === "payments"
+                  ? "Payments & settlements"
+                  : "Provider payout accounts"}
+          </Text>
+          <Text style={styles.subtitle}>
+            {section === "portfolio"
+              ? "Review provider portfolio submissions."
+              : section === "refunds"
+                ? "Resolve customer appeals against rejected refunds."
+                : section === "payments"
+                  ? "Inspect payment status and retry failed settlements."
+                  : "Inspect provider marketplace payout account status."}
+          </Text>
         </View>
         <SecondaryButton
           disabled={isLoading || isActing}
@@ -378,37 +386,27 @@ export function AdminDashboardScreen() {
 
       {message ? <Text style={styles.errorText}>{message}</Text> : null}
 
-      <AISubscriptionPanel />
+      {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
 
-      <ReviewEmbeddingAdminPanel />
+      {(section === "payments" || section === "payouts") && isLoading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
+      ) : section === "payments" || section === "payouts" ? (
+        <MarketplaceSection
+          isActing={isActing}
+          onRetrySettlement={(paymentId) => void handleRetrySettlement(paymentId)}
+          filters={paymentFilters}
+          onFiltersChange={handlePaymentFiltersChange}
+          page={paymentPage}
+          totalPages={paymentTotalPages}
+          onPageChange={handlePaymentPageChange}
+          retryQueuedPaymentIds={retryQueuedPaymentIds}
+          payments={marketplacePayments}
+          submerchants={submerchants}
+          view={section}
+        />
+      ) : null}
 
-      <View style={styles.section}>
-        <ProviderVerificationAdminPanel />
-      </View>
-
-      <View style={styles.section}>
-        <LowValueReviewPanel />
-      </View>
-
-      <View style={styles.section}>
-        <HiddenReviewRestorePanel />
-      </View>
-
-      <MarketplaceSection
-        isActing={isActing}
-        onRetrySettlement={(paymentId) => void handleRetrySettlement(paymentId)}
-        filters={paymentFilters}
-        onFiltersChange={handlePaymentFiltersChange}
-        page={paymentPage}
-        totalPages={paymentTotalPages}
-        onPageChange={handlePaymentPageChange}
-        retryQueuedPaymentIds={retryQueuedPaymentIds}
-        payments={marketplacePayments}
-        submerchants={submerchants}
-      />
-
-
-      <View style={styles.section}>
+      {section === "portfolio" ? <View style={styles.section}>
         <Text style={styles.sectionTitle}>Portfolios pending review</Text>
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -430,9 +428,9 @@ export function AdminDashboardScreen() {
             ))}
           </View>
         )}
-      </View>
+      </View> : null}
 
-      <View style={styles.section}>
+      {section === "refunds" ? <View style={styles.section}>
         <Text style={styles.sectionTitle}>Refund appeals pending review</Text>
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -454,9 +452,9 @@ export function AdminDashboardScreen() {
             ))}
           </View>
         )}
-      </View>
+      </View> : null}
 
-      <PortfolioReviewModal
+      {section === "portfolio" ? <PortfolioReviewModal
         actionError={actionError}
         isActing={isActing}
         onApprove={() => void approvePortfolio()}
@@ -465,9 +463,9 @@ export function AdminDashboardScreen() {
         portfolio={selectedPortfolio}
         rejectReason={rejectReason}
         setRejectReason={setRejectReason}
-      />
+      /> : null}
 
-      <RefundAppealModal
+      {section === "refunds" ? <RefundAppealModal
         actionError={actionError}
         adminNote={appealAdminNote}
         appeal={selectedAppeal}
@@ -476,7 +474,7 @@ export function AdminDashboardScreen() {
         onClose={closeAppeal}
         onReject={() => void rejectAppeal()}
         setAdminNote={setAppealAdminNote}
-      />
+      /> : null}
     </ScrollView>
   );
 }
@@ -492,6 +490,7 @@ function MarketplaceSection({
   retryQueuedPaymentIds,
   submerchants,
   totalPages,
+  view,
 }: {
   filters: AdminPaymentFilters;
   isActing: boolean;
@@ -503,6 +502,7 @@ function MarketplaceSection({
   retryQueuedPaymentIds: Record<number, boolean>;
   submerchants: AdminSubmerchant[];
   totalPages: number;
+  view: "payments" | "payouts";
 }) {
   const [providerFilter, setProviderFilter] = useState(
     filters.providerProfileId == null ? "" : String(filters.providerProfileId),
@@ -523,13 +523,12 @@ function MarketplaceSection({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Marketplace</Text>
-      {submerchants.length === 0 ? (
+      {view === "payouts" && submerchants.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No payout accounts</Text>
           <Text style={styles.emptyText}>Provider payout account status will appear here.</Text>
         </View>
-      ) : (
+      ) : view === "payouts" ? (
         <View style={styles.list}>
           {submerchants.map((submerchant) => (
             <View key={submerchant.id} style={styles.reviewCard}>
@@ -551,9 +550,9 @@ function MarketplaceSection({
             </View>
           ))}
         </View>
-      )}
+      ) : null}
 
-      <View style={styles.filterCard}>
+      {view === "payments" ? <View style={styles.filterCard}>
         <Text style={styles.filterTitle}>Payment filters</Text>
         <Text style={styles.filterLabel}>Payment status</Text>
         <View style={styles.filterRow}>
@@ -609,14 +608,14 @@ function MarketplaceSection({
           value={bookingFilter}
         />
         <SecondaryButton label="Apply ID filters" onPress={applyIdFilters} />
-      </View>
+      </View> : null}
 
-      {payments.length === 0 ? (
+      {view === "payments" && payments.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No marketplace payments</Text>
           <Text style={styles.emptyText}>Payment splits and settlement status will appear here.</Text>
         </View>
-      ) : (
+      ) : view === "payments" ? (
         <View style={styles.list}>
           {payments.map((payment) => {
             const settlement = payment.settlement;
@@ -679,8 +678,8 @@ function MarketplaceSection({
             );
           })}
         </View>
-      )}
-      {payments.length > 0 ? (
+      ) : null}
+      {view === "payments" && payments.length > 0 ? (
         <View style={styles.paginationRow}>
           <SecondaryButton
             disabled={isActing || page <= 1}
@@ -1204,6 +1203,38 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontSize: 15,
     marginTop: spacing.xs,
+  },
+  hubGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  hubCard: {
+    minWidth: 260,
+    flexBasis: 280,
+    flexGrow: 1,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+  },
+  hubCardTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  hubCardDescription: {
+    flex: 1,
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  hubCardLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   section: {
     gap: spacing.md,

@@ -67,4 +67,13 @@ export type RootStackParamList = {
   ProviderPortfolioDetail: {
     portfolioId: number;
   };
+  AdminIdentityVerification: undefined;
+  AdminQualificationVerification: undefined;
+  AdminPortfolioReview: undefined;
+  AdminRefundDisputes: undefined;
+  AdminPaymentsSettlements: undefined;
+  AdminPayoutAccounts: undefined;
+  AdminReviewManagement: undefined;
+  AdminCustomerAIConfig: undefined;
+  AdminReviewEmbedding: undefined;
 };

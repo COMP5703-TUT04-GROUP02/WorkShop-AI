@@ -15,6 +15,7 @@ type SidebarItem = {
   label: string;
   icon: ComponentType<{ color: string; size: number }>;
   badge?: number;
+  route?: keyof RootStackParamList;
   stackRoutes?: Array<keyof RootStackParamList>;
 };
 
@@ -43,17 +44,18 @@ export function DesktopSidebar() {
       <Text style={styles.brand}>Workshop AI</Text>
       <View style={styles.nav}>
         {items.map((item) => {
-          const isActive =
-            active.tab === item.tab ||
-            (active.stack !== "Main" &&
-              item.stackRoutes?.includes(
-                active.stack as keyof RootStackParamList,
-              ));
+          const isActive = item.route
+            ? active.stack === item.route
+            : active.tab === item.tab ||
+              (active.stack !== "Main" &&
+                item.stackRoutes?.includes(
+                  active.stack as keyof RootStackParamList,
+                ));
 
           return (
             <Pressable
               accessibilityRole="button"
-              key={item.tab}
+              key={item.route ?? item.tab}
               onPress={() => {
                 if (
                   user?.role === "provider" &&
@@ -65,7 +67,11 @@ export function DesktopSidebar() {
                   return;
                 }
 
-                navigation.navigate("Main", { screen: item.tab });
+                if (item.route) {
+                  navigation.navigate(item.route as never);
+                } else {
+                  navigation.navigate("Main", { screen: item.tab });
+                }
               }}
               style={[styles.item, isActive ? styles.itemActive : null]}
             >
@@ -171,6 +177,25 @@ function getSidebarItems(
   if (role === "admin") {
     return [
       { tab: "AdminDashboard", label: "Admin", icon: tabIcons.admin },
+      {
+        tab: "AdminDashboard",
+        label: "Identity verification",
+        icon: tabIcons.admin,
+        route: "AdminIdentityVerification",
+      },
+      {
+        tab: "AdminDashboard",
+        label: "Qualification verification",
+        icon: tabIcons.admin,
+        route: "AdminQualificationVerification",
+      },
+      { tab: "AdminDashboard", label: "Portfolio review", icon: tabIcons.admin, route: "AdminPortfolioReview" },
+      { tab: "AdminDashboard", label: "Refund disputes", icon: tabIcons.admin, route: "AdminRefundDisputes" },
+      { tab: "AdminDashboard", label: "Payments & settlements", icon: tabIcons.admin, route: "AdminPaymentsSettlements" },
+      { tab: "AdminDashboard", label: "Payout accounts", icon: tabIcons.admin, route: "AdminPayoutAccounts" },
+      { tab: "AdminDashboard", label: "Review management", icon: tabIcons.admin, route: "AdminReviewManagement" },
+      { tab: "AdminDashboard", label: "Customer AI config", icon: tabIcons.admin, route: "AdminCustomerAIConfig" },
+      { tab: "AdminDashboard", label: "Review embedding", icon: tabIcons.admin, route: "AdminReviewEmbedding" },
       accountItem,
     ];
   }
