@@ -1303,7 +1303,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       form: createBookingForm,
     });
     if (!payload) {
-      setCreateBookingError("Select a service and enter a title (maximum 30 words), description, address, and schedule.");
+      setCreateBookingError("Select a service and enter a title (maximum 30 words), description, location, and schedule.");
       return;
     }
 
@@ -1883,6 +1883,9 @@ function createBookingFormFromDetail(
     serviceCategory: booking.service_category ?? "",
     serviceDescription: booking.service_description,
     serviceAddress: booking.service_address,
+    serviceLatitude: booking.service_latitude,
+    serviceLongitude: booking.service_longitude,
+    servicePlaceId: null,
     scheduledStartTime: toEditableDateTime(booking.scheduled_start_time),
     scheduledEndTime: toEditableDateTime(booking.scheduled_end_time),
     attachments: [],
@@ -1909,8 +1912,8 @@ function buildUpdatePayload(
     title: form.title.trim(),
     service_description: form.serviceDescription.trim(),
     service_address: form.serviceAddress.trim(),
-    service_latitude: booking.service_latitude,
-    service_longitude: booking.service_longitude,
+    service_latitude: form.serviceLatitude ?? booking.service_latitude,
+    service_longitude: form.serviceLongitude ?? booking.service_longitude,
     customer_current_address: booking.customer_current_address,
     customer_current_latitude: booking.customer_current_latitude,
     customer_current_longitude: booking.customer_current_longitude,

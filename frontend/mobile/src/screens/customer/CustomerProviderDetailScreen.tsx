@@ -236,7 +236,7 @@ export function CustomerProviderDetailScreen({
       : null;
 
     if (!provider || !payload) {
-      setBookingError("Select a service and enter a title (maximum 30 words), description, address, and schedule.");
+      setBookingError("Select a service and enter a title (maximum 30 words), description, location, and schedule.");
       return;
     }
 

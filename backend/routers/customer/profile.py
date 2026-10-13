@@ -9,7 +9,6 @@ from fastapi import Depends, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from backend import models
-from backend.ai.tools import create_chat_room_tool
 from backend.auth import get_db, require_customer
 from backend.constants import ALLOWED_PROVIDER_TAGS
 from backend.core.clock import utc_now

@@ -169,18 +169,6 @@ def parse_user_service_need(query: str):
     }
 
 
-_CAPABILITY_ONLY_RE = re.compile(
-    r"^\s*(?:hi[,!.\s]+|hello[,!.\s]+|hey[,!.\s]+)?"
-    r"(?:"
-    r"who are you|what are you|what can you do|what do you do|"
-    r"how (?:do|can) i use you|what can you help(?: me)? with|"
-    r"help|capabilities|"
-    r"你是谁|你能做什么|怎么用|"
-    r"kimsin|neler yapabilirsin|ne yapabilirsin"
-    r")[\s!.?]*$",
-    re.IGNORECASE,
-)
-
 _CASUAL_GREETING_ONLY_RE = re.compile(
     r"^\s*(?:"
     r"hi|hello|hey|yo|sup|thanks|thank you|cheers|"
@@ -191,13 +179,9 @@ _CASUAL_GREETING_ONLY_RE = re.compile(
 )
 
 CASUAL_LOCAL_ANSWER = (
-    "I'm Workshop AI. I can help find nearby providers, compare reviews, "
-    "and draft a booking. Tell me the service you need."
+    "I'm Workshop AI. I can recommend providers, answer FAQs, help place an "
+    "order, and compare provider reviews. Tell me what you need."
 )
-
-
-def looks_like_capability_question(query: str) -> bool:
-    return bool(_CAPABILITY_ONLY_RE.match((query or "").strip()))
 
 
 def looks_like_casual_greeting_only(query: str) -> bool:
@@ -640,6 +624,7 @@ def build_provider_review_context(
             .limit(5)
             .all()
         )
+        stats = get_provider_ai_stats(provider.id, db)
 
         review_context.append(
             {
@@ -647,6 +632,7 @@ def build_provider_review_context(
                 "provider_name": user.name if user else "Unknown",
                 "business_name": provider.business_name,
                 "hourly_rate": provider.hourly_rate,
+                **stats,
                 "positive_reviews": [
                     {
                         "rating": review.rating,
@@ -686,6 +672,7 @@ def enrich_review_context_with_provider_info(
             continue
 
         user = db.query(models.User).filter(models.User.id == provider.user_id).first()
+        stats = get_provider_ai_stats(provider.id, db)
 
         enriched_context.append(
             {
@@ -695,6 +682,7 @@ def enrich_review_context_with_provider_info(
                 "service_province": provider.service_province,
                 "tags": provider.tags,
                 "hourly_rate": provider.hourly_rate,
+                **stats,
                 "positive_reviews": item["positive_reviews"],
                 "negative_reviews": item["negative_reviews"],
             }

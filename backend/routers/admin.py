@@ -203,8 +203,6 @@ def get_admin_dashboard(
             },
         }
     )
-
-
 @router.get("/admin/users")
 def get_users(
     page: int = 1,
@@ -220,8 +218,6 @@ def get_users(
     return success_response(
         build_paginated_response(safe_users, total, page, page_size)
     )
-
-
 @router.put("/admin/users/{user_id}/status")
 def update_user_status(
     user_id: int,
@@ -258,8 +254,6 @@ def update_user_status(
             "user": format_user_response(user),
         }
     )
-
-
 @router.get("/admin/providers")
 def get_admin_providers(
     verification_status: ProviderVerificationStatus | None = None,
@@ -380,7 +374,6 @@ def update_provider_verification(
             "profile": format_provider_profile_with_rating(profile, db),
         }
     )
-
 
 @router.get("/admin/providers/{provider_profile_id}/verification-history")
 def get_provider_verification_history(
@@ -1296,5 +1289,3 @@ def show_hidden_high_value_reviews(
             "review_ids": restored_ids,
         }
     )
-
-
