@@ -9,7 +9,6 @@ from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from backend import models
-from backend.ai.tools import create_chat_room_tool
 from backend.auth import get_db, require_customer
 from backend.constants import ALLOWED_PROVIDER_TAGS
 from backend.core.clock import utc_now
@@ -23,6 +22,7 @@ from backend.utils.availability import (
     is_provider_open_now,
 )
 from backend.utils.chat import (
+    create_customer_provider_chat_room,
     create_booking_status_chat_message,
     format_chat_message_response,
     format_chat_room_response_with_unread,
@@ -340,7 +340,7 @@ def open_chat_with_provider(
     if provider_profile.qualification_verification_status != "approved":
         raise HTTPException(status_code=403, detail="Provider qualification approval is required")
     return success_response(
-        create_chat_room_tool(provider_profile_id, current_user, db)
+        create_customer_provider_chat_room(provider_profile_id, current_user, db)
     )
 
 

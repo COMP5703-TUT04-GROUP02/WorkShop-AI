@@ -1,4 +1,5 @@
 from collections import Counter
+import json
 from pathlib import Path
 
 from backend.auth import verify_password
@@ -7,6 +8,17 @@ from scripts.build_sample_snapshot import PASSWORD_HASH, TAGS, build
 
 def _rows(snapshot, table):
     return next(group["rows"] for group in snapshot["tables"] if group["table"] == table)
+
+
+def test_committed_sample_snapshot_matches_the_reviewed_generator():
+    snapshot_path = (
+        Path(__file__).resolve().parents[1]
+        / "migrations"
+        / "data"
+        / "0018_workshop_samples.json"
+    )
+
+    assert json.loads(snapshot_path.read_text(encoding="utf-8")) == build()
 
 
 def test_sample_snapshot_has_reviewed_account_and_display_counts():
@@ -30,7 +42,7 @@ def test_sample_snapshot_has_reviewed_account_and_display_counts():
     assert verify_password("Demo1234", PASSWORD_HASH)
 
 
-def test_sample_providers_cover_every_tag_and_use_draft_payout_accounts():
+def test_sample_providers_cover_every_tag_and_use_active_payout_accounts():
     snapshot = build()
     coverage = Counter()
     for profile in _rows(snapshot, "provider_profiles"):
@@ -45,8 +57,16 @@ def test_sample_providers_cover_every_tag_and_use_draft_payout_accounts():
     assert {row["values"]["iban"] for row in submerchants} == {
         "TR180006200119000006672315"
     }
-    assert {row["values"]["status"] for row in submerchants} == {"draft"}
-    assert {row["values"]["submerchant_key"] for row in submerchants} == {None}
+    assert {row["values"]["status"] for row in submerchants} == {"active"}
+    assert {row["values"]["submerchant_type"] for row in submerchants} == {
+        "PERSONAL"
+    }
+    assert {row["values"]["identity_number"] for row in submerchants} == {
+        "31300864726"
+    }
+    assert all(row["values"]["submerchant_key"] for row in submerchants)
+    assert len({row["values"]["submerchant_key"] for row in submerchants}) == 30
+    assert all(row["values"]["last_synced_at"] for row in submerchants)
 
 
 def test_sample_provider_locations_and_portfolios_match_service_categories():

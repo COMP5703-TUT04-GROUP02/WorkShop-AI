@@ -22,6 +22,7 @@ from backend.schemas import (
     RefundRequestStatus,
 )
 from backend.utils.availability import ensure_provider_available_for_datetime_range
+from backend.utils.ai_chat import consume_latest_booking_form
 from backend.utils.booking import (
     add_booking_status_history,
     ensure_booking_status,
@@ -211,6 +212,13 @@ async def create_customer_booking_action(
             NotificationType.booking_created,
             NotificationRelatedType.booking,
             booking.id,
+            db,
+        )
+        consume_latest_booking_form(
+            current_user.id,
+            provider_profile.id,
+            booking.id,
+            provider_profile.business_name,
             db,
         )
         db.commit()

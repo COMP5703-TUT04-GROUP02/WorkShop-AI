@@ -18,6 +18,41 @@ from backend.location_data import iter_location_seeds
 OUTPUT = ROOT / "migrations" / "data" / "0018_workshop_samples.json"
 PASSWORD_HASH = "$2b$12$7BRnl3Pt1eg7OOqWfwDgb.NXMyr4KtXPxwZ4EXK//JDwXUoyDoHdm"
 PASSWORD = "Demo1234"
+PAYOUT_IBAN = "TR180006200119000006672315"
+PAYOUT_IDENTITY_NUMBER = "31300864726"
+PAYOUT_SYNCED_AT = "2026-10-13T03:30:01.411592+00:00"
+PAYOUT_SUBMERCHANT_KEYS = (
+    "hVb8tbfZL1uEz5v1791699327169",
+    "MNnjjMNKnafSjE51791861959407",
+    "AOcq0ttAP8ar6SW1791861968922",
+    "puVKJ9lCO0cCiys1791861978379",
+    "qmRHiBKpqkKDSQY1791861986711",
+    "9SCU0J2dGXishlZ1791861995160",
+    "BqsLz5rJXIFeEX91791862003595",
+    "e5sgKerVG5nKbN11791862011960",
+    "oxSy6RPzFQq6JIJ1791862021377",
+    "pmIKRzxKrO4LZPZ1791862029733",
+    "S8MXqGIeSmGwHcp1791862038154",
+    "Z8EXH3c4MsncavZ1791862046525",
+    "Aw9MaropRle8ydI1791862054906",
+    "oYEyDI5Kkg6huag1791862063265",
+    "625NYbOTUs4Kpi71791862071586",
+    "JKcLKIuNQzPRFQb1791862079907",
+    "5lLQs2JGDYf2pBE1791862088286",
+    "UGF5feONUILbxYp1791862096612",
+    "fndpIOe0zoBSVcN1791862104936",
+    "9j6dsCnwNatb9b81791862113300",
+    "cIMDBdZhlNU8hS81791862121718",
+    "ZLftnx4y4IgqDQ61791862130060",
+    "VShnhH9xYei1mEO1791862138413",
+    "336Z8u9RUEERosa1791862146703",
+    "ZdZWhZYwmaSf4UB1791862155104",
+    "952hNNZJCF2ELrV1791862163419",
+    "TFxK6vLSPEgBceV1791862171791",
+    "G7kJuBZaerKutHu1791862180191",
+    "OmQzzCjATd9NGmm1791862188589",
+    "jeJpIdBHc3xX6KS1791862196983",
+)
 TAGS = (
     "cleaning",
     "childcare",
@@ -329,27 +364,27 @@ def build() -> dict:
             row(
                 f"submerchant:{index}",
                 provider_profile_id=ref(f"provider_profile:{index}"),
-                submerchant_type="personal",
+                submerchant_type="PERSONAL",
                 submerchant_external_id=f"demo-provider-{index}",
-                submerchant_key=None,
+                submerchant_key=PAYOUT_SUBMERCHANT_KEYS[index - 1],
                 name=f"{BUSINESS[primary]} {index}",
                 email=f"demo_provider_{index}@workshop.ai",
                 gsm_number=f"+9055510000{index:02d}",
                 address="Istanbul, Türkiye",
-                iban="TR180006200119000006672315",
+                iban=PAYOUT_IBAN,
                 contact_name="Demo",
                 contact_surname=f"Provider {index}",
-                identity_number=None,
+                identity_number=PAYOUT_IDENTITY_NUMBER,
                 tax_office=None,
                 tax_number=None,
                 legal_company_title=None,
                 currency="TRY",
-                status="draft",
+                status="active",
                 iyzico_error_code=None,
                 iyzico_error_message=None,
-                last_synced_at=None,
+                last_synced_at=PAYOUT_SYNCED_AT,
                 created_at=created.isoformat(),
-                updated_at=created.isoformat(),
+                updated_at=PAYOUT_SYNCED_AT,
             )
         )
     groups.append({"table": "provider_profiles", "rows": profiles})

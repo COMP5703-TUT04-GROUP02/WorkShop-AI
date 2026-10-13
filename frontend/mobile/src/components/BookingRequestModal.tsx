@@ -1,10 +1,12 @@
 import * as ImagePicker from "expo-image-picker";
+import { MapPin } from "lucide-react-native";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getProviderTagLabel } from "../constants/providerTags";
 import { colors, spacing } from "../theme/theme";
 import type { BookingPayload, BookingUploadFile } from "../types/booking";
+import type { SelectedLocation } from "../types/location";
 import type { ProviderProfile } from "../types/provider";
 import { formatDateTimeInput } from "../utils/datetime";
 import {
@@ -12,6 +14,7 @@ import {
   isCanonicalServiceSelection,
 } from "../utils/bookingService";
 import { DateTimeField } from "./DateTimeField";
+import { LocationPickerModal } from "./LocationPickerModal";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
@@ -21,6 +24,9 @@ export type BookingRequestFormState = {
   serviceCategory: string;
   serviceDescription: string;
   serviceAddress: string;
+  serviceLatitude: number | null;
+  serviceLongitude: number | null;
+  servicePlaceId: string | null;
   scheduledStartTime: string;
   scheduledEndTime: string;
   attachments: BookingUploadFile[];
@@ -37,11 +43,6 @@ type BookingRequestModalProps = {
   setBookingForm: (value: BookingRequestFormState) => void;
 };
 
-const ISTANBUL_LOCATION = {
-  latitude: 41.0082,
-  longitude: 28.9784,
-};
-
 export function BookingRequestModal({
   visible,
   bookingForm,
@@ -53,12 +54,31 @@ export function BookingRequestModal({
   setBookingForm,
 }: BookingRequestModalProps) {
   const [fileError, setFileError] = useState("");
+  const [isLocationPickerVisible, setIsLocationPickerVisible] = useState(false);
 
-  function updateFormField(field: keyof BookingRequestFormState, value: string) {
+  function updateFormField<K extends keyof BookingRequestFormState>(
+    field: K,
+    value: BookingRequestFormState[K],
+  ) {
     setBookingForm({
       ...bookingForm,
       [field]: value,
     });
+  }
+
+  const selectedLocation: SelectedLocation | null =
+    bookingForm.serviceLatitude != null && bookingForm.serviceLongitude != null
+      ? {
+          label: bookingForm.serviceAddress,
+          latitude: bookingForm.serviceLatitude,
+          longitude: bookingForm.serviceLongitude,
+          placeId: bookingForm.servicePlaceId,
+        }
+      : null;
+
+  function closeModal() {
+    setIsLocationPickerVisible(false);
+    onClose();
   }
 
   async function pickAttachments() {
@@ -104,9 +124,10 @@ export function BookingRequestModal({
   }
 
   return (
-    <Modal
+    <>
+      <Modal
       animationType="slide"
-      onRequestClose={onClose}
+        onRequestClose={closeModal}
       transparent
       visible={visible}
     >
@@ -152,12 +173,27 @@ export function BookingRequestModal({
               placeholder="e.g. Kitchen pipe leak"
               value={bookingForm.serviceDescription}
             />
-            <TextField
-              label="Service address"
-              onChangeText={(value) => updateFormField("serviceAddress", value)}
-              placeholder="Address"
-              value={bookingForm.serviceAddress}
-            />
+            <View style={styles.serviceField}>
+              <Text style={styles.serviceLabel}>Service location</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setIsLocationPickerVisible(true)}
+                style={styles.locationField}
+              >
+                <MapPin color={colors.primary} size={20} />
+                <Text
+                  numberOfLines={2}
+                  style={
+                    bookingForm.serviceAddress
+                      ? styles.locationText
+                      : styles.locationPlaceholder
+                  }
+                >
+                  {bookingForm.serviceAddress ||
+                    "Choose an address or use current location"}
+                </Text>
+              </Pressable>
+            </View>
             <DateTimeField
               label="Start time"
               onChange={(value) => updateFormField("scheduledStartTime", value)}
@@ -192,7 +228,7 @@ export function BookingRequestModal({
             </View>
           </ScrollView>
           <View style={styles.modalActions}>
-            <SecondaryButton disabled={isLoading} label="Cancel" onPress={onClose} />
+            <SecondaryButton disabled={isLoading} label="Cancel" onPress={closeModal} />
             <PrimaryButton
               disabled={isLoading}
               isLoading={isLoading}
@@ -202,12 +238,29 @@ export function BookingRequestModal({
           </View>
         </View>
       </View>
-    </Modal>
+      </Modal>
+      <LocationPickerModal
+        onClose={() => setIsLocationPickerVisible(false)}
+        onConfirm={(location) => {
+          setBookingForm({
+            ...bookingForm,
+            serviceAddress: location.label,
+            serviceLatitude: location.latitude,
+            serviceLongitude: location.longitude,
+            servicePlaceId: location.placeId,
+          });
+          setIsLocationPickerVisible(false);
+        }}
+        value={selectedLocation}
+        visible={visible && isLocationPickerVisible}
+      />
+    </>
   );
 }
 
 export function createDefaultBookingRequestForm(
   provider?: ProviderProfile | null,
+  defaults?: { title?: string; serviceDescription?: string },
 ): BookingRequestFormState {
   const start = new Date();
   start.setDate(start.getDate() + 1);
@@ -217,10 +270,13 @@ export function createDefaultBookingRequestForm(
   end.setHours(12, 0, 0, 0);
 
   return {
-    title: "",
+    title: defaults?.title ?? "",
     serviceCategory: getDefaultServiceCategory(provider?.tags ?? []),
-    serviceDescription: "",
-    serviceAddress: provider?.address || "Istanbul",
+    serviceDescription: defaults?.serviceDescription ?? "",
+    serviceAddress: "",
+    serviceLatitude: null,
+    serviceLongitude: null,
+    servicePlaceId: null,
     scheduledStartTime: formatDateTimeInput(start),
     scheduledEndTime: formatDateTimeInput(end),
     attachments: [],
@@ -243,6 +299,8 @@ export function buildBookingRequestPayload({
     form.title.trim().split(/\s+/).length > 30 ||
     !form.serviceDescription.trim() ||
     !form.serviceAddress.trim() ||
+    form.serviceLatitude == null ||
+    form.serviceLongitude == null ||
     !form.scheduledStartTime.trim() ||
     !form.scheduledEndTime.trim() ||
     !isCanonicalServiceSelection(form.serviceCategory, provider?.tags ?? [])
@@ -257,8 +315,8 @@ export function buildBookingRequestPayload({
     title: form.title.trim(),
     service_description: form.serviceDescription.trim(),
     service_address: form.serviceAddress.trim(),
-    service_latitude: provider?.latitude ?? ISTANBUL_LOCATION.latitude,
-    service_longitude: provider?.longitude ?? ISTANBUL_LOCATION.longitude,
+    service_latitude: form.serviceLatitude,
+    service_longitude: form.serviceLongitude,
     customer_current_address: null,
     customer_current_latitude: null,
     customer_current_longitude: null,
@@ -331,6 +389,30 @@ const styles = StyleSheet.create({
   },
   serviceOptionTextSelected: {
     color: colors.primary,
+  },
+  locationField: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  locationText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  locationPlaceholder: {
+    flex: 1,
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
   },
   attachmentBox: {
     gap: spacing.sm,

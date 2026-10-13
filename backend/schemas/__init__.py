@@ -116,8 +116,6 @@ __all__ = [
     "AIIntentResponse",
     "AIToolCallResponse",
     "AIToolErrorData",
-    "AIClarificationChoiceResponse",
-    "AIPendingClarificationResponse",
     "AIConfirmationFieldResponse",
     "AIConfirmationCardResponse",
     "AIBookingDraftMissingFieldResponse",

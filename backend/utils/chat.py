@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend import models
+from backend.schemas import NotificationRelatedType, NotificationType
 from backend.services.redis_service import (
     clear_chat_room_unread_count,
     get_cached_chat_room_unread_count,
@@ -47,6 +48,80 @@ def get_or_create_chat_room(
     db.flush()
 
     return chat_room
+
+
+def create_customer_provider_chat_room(
+    provider_profile_id: int,
+    current_user: models.User,
+    db: Session,
+):
+    """Create or return the standard customer/provider chat room."""
+    from backend.utils.notification import create_notification
+
+    if current_user.role != "customer":
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers can start chats with providers",
+        )
+
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.id == provider_profile_id)
+        .first()
+    )
+    if not provider_profile:
+        raise HTTPException(status_code=404, detail="Provider profile not found")
+    if provider_profile.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot open a chat with yourself")
+    if provider_profile.verification_status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail="Only approved providers can receive chats",
+        )
+
+    existing_chat_room = (
+        db.query(models.ChatRoom)
+        .filter(
+            models.ChatRoom.customer_id == current_user.id,
+            models.ChatRoom.provider_profile_id == provider_profile_id,
+        )
+        .first()
+    )
+    if existing_chat_room:
+        return {
+            "message": "Chat room already exists",
+            "created": False,
+            "chat_room": format_chat_room_response_with_unread(
+                existing_chat_room,
+                db,
+                current_user,
+            ),
+        }
+
+    chat_room = get_or_create_chat_room(
+        customer_id=current_user.id,
+        provider_profile_id=provider_profile_id,
+        db=db,
+    )
+    db.commit()
+    db.refresh(chat_room)
+
+    create_notification(
+        provider_profile.user_id,
+        "New chat started",
+        "A customer started a chat with you",
+        NotificationType.chat_started,
+        NotificationRelatedType.chat_room,
+        chat_room.id,
+        db,
+    )
+    db.commit()
+
+    return {
+        "message": "Chat room created successfully",
+        "created": True,
+        "chat_room": format_chat_room_response_with_unread(chat_room, db, current_user),
+    }
 
 
 def create_booking_chat_message(

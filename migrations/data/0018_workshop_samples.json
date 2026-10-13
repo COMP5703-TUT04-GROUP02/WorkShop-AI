@@ -8955,9 +8955,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:1"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-1",
-            "submerchant_key": null,
+            "submerchant_key": "hVb8tbfZL1uEz5v1791699327169",
             "name": "Home Shine Cleaning 1",
             "email": "demo_provider_1@workshop.ai",
             "gsm_number": "+905551000001",
@@ -8965,17 +8965,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 1",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -8984,9 +8984,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:2"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-2",
-            "submerchant_key": null,
+            "submerchant_key": "MNnjjMNKnafSjE51791861959407",
             "name": "Safe Hands Childcare 2",
             "email": "demo_provider_2@workshop.ai",
             "gsm_number": "+905551000002",
@@ -8994,17 +8994,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 2",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9013,9 +9013,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:3"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-3",
-            "submerchant_key": null,
+            "submerchant_key": "AOcq0ttAP8ar6SW1791861968922",
             "name": "Care Companion 3",
             "email": "demo_provider_3@workshop.ai",
             "gsm_number": "+905551000003",
@@ -9023,17 +9023,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 3",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9042,9 +9042,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:4"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-4",
-            "submerchant_key": null,
+            "submerchant_key": "puVKJ9lCO0cCiys1791861978379",
             "name": "Bright Electric 4",
             "email": "demo_provider_4@workshop.ai",
             "gsm_number": "+905551000004",
@@ -9052,17 +9052,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 4",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9071,9 +9071,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:5"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-5",
-            "submerchant_key": null,
+            "submerchant_key": "qmRHiBKpqkKDSQY1791861986711",
             "name": "Rapid Plumbing 5",
             "email": "demo_provider_5@workshop.ai",
             "gsm_number": "+905551000005",
@@ -9081,17 +9081,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 5",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9100,9 +9100,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:6"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-6",
-            "submerchant_key": null,
+            "submerchant_key": "9SCU0J2dGXishlZ1791861995160",
             "name": "Colour Works 6",
             "email": "demo_provider_6@workshop.ai",
             "gsm_number": "+905551000006",
@@ -9110,17 +9110,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 6",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9129,9 +9129,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:7"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-7",
-            "submerchant_key": null,
+            "submerchant_key": "BqsLz5rJXIFeEX91791862003595",
             "name": "Key Care Locksmith 7",
             "email": "demo_provider_7@workshop.ai",
             "gsm_number": "+905551000007",
@@ -9139,17 +9139,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 7",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9158,9 +9158,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:8"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-8",
-            "submerchant_key": null,
+            "submerchant_key": "e5sgKerVG5nKbN11791862011960",
             "name": "Home Tech Repair 8",
             "email": "demo_provider_8@workshop.ai",
             "gsm_number": "+905551000008",
@@ -9168,17 +9168,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 8",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9187,9 +9187,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:9"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-9",
-            "submerchant_key": null,
+            "submerchant_key": "oxSy6RPzFQq6JIJ1791862021377",
             "name": "City Movers 9",
             "email": "demo_provider_9@workshop.ai",
             "gsm_number": "+905551000009",
@@ -9197,17 +9197,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 9",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9216,9 +9216,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:10"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-10",
-            "submerchant_key": null,
+            "submerchant_key": "pmIKRzxKrO4LZPZ1791862029733",
             "name": "Local Home Services 10",
             "email": "demo_provider_10@workshop.ai",
             "gsm_number": "+905551000010",
@@ -9226,17 +9226,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 10",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9245,9 +9245,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:11"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-11",
-            "submerchant_key": null,
+            "submerchant_key": "S8MXqGIeSmGwHcp1791862038154",
             "name": "Home Shine Cleaning 11",
             "email": "demo_provider_11@workshop.ai",
             "gsm_number": "+905551000011",
@@ -9255,17 +9255,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 11",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9274,9 +9274,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:12"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-12",
-            "submerchant_key": null,
+            "submerchant_key": "Z8EXH3c4MsncavZ1791862046525",
             "name": "Safe Hands Childcare 12",
             "email": "demo_provider_12@workshop.ai",
             "gsm_number": "+905551000012",
@@ -9284,17 +9284,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 12",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9303,9 +9303,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:13"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-13",
-            "submerchant_key": null,
+            "submerchant_key": "Aw9MaropRle8ydI1791862054906",
             "name": "Care Companion 13",
             "email": "demo_provider_13@workshop.ai",
             "gsm_number": "+905551000013",
@@ -9313,17 +9313,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 13",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9332,9 +9332,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:14"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-14",
-            "submerchant_key": null,
+            "submerchant_key": "oYEyDI5Kkg6huag1791862063265",
             "name": "Bright Electric 14",
             "email": "demo_provider_14@workshop.ai",
             "gsm_number": "+905551000014",
@@ -9342,17 +9342,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 14",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9361,9 +9361,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:15"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-15",
-            "submerchant_key": null,
+            "submerchant_key": "625NYbOTUs4Kpi71791862071586",
             "name": "Rapid Plumbing 15",
             "email": "demo_provider_15@workshop.ai",
             "gsm_number": "+905551000015",
@@ -9371,17 +9371,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 15",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9390,9 +9390,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:16"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-16",
-            "submerchant_key": null,
+            "submerchant_key": "JKcLKIuNQzPRFQb1791862079907",
             "name": "Colour Works 16",
             "email": "demo_provider_16@workshop.ai",
             "gsm_number": "+905551000016",
@@ -9400,17 +9400,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 16",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9419,9 +9419,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:17"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-17",
-            "submerchant_key": null,
+            "submerchant_key": "5lLQs2JGDYf2pBE1791862088286",
             "name": "Key Care Locksmith 17",
             "email": "demo_provider_17@workshop.ai",
             "gsm_number": "+905551000017",
@@ -9429,17 +9429,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 17",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9448,9 +9448,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:18"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-18",
-            "submerchant_key": null,
+            "submerchant_key": "UGF5feONUILbxYp1791862096612",
             "name": "Home Tech Repair 18",
             "email": "demo_provider_18@workshop.ai",
             "gsm_number": "+905551000018",
@@ -9458,17 +9458,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 18",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9477,9 +9477,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:19"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-19",
-            "submerchant_key": null,
+            "submerchant_key": "fndpIOe0zoBSVcN1791862104936",
             "name": "City Movers 19",
             "email": "demo_provider_19@workshop.ai",
             "gsm_number": "+905551000019",
@@ -9487,17 +9487,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 19",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9506,9 +9506,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:20"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-20",
-            "submerchant_key": null,
+            "submerchant_key": "9j6dsCnwNatb9b81791862113300",
             "name": "Local Home Services 20",
             "email": "demo_provider_20@workshop.ai",
             "gsm_number": "+905551000020",
@@ -9516,17 +9516,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 20",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9535,9 +9535,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:21"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-21",
-            "submerchant_key": null,
+            "submerchant_key": "cIMDBdZhlNU8hS81791862121718",
             "name": "Home Shine Cleaning 21",
             "email": "demo_provider_21@workshop.ai",
             "gsm_number": "+905551000021",
@@ -9545,17 +9545,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 21",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9564,9 +9564,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:22"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-22",
-            "submerchant_key": null,
+            "submerchant_key": "ZLftnx4y4IgqDQ61791862130060",
             "name": "Safe Hands Childcare 22",
             "email": "demo_provider_22@workshop.ai",
             "gsm_number": "+905551000022",
@@ -9574,17 +9574,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 22",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9593,9 +9593,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:23"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-23",
-            "submerchant_key": null,
+            "submerchant_key": "VShnhH9xYei1mEO1791862138413",
             "name": "Care Companion 23",
             "email": "demo_provider_23@workshop.ai",
             "gsm_number": "+905551000023",
@@ -9603,17 +9603,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 23",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9622,9 +9622,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:24"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-24",
-            "submerchant_key": null,
+            "submerchant_key": "336Z8u9RUEERosa1791862146703",
             "name": "Bright Electric 24",
             "email": "demo_provider_24@workshop.ai",
             "gsm_number": "+905551000024",
@@ -9632,17 +9632,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 24",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9651,9 +9651,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:25"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-25",
-            "submerchant_key": null,
+            "submerchant_key": "ZdZWhZYwmaSf4UB1791862155104",
             "name": "Rapid Plumbing 25",
             "email": "demo_provider_25@workshop.ai",
             "gsm_number": "+905551000025",
@@ -9661,17 +9661,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 25",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9680,9 +9680,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:26"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-26",
-            "submerchant_key": null,
+            "submerchant_key": "952hNNZJCF2ELrV1791862163419",
             "name": "Colour Works 26",
             "email": "demo_provider_26@workshop.ai",
             "gsm_number": "+905551000026",
@@ -9690,17 +9690,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 26",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9709,9 +9709,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:27"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-27",
-            "submerchant_key": null,
+            "submerchant_key": "TFxK6vLSPEgBceV1791862171791",
             "name": "Key Care Locksmith 27",
             "email": "demo_provider_27@workshop.ai",
             "gsm_number": "+905551000027",
@@ -9719,17 +9719,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 27",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9738,9 +9738,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:28"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-28",
-            "submerchant_key": null,
+            "submerchant_key": "G7kJuBZaerKutHu1791862180191",
             "name": "Home Tech Repair 28",
             "email": "demo_provider_28@workshop.ai",
             "gsm_number": "+905551000028",
@@ -9748,17 +9748,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 28",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9767,9 +9767,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:29"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-29",
-            "submerchant_key": null,
+            "submerchant_key": "OmQzzCjATd9NGmm1791862188589",
             "name": "City Movers 29",
             "email": "demo_provider_29@workshop.ai",
             "gsm_number": "+905551000029",
@@ -9777,17 +9777,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 29",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         },
         {
@@ -9796,9 +9796,9 @@
             "provider_profile_id": {
               "ref": "provider_profile:30"
             },
-            "submerchant_type": "personal",
+            "submerchant_type": "PERSONAL",
             "submerchant_external_id": "demo-provider-30",
-            "submerchant_key": null,
+            "submerchant_key": "jeJpIdBHc3xX6KS1791862196983",
             "name": "Local Home Services 30",
             "email": "demo_provider_30@workshop.ai",
             "gsm_number": "+905551000030",
@@ -9806,17 +9806,17 @@
             "iban": "TR180006200119000006672315",
             "contact_name": "Demo",
             "contact_surname": "Provider 30",
-            "identity_number": null,
+            "identity_number": "31300864726",
             "tax_office": null,
             "tax_number": null,
             "legal_company_title": null,
             "currency": "TRY",
-            "status": "draft",
+            "status": "active",
             "iyzico_error_code": null,
             "iyzico_error_message": null,
-            "last_synced_at": null,
+            "last_synced_at": "2026-10-13T03:30:01.411592+00:00",
             "created_at": "2026-08-01T09:00:00+00:00",
-            "updated_at": "2026-08-01T09:00:00+00:00"
+            "updated_at": "2026-10-13T03:30:01.411592+00:00"
           }
         }
       ]

@@ -4,16 +4,14 @@ AI chat, LangChain tool debugging, pending actions, async tasks, Milvus sync.
 DB-changing AI ops create `AIPendingAction` first; frontend confirms via `/ai/actions/confirm`.
 """
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 from celery.result import AsyncResult
 import logging
 from backend.auth import get_db, require_admin, require_verified_user
-from backend.utils.payment_redirect import payment_result_url_for_request
 from backend.schemas import (
     AIActionConfirmRequest,
-    AIActionType,
     AIPendingActionStatus,
     AIChatRequest,
     AIChatResponseData,
@@ -22,10 +20,7 @@ from backend.schemas import (
     AIToolExecuteRequest,
     ApiResponse,
     AsyncTaskType,
-    BookingNoteUpdate,
     BookingCreate,
-    ProviderBookingQuoteCreate,
-    ProviderRefundRejectCreate,
 )
 from backend.services.milvus_service import (
     check_milvus_connection,
@@ -59,22 +54,7 @@ from backend.utils.async_task import (
     format_async_task_response,
     sync_async_task_record_from_celery,
 )
-from backend.utils.customer_booking_actions import (
-    cancel_customer_booking_action,
-    confirm_customer_booking_complete_action,
-    create_customer_booking_action,
-    create_customer_refund_request_action,
-    pay_customer_booking_action,
-    reject_customer_booking_complete_action,
-    reject_customer_booking_quote_action,
-)
-from backend.utils.provider_booking_actions import (
-    approve_provider_refund_request_action,
-    complete_provider_booking_action,
-    quote_provider_booking_action,
-    reject_provider_booking_action,
-    reject_provider_refund_request_action,
-)
+from backend.utils.customer_booking_actions import create_customer_booking_action
 from backend.utils.ai_pending_action import (
     cancel_ai_pending_action,
     expire_user_pending_actions,
@@ -457,7 +437,6 @@ def cancel_ai_action(
 @router.post("/ai/actions/confirm")
 async def confirm_ai_action(
     request_data: AIActionConfirmRequest,
-    request: Request,
     current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
@@ -469,104 +448,15 @@ async def confirm_ai_action(
     payload = load_json(action.payload_json, {})
 
     try:
-        action_type = AIActionType(action.action_type)
-        if action_type == AIActionType.create_booking:
-            booking_data = BookingCreate(**payload)
-            result = await create_customer_booking_action(
-                booking_data,
-                current_user,
-                db,
-                attachments=None,
-            )
-        elif action_type == AIActionType.cancel_booking:
-            result = await cancel_customer_booking_action(
-                payload["booking_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.request_refund:
-            result = await create_customer_refund_request_action(
-                payload["booking_id"],
-                payload["reason"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.pay_booking:
-            result = await pay_customer_booking_action(
-                payload["booking_id"],
-                payload.get("payment_method", "iyzico_checkout"),
-                current_user,
-                db,
-                idempotency_key=f"ai-action-{action.id}",
-                frontend_return_url=payment_result_url_for_request(request),
-            )
-        elif action_type == AIActionType.reject_quote:
-            result = await reject_customer_booking_quote_action(
-                payload["booking_id"],
-                payload["status_note"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.confirm_complete:
-            result = await confirm_customer_booking_complete_action(
-                payload["booking_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_complete:
-            result = await reject_customer_booking_complete_action(
-                payload["booking_id"],
-                payload["status_note"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.quote_booking:
-            quote_data = ProviderBookingQuoteCreate(
-                quote_amount=payload["quote_amount"],
-                expected_service_amount=payload.get(
-                    "expected_service_amount", payload["quote_amount"]
-                ),
-                visit_fee_amount=payload["visit_fee_amount"],
-                quote_message=payload.get("quote_message"),
-            )
-            result = await quote_provider_booking_action(
-                payload["booking_id"],
-                quote_data,
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_booking:
-            note_data = BookingNoteUpdate(status_note=payload["status_note"])
-            result = await reject_provider_booking_action(
-                payload["booking_id"],
-                note_data,
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.complete_booking:
-            result = await complete_provider_booking_action(
-                payload["booking_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.approve_refund:
-            result = await approve_provider_refund_request_action(
-                payload["refund_request_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_refund:
-            reject_data = ProviderRefundRejectCreate(
-                provider_note=payload["provider_note"]
-            )
-            result = await reject_provider_refund_request_action(
-                payload["refund_request_id"],
-                reject_data,
-                current_user,
-                db,
-            )
-        else:
+        if action.action_type != "create_booking":
             raise HTTPException(status_code=400, detail="Unsupported AI action type")
+        booking_data = BookingCreate(**payload)
+        result = await create_customer_booking_action(
+            booking_data,
+            current_user,
+            db,
+            attachments=None,
+        )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     except KeyError as exc:
