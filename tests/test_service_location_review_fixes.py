@@ -6,16 +6,12 @@ from backend.utils.service_locations import seed_service_locations
 from tests.conftest import register_session
 
 
-def test_reference_location_seed_command_is_independent_of_demo_seed(
-    db_session, monkeypatch
-):
-    import backend.seed_locations as seed_locations
-
-    monkeypatch.setattr(seed_locations, "SessionLocal", lambda: db_session)
-
-    seed_locations.main()
+def test_reference_location_fixture_does_not_create_demo_users(db_session):
+    seed_service_locations(db_session)
+    db_session.commit()
 
     assert db_session.query(models.ServiceLocation).count() == 298
+    assert db_session.query(models.User).count() == 0
 
 
 def test_explicit_ai_province_does_not_fallback_to_saved_location_id(

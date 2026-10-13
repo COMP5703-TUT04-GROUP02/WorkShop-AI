@@ -230,6 +230,81 @@ export async function retryAdminSettlement(paymentId: number) {
   return response.data.data;
 }
 
+export type ReviewEmbeddingSyncStatus = {
+  total: number;
+  pending: number;
+  synced: number;
+  failed: number;
+  deleted: number;
+  unknown: number;
+};
+
+export type EmbeddingHealth = {
+  embedding: string;
+  dimension: number;
+  preview: number[];
+};
+
+export type MilvusHealth = {
+  milvus: string;
+  server_version: string;
+};
+
+export type ReviewEmbeddingTask = {
+  id: number;
+  task_id: string;
+  user_id: number | null;
+  task_type: string;
+  status: string;
+  result: Record<string, unknown> | string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+};
+
+export async function getReviewEmbeddingSyncStatus() {
+  const response = await apiClient.get<ApiResponse<ReviewEmbeddingSyncStatus>>(
+    "/ai/milvus/review-sync-status",
+  );
+  return response.data.data;
+}
+
+export async function getEmbeddingHealth() {
+  const response = await apiClient.get<ApiResponse<EmbeddingHealth>>(
+    "/ai/health/embedding",
+  );
+  return response.data.data;
+}
+
+export async function getMilvusHealth() {
+  const response = await apiClient.get<ApiResponse<MilvusHealth>>(
+    "/ai/health/milvus",
+  );
+  return response.data.data;
+}
+
+export async function syncAllReviewEmbeddings() {
+  const response = await apiClient.post<
+    ApiResponse<{ task_id: string | null; message: string }>
+  >("/ai/milvus/sync-reviews");
+  return response.data.data;
+}
+
+export async function retryPendingReviewEmbeddings() {
+  const response = await apiClient.post<
+    ApiResponse<{ review_count: number; task_ids: Array<string | null>; message: string }>
+  >("/ai/milvus/retry-failed-reviews");
+  return response.data.data;
+}
+
+export async function getReviewEmbeddingTask(taskId: string) {
+  const response = await apiClient.get<ApiResponse<ReviewEmbeddingTask>>(
+    `/ai/tasks/${taskId}`,
+  );
+  return response.data.data;
+}
+
 export type LLMAuthMode = "key" | "chatgpt" | "grok";
 
 export type LLMKeySource = "admin" | "env" | "none";

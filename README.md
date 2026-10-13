@@ -1,6 +1,6 @@
 # Workshop AI
 
-Workshop AI is a local-services marketplace: customers find nearby providers, request a quote, book a visit, pay, and leave a review. The demo data is set in Istanbul and amounts are in Turkish lira (TRY).
+Workshop AI is a local-services marketplace: customers find nearby providers, request a quote, book a visit, pay, and leave a review. Amounts are in Turkish lira (TRY).
 
 The repository contains a FastAPI backend and an Expo app that runs on iOS, Android, and web.
 
@@ -27,7 +27,7 @@ This is a working demo, not a production deployment.
 - Google sign-in shows on each platform once its OAuth client ID is set; on iOS and Android it needs a development build (`npx expo run:ios`), not Expo Go. Sign in with Apple is iOS only. See [Google and Apple sign-in](#google-and-apple-sign-in).
 - Address autocomplete needs a server-side Google Places API (New) key. The rest of the app runs without it.
 - Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
-- Provider ID verification, Service verification, and Payout account can be submitted independently. New orders require both Admin approvals and an active iyzico payout account; seeded providers' existing bookings remain viewable.
+- Provider ID verification, Service verification, and Payout account can be submitted independently. New orders require both Admin approvals and an active iyzico payout account.
 
 
 
@@ -86,7 +86,14 @@ docker compose up --build
 - API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
-Demo accounts are seeded automatically (`Demo1234`). An admin can still sign in with ChatGPT Plus from the dashboard instead of (or in addition to) an API key.
+API startup runs `alembic upgrade head`; it does not invoke a runtime seed command.
+On a fresh PostgreSQL volume, Alembic creates the schema and installs the fixed
+sample dataset from migration `0018_workshop_samples`. The old seed commands and
+`WORKSHOP_SEED` switch have been removed.
+
+Rebuilding containers preserves existing database volumes and their contents. It
+does not clear an old database. Alembic applies migration `0018` once to databases
+that have not yet recorded that revision.
 
 iOS / Android / Expo Go still run on the host (`cd frontend/mobile && npm start`). Only the web client is containerised.
 
@@ -120,16 +127,14 @@ postgresql+psycopg://workshop:workshop@127.0.0.1:5436/workshop
 
 
 
-#### 3. Migrate and seed
+#### 3. Apply database migrations
 
 ```bash
 alembic upgrade head
-python -m backend.seed_locations
-python -m backend.seed_demo_data
 ```
 
-`backend.seed_locations` loads the required Turkish service-area reference
-data. Demo users and providers remain optional and are seeded separately.
+This creates the schema, service-area reference data, and fixed sample accounts.
+Do not run the retired seed commands.
 
 
 
@@ -163,16 +168,36 @@ npm run android
 
 
 
-## Demo accounts
+## Sample data
 
-Every seeded account uses the password `Demo1234`.
+Fresh databases receive a fixed demonstration dataset from Alembic migration
+`0018_workshop_samples`. Docker startup does not run a seed command. The data
+migration runs once for a database and inserts 5 customers, 30 providers, 300
+completed bookings, 300 matching reviews, and 60 approved portfolio entries.
+Every service tag is represented by 6 providers because each provider offers two
+categories. All provider profiles and service areas use the province-level
+`Istanbul` location.
 
+All demo accounts use password `Demo1234`:
 
-| Role     | Email                                                          |
-| -------- | -------------------------------------------------------------- |
-| Admin    | `demo_admin@workshop.ai`                                       |
-| Customer | `demo_customer_1@workshop.ai` … `demo_customer_5@workshop.ai`  |
+| Role | Email |
+| ---- | ----- |
+| Admin | `demo_admin@workshop.ai` |
+| Customer | `demo_customer_1@workshop.ai` … `demo_customer_5@workshop.ai` |
 | Provider | `demo_provider_1@workshop.ai` … `demo_provider_30@workshop.ai` |
+
+Provider payout records use the shared Sandbox IBAN
+`TR180006200119000006672315`, remain in `draft`, and do not claim that iyzico
+authenticated them. The migration makes no external payment-provider requests.
+
+The committed JSON under `migrations/data/` is the reviewed snapshot. When that
+snapshot is intentionally changed, rebuild it with:
+
+```bash
+python scripts/build_sample_snapshot.py
+```
+
+This authoring command is not part of Docker startup.
 
 
 
@@ -189,7 +214,7 @@ Successful Sandbox cards:
 
 Use a future expiry date and a correctly formatted CVV. These cards simulate payments only; they do not move real funds.
 
-Seeded payout details use the following Sandbox fixtures:
+The following Sandbox fixtures are retained for manual and automated payment testing; deployment does not insert them:
 
 | Field | Personal / private company | Limited / joint stock company |
 | ----- | -------------------------- | ----------------------------- |
@@ -203,15 +228,7 @@ Seeded payout details use the following Sandbox fixtures:
 | Legal company title | `John Doe inc` | `XYZ inc` |
 | Tax number | — | `9261877` |
 
-The regular demo seed creates 30 providers and 300 bookings. Providers 6–9 are kept as negative onboarding samples without payout records; the other 26 providers receive deterministic, evenly distributed Personal, Private Company, or Limited / Joint Stock Company fixtures.
-
-To synchronize one provider payout record with the Sandbox Marketplace account, run:
-
-```bash
-docker compose exec api python -m backend.seed_sandbox_submerchants --provider-id 29
-```
-
-The regular demo seed only creates local payout drafts and does not call iyzico. The command above makes one explicit Sandbox request and stores the returned status, external key, or error. It never marks a provider active locally when Sandbox rejects the details, and providers 6–9 remain reserved as negative samples.
+The legacy demo-provider Sandbox seed command has been removed. Once provider accounts exist, use the provider payout-account flow to submit Sandbox details. Database initialization does not make external payment-provider requests.
 
 
 

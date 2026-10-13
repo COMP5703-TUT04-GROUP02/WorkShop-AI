@@ -36,6 +36,7 @@ from backend.utils.errors import (
 from backend.utils.response import success_response
 
 Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+SAMPLE_MEDIA_DIR = Path(__file__).resolve().parent / "sample_media"
 
 OPENAPI_TAGS = [
     {
@@ -141,6 +142,11 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount(
+    "/sample-media",
+    StaticFiles(directory=SAMPLE_MEDIA_DIR),
+    name="sample-media",
+)
 
 app.include_router(auth.router)
 app.include_router(public.router)
