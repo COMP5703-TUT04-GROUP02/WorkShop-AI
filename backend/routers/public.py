@@ -1,6 +1,7 @@
 """Public API.
 
-Unauthenticated data: approved providers, public profiles, reviews, portfolios, ratings.
+Unauthenticated data: approved providers, public profiles, reviews, portfolios, ratings,
+and the help-centre FAQ.
 """
 
 from datetime import datetime
@@ -27,6 +28,8 @@ from backend.utils.review import (
 )
 from backend.schemas import (
     ApiResponse,
+    FaqAudience,
+    FaqResponse,
     PaginatedData,
     ProviderProfileWithRatingResponse,
     ProviderPortfolioResponse,
@@ -38,6 +41,7 @@ from backend.schemas import (
     ServiceLocationListResponse,
     ServiceLocationResponse,
 )
+from backend.services.faq_service import get_faq
 from backend.services.places_service import (
     autocomplete as places_autocomplete,
     enforce_rate_limit,
@@ -127,7 +131,6 @@ def get_all_providers(
     service_location_id: int | None = Query(default=None, gt=0),
     min_price: int | None = None,
     max_price: int | None = None,
-    min_experience: int | None = None,
     latitude: float | None = Query(default=None, ge=-90, le=90),
     longitude: float | None = Query(default=None, ge=-180, le=180),
     max_distance_km: float | None = Query(default=None, gt=0),
@@ -153,8 +156,6 @@ def get_all_providers(
         query = query.filter(models.ProviderProfile.hourly_rate >= min_price)
     if max_price is not None:
         query = query.filter(models.ProviderProfile.hourly_rate <= max_price)
-    if min_experience is not None:
-        query = query.filter(models.ProviderProfile.experience_years >= min_experience)
 
     search_result = filter_provider_profiles(
         query,
@@ -348,3 +349,8 @@ def get_review_by_id(review_id: int, db: Session = Depends(get_db)):
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
     return success_response(format_review_detail_response(review, db))
+
+
+@router.get("/faq", response_model=ApiResponse[FaqResponse])
+def get_help_faq(audience: FaqAudience = Query(default="customer")):
+    return success_response({"audience": audience, "categories": get_faq(audience)})

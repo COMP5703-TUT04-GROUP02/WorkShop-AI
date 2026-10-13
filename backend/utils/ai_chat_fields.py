@@ -11,7 +11,6 @@ TOOL_FIELD_LABELS = {
     "service_longitude": "Service longitude",
     "scheduled_start_time": "Start time",
     "scheduled_end_time": "End time",
-    "service_stage": "Refund service stage",
     "reason": "Reason",
     "status_note": "Note",
     "provider_note": "Refund rejection reason",
@@ -31,7 +30,6 @@ TOOL_FIELD_QUESTIONS = {
     "service_longitude": "Please provide service longitude; the app can fill this from location.",
     "scheduled_start_time": "Please provide the start time.",
     "scheduled_end_time": "Please provide the end time.",
-    "service_stage": "At what stage was the service when requesting a refund: not started, in progress, or completed?",
     "reason": "Please provide a reason.",
     "status_note": "Please provide a note.",
     "provider_note": "Please provide a reason for rejecting the refund.",
@@ -41,33 +39,24 @@ TOOL_FIELD_QUESTIONS = {
 
 BOOKING_DRAFT_CONTINUATION_PROMPT = (
     "The user is completing an unfinished booking draft. "
-    "Determine whether the message supplies missing or updated draft fields. "
-    "If the user provides service description, address, coordinates, or start or end times, "
-    "call prepare_booking_draft_action with only the new or changed fields from this turn. "
+    "Determine whether the message supplies a missing or updated provider or task description. "
+    "When the user provides the task, rewrite it into a concise professional service description "
+    "in the user's language, preserving facts and adding nothing, then call "
+    "prepare_booking_draft_action with only the new or changed fields from this turn. "
     "Do not call search_providers or re-recommend providers. "
-    "If the user gives a time without a date and booking_draft.provided_fields.scheduled_start_time has a date, "
-    "keep the draft date and update only the time. "
-    "For coordinates like 44.22 32.11, the first number is service_latitude, the second service_longitude. "
-    "Phrases like need lockout service or elderly daily care should become service_description. "
+    "Do not ask for or extract an address, coordinates, service category, schedule, or attachments; "
+    "the customer completes those in the normal booking form. "
     "If no draft fields were provided, skip tools and explain what is still needed in the user's language."
 )
 
 BOOKING_DRAFT_CONTINUATION_KEYWORDS = [
-    "address",
-    "location",
-    "latitude",
-    "longitude",
-    "coordinates",
-    "time",
-    "schedule",
-    "appointment",
-    "morning",
-    "afternoon",
-    "evening",
-    "tonight",
-    "tomorrow",
-    "today",
     "need",
+    "task",
+    "service",
+    "work",
+    "repair",
+    "clean",
+    "help",
     "change",
     "update",
 ]

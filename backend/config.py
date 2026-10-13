@@ -67,18 +67,48 @@ REFRESH_TOKEN_EXPIRE_DAYS = get_int_config(
 )
 
 GOOGLE_CLIENT_IDS = get_list_config("WORKSHOP_GOOGLE_CLIENT_IDS", [])
-APPLE_CLIENT_IDS = get_list_config("WORKSHOP_APPLE_CLIENT_IDS", [])
+# The iOS bundle ID from frontend/mobile/app.json is Apple's token audience.
+APPLE_CLIENT_IDS = get_list_config("WORKSHOP_APPLE_CLIENT_IDS", ["com.comp5703.workshopai"])
 GOOGLE_MAPS_API_KEY = get_config("WORKSHOP_GOOGLE_MAPS_API_KEY", "")
 APPLE_TOKEN_ISSUER = get_config(
     "WORKSHOP_APPLE_TOKEN_ISSUER",
     "https://appleid.apple.com",
 )
 
+# Email delivery. "console" logs the message instead of sending it, so local
+# runs and CI need no mailbox. "smtp" sends through the server below; for Gmail
+# use smtp.gmail.com:587 with an App Password. The project mailbox is the
+# default sender; only its App Password has to be supplied.
+PROJECT_EMAIL = "5703.workshop.ai@gmail.com"
+EMAIL_BACKEND = get_config("WORKSHOP_EMAIL_BACKEND", "console")
+SMTP_HOST = get_config("WORKSHOP_SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = get_int_config("WORKSHOP_SMTP_PORT", 587)
+SMTP_USERNAME = get_config("WORKSHOP_SMTP_USERNAME", PROJECT_EMAIL)
+SMTP_PASSWORD = get_config("WORKSHOP_SMTP_PASSWORD", "")
+SMTP_TIMEOUT_SECONDS = get_float_config("WORKSHOP_SMTP_TIMEOUT_SECONDS", 10.0)
+EMAIL_FROM = get_config("WORKSHOP_EMAIL_FROM", SMTP_USERNAME)
+EMAIL_FROM_NAME = get_config("WORKSHOP_EMAIL_FROM_NAME", "Workshop AI")
+
 
 DATABASE_URL = get_config(
     "WORKSHOP_DATABASE_URL",
     "postgresql+psycopg://workshop:workshop@127.0.0.1:5436/workshop",
 )
+
+IYZICO_BASE_URL = get_config(
+    "IYZICO_BASE_URL",
+    "https://sandbox-api.iyzipay.com",
+)
+IYZICO_API_KEY = get_config("IYZICO_API_KEY", "")
+IYZICO_SECRET_KEY = get_config("IYZICO_SECRET_KEY", "")
+IYZICO_CALLBACK_URL = get_config(
+    "IYZICO_CALLBACK_URL",
+    "http://localhost:8000/payments/iyzico/callback",
+)
+IYZICO_FRONTEND_RETURN_URL = get_config("IYZICO_FRONTEND_RETURN_URL", "")
+IYZICO_TIMEOUT_SECONDS = get_float_config("IYZICO_TIMEOUT_SECONDS", 15.0)
+IYZICO_CHECKOUT_TTL_SECONDS = get_int_config("IYZICO_CHECKOUT_TTL_SECONDS", 1800)
+PLATFORM_COMMISSION_RATE = get_config("PLATFORM_COMMISSION_RATE", "0.10")
 
 
 DEFAULT_CORS_ORIGINS = [
@@ -146,6 +176,10 @@ CELERY_RESULT_BACKEND = get_config(
 UPLOAD_DIR = get_config(
     "WORKSHOP_UPLOAD_DIR",
     str(PROJECT_ROOT / "backend" / "uploads"),
+)
+VERIFICATION_UPLOAD_DIR = get_config(
+    "WORKSHOP_VERIFICATION_UPLOAD_DIR",
+    str(PROJECT_ROOT / "backend" / "private_uploads" / "verification"),
 )
 MAX_UPLOAD_SIZE_MB = get_int_config("WORKSHOP_MAX_UPLOAD_SIZE_MB", 50)
 MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024

@@ -21,7 +21,6 @@ from backend.ai.tool_calling import (
     execute_langchain_tool_call,
 )
 from backend.ai.tools import (
-    get_platform_capabilities_tool,
     search_providers_tool,
     summarize_provider_reviews_tool,
 )
@@ -33,7 +32,6 @@ from backend.services.redis_service import (
 )
 from backend.utils.ai import (
     CASUAL_LOCAL_ANSWER,
-    looks_like_capability_question,
     looks_like_casual_greeting_only,
     looks_like_review_summary_question,
     parse_user_service_need,
@@ -42,15 +40,10 @@ from backend.utils.ai_chat import (
     build_ai_chat_request_metadata,
     get_last_booking_draft_from_history,
     build_provider_recommendation_snapshot,
-    get_last_pending_clarification_from_history,
     get_last_provider_recommendation_context_from_history,
     get_last_recommended_provider_ids_from_history,
     resolve_candidate_provider_ids,
     save_ai_chat_exchange,
-)
-from backend.utils.ai_context import (
-    build_ai_actionable_context,
-    build_pending_clarification_context,
 )
 from backend.utils.ai_chat_fields import (
     BOOKING_DRAFT_CONTINUATION_KEYWORDS,
@@ -84,7 +77,6 @@ def build_langchain_tool_context(
         history_provider_ids,
     )
 
-    actionable_context = build_ai_actionable_context(current_user, db)
     booking_draft = get_last_booking_draft_from_history(current_user.id, db)
 
     current_datetime = datetime.now(timezone.utc)
@@ -120,22 +112,14 @@ def build_langchain_tool_context(
             current_user.id
         )
         or get_last_provider_recommendation_context_from_history(current_user.id, db),
-        "actionable_context": actionable_context,
         "booking_draft": booking_draft,
-        "pending_clarification": get_last_pending_clarification_from_history(
-            current_user.id,
-            db,
-        ),
         "tool_usage_hint": (
             "For review/price/attitude questions, pass candidate_provider_ids as provider_ids to summarize_provider_reviews."
             "Convert relative dates (today, tomorrow) using current_date."
-            "For this booking or that order, use actionable_context."
-            "If pending_clarification is set and the user picks first/second/1/2, map to pending_clarification.choices index."
             "If booking_draft exists, merge new fields with booking_draft.provided_fields."
             "service_address, latitude, longitude map to draft address and coordinates."
             "scheduled_start_time and scheduled_end_time map to draft appointment times."
             "Prefer prepare_booking_draft_action for booking; let the tool ask for missing fields."
-            "Auto-fill booking_id or refund_request_id only when unique or clearly referenced; otherwise ask."
         ),
     }
 
@@ -245,34 +229,6 @@ def try_handle_local_chat_fastpath(
     request_metadata: dict,
     db: Session,
 ):
-    if looks_like_capability_question(request_data.message):
-        result = get_platform_capabilities_tool(question=request_data.message)
-        tool_result = {
-            "tool_name": "get_platform_capabilities",
-            "tool_args": {"question": request_data.message},
-            "result": result,
-        }
-        return build_platform_capabilities_response_from_tool_result(
-            request_data,
-            current_user,
-            {
-                "message": request_data.message,
-                "type": "tool_call",
-                "answer": result["answer"],
-                "tool_calls": [
-                    {
-                        "name": "get_platform_capabilities",
-                        "args": {"question": request_data.message},
-                        "source": "local_fastpath",
-                    }
-                ],
-                "tool_results": [tool_result],
-            },
-            tool_result,
-            request_metadata,
-            db,
-        )
-
     if looks_like_casual_greeting_only(request_data.message):
         return build_plain_answer_response(
             request_data,
@@ -318,50 +274,13 @@ def get_invalid_tool_arg_names(error_details):
     return invalid_fields
 
 
-def format_clarification_choice(choice: dict):
-    target_id = choice.get("booking_id") or choice.get("refund_request_id")
-    description = choice.get("service_description")
-    status = choice.get("status")
-    start_time = choice.get("scheduled_start_time")
-
-    if not description and choice.get("booking"):
-        description = choice["booking"].get("service_description")
-        start_time = choice["booking"].get("scheduled_start_time")
-
-    parts = [f"{choice.get('index')}. ID {target_id}"]
-    if description:
-        parts.append(str(description))
-    if status:
-        parts.append(f"status {status}")
-    if start_time:
-        parts.append(f"scheduled {start_time}")
-
-    return ", ".join(parts)
-
-
-def build_clarification_answer(pending_clarification: dict):
-    target_field = pending_clarification["target_field"]
-    choices = pending_clarification.get("choices") or []
-    target_label = "booking" if target_field == "booking_id" else "refund request"
-    answer_lines = [
-        f"I understand you want to continue, but I need to know which {target_label}.",
-        f"Reply with a number, e.g. first or 1:",
-    ]
-    answer_lines.extend(format_clarification_choice(choice) for choice in choices)
-
-    return "\n".join(answer_lines)
-
-
-def build_tool_error_answer(tool_result: dict, pending_clarification: dict | None):
+def build_tool_error_answer(tool_result: dict):
     tool_name = tool_result.get("tool_name")
     error_type = tool_result.get("error_type")
     status_code = tool_result.get("status_code")
     error = tool_result.get("error") or "Tool execution failed"
 
     if error_type == "validation_error":
-        if pending_clarification:
-            return build_clarification_answer(pending_clarification)
-
         missing_fields = get_missing_tool_arg_names(tool_result.get("error_details"))
         if missing_fields:
             return format_tool_missing_fields_answer(missing_fields)
@@ -396,14 +315,7 @@ def build_tool_error_response_from_tool_result(
     db: Session,
 ):
     missing_fields = get_missing_tool_arg_names(tool_result.get("error_details"))
-    actionable_context = build_ai_actionable_context(current_user, db)
-    pending_clarification = build_pending_clarification_context(
-        tool_result.get("tool_name"),
-        tool_result.get("tool_args", {}),
-        missing_fields,
-        actionable_context,
-    )
-    answer = build_tool_error_answer(tool_result, pending_clarification)
+    answer = build_tool_error_answer(tool_result)
     response = {
         "message": request_data.message,
         "service_province": request_data.service_province,
@@ -431,7 +343,6 @@ def build_tool_error_response_from_tool_result(
             "status_code": tool_result.get("status_code"),
             "error_details": tool_result.get("error_details"),
         },
-        "pending_clarification": pending_clarification,
         "tool_calls": tool_calling_result.get("tool_calls", []),
         "tool_results": tool_calling_result.get("tool_results", []),
         "assistant_metadata": {
@@ -443,7 +354,6 @@ def build_tool_error_response_from_tool_result(
             "tool_name": tool_result.get("tool_name"),
             "tool_args": tool_result.get("tool_args", {}),
             "tool_error": tool_result,
-            "pending_clarification": pending_clarification,
             "model_answer": tool_calling_result.get("answer"),
             "answer_source": "backend_tool_error_answer",
         },
@@ -463,7 +373,7 @@ def build_booking_draft_missing_info_answer(booking_draft: dict):
     provider_choices = booking_draft.get("provider_choices") or []
     next_question = booking_draft.get("next_question") or "Please continue providing booking details."
 
-    answer_lines = ["I saved a booking draft; a few details are still needed before the confirmation card."]
+    answer_lines = ["I saved your booking request; I need one more detail before opening the booking form."]
 
     if missing_fields:
         missing_names = [field.get("name") for field in missing_fields]
@@ -475,7 +385,7 @@ def build_booking_draft_missing_info_answer(booking_draft: dict):
 
         if "service_description" in missing_names:
             answer_lines.append(
-                "Describe the service, e.g. elderly daily care, escort, meal help, or other."
+                "Please describe the specific task you want this provider to complete."
             )
         else:
             answer_lines.append(next_question)
@@ -548,6 +458,49 @@ def build_booking_draft_missing_info_response_from_tool_result(
             "tool_args": tool_result.get("tool_args", {}),
             "booking_draft": booking_draft,
             "answer_source": "backend_booking_draft_answer",
+        },
+    }
+
+    return save_tool_calling_exchange(
+        request_data,
+        current_user,
+        response,
+        request_metadata,
+        db,
+    )
+
+
+def build_booking_form_ready_response_from_tool_result(
+    request_data: AIChatRequest,
+    current_user: models.User,
+    tool_calling_result: dict,
+    tool_result: dict,
+    request_metadata: dict,
+    db: Session,
+):
+    booking_form = tool_result["result"]
+    intent = {
+        "intent": "create_booking",
+        "confidence": 1,
+        "reason": "AI prepared the standard booking form",
+    }
+    response = {
+        **chat_request_payload(request_data),
+        "type": "booking_form_ready",
+        "intent": intent,
+        "answer": (
+            "I polished your task description and opened the booking form. "
+            "Please review it, choose the service and location, set the time, "
+            "and submit the request yourself."
+        ),
+        "booking_form": booking_form,
+        "tool_calls": tool_calling_result.get("tool_calls", []),
+        "assistant_metadata": {
+            "intent": intent,
+            "tool_name": tool_result["tool_name"],
+            "tool_args": tool_result.get("tool_args", {}),
+            "booking_form": booking_form,
+            "answer_source": "backend_booking_form_ready_answer",
         },
     }
 
@@ -729,170 +682,9 @@ def build_review_summary_response_from_tool_result(
     )
 
 
-def build_chat_room_response_from_tool_result(
-    request_data: AIChatRequest,
-    current_user: models.User,
-    tool_calling_result: dict,
-    tool_result: dict,
-    request_metadata: dict,
-    db: Session,
-):
-    chat_result = tool_result["result"]
-    answer = tool_calling_result.get("answer") or chat_result["message"]
-    response = {
-        "message": request_data.message,
-        "service_province": request_data.service_province,
-        "max_price": request_data.max_price,
-        "latitude": request_data.latitude,
-        "longitude": request_data.longitude,
-        "max_distance_km": request_data.max_distance_km,
-        "scheduled_start_time": request_data.scheduled_start_time,
-        "scheduled_end_time": request_data.scheduled_end_time,
-        "candidate_provider_ids": request_data.candidate_provider_ids,
-        "type": "chat_room",
-        "intent": {
-            "intent": "create_chat_room",
-            "confidence": 1,
-            "reason": "LangChain tool calling chose create_chat_room",
-        },
-        "answer": answer,
-        "chat_room": chat_result["chat_room"],
-        "chat_room_created": chat_result["created"],
-        "tool_calls": tool_calling_result.get("tool_calls", []),
-        "assistant_metadata": {
-            "intent": {
-                "intent": "create_chat_room",
-                "confidence": 1,
-                "reason": "LangChain tool calling chose create_chat_room",
-            },
-            "tool_name": tool_result["tool_name"],
-            "tool_args": tool_result.get("tool_args", {}),
-            "chat_room_id": chat_result["chat_room"]["id"],
-            "chat_room_created": chat_result["created"],
-            "answer_source": "tool_message_final_answer",
-        },
-    }
-
-    return save_tool_calling_exchange(
-        request_data,
-        current_user,
-        response,
-        request_metadata,
-        db,
-    )
 
 
-def build_booking_status_response_from_tool_result(
-    request_data: AIChatRequest,
-    current_user: models.User,
-    tool_calling_result: dict,
-    tool_result: dict,
-    request_metadata: dict,
-    db: Session,
-):
-    booking_status_result = tool_result["result"]
-    booking = booking_status_result["booking"]
-    answer = tool_calling_result.get("answer") or "Here is the booking status I found."
-    response = {
-        "message": request_data.message,
-        "service_province": request_data.service_province,
-        "max_price": request_data.max_price,
-        "latitude": request_data.latitude,
-        "longitude": request_data.longitude,
-        "max_distance_km": request_data.max_distance_km,
-        "scheduled_start_time": request_data.scheduled_start_time,
-        "scheduled_end_time": request_data.scheduled_end_time,
-        "candidate_provider_ids": request_data.candidate_provider_ids,
-        "type": "booking_status",
-        "intent": {
-            "intent": "booking_status",
-            "confidence": 1,
-            "reason": "LangChain tool calling chose get_booking_status",
-        },
-        "answer": answer,
-        "booking": booking,
-        "status_explanation": booking_status_result["status_explanation"],
-        "recent_status_histories": booking_status_result["recent_status_histories"],
-        "payments": booking_status_result["payments"],
-        "refund_requests": booking_status_result["refund_requests"],
-        "tool_calls": tool_calling_result.get("tool_calls", []),
-        "assistant_metadata": {
-            "intent": {
-                "intent": "booking_status",
-                "confidence": 1,
-                "reason": "LangChain tool calling chose get_booking_status",
-            },
-            "tool_name": tool_result["tool_name"],
-            "tool_args": tool_result.get("tool_args", {}),
-            "booking_id": booking["id"],
-            "booking_status": booking["status"],
-            "answer_source": "tool_message_final_answer",
-        },
-    }
-
-    return save_tool_calling_exchange(
-        request_data,
-        current_user,
-        response,
-        request_metadata,
-        db,
-    )
-
-
-def build_booking_flow_response_from_tool_result(
-    request_data: AIChatRequest,
-    current_user: models.User,
-    tool_calling_result: dict,
-    tool_result: dict,
-    request_metadata: dict,
-    db: Session,
-):
-    booking_flow_result = tool_result["result"]
-    answer = tool_calling_result.get("answer") or "Here is how the booking flow works."
-    response = {
-        "message": request_data.message,
-        "service_province": request_data.service_province,
-        "max_price": request_data.max_price,
-        "latitude": request_data.latitude,
-        "longitude": request_data.longitude,
-        "max_distance_km": request_data.max_distance_km,
-        "scheduled_start_time": request_data.scheduled_start_time,
-        "scheduled_end_time": request_data.scheduled_end_time,
-        "candidate_provider_ids": request_data.candidate_provider_ids,
-        "type": "booking_flow",
-        "intent": {
-            "intent": "booking_flow",
-            "confidence": 1,
-            "reason": "LangChain tool calling chose explain_booking_flow",
-        },
-        "answer": answer,
-        "topic": booking_flow_result["topic"],
-        "flow_steps": booking_flow_result["flow_steps"],
-        "statuses": booking_flow_result["statuses"],
-        "tool_calls": tool_calling_result.get("tool_calls", []),
-        "assistant_metadata": {
-            "intent": {
-                "intent": "booking_flow",
-                "confidence": 1,
-                "reason": "LangChain tool calling chose explain_booking_flow",
-            },
-            "tool_name": tool_result["tool_name"],
-            "tool_args": tool_result.get("tool_args", {}),
-            "topic": booking_flow_result["topic"],
-            "answer_source": "tool_message_final_answer",
-        },
-    }
-
-    return save_tool_calling_exchange(
-        request_data,
-        current_user,
-        response,
-        request_metadata,
-        db,
-    )
-
-
-def build_platform_capabilities_response_from_tool_result(
+def build_help_articles_response_from_tool_result(
     request_data: AIChatRequest,
     current_user: models.User,
     tool_calling_result: dict,
@@ -901,18 +693,19 @@ def build_platform_capabilities_response_from_tool_result(
     db: Session,
 ):
     result = tool_result["result"]
-    answer = result.get("answer") or tool_calling_result.get("answer") or (
-        "I can recommend providers, summarize reviews, open chats, build booking drafts, check status, and prepare actions that need your confirmation."
-    )
     intent = {
-        "intent": "platform_capabilities",
+        "intent": "help_articles",
         "confidence": 1,
-        "reason": "LangChain tool calling chose get_platform_capabilities",
+        "reason": "LangChain tool calling chose search_help_articles",
     }
+    # Only what the app needs to link each answer into Help and Support.
+    help_articles = [
+        {"id": article["id"], "question": article["question"]}
+        for article in result.get("articles", [])
+    ]
     response = {
         "message": request_data.message,
         "service_province": request_data.service_province,
-        "service_address": request_data.service_address,
         "max_price": request_data.max_price,
         "latitude": request_data.latitude,
         "longitude": request_data.longitude,
@@ -920,18 +713,17 @@ def build_platform_capabilities_response_from_tool_result(
         "scheduled_start_time": request_data.scheduled_start_time,
         "scheduled_end_time": request_data.scheduled_end_time,
         "candidate_provider_ids": request_data.candidate_provider_ids,
-        "type": "platform_capabilities",
+        "type": "help_articles",
         "intent": intent,
-        "answer": answer,
-        "capabilities": result.get("capabilities", []),
+        "answer": result.get("answer") or tool_calling_result.get("answer") or "",
+        "help_articles": help_articles,
         "tool_calls": tool_calling_result.get("tool_calls", []),
-        "tool_results": tool_calling_result.get("tool_results", []),
         "assistant_metadata": {
             "intent": intent,
             "tool_name": tool_result["tool_name"],
             "tool_args": tool_result.get("tool_args", {}),
-            "capabilities": result.get("capabilities", []),
-            "answer_source": "platform_capabilities_tool",
+            "help_articles": help_articles,
+            "answer_source": "help_articles_tool",
         },
     }
 
@@ -942,6 +734,8 @@ def build_platform_capabilities_response_from_tool_result(
         request_metadata,
         db,
     )
+
+
 
 
 def format_confirmation_field_line(field: dict):
@@ -1076,13 +870,25 @@ def parse_selection_index(message: str):
     if loose_digit_match:
         return int(loose_digit_match.group(1))
 
-    return None
+    english_ordinals = {
+        "first": 1,
+        "second": 2,
+        "third": 3,
+        "fourth": 4,
+        "fifth": 5,
+    }
+    for ordinal, index in english_ordinals.items():
+        if re.search(rf"\b{ordinal}\b", normalized_message):
+            return index
 
-
-def find_pending_clarification_choice(pending_clarification: dict, selected_index: int):
-    for choice in pending_clarification.get("choices") or []:
-        if choice.get("index") == selected_index:
-            return choice
+    chinese_index_match = re.search(
+        r"第\s*(\d+|一|二|三|四|五)\s*(?:个)?",
+        normalized_message,
+    )
+    if chinese_index_match:
+        chinese_numbers = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5}
+        value = chinese_index_match.group(1)
+        return int(value) if value.isdigit() else chinese_numbers[value]
 
     return None
 
@@ -1308,6 +1114,12 @@ def should_try_booking_draft_text_update(message: str, booking_draft: dict | Non
     if looks_like_review_summary_question(message):
         return False
 
+    # Once a provider is selected, the very next free-text reply is the task
+    # description. This also works for Chinese and other languages without a
+    # brittle keyword list; cancellation is handled before this fast path.
+    if "service_description" in missing_field_names:
+        return bool(message.strip())
+
     normalized_message = message.strip().lower()
     return any(keyword in normalized_message for keyword in BOOKING_DRAFT_CONTINUATION_KEYWORDS)
 
@@ -1368,16 +1180,6 @@ def build_tool_calling_response_from_result(
 
         return None
 
-    if tool_result["tool_name"] == "get_platform_capabilities":
-        return build_platform_capabilities_response_from_tool_result(
-            request_data,
-            current_user,
-            tool_calling_result,
-            tool_result,
-            request_metadata,
-            db,
-        )
-
     if tool_result["tool_name"] == "search_providers":
         return build_provider_search_response_from_tool_result(
             request_data,
@@ -1398,28 +1200,8 @@ def build_tool_calling_response_from_result(
             db,
         )
 
-    if tool_result["tool_name"] == "create_chat_room":
-        return build_chat_room_response_from_tool_result(
-            request_data,
-            current_user,
-            tool_calling_result,
-            tool_result,
-            request_metadata,
-            db,
-        )
-
-    if tool_result["tool_name"] == "get_booking_status":
-        return build_booking_status_response_from_tool_result(
-            request_data,
-            current_user,
-            tool_calling_result,
-            tool_result,
-            request_metadata,
-            db,
-        )
-
-    if tool_result["tool_name"] == "explain_booking_flow":
-        return build_booking_flow_response_from_tool_result(
+    if tool_result["tool_name"] == "search_help_articles":
+        return build_help_articles_response_from_tool_result(
             request_data,
             current_user,
             tool_calling_result,
@@ -1441,22 +1223,11 @@ def build_tool_calling_response_from_result(
             db,
         )
 
-    if tool_result["tool_name"] in [
-        "prepare_booking_draft_action",
-        "prepare_create_booking_action",
-        "prepare_cancel_booking_action",
-        "prepare_refund_request_action",
-        "prepare_pay_booking_action",
-        "prepare_reject_quote_action",
-        "prepare_confirm_complete_action",
-        "prepare_reject_complete_action",
-        "prepare_quote_booking_action",
-        "prepare_reject_booking_action",
-        "prepare_complete_booking_action",
-        "prepare_approve_refund_action",
-        "prepare_reject_refund_action",
-    ]:
-        return build_ai_action_confirmation_response_from_tool_result(
+    if (
+        tool_result["tool_name"] == "prepare_booking_draft_action"
+        and tool_result.get("result", {}).get("draft_status") == "ready_for_form"
+    ):
+        return build_booking_form_ready_response_from_tool_result(
             request_data,
             current_user,
             tool_calling_result,
@@ -1466,60 +1237,6 @@ def build_tool_calling_response_from_result(
         )
 
     return None
-
-
-def try_handle_pending_clarification_selection(
-    request_data: AIChatRequest,
-    current_user: models.User,
-    request_metadata: dict,
-    db: Session,
-):
-    context = build_langchain_tool_context(request_data, current_user, db)
-    pending_clarification = context.get("pending_clarification")
-    selected_index = parse_selection_index(request_data.message)
-    if not pending_clarification or selected_index is None:
-        return None
-
-    choice = find_pending_clarification_choice(pending_clarification, selected_index)
-    if not choice:
-        return None
-
-    tool_name = pending_clarification["tool_name"]
-    target_field = pending_clarification["target_field"]
-    tool_args = {
-        **pending_clarification.get("original_tool_args", {}),
-        target_field: choice[target_field],
-    }
-    tool_result = execute_langchain_tool_call(
-        tool_name,
-        tool_args,
-        current_user,
-        db,
-        request_data.message,
-        context,
-    )
-    tool_calling_result = {
-        "message": request_data.message,
-        "type": "tool_call",
-        "answer": None,
-        "tool_calls": [
-            {
-                "name": tool_name,
-                "args": tool_args,
-                "source": "pending_clarification_selection",
-                "selected_index": selected_index,
-            }
-        ],
-        "tool_results": [tool_result],
-    }
-
-    return build_tool_calling_response_from_result(
-        request_data,
-        current_user,
-        tool_calling_result,
-        request_metadata,
-        db,
-    )
 
 
 def try_handle_booking_draft_provider_selection(
@@ -1751,15 +1468,6 @@ def handle_ai_chat_request(
     db: Session,
 ):
     request_metadata = build_ai_chat_request_metadata(request_data)
-    pending_clarification_response = try_handle_pending_clarification_selection(
-        request_data,
-        current_user,
-        request_metadata,
-        db,
-    )
-    if pending_clarification_response:
-        return pending_clarification_response
-
     booking_draft_clear_response = try_handle_booking_draft_clear(
         request_data,
         current_user,
@@ -1788,24 +1496,6 @@ def handle_ai_chat_request(
     )
     if booking_draft_text_update_response:
         return booking_draft_text_update_response
-
-    booking_draft_location_update_response = try_handle_booking_draft_location_update(
-        request_data,
-        current_user,
-        request_metadata,
-        db,
-    )
-    if booking_draft_location_update_response:
-        return booking_draft_location_update_response
-
-    booking_draft_schedule_update_response = try_handle_booking_draft_schedule_update(
-        request_data,
-        current_user,
-        request_metadata,
-        db,
-    )
-    if booking_draft_schedule_update_response:
-        return booking_draft_schedule_update_response
 
     local_response = try_handle_local_chat_fastpath(
         request_data,

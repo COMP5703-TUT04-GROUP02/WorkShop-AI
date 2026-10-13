@@ -38,16 +38,20 @@ export function chooseDistrict(
 
 export function getCompletedLocation(
   current: LocationCascadeState,
+  allowAnyLevel = false,
 ): ServiceAreaSelection | null {
-  if (!current.province || !current.city || !current.district) {
+  if (!current.province || (!allowAnyLevel && (!current.city || !current.district))) {
     return null;
   }
 
+  const selected = current.district ?? current.city ?? current.province;
+  const path = [current.province, current.city, current.district].filter(
+    (item): item is ServiceLocation => Boolean(item),
+  );
+
   return {
-    serviceLocationId: current.district.id,
+    serviceLocationId: selected.id,
     serviceProvince: current.province.name,
-    label: [current.province.name, current.city.name, current.district.name].join(
-      " / ",
-    ),
+    label: path.map((item) => item.name).join(" / "),
   };
 }

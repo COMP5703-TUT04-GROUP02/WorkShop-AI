@@ -89,3 +89,28 @@ test("province or city selections alone cannot be submitted", () => {
     null,
   );
 });
+
+test("operating settings can select a whole province or city", () => {
+  assert.deepEqual(
+    getCompletedLocation(
+      { province: istanbul, city: null, district: null },
+      true,
+    ),
+    {
+      serviceLocationId: istanbul.id,
+      serviceProvince: istanbul.name,
+      label: "Istanbul",
+    },
+  );
+  assert.deepEqual(
+    getCompletedLocation(
+      { province: istanbul, city: istanbulCity, district: null },
+      true,
+    ),
+    {
+      serviceLocationId: istanbulCity.id,
+      serviceProvince: istanbul.name,
+      label: "Istanbul / Istanbul",
+    },
+  );
+});

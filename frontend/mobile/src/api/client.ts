@@ -24,6 +24,7 @@ let refreshInFlight: Promise<boolean> | null = null;
 const AUTH_PATHS_WITHOUT_REFRESH = new Set([
   "/login",
   "/register",
+  "/register/email-code",
   "/token",
   "/refresh-token",
   "/logout",

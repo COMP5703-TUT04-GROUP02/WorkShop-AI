@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
 import type {
@@ -13,7 +15,6 @@ import type {
   BookingDetail,
   BookingPayload,
   BookingUpdateResponseData,
-  RefundServiceStage,
 } from "../types/booking";
 import type { ChatRoom } from "../types/chat";
 import type { PaginatedData } from "../types/chat";
@@ -148,6 +149,8 @@ export async function createCustomerBooking(payload: BookingPayload) {
   if (payload.chat_room_id) {
     formData.append("chat_room_id", String(payload.chat_room_id));
   }
+  formData.append("title", payload.title);
+  formData.append("service_category", payload.service_category);
   formData.append("service_description", payload.service_description);
   formData.append("service_address", payload.service_address);
   formData.append("service_latitude", String(payload.service_latitude));
@@ -169,6 +172,25 @@ export async function createCustomerBooking(payload: BookingPayload) {
   }
   formData.append("scheduled_start_time", payload.scheduled_start_time);
   formData.append("scheduled_end_time", payload.scheduled_end_time);
+
+  for (const attachment of payload.attachments ?? []) {
+    if (Platform.OS === "web") {
+      const fileResponse = await fetch(attachment.uri);
+      const blob = await fileResponse.blob();
+      formData.append(
+        "attachments",
+        new File([blob], attachment.fileName, {
+          type: attachment.mimeType || blob.type || "application/octet-stream",
+        }),
+      );
+    } else {
+      formData.append("attachments", {
+        uri: attachment.uri,
+        name: attachment.fileName,
+        type: attachment.mimeType,
+      } as unknown as Blob);
+    }
+  }
 
   const response = await apiClient.post<ApiResponse<BookingCreateResponseData>>(
     "/bookings",
@@ -200,6 +222,7 @@ export async function updateCustomerPendingBooking(
   const response = await apiClient.put<ApiResponse<BookingUpdateResponseData>>(
     `/customer/bookings/${bookingId}`,
     {
+      title: payload.title,
       service_description: payload.service_description,
       service_address: payload.service_address,
       service_latitude: payload.service_latitude,
@@ -247,28 +270,65 @@ export async function cancelCustomerBooking(bookingId: number) {
 
 export async function payCustomerBooking(
   bookingId: number,
-  paymentMethod = "mock",
+  paymentMethod = "iyzico_checkout",
+  idempotencyKey?: string,
+  paymentStage: "visit_fee" | "service_fee" = "visit_fee",
 ) {
   const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
     `/customer/bookings/${bookingId}/pay`,
     {
       payment_method: paymentMethod,
+      payment_stage: paymentStage,
     },
+    idempotencyKey
+      ? {
+          headers: {
+            "Idempotency-Key": idempotencyKey,
+          },
+        }
+      : undefined,
   );
 
   return response.data.data;
 }
 
+export async function cancelCustomerBookingAfterVisit(
+  bookingId: number,
+  statusNote = "Customer cancelled after provider arrival without requesting a refund.",
+) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/customer/bookings/${bookingId}/close-final-quote`,
+    { status_note: statusNote },
+  );
+
+  return response.data.data;
+}
+
+export async function acceptCustomerFinalQuote(bookingId: number) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/customer/bookings/${bookingId}/accept-final-quote`,
+  );
+  return response.data.data;
+}
+
+export async function rejectCustomerFinalQuote(bookingId: number, statusNote: string) {
+  const response = await apiClient.put<ApiResponse<BookingActionResponseData>>(
+    `/customer/bookings/${bookingId}/reject-final-quote`,
+    { status_note: statusNote },
+  );
+  return response.data.data;
+}
+
 export async function requestCustomerRefund(
   bookingId: number,
-  serviceStage: RefundServiceStage,
   reason: string,
+  refundAmount?: number,
 ) {
   const response = await apiClient.post<ApiResponse<BookingActionResponseData>>(
     `/bookings/${bookingId}/refund-requests`,
     {
-      service_stage: serviceStage,
       reason,
+      ...(refundAmount != null ? { refund_amount: refundAmount } : {}),
     },
     {
       timeout: 30000,

@@ -2,6 +2,7 @@ from backend.models.ai import AIChatMessage, AIPendingAction, AIToolCallLog, Asy
 from backend.models.booking import (
     Booking,
     BookingAttachment,
+    BookingQuoteRevision,
     BookingStatusHistory,
     ChatMessage,
     ChatMessageAttachment,
@@ -30,10 +31,22 @@ from backend.models.provider import (
     ProviderProfile,
     ProviderVerificationHistory,
 )
+from backend.models.provider_verification import (
+    IdentityVerificationApplication,
+    IdentityVerificationFile,
+    ProviderApprovedService,
+    ProviderServiceArea,
+    QualificationVerificationApplication,
+    QualificationVerificationFile,
+    QualificationVerificationService,
+    QualificationVerificationServiceArea,
+)
 from backend.models.location import ServiceLocation
 from backend.models.address_book import CustomerAddress
+from backend.models.marketplace import PaymentSettlement, ProviderSubmerchant
 from backend.models.user import (
     AuthenticationIdentity,
+    EmailVerificationCode,
     RefreshToken,
     SocialAccount,
     User,
@@ -45,8 +58,10 @@ __all__ = [
     "AIToolCallLog",
     "AsyncTask",
     "AuthenticationIdentity",
+    "EmailVerificationCode",
     "Booking",
     "BookingAttachment",
+    "BookingQuoteRevision",
     "BookingStatusHistory",
     "ChatMessage",
     "ChatMessageAttachment",
@@ -65,6 +80,14 @@ __all__ = [
     "ProviderPortfolioMedia",
     "ProviderProfile",
     "ProviderVerificationHistory",
+    "IdentityVerificationApplication",
+    "IdentityVerificationFile",
+    "ProviderApprovedService",
+    "ProviderServiceArea",
+    "QualificationVerificationApplication",
+    "QualificationVerificationFile",
+    "QualificationVerificationService",
+    "QualificationVerificationServiceArea",
     "RefreshToken",
     "RefundRequest",
     "RefundRequestStatusHistory",
@@ -72,5 +95,7 @@ __all__ = [
     "SocialAccount",
     "ServiceLocation",
     "CustomerAddress",
+    "PaymentSettlement",
+    "ProviderSubmerchant",
     "User",
 ]

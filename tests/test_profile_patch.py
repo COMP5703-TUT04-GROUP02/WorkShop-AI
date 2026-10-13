@@ -48,17 +48,21 @@ def test_customer_profile_patch_leaves_omitted_fields_unchanged(client):
     assert profile["service_province"] == "Istanbul"
 
 
-def test_provider_contact_patch_leaves_omitted_fields_unchanged(client, marketplace):
+def test_provider_operating_patch_leaves_omitted_fields_unchanged(
+    client, db_session, marketplace
+):
     provider = marketplace["provider"]
 
     response = client.patch(
-        "/provider/profile/contact",
-        json={"phone_number": "+905559998877"},
+        "/provider/operating-settings",
+        json={"contact_phone": "+905559998877"},
         headers=provider["headers"],
     )
 
     assert response.status_code == 200, response.text
-    profile = response.json()["data"]["profile"]
-    assert profile["phone_number"] == "+905559998877"
-    assert profile["address"] == "Karakoy, Istanbul"
-    assert profile["service_province"] == "Istanbul"
+    from backend import models
+
+    profile = db_session.get(models.ProviderProfile, marketplace["provider_profile"]["id"])
+    assert profile.phone_number == "+905559998877"
+    assert profile.address == "Karakoy, Istanbul"
+    assert profile.service_province == "Istanbul"

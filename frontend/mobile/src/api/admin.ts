@@ -1,8 +1,65 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
-import type { RefundRequestSummary } from "../types/booking";
+import type { PaymentHistoryEntry, RefundRequestSummary } from "../types/booking";
 import type { PaginatedData } from "../types/chat";
-import type { ProviderPortfolio, ProviderProfile } from "../types/provider";
+import type { LowValueReview } from "../types/review";
+import type { AdminSubmerchant } from "../types/marketplace";
+import type {
+  IdentityVerificationApplication,
+  ProviderPortfolio,
+  ProviderProfile,
+  QualificationVerificationApplication,
+} from "../types/provider";
+
+export async function getAdminIdentityVerifications(status = "pending") {
+  const response = await apiClient.get<ApiResponse<IdentityVerificationApplication[]>>(
+    "/admin/identity-verifications",
+    { params: { status } },
+  );
+  return response.data.data ?? [];
+}
+
+export async function decideAdminIdentityVerification(
+  applicationId: number,
+  status: "approved" | "rejected",
+  reviewNote?: string,
+) {
+  const response = await apiClient.put<ApiResponse<IdentityVerificationApplication>>(
+    `/admin/identity-verifications/${applicationId}/decision`,
+    { status, review_note: reviewNote || null },
+  );
+  return response.data.data;
+}
+
+export async function getAdminQualificationVerifications(status = "pending") {
+  const response = await apiClient.get<ApiResponse<QualificationVerificationApplication[]>>(
+    "/admin/qualification-verifications",
+    { params: { status } },
+  );
+  return response.data.data ?? [];
+}
+
+export async function decideAdminQualificationVerification(
+  applicationId: number,
+  status: "approved" | "rejected",
+  reviewNote?: string,
+) {
+  const response = await apiClient.put<
+    ApiResponse<{
+      application: QualificationVerificationApplication;
+      provider_profile_id: number | null;
+    }>
+  >(`/admin/qualification-verifications/${applicationId}/decision`, {
+    status,
+    review_note: reviewNote || null,
+  });
+  return response.data.data;
+}
+
+export async function downloadVerificationFile(fileUrl: string) {
+  const response = await apiClient.get<Blob>(fileUrl, { responseType: "blob" });
+  return response.data;
+}
 
 export async function getPendingProviderProfiles(page = 1, pageSize = 20) {
   const response = await apiClient.get<ApiResponse<PaginatedData<ProviderProfile>>>(
@@ -132,6 +189,122 @@ export async function rejectAdminRefundAppeal(
   return response.data.data;
 }
 
+export async function getAdminSubmerchants(page = 1, pageSize = 20) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<AdminSubmerchant>>
+  >("/admin/submerchants", {
+    params: { page, page_size: pageSize },
+  });
+  return response.data.data;
+}
+
+export async function getAdminPayments(
+  page = 1,
+  pageSize = 20,
+  filters?: {
+    status?: string;
+    settlementStatus?: string;
+    providerProfileId?: number;
+    bookingId?: number;
+  },
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<PaymentHistoryEntry>>
+  >("/admin/payments", {
+    params: {
+      page,
+      page_size: pageSize,
+      status: filters?.status || undefined,
+      settlement_status: filters?.settlementStatus || undefined,
+      provider_profile_id: filters?.providerProfileId,
+      booking_id: filters?.bookingId,
+    },
+  });
+  return response.data.data;
+}
+
+export async function retryAdminSettlement(paymentId: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ message: string; payment: PaymentHistoryEntry }>
+  >(`/admin/payments/${paymentId}/settlement/retry`);
+  return response.data.data;
+}
+
+export type ReviewEmbeddingSyncStatus = {
+  total: number;
+  pending: number;
+  synced: number;
+  failed: number;
+  deleted: number;
+  unknown: number;
+};
+
+export type EmbeddingHealth = {
+  embedding: string;
+  dimension: number;
+  preview: number[];
+};
+
+export type MilvusHealth = {
+  milvus: string;
+  server_version: string;
+};
+
+export type ReviewEmbeddingTask = {
+  id: number;
+  task_id: string;
+  user_id: number | null;
+  task_type: string;
+  status: string;
+  result: Record<string, unknown> | string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+};
+
+export async function getReviewEmbeddingSyncStatus() {
+  const response = await apiClient.get<ApiResponse<ReviewEmbeddingSyncStatus>>(
+    "/ai/milvus/review-sync-status",
+  );
+  return response.data.data;
+}
+
+export async function getEmbeddingHealth() {
+  const response = await apiClient.get<ApiResponse<EmbeddingHealth>>(
+    "/ai/health/embedding",
+  );
+  return response.data.data;
+}
+
+export async function getMilvusHealth() {
+  const response = await apiClient.get<ApiResponse<MilvusHealth>>(
+    "/ai/health/milvus",
+  );
+  return response.data.data;
+}
+
+export async function syncAllReviewEmbeddings() {
+  const response = await apiClient.post<
+    ApiResponse<{ task_id: string | null; message: string }>
+  >("/ai/milvus/sync-reviews");
+  return response.data.data;
+}
+
+export async function retryPendingReviewEmbeddings() {
+  const response = await apiClient.post<
+    ApiResponse<{ review_count: number; task_ids: Array<string | null>; message: string }>
+  >("/ai/milvus/retry-failed-reviews");
+  return response.data.data;
+}
+
+export async function getReviewEmbeddingTask(taskId: string) {
+  const response = await apiClient.get<ApiResponse<ReviewEmbeddingTask>>(
+    `/ai/tasks/${taskId}`,
+  );
+  return response.data.data;
+}
+
 export type LLMAuthMode = "key" | "chatgpt" | "grok";
 
 export type LLMKeySource = "admin" | "env" | "none";
@@ -243,5 +416,53 @@ export async function clearLLMApiKey() {
   const response = await apiClient.delete<ApiResponse<LLMOauthStatus>>(
     "/ai/oauth/key",
   );
+  return response.data.data;
+}
+
+/** Visible reviews whose booking total is under `threshold`, cheapest first. */
+export async function getLowValueReviews(
+  threshold: number,
+  page = 1,
+  pageSize = 20,
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<LowValueReview> & { threshold: number }>
+  >("/admin/reviews/low-value", {
+    params: { threshold, page, page_size: pageSize },
+  });
+
+  return response.data.data;
+}
+
+/** Hides every visible review whose booking total is under `threshold`. */
+export async function hideLowValueReviews(threshold: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ threshold: number; hidden: number; review_ids: number[] }>
+  >("/admin/reviews/low-value/hide", { threshold }, { timeout: 60000 });
+
+  return response.data.data;
+}
+
+/** Hidden reviews whose booking total is at or above `threshold`, dearest first. */
+export async function getHiddenHighValueReviews(
+  threshold: number,
+  page = 1,
+  pageSize = 20,
+) {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedData<LowValueReview> & { threshold: number }>
+  >("/admin/reviews/high-value-hidden", {
+    params: { threshold, page, page_size: pageSize },
+  });
+
+  return response.data.data;
+}
+
+/** Makes every hidden review at or above `threshold` visible again. */
+export async function showHiddenHighValueReviews(threshold: number) {
+  const response = await apiClient.post<
+    ApiResponse<{ threshold: number; restored: number; review_ids: number[] }>
+  >("/admin/reviews/high-value-hidden/show", { threshold }, { timeout: 60000 });
+
   return response.data.data;
 }

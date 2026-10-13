@@ -5,7 +5,7 @@ Booking actions delegate to `utils/provider_booking_actions.py` for consistent s
 """
 
 from datetime import date, datetime, time, timezone
-from fastapi import Depends, File, Form, HTTPException, UploadFile
+from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 from backend import models
 from backend.auth import get_db, require_provider
@@ -17,6 +17,7 @@ from backend.utils.availability import (
     format_provider_availability_override_response,
     get_provider_availabilities,
     get_provider_availability_overrides_by_month,
+    is_provider_open_now,
     replace_provider_availabilities,
     upsert_provider_availability_override,
 )
@@ -32,10 +33,13 @@ from backend.utils.formatters import (
 from backend.utils.verification import apply_phone_number_change
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
+from backend.utils.booking_quote_upload import QUOTE_UPLOAD_OPENAPI, parse_quote_request
 from backend.utils.provider_booking_actions import (
     approve_provider_refund_request_action,
     complete_provider_booking_action,
     quote_provider_booking_action,
+    start_provider_visit_action,
+    submit_final_quote_action,
     reject_provider_booking_action,
     reject_provider_refund_request_action,
 )
@@ -45,12 +49,19 @@ from backend.utils.provider import (
     require_provider_qualification_approved,
     require_provider_identity_approved,
 )
-from backend.utils.service_locations import apply_profile_location
+from backend.utils.service_locations import (
+    apply_profile_location,
+    get_province_for_location,
+    validate_profile_location,
+)
 from backend.utils.refund import (
     add_refund_request_status_history,
     format_refund_request_response,
 )
-from backend.utils.review import format_review_detail_response
+from backend.utils.review import (
+    format_review_detail_response,
+    get_provider_rating_summary,
+)
 from backend.utils.router import ApiRouter
 from backend.utils.upload import (
     delete_local_upload,
@@ -70,10 +81,10 @@ from backend.schemas import (
     ProviderAvailabilityOverrideResponse,
     ProviderAvailabilityOverrideUpdate,
     ProviderAvailabilityUpdate,
-    ProviderBookingQuoteCreate,
     ProviderContactProfilePatch,
     ProviderContactProfileUpdate,
     ProviderCertificateFileInput,
+    ProviderOperatingSettingsPatch,
     ProviderProfileCreate,
     ProviderPortfolioResponse,
     ProviderRefundRejectCreate,
@@ -126,6 +137,14 @@ def create_provider_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Provider profiles are created after qualification approval; "
+                "use the identity and qualification verification endpoints"
+            ),
+        )
     existing_profile = (
         db.query(models.ProviderProfile)
         .filter(models.ProviderProfile.user_id == current_user.id)
@@ -144,12 +163,10 @@ def create_provider_profile(
         service_location_id=profile.service_location_id,
         latitude=profile.latitude,
         longitude=profile.longitude,
-        service_radius_km=profile.service_radius_km,
         tags=tags_to_string(profile.tags),
         certificate_name=profile.certificate_name,
         certificate_url=profile.certificate_url,
         hourly_rate=profile.hourly_rate,
-        experience_years=profile.experience_years,
         verification_status=ProviderVerificationStatus.pending,
         identity_verification_status=ProviderVerificationStatus.pending,
         qualification_verification_status=ProviderVerificationStatus.pending,
@@ -185,7 +202,10 @@ def get_provider_profile(
     current_user: models.User = Depends(require_provider), db: Session = Depends(get_db)
 ):
     profile = get_provider_profile_for_user(current_user.id, db)
-    return success_response(format_provider_profile_response(profile, db))
+    result = format_provider_profile_response(profile, db)
+    result.update(get_provider_rating_summary(profile.id, db))
+    result["is_open"] = is_provider_open_now(profile.id, db)
+    return success_response(result)
 
 
 @router.post(
@@ -198,6 +218,11 @@ async def upload_provider_certificate(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the qualification verification upload endpoint",
+        )
     require_provider_identity_approved(get_provider_profile_for_user(current_user.id, db))
     upload_files = list(files or [])
     if file is not None:
@@ -220,6 +245,11 @@ def update_provider_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Full provider profile replacement is not available in the new verification flow",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
     old_identity_status = profile.identity_verification_status
     old_qualification_status = profile.qualification_verification_status
@@ -239,12 +269,10 @@ def update_provider_profile(
     profile.service_location_id = profile_data.service_location_id
     profile.latitude = profile_data.latitude
     profile.longitude = profile_data.longitude
-    profile.service_radius_km = profile_data.service_radius_km
     profile.tags = next_tags
     profile.certificate_name = profile_data.certificate_name
     profile.certificate_url = profile_data.certificate_url
     profile.hourly_rate = profile_data.hourly_rate
-    profile.experience_years = profile_data.experience_years
     profile.notes = profile_data.notes
     apply_profile_location(
         db=db,
@@ -290,6 +318,11 @@ def update_provider_contact_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the operating settings endpoint after qualification approval",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
     apply_phone_number_change(current_user, profile.phone_number, profile_data.phone_number)
     profile.phone_number = profile_data.phone_number
@@ -318,6 +351,11 @@ def patch_provider_contact_profile(
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the operating settings endpoint after qualification approval",
+        )
     profile = get_provider_profile_for_user(current_user.id, db)
 
     previous_phone = profile.phone_number
@@ -343,6 +381,42 @@ def patch_provider_contact_profile(
         {
             "message": "Provider contact profile updated successfully",
             "profile": format_provider_profile_response(profile),
+        }
+    )
+
+
+@router.patch("/provider/profile/operating-settings")
+def patch_provider_operating_settings(
+    settings: ProviderOperatingSettingsPatch,
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    if current_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use /provider/operating-settings for the new verification flow",
+        )
+    profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(profile)
+    updates = settings.model_dump(exclude_unset=True)
+    location = None
+    location_province = None
+    if "service_location_id" in updates:
+        location = validate_profile_location(db, updates["service_location_id"])
+        location_province = get_province_for_location(db, location)
+
+    if "hourly_rate" in updates:
+        profile.hourly_rate = updates["hourly_rate"]
+    if location is not None:
+        profile.service_location_id = location.id
+        profile.service_province = location_province.name
+
+    db.commit()
+    db.refresh(profile)
+    return success_response(
+        {
+            "message": "Provider operating settings updated successfully",
+            "profile": format_provider_profile_response(profile, db),
         }
     )
 
@@ -609,6 +683,7 @@ def get_provider_reviews(
     db: Session = Depends(get_db),
 ):
     provider_profile = get_provider_profile_for_user(current_user.id, db)
+    require_provider_qualification_approved(provider_profile)
     query = (
         db.query(models.Review)
         .filter(
@@ -768,7 +843,7 @@ def get_provider_payments(
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db))
+        result.append(format_payment_response(payment, db, include_settlement=True))
     return success_response(build_paginated_response(result, total, page, page_size))
 
 
@@ -829,20 +904,25 @@ async def reject_refund_request(
     )
 
 
-@router.put("/provider/bookings/{booking_id}/quote")
+@router.put(
+    "/provider/bookings/{booking_id}/quote",
+    openapi_extra=QUOTE_UPLOAD_OPENAPI,
+)
 async def quote_booking(
     booking_id: int,
-    quote_data: ProviderBookingQuoteCreate,
+    request: Request,
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
     require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    quote_data, quote_files = await parse_quote_request(request)
     return success_response(
         await quote_provider_booking_action(
             booking_id,
             quote_data,
             current_user,
             db,
+            quote_files,
         )
     )
 
@@ -869,6 +949,8 @@ async def reject_booking(
 async def complete_booking(
     booking_id: int,
     proof_files: list[UploadFile] = File(...),
+    final_quote_amount: float | None = Form(default=None),
+    final_quote_message: str | None = Form(default=None),
     current_user: models.User = Depends(require_provider),
     db: Session = Depends(get_db),
 ):
@@ -879,5 +961,43 @@ async def complete_booking(
             current_user,
             db,
             proof_files,
+            final_quote_amount,
+            final_quote_message,
+        )
+    )
+
+
+@router.put("/provider/bookings/{booking_id}/start-visit")
+async def start_visit(
+    booking_id: int,
+    proof_files: list[UploadFile] = File(...),
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    return success_response(
+        await start_provider_visit_action(booking_id, current_user, db, proof_files)
+    )
+
+
+@router.put(
+    "/provider/bookings/{booking_id}/final-quote",
+    openapi_extra=QUOTE_UPLOAD_OPENAPI,
+)
+async def submit_final_quote(
+    booking_id: int,
+    request: Request,
+    current_user: models.User = Depends(require_provider),
+    db: Session = Depends(get_db),
+):
+    require_provider_qualification_approved(get_provider_profile_for_user(current_user.id, db))
+    quote_data, quote_files = await parse_quote_request(request)
+    return success_response(
+        await submit_final_quote_action(
+            booking_id,
+            quote_data,
+            current_user,
+            db,
+            quote_files,
         )
     )

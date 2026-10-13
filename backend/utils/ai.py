@@ -5,13 +5,12 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.constants import AI_RECOMMENDATION_PROVIDER_TAGS
-from backend.schemas import ProviderVerificationStatus, BookingStatus, PaymentStatus
+from backend.schemas import BookingStatus, PaymentStatus, ProviderVerificationStatus
 from backend.utils.availability import is_provider_available_for_datetime_range
 from backend.utils.formatters import tags_to_list
 from backend.utils.location import (
     calculate_distance_km,
     has_location,
-    provider_can_serve_location,
 )
 from backend.utils.service_locations import (
     filter_provider_query_by_location,
@@ -170,18 +169,6 @@ def parse_user_service_need(query: str):
     }
 
 
-_CAPABILITY_ONLY_RE = re.compile(
-    r"^\s*(?:hi[,!.\s]+|hello[,!.\s]+|hey[,!.\s]+)?"
-    r"(?:"
-    r"who are you|what are you|what can you do|what do you do|"
-    r"how (?:do|can) i use you|what can you help(?: me)? with|"
-    r"help|capabilities|"
-    r"你是谁|你能做什么|怎么用|"
-    r"kimsin|neler yapabilirsin|ne yapabilirsin"
-    r")[\s!.?]*$",
-    re.IGNORECASE,
-)
-
 _CASUAL_GREETING_ONLY_RE = re.compile(
     r"^\s*(?:"
     r"hi|hello|hey|yo|sup|thanks|thank you|cheers|"
@@ -192,13 +179,9 @@ _CASUAL_GREETING_ONLY_RE = re.compile(
 )
 
 CASUAL_LOCAL_ANSWER = (
-    "I'm Workshop AI. I can help find nearby providers, compare reviews, "
-    "and draft a booking. Tell me the service you need."
+    "I'm Workshop AI. I can recommend providers, answer FAQs, help place an "
+    "order, and compare provider reviews. Tell me what you need."
 )
-
-
-def looks_like_capability_question(query: str) -> bool:
-    return bool(_CAPABILITY_ONLY_RE.match((query or "").strip()))
 
 
 def looks_like_casual_greeting_only(query: str) -> bool:
@@ -299,9 +282,6 @@ def find_provider_candidates(
             provider.latitude,
             provider.longitude,
         )
-
-        if not provider_can_serve_location(provider, distance_km):
-            continue
 
         if max_distance_km is not None and distance_km > max_distance_km:
             continue
@@ -521,7 +501,6 @@ def build_provider_recommendations(
                 "service_province": provider.service_province,
                 "tags": provider.tags,
                 "hourly_rate": provider.hourly_rate,
-                "experience_years": provider.experience_years,
                 "distance_km": distance_by_provider_id.get(provider.id),
                 "is_available_for_requested_time": (True if schedule_enabled else None),
                 "match_score": recommendation["match_score"],
@@ -591,7 +570,6 @@ def build_provider_ai_profile(
         f"Tags: {provider.tags}",
         f"Bio: {provider.bio}",
         f"Hourly rate: {provider.hourly_rate}",
-        f"Experience years: {provider.experience_years}",
         f"Average rating: {stats['average_rating']}",
         f"Review count: {stats['review_count']}",
         f"Completed bookings: {stats['completed_bookings']}",
@@ -646,6 +624,7 @@ def build_provider_review_context(
             .limit(5)
             .all()
         )
+        stats = get_provider_ai_stats(provider.id, db)
 
         review_context.append(
             {
@@ -653,6 +632,7 @@ def build_provider_review_context(
                 "provider_name": user.name if user else "Unknown",
                 "business_name": provider.business_name,
                 "hourly_rate": provider.hourly_rate,
+                **stats,
                 "positive_reviews": [
                     {
                         "rating": review.rating,
@@ -692,6 +672,7 @@ def enrich_review_context_with_provider_info(
             continue
 
         user = db.query(models.User).filter(models.User.id == provider.user_id).first()
+        stats = get_provider_ai_stats(provider.id, db)
 
         enriched_context.append(
             {
@@ -701,6 +682,7 @@ def enrich_review_context_with_provider_info(
                 "service_province": provider.service_province,
                 "tags": provider.tags,
                 "hourly_rate": provider.hourly_rate,
+                **stats,
                 "positive_reviews": item["positive_reviews"],
                 "negative_reviews": item["negative_reviews"],
             }

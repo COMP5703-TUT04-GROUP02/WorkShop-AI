@@ -30,15 +30,29 @@ import {
   getAIChatMessages,
   sendAIChatMessage,
 } from "../../api/ai";
+import {
+  createCustomerBooking,
+  getCustomerProviderDetail,
+} from "../../api/customer";
+import {
+  BookingRequestModal,
+  buildBookingRequestPayload,
+  createDefaultBookingRequestForm,
+  type BookingRequestFormState,
+} from "../../components/BookingRequestModal";
+import { HelpLink } from "../../components/HelpLink";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type {
   AIChatHistoryMessage,
   AIChatResponse,
+  AIBookingForm,
   AIConfirmationCard,
   AIBookingDraft,
+  AIHelpArticle,
   AIProviderRecommendation,
 } from "../../types/ai";
+import type { ProviderProfile } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
 
 type AIChatMessageItem = {
@@ -61,6 +75,14 @@ export function CustomerAIChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [bookingProvider, setBookingProvider] = useState<ProviderProfile | null>(null);
+  const [bookingForm, setBookingForm] = useState<BookingRequestFormState>(
+    createDefaultBookingRequestForm(),
+  );
+  const [bookingError, setBookingError] = useState("");
+  const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
+  const [isOpeningBookingForm, setIsOpeningBookingForm] = useState(false);
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const candidateProviderIds = useMemo(
     () => getLatestCandidateProviderIds(messages),
     [messages],
@@ -146,6 +168,9 @@ export function CustomerAIChatScreen() {
           response,
         ),
       ]);
+      if (response?.booking_form) {
+        await handleOpenBookingForm(response.booking_form);
+      }
     } catch (error) {
       setMessages((currentMessages) => [
         ...currentMessages,
@@ -153,6 +178,76 @@ export function CustomerAIChatScreen() {
       ]);
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function handleOpenBookingForm(preparedForm: AIBookingForm) {
+    if (isOpeningBookingForm) {
+      return;
+    }
+
+    setIsOpeningBookingForm(true);
+    setBookingError("");
+    try {
+      const detail = await getCustomerProviderDetail(
+        preparedForm.provider_profile_id,
+      );
+      if (!detail?.provider) {
+        throw new Error("Provider profile not found");
+      }
+      const provider = detail.provider;
+      setBookingProvider(provider);
+      setBookingForm(
+        createDefaultBookingRequestForm(provider, {
+          title: preparedForm.form_defaults.title,
+          serviceDescription:
+            preparedForm.form_defaults.service_description,
+        }),
+      );
+      setIsBookingModalVisible(true);
+    } catch (error) {
+      Alert.alert("Couldn't open booking form", getErrorMessage(error));
+    } finally {
+      setIsOpeningBookingForm(false);
+    }
+  }
+
+  async function handleCreateBooking() {
+    const provider = bookingProvider;
+    const payload = provider
+      ? buildBookingRequestPayload({
+          provider,
+          providerProfileId: provider.id,
+          form: bookingForm,
+        })
+      : null;
+
+    if (!provider || !payload) {
+      setBookingError(
+        "Complete the title, service, task description, location, and schedule.",
+      );
+      return;
+    }
+
+    setIsSubmittingBooking(true);
+    setBookingError("");
+    try {
+      await createCustomerBooking(payload);
+      setIsBookingModalVisible(false);
+      const confirmation = `Booking request sent to ${provider.business_name}. You can track it under Bookings.`;
+      setMessages((currentMessages) =>
+        consumeLatestBookingFormMessage(
+          currentMessages,
+          provider.id,
+          confirmation,
+        ),
+      );
+      setBookingProvider(null);
+      setBookingForm(createDefaultBookingRequestForm());
+    } catch (error) {
+      setBookingError(getErrorMessage(error));
+    } finally {
+      setIsSubmittingBooking(false);
     }
   }
 
@@ -251,7 +346,8 @@ export function CustomerAIChatScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
+    <>
+      <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={88}
       style={styles.container}
@@ -279,9 +375,13 @@ export function CustomerAIChatScreen() {
         renderItem={({ item }) => (
           <AIMessageBubble
             actionLoadingId={actionLoadingId}
+            isOpeningBookingForm={isOpeningBookingForm}
             message={item}
             onCancelAction={handleCancelAction}
             onConfirmAction={handleConfirmAction}
+            onOpenBookingForm={(preparedForm) =>
+              void handleOpenBookingForm(preparedForm)
+            }
             onOpenProvider={handleOpenProvider}
           />
         )}
@@ -303,7 +403,7 @@ export function CustomerAIChatScreen() {
               void handleSend();
             }
           }}
-          placeholder="Find providers, check reviews, or manage bookings"
+          placeholder="Recommend providers, answer FAQs, book, or compare reviews"
           placeholderTextColor={colors.mutedText}
           style={styles.input}
           value={inputText}
@@ -323,20 +423,73 @@ export function CustomerAIChatScreen() {
           />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+      <BookingRequestModal
+        bookingForm={bookingForm}
+        errorMessage={bookingError}
+        isLoading={isSubmittingBooking}
+        onClose={() => setIsBookingModalVisible(false)}
+        onSubmit={() => void handleCreateBooking()}
+        serviceCategories={bookingProvider?.tags ?? []}
+        setBookingForm={setBookingForm}
+        visible={isBookingModalVisible}
+      />
+    </>
   );
+}
+
+function consumeLatestBookingFormMessage(
+  messages: AIChatMessageItem[],
+  providerProfileId: number,
+  confirmation: string,
+): AIChatMessageItem[] {
+  let matchingIndex = -1;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (
+      messages[index].response?.booking_form?.provider_profile_id ===
+      providerProfileId
+    ) {
+      matchingIndex = index;
+      break;
+    }
+  }
+
+  if (matchingIndex < 0) {
+    return [...messages, createAssistantMessage(confirmation)];
+  }
+
+  return messages.map((message, index) => {
+    if (index !== matchingIndex || !message.response) {
+      return message;
+    }
+
+    return {
+      ...message,
+      text: confirmation,
+      response: {
+        ...message.response,
+        answer: confirmation,
+        booking_form: null,
+      },
+    };
+  });
 }
 
 function AIMessageBubble({
   message,
   actionLoadingId,
+  isOpeningBookingForm,
   onOpenProvider,
+  onOpenBookingForm,
   onConfirmAction,
   onCancelAction,
 }: {
   message: AIChatMessageItem;
   actionLoadingId: number | null;
+  isOpeningBookingForm: boolean;
   onOpenProvider: (provider: AIProviderRecommendation) => void;
+  onOpenBookingForm: (preparedForm: AIBookingForm) => void;
   onConfirmAction: (card: AIConfirmationCard) => void;
   onCancelAction: (card: AIConfirmationCard) => void;
 }) {
@@ -344,6 +497,8 @@ function AIMessageBubble({
   const recommendations = message.response?.recommendations ?? [];
   const confirmationCard = message.response?.confirmation_card ?? null;
   const bookingDraft = message.response?.booking_draft ?? null;
+  const bookingForm = message.response?.booking_form ?? null;
+  const helpArticles = message.response?.help_articles ?? [];
 
   return (
     <View style={[styles.messageBlock, isUser ? styles.messageBlockUser : null]}>
@@ -393,6 +548,15 @@ function AIMessageBubble({
           </View>
         ) : null}
 
+        {!isUser && helpArticles.length > 0 ? (
+          <View style={styles.helpArticleList}>
+            <Text style={styles.helpArticleTitle}>Open in Help and Support</Text>
+            {helpArticles.map((article) => (
+              <HelpLink key={article.id} faqId={article.id} label={article.question} />
+            ))}
+          </View>
+        ) : null}
+
         {!isUser && bookingDraft?.preview ? (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Booking draft</Text>
@@ -401,6 +565,21 @@ function AIMessageBubble({
                 `Missing: ${bookingDraft.missing_field_names?.join(", ") || "required details"}`}
             </Text>
           </View>
+        ) : null}
+
+        {!isUser && bookingForm ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={isOpeningBookingForm}
+            onPress={() => onOpenBookingForm(bookingForm)}
+            style={styles.openBookingButton}
+          >
+            {isOpeningBookingForm ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.openBookingButtonText}>Open booking form</Text>
+            )}
+          </Pressable>
         ) : null}
 
         {!isUser && confirmationCard?.status === "pending" ? (
@@ -737,8 +916,10 @@ function buildHistoryAIResponse(
       | AIConfirmationCard
       | null,
     booking_draft: readObject(metadata.booking_draft) as AIBookingDraft | null,
+    booking_form: readObject(metadata.booking_form) as AIBookingForm | null,
     next_question: readString(metadata.next_question),
     tool_error: readObject(metadata.tool_error),
+    help_articles: readHelpArticles(metadata.help_articles),
   };
 }
 
@@ -773,7 +954,6 @@ function normalizeRecommendation(value: unknown): AIProviderRecommendation | nul
     service_province: readString(data.service_province),
     tags: readTags(data.tags),
     hourly_rate: readNumber(data.hourly_rate),
-    experience_years: readNumber(data.experience_years),
     distance_km: readNumber(data.distance_km),
     match_score: readNumber(data.match_score),
     matched_tags: readTags(data.matched_tags),
@@ -789,6 +969,15 @@ function normalizeRecommendation(value: unknown): AIProviderRecommendation | nul
         readNumber(readObject(data.stats)?.completed_bookings),
     },
   };
+}
+
+function readHelpArticles(value: unknown): AIHelpArticle[] {
+  return (readArray(value) ?? []).flatMap((item) => {
+    const article = readObject(item);
+    const id = readString(article?.id);
+    const question = readString(article?.question);
+    return id && question ? [{ id, question }] : [];
+  });
 }
 
 function readObject(value: unknown): Record<string, unknown> | null {
@@ -1030,6 +1219,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  helpArticleList: {
+    gap: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  helpArticleTitle: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
   infoCard: {
     gap: spacing.xs,
     borderWidth: 1,
@@ -1047,6 +1248,20 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontSize: 13,
     lineHeight: 18,
+  },
+  openBookingButton: {
+    minHeight: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  openBookingButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
   confirmationCard: {
     gap: spacing.sm,

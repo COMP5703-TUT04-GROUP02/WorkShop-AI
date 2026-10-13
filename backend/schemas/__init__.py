@@ -1,6 +1,7 @@
 from backend.schemas.common import *  # noqa: F403
 from backend.schemas.auth import *  # noqa: F403
 from backend.schemas.provider import *  # noqa: F403
+from backend.schemas.provider_verification import *  # noqa: F403
 from backend.schemas.customer import *  # noqa: F403
 from backend.schemas.chat import *  # noqa: F403
 from backend.schemas.booking import *  # noqa: F403
@@ -9,6 +10,8 @@ from backend.schemas.ai import *  # noqa: F403
 from backend.schemas.places import *  # noqa: F403
 from backend.schemas.location import *  # noqa: F403
 from backend.schemas.address_book import *  # noqa: F403
+from backend.schemas.marketplace import *  # noqa: F403
+from backend.schemas.faq import *  # noqa: F403
 
 ApiResponse[CustomerHomeRecommendationResponseData].model_rebuild()
 ApiResponse[CustomerProviderSearchResponseData].model_rebuild()
@@ -35,6 +38,10 @@ __all__ = [
     "MockVerificationRequest",
     "ChangePasswordRequest",
     "ChangeEmailRequest",
+    "EmailCodeVerifyRequest",
+    "RegisterEmailCodeRequest",
+    "SendEmailCodeRequest",
+    "SendEmailCodeResponse",
     "AdminUserStatusUpdate",
     "CustomerProfileCreate",
     "CustomerProfilePatch",
@@ -50,6 +57,7 @@ __all__ = [
     "ProviderProfileCreate",
     "ProviderContactProfileUpdate",
     "ProviderContactProfilePatch",
+    "ProviderOperatingSettingsPatch",
     "ProviderVerificationStatus",
     "ProviderProfileResponse",
     "ProviderProfileWithRatingResponse",
@@ -78,7 +86,6 @@ __all__ = [
     "PaymentStatus",
     "PaymentCreate",
     "RefundRequestStatus",
-    "RefundServiceStage",
     "RefundRequestCreate",
     "RefundAppealCreate",
     "ProviderRefundRejectCreate",
@@ -102,13 +109,13 @@ __all__ = [
     "ReviewDetailResponse",
     "RatingSummaryResponse",
     "ReviewVisibilityUpdate",
+    "LowValueReviewHideRequest",
+    "HighValueReviewShowRequest",
     "AIProviderRecommendRequest",
     "AIChatRequest",
     "AIIntentResponse",
     "AIToolCallResponse",
     "AIToolErrorData",
-    "AIClarificationChoiceResponse",
-    "AIPendingClarificationResponse",
     "AIConfirmationFieldResponse",
     "AIConfirmationCardResponse",
     "AIBookingDraftMissingFieldResponse",
@@ -127,5 +134,11 @@ __all__ = [
     "CustomerAddressCreate",
     "CustomerAddressUpdate",
     "CustomerAddressResponse",
+    "SubmerchantType",
+    "SubmerchantStatus",
+    "ProviderSubmerchantUpsert",
+    "ProviderSubmerchantResponse",
+    "SettlementStatus",
 ]
 __all__ += ["PlaceSuggestion", "PlacesAutocompleteResponse", "PlaceDetailsResponse"]
+__all__ += ["FaqAudience", "FaqItemResponse", "FaqCategoryResponse", "FaqResponse"]

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from backend import models
+from tests.conftest import register_email_code
 
 
 def test_public_providers_hide_pending_profiles(client, marketplace):
@@ -47,12 +48,22 @@ def test_admin_dashboard_and_favorites(client, marketplace):
 
 
 def test_customer_provider_detail_exposes_open_and_favorite_state(
-    client, marketplace, monkeypatch
+    client, db_session, marketplace, monkeypatch
 ):
     import backend.utils.availability as availability_utils
+    from backend.utils.service_locations import seed_service_locations
 
     provider_id = marketplace["provider_profile"]["id"]
     customer_headers = marketplace["customer"]["headers"]
+    locations = seed_service_locations(db_session)
+    district = locations["tr-istanbul-city-kadikoy"]
+    db_session.add(
+        models.ProviderServiceArea(
+            provider_profile_id=provider_id,
+            service_location_id=district.id,
+        )
+    )
+    db_session.commit()
     open_time = datetime(2026, 10, 5, 7, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(availability_utils, "utc_now", lambda: open_time)
 
@@ -63,6 +74,22 @@ def test_customer_provider_detail_exposes_open_and_favorite_state(
     provider = detail.json()["data"]["provider"]
     assert provider["is_open"] is True
     assert provider["is_favorited"] is False
+    assert provider["service_areas"] == [
+        {
+            "id": district.id,
+            "name": "Kadikoy",
+            "level": "district",
+            "label": "Istanbul / Istanbul / Kadikoy",
+        }
+    ]
+
+    own_profile = client.get(
+        "/provider/profile", headers=marketplace["provider"]["headers"]
+    )
+    assert own_profile.status_code == 200, own_profile.text
+    assert own_profile.json()["data"]["is_open"] is True
+    assert "average_rating" in own_profile.json()["data"]
+    assert "review_count" in own_profile.json()["data"]
 
     added = client.post(f"/customer/favorites/{provider_id}", headers=customer_headers)
     assert added.status_code == 200, added.text
@@ -123,6 +150,7 @@ def test_customer_provider_detail_favorite_state_is_customer_specific(
             "confirm_password": "Password123",
             "tos_accepted": True,
             "role": "customer",
+            "email_code": register_email_code(client, "second-customer@example.com"),
         },
     )
     assert created.status_code == 200, created.text

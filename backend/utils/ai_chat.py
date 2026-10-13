@@ -268,6 +268,9 @@ def get_last_booking_draft_from_history(
         if message.response_type == "booking_draft_cancelled":
             return None
 
+        if message.response_type == "booking_form_ready":
+            return None
+
         if message.response_type == "ai_action_confirmation":
             pending_action = metadata.get("pending_action") or {}
             if pending_action.get("action_type") == "create_booking":
@@ -275,6 +278,63 @@ def get_last_booking_draft_from_history(
 
         if message.response_type == "booking_draft_missing_info":
             return metadata.get("booking_draft")
+
+    return None
+
+
+def consume_latest_booking_form(
+    user_id: int,
+    provider_profile_id: int,
+    booking_id: int,
+    provider_business_name: str,
+    db: Session,
+):
+    """Replace the latest matching AI booking form with its submitted state.
+
+    The caller commits this update in the same transaction as the booking so a
+    successful order cannot leave a reusable booking-form button in history.
+    """
+
+    messages = (
+        db.query(models.AIChatMessage)
+        .filter(
+            models.AIChatMessage.user_id == user_id,
+            models.AIChatMessage.role == "assistant",
+            models.AIChatMessage.response_type == "booking_form_ready",
+        )
+        .order_by(
+            models.AIChatMessage.created_at.desc(),
+            models.AIChatMessage.id.desc(),
+        )
+        .limit(20)
+        .all()
+    )
+
+    for message in messages:
+        if not message.metadata_json:
+            continue
+
+        try:
+            metadata = json.loads(message.metadata_json)
+        except json.JSONDecodeError:
+            continue
+
+        booking_form = metadata.get("booking_form") or {}
+        if booking_form.get("provider_profile_id") != provider_profile_id:
+            continue
+
+        confirmation = (
+            f"Booking request sent to {provider_business_name}. "
+            "You can track it under Bookings."
+        )
+        metadata["booking_form"] = None
+        metadata["booking_form_status"] = "submitted"
+        metadata["booking_id"] = booking_id
+        metadata["booking_form_submitted_at"] = utc_now().isoformat()
+        message.message = confirmation
+        message.metadata_json = json.dumps(metadata, ensure_ascii=False)
+        db.flush()
+        return message
 
     return None
 

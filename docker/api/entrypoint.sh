@@ -7,11 +7,8 @@ role="${1:-api}"
 
 case "$role" in
   api)
+    # Apply versioned schema and fixed sample-data migrations.
     alembic upgrade head
-    python -m backend.seed_locations
-    if [ "${WORKSHOP_SEED:-0}" = "1" ]; then
-      python -m backend.seed_demo_data
-    fi
     exec uvicorn backend.main:app --host 0.0.0.0 --port 8000
     ;;
   worker)

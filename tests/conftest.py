@@ -26,6 +26,8 @@ os.environ["WORKSHOP_JWT_ALGORITHM"] = "RS256"
 os.environ["WORKSHOP_JWT_PRIVATE_KEY"] = _private
 os.environ["WORKSHOP_JWT_PUBLIC_KEY"] = _public
 os.environ.setdefault("WORKSHOP_DATABASE_URL", "sqlite://")
+# Keep mailed codes in memory so tests can read them and never reach a real inbox.
+os.environ["WORKSHOP_EMAIL_BACKEND"] = "memory"
 # Tests must not call a live vendor. Empty values also block dotenv from filling keys.
 for _llm_key in (
     "QWEN_API_KEY",
@@ -61,6 +63,93 @@ BOOKING_START = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
 BOOKING_END = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 
+class FakeIyzicoClient:
+    def __init__(self):
+        self.sessions: dict[str, dict] = {}
+        self.retrieve_amount_override: str | None = None
+
+    async def initialize_checkout_form(self, payload: dict) -> dict:
+        token = f"test-token-{len(self.sessions) + 1}"
+        self.sessions[token] = payload
+        return {
+            "status": "success",
+            "conversationId": payload["conversationId"],
+            "token": token,
+            "paymentPageUrl": f"https://sandbox.example.test/checkout/{token}",
+        }
+
+    async def initialize_checkout_form_preauth(self, payload: dict) -> dict:
+        return await self.initialize_checkout_form(payload)
+
+    async def retrieve_checkout_form(
+        self,
+        *,
+        token: str,
+        conversation_id: str | None = None,
+    ) -> dict:
+        payload = self.sessions[token]
+        amount = self.retrieve_amount_override or str(payload["paidPrice"])
+        return {
+            "status": "success",
+            "paymentStatus": "SUCCESS",
+            "conversationId": conversation_id or payload["conversationId"],
+            "paymentId": f"iyzico-payment-{token}",
+            "price": amount,
+            "paidPrice": amount,
+            "currency": payload["currency"],
+            "itemTransactions": [
+                {
+                    "paymentTransactionId": f"iyzico-transaction-{token}",
+                    "transactionStatus": 1,
+                }
+            ],
+        }
+
+    async def create_submerchant(self, payload: dict) -> dict:
+        return {
+            "status": "success",
+            "conversationId": payload.get("conversationId"),
+            "subMerchantKey": f"test-submerchant-{payload['subMerchantExternalId']}",
+        }
+
+    async def update_submerchant(self, payload: dict) -> dict:
+        return {
+            "status": "success",
+            "conversationId": payload.get("conversationId"),
+            "subMerchantKey": payload.get("subMerchantKey"),
+        }
+
+    async def get_submerchant(self, submerchant_external_id: str) -> dict:
+        return {
+            "status": "success",
+            "subMerchantExternalId": submerchant_external_id,
+            "subMerchantKey": f"test-submerchant-{submerchant_external_id}",
+        }
+
+    async def post_auth(self, payment_id: str, conversation_id: str, price) -> dict:
+        return {
+            "status": "success",
+            "paymentId": payment_id,
+            "paymentTransactionId": f"postauth-transaction-{payment_id}",
+        }
+
+    async def cancel_payment(self, payment_id: str, conversation_id: str) -> dict:
+        return {"status": "success", "paymentId": payment_id}
+
+    async def refund_payment(self, payment_transaction_id: str, conversation_id: str, price) -> dict:
+        return {
+            "status": "success",
+            "paymentTransactionId": payment_transaction_id,
+            "paymentId": f"refund-{payment_transaction_id}",
+        }
+
+    async def approve_item(self, payment_transaction_id: str) -> dict:
+        return {
+            "status": "success",
+            "paymentTransactionId": payment_transaction_id,
+        }
+
+
 @pytest.fixture
 def db_session():
     Base.metadata.drop_all(bind=engine)
@@ -75,16 +164,56 @@ def db_session():
 
 @pytest.fixture
 def client(db_session):
+    from backend.services.email_service import OUTBOX
+
+    OUTBOX.clear()
     return TestClient(app)
+
+
+def last_emailed_code(to: str) -> str:
+    """The six-digit code in the newest email sent to `to`."""
+    import re
+
+    from backend.services.email_service import OUTBOX
+
+    for message in reversed(OUTBOX):
+        if message.to == to:
+            return re.search(r"\b(\d{6})\b", message.body).group(1)
+    raise AssertionError(f"No email was sent to {to}")
 
 
 def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def register(client, email="customer@example.com", password=DEMO_PASSWORD, role="customer", name="Test User"):
+def register_email_code(client, email):
+    """Ask for a sign-up code and return it from the in-memory outbox."""
+    sent = client.post("/register/email-code", json={"email": email})
+    assert sent.status_code == 200, sent.text
+    return last_emailed_code(email.strip().lower())
+
+
+def register(
+    client,
+    email="customer@example.com",
+    password=DEMO_PASSWORD,
+    role="customer",
+    name="Test User",
+    verified=True,
+):
+    """Register through the API, including the mailed sign-up code.
+
+    New accounts start verified. Pass verified=False to clear that afterwards
+    and get an account like the ones created before sign-up codes existed.
+    """
     first_name, last_name = name.split(" ", 1)
-    return client.post(
+    code_response = client.post("/register/email-code", json={"email": email})
+    email_code = (
+        last_emailed_code(email.strip().lower())
+        if code_response.status_code == 200
+        else "000000"
+    )
+    response = client.post(
         "/register",
         json={
             "first_name": first_name,
@@ -94,8 +223,24 @@ def register(client, email="customer@example.com", password=DEMO_PASSWORD, role=
             "confirm_password": password,
             "tos_accepted": True,
             "role": role,
+            "email_code": email_code,
         },
     )
+    if not verified and response.status_code == 200:
+        set_email_verified_in_db(response.json()["data"]["user"]["id"], False)
+    return response
+
+
+def set_email_verified_in_db(user_id: int, verified: bool):
+    from backend.core.clock import utc_now
+
+    db = SessionLocal()
+    try:
+        user = db.get(models.User, user_id)
+        user.email_verified_at = utc_now() if verified else None
+        db.commit()
+    finally:
+        db.close()
 
 
 def login(client, email="customer@example.com", password=DEMO_PASSWORD):
@@ -106,8 +251,8 @@ def login(client, email="customer@example.com", password=DEMO_PASSWORD):
     )
 
 
-def register_session(client, email, role="customer", name="Test User"):
-    created = register(client, email=email, role=role, name=name)
+def register_session(client, email, role="customer", name="Test User", verified=True):
+    created = register(client, email=email, role=role, name=name, verified=verified)
     assert created.status_code == 200, created.text
     session = login(client, email=email)
     assert session.status_code == 200, session.text
@@ -150,28 +295,63 @@ def create_admin_session(client, db_session, email="admin@example.com", name="Ad
     }
 
 
-def create_provider_profile(client, headers):
-    response = client.post(
-        "/provider/profile",
-        json={
-            "business_name": "Bosphorus Plumbing",
-            "bio": "Istanbul kitchen and bathroom repairs.",
-            "phone_number": "+905551110000",
-            "address": "Karakoy, Istanbul",
-            "service_province": "Istanbul",
-            "latitude": 41.0255,
-            "longitude": 28.9744,
-            "service_radius_km": 15,
-            "tags": ["plumbing"],
-            "certificate_name": "Trade license",
-            "certificate_url": "https://example.com/cert.pdf",
-            "hourly_rate": 400,
-            "experience_years": 6,
-        },
-        headers=headers,
+@pytest.fixture
+def fake_iyzico(monkeypatch):
+    fake = FakeIyzicoClient()
+    monkeypatch.setattr(
+        "backend.services.iyzico.get_iyzico_client",
+        lambda: fake,
     )
-    assert response.status_code == 200, response.text
-    return response.json()["data"]["profile"]
+    return fake
+
+
+def create_provider_profile(client, headers):
+    current_user = client.get("/me", headers=headers)
+    assert current_user.status_code == 200, current_user.text
+    user_id = current_user.json()["data"]["id"]
+    db = SessionLocal()
+    try:
+        profile = models.ProviderProfile(
+            user_id=user_id,
+            business_name="Bosphorus Plumbing",
+            bio="Istanbul kitchen and bathroom repairs.",
+            phone_number="+905551110000",
+            address="Karakoy, Istanbul",
+            service_province="Istanbul",
+            latitude=41.0255,
+            longitude=28.9744,
+            tags="plumbing",
+            certificate_name="Trade license",
+            certificate_url="https://example.com/cert.pdf",
+            hourly_rate=400,
+            verification_status="pending",
+            identity_verification_status="pending",
+            qualification_verification_status="pending",
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return {
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "business_name": profile.business_name,
+            "bio": profile.bio,
+            "phone_number": profile.phone_number,
+            "address": profile.address,
+            "service_province": profile.service_province,
+            "service_location_id": profile.service_location_id,
+            "latitude": profile.latitude,
+            "longitude": profile.longitude,
+            "tags": ["plumbing"],
+            "certificate_name": profile.certificate_name,
+            "certificate_url": profile.certificate_url,
+            "hourly_rate": profile.hourly_rate,
+            "verification_status": profile.verification_status,
+            "identity_verification_status": profile.identity_verification_status,
+            "qualification_verification_status": profile.qualification_verification_status,
+        }
+    finally:
+        db.close()
 
 
 def set_week_availability(client, headers):
@@ -194,31 +374,45 @@ def set_week_availability(client, headers):
 
 
 def approve_provider(client, admin_headers, provider_profile_id):
-    identity = client.put(
-        f"/admin/providers/{provider_profile_id}/verification",
-        json={
-            "verification_status": "approved",
-            "verification_note": "Documents checked",
-            "verification_step": "identity",
-        },
-        headers=admin_headers,
-    )
-    assert identity.status_code == 200, identity.text
-    response = client.put(
-        f"/admin/providers/{provider_profile_id}/verification",
-        json={
-            "verification_status": "approved",
-            "verification_note": "Qualifications checked",
-            "verification_step": "qualification",
-        },
-        headers=admin_headers,
-    )
-    assert response.status_code == 200, response.text
+    del client, admin_headers
+    db = SessionLocal()
+    try:
+        profile = db.get(models.ProviderProfile, provider_profile_id)
+        assert profile is not None
+        profile.identity_verification_status = "approved"
+        profile.qualification_verification_status = "approved"
+        profile.verification_status = "approved"
+        user = db.get(models.User, profile.user_id)
+        user.identity_verification_status = "approved"
+        user.qualification_verification_status = "approved"
+        db.add(
+            models.ProviderApprovedService(
+                provider_profile_id=profile.id,
+                service_category="plumbing",
+                is_enabled=True,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
 
 
 @pytest.fixture
-def marketplace(client, db_session, monkeypatch):
+def marketplace(client, db_session, monkeypatch, fake_iyzico):
+    del fake_iyzico
     monkeypatch.setattr("backend.routers.admin.create_notification", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "backend.utils.notification.enqueue_notification_delivery",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "backend.utils.notification.increment_notification_unread_count",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "backend.utils.chat.increment_chat_room_unread_count",
+        lambda *args, **kwargs: 0,
+    )
     monkeypatch.setattr("backend.utils.formatters.is_user_online", lambda *_: False)
     customer = register_session(
         client, "customer@example.com", role="customer", name="Ayla Customer"
@@ -229,6 +423,25 @@ def marketplace(client, db_session, monkeypatch):
     admin = create_admin_session(client, db_session)
     profile = create_provider_profile(client, provider["headers"])
     approve_provider(client, admin["headers"], profile["id"])
+    db_session.add(
+        models.ProviderSubmerchant(
+            provider_profile_id=profile["id"],
+            submerchant_type="PERSONAL",
+            submerchant_external_id=f"test-provider-{profile['id']}",
+            submerchant_key=f"test-submerchant-{profile['id']}",
+            name="Bosphorus Plumbing",
+            email="provider@example.com",
+            gsm_number="+905551110000",
+            address="Karakoy, Istanbul",
+            iban="TR180006200119000006672315",
+            contact_name="Can",
+            contact_surname="Provider",
+            identity_number="10000000001",
+            currency="TRY",
+            status="active",
+        )
+    )
+    db_session.commit()
     set_week_availability(client, provider["headers"])
     return {
         "customer": customer,
@@ -241,6 +454,7 @@ def marketplace(client, db_session, monkeypatch):
 def create_booking(client, customer_headers, provider_profile_id, **extra):
     payload = {
         "provider_profile_id": str(provider_profile_id),
+        "service_category": extra.get("service_category", "plumbing"),
         "title": extra.get("title", "Booking request"),
         "service_description": extra.get(
             "service_description", "Kitchen pipe leak, needs on-site repair"
@@ -253,6 +467,8 @@ def create_booking(client, customer_headers, provider_profile_id, **extra):
         ),
         "scheduled_end_time": extra.get("scheduled_end_time", BOOKING_END.isoformat()),
     }
-    response = client.post("/bookings", data=payload, headers=customer_headers)
+    response = client.post(
+        "/bookings", data=payload, headers=customer_headers, files=extra.get("attachments")
+    )
     assert response.status_code == 200, response.text
     return response.json()["data"]["booking"]

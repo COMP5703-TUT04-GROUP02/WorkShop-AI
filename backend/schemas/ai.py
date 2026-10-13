@@ -123,26 +123,6 @@ class AIToolErrorData(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-class AIClarificationChoiceResponse(BaseModel):
-    index: int
-    booking_id: int | None = None
-    refund_request_id: int | None = None
-    service_description: str | None = None
-    status: str | None = None
-    scheduled_start_time: str | None = None
-    booking: dict[str, Any] | None = None
-
-    model_config = ConfigDict(extra="allow")
-
-class AIPendingClarificationResponse(BaseModel):
-    tool_name: str
-    target_field: str
-    missing_fields: list[str] = Field(default_factory=list)
-    original_tool_args: dict[str, Any] = Field(default_factory=dict)
-    choices: list[AIClarificationChoiceResponse] = Field(default_factory=list)
-
-    model_config = ConfigDict(extra="allow")
-
 class AIConfirmationFieldResponse(BaseModel):
     label: str | None = None
     value: Any = None
@@ -214,23 +194,10 @@ class AIChatResponseData(BaseModel):
     recommendations: list[dict[str, Any]] | None = None
     no_core_tag_matched: bool | None = None
     query: str | None = None
-    capabilities: list[str] | None = None
+    help_articles: list[dict[str, Any]] | None = None
 
     review_context_source: str | None = None
     review_context: Any = None
-
-    chat_room: dict[str, Any] | None = None
-    chat_room_created: bool | None = None
-
-    booking: dict[str, Any] | None = None
-    status_explanation: Any = None
-    recent_status_histories: list[dict[str, Any]] | None = None
-    payments: list[dict[str, Any]] | None = None
-    refund_requests: list[dict[str, Any]] | None = None
-
-    topic: str | None = None
-    flow_steps: list[Any] | None = None
-    statuses: Any = None
 
     pending_action: dict[str, Any] | None = None
     confirmation_card: AIConfirmationCardResponse | dict[str, Any] | None = None
@@ -238,6 +205,7 @@ class AIChatResponseData(BaseModel):
     booking_draft: AIBookingDraftResponse | dict[str, Any] | None = None
     booking_draft_status: str | None = None
     booking_draft_preview: dict[str, Any] | None = None
+    booking_form: dict[str, Any] | None = None
     missing_fields: list[AIBookingDraftMissingFieldResponse | dict[str, Any]] | None = (
         None
     )
@@ -245,7 +213,6 @@ class AIChatResponseData(BaseModel):
     next_question: str | None = None
 
     tool_error: AIToolErrorData | dict[str, Any] | None = None
-    pending_clarification: AIPendingClarificationResponse | dict[str, Any] | None = None
     tool_calls: list[AIToolCallResponse | dict[str, Any]] = Field(default_factory=list)
     tool_results: list[dict[str, Any]] | None = None
 
@@ -253,29 +220,29 @@ class AIChatResponseData(BaseModel):
         extra="allow",
         json_schema_extra={
             "example": {
-                "message": "I will quote 120 for this booking",
+                "message": "Book provider 8 tomorrow from 10 to 12",
                 "type": "ai_action_confirmation",
                 "intent": {
-                    "intent": "quote_booking",
+                    "intent": "prepare_booking_draft_action",
                     "confidence": 1,
-                    "reason": "LangChain tool calling chose prepare_quote_booking_action",
+                    "reason": "LangChain tool calling chose prepare_booking_draft_action",
                 },
-                "answer": "I prepared: submit quote. Review the details below; nothing runs until you confirm.",
+                "answer": "I prepared the booking. Review it before confirming.",
                 "pending_action": {
                     "id": 12,
-                    "action_type": "quote_booking",
+                    "action_type": "create_booking",
                     "status": "pending",
-                    "summary": "Quote 120 for booking 3",
+                    "summary": "Create a booking with provider 8",
                 },
                 "confirmation_card": {
                     "ui_type": "confirmation_card",
                     "action_id": 12,
-                    "action_type": "quote_booking",
-                    "title": "Submit quote",
+                    "action_type": "create_booking",
+                    "title": "Confirm create booking",
                     "status": "pending",
                     "expires_at": "2026-09-02T12:30:00",
-                    "fields": [{"label": "Quote amount", "value": 120}],
-                    "confirm_label": "Confirm quote",
+                    "fields": [{"label": "Provider", "value": "Provider 8"}],
+                    "confirm_label": "Confirm send booking request",
                     "cancel_label": "Cancel",
                     "confirm_endpoint": "/ai/actions/confirm",
                     "confirm_request": {"action_id": 12},
@@ -311,17 +278,6 @@ class AIToolAgentPreviewRequest(BaseModel):
 
 class AIActionType(str, Enum):
     create_booking = "create_booking"
-    cancel_booking = "cancel_booking"
-    request_refund = "request_refund"
-    pay_booking = "pay_booking"
-    reject_quote = "reject_quote"
-    confirm_complete = "confirm_complete"
-    reject_complete = "reject_complete"
-    quote_booking = "quote_booking"
-    reject_booking = "reject_booking"
-    complete_booking = "complete_booking"
-    approve_refund = "approve_refund"
-    reject_refund = "reject_refund"
 
 class AIPendingActionStatus(str, Enum):
     pending = "pending"

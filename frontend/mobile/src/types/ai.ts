@@ -30,7 +30,6 @@ export type AIProviderRecommendation = {
   service_province: string | null;
   tags: string | string[];
   hourly_rate: number | null;
-  experience_years: number | null;
   distance_km?: number | null;
   match_score?: number | null;
   matched_tags?: string[];
@@ -57,8 +56,6 @@ export type AIConfirmationCard = {
   expires_at?: string | null;
   fields?: AIConfirmationField[];
   provider?: Record<string, unknown> | null;
-  booking_id?: number | null;
-  refund_request_id?: number | null;
   warnings?: string[];
   warning?: string | null;
   confirm_label?: string;
@@ -80,19 +77,35 @@ export type AIBookingDraft = {
   next_question?: string | null;
 };
 
+export type AIBookingForm = {
+  draft_status: "ready_for_form" | string;
+  draft_type?: "create_booking" | string;
+  provider_profile_id: number;
+  provider?: Record<string, unknown> | null;
+  form_defaults: {
+    title: string;
+    service_description: string;
+  };
+};
+
+export type AIHelpArticle = {
+  id: string;
+  question: string;
+};
+
 export type AIChatResponse = AIChatRequest & {
   type: string;
   answer: string;
   recommendation_count?: number | null;
   recommendations?: AIProviderRecommendation[] | null;
   review_context_source?: string | null;
-  chat_room?: Record<string, unknown> | null;
-  booking?: Record<string, unknown> | null;
   pending_action?: Record<string, unknown> | null;
   confirmation_card?: AIConfirmationCard | null;
   booking_draft?: AIBookingDraft | null;
+  booking_form?: AIBookingForm | null;
   next_question?: string | null;
   tool_error?: Record<string, unknown> | null;
+  help_articles?: AIHelpArticle[] | null;
 };
 
 export type AIChatHistoryPage = PaginatedData<AIChatHistoryMessage>;

@@ -22,14 +22,40 @@ def _provider(db_session, client):
         certificate_name="Certificate",
         certificate_url="https://example.com/cert",
         hourly_rate=100,
-        experience_years=1,
         verification_status="approved",
         identity_verification_status="approved",
         qualification_verification_status="approved",
     )
     db_session.add(profile)
+    db_session.flush()
+    db_session.add(
+        models.ProviderApprovedService(
+            provider_profile_id=profile.id,
+            service_category="plumbing",
+            is_enabled=True,
+        )
+    )
     db_session.commit()
     db_session.refresh(profile)
+    db_session.add(
+        models.ProviderSubmerchant(
+            provider_profile_id=profile.id,
+            submerchant_type="PERSONAL",
+            submerchant_external_id=f"test-ws101-provider-{profile.id}",
+            submerchant_key=f"test-ws101-submerchant-{profile.id}",
+            name="HTTP Provider",
+            email="ws101-http-provider@example.com",
+            gsm_number="+905551110099",
+            address="Istanbul",
+            iban="TR180006200119000006672315",
+            contact_name="HTTP",
+            contact_surname="Provider",
+            identity_number="10000000001",
+            currency="TRY",
+            status="active",
+        )
+    )
+    db_session.commit()
     return customer, profile
 
 
@@ -82,6 +108,7 @@ def _stub_booking_side_effects(monkeypatch):
 def _form(provider_id, title):
     return {
         "provider_profile_id": str(provider_id),
+        "service_category": "plumbing",
         "title": title,
         "service_description": "Repair",
         "service_address": "Address",

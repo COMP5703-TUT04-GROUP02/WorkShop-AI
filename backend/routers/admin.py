@@ -35,13 +35,23 @@ from backend.utils.formatters import (
 from backend.utils.notification import create_notification
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
+from backend.utils.marketplace import format_submerchant_response
 from backend.utils.provider import (
     add_provider_verification_history,
     format_provider_profile_with_rating,
 )
-from backend.utils.refund import format_refund_request_response
-from backend.utils.refund import add_refund_request_status_history
-from backend.utils.review import format_review_detail_response
+from backend.utils.refund import (
+    add_refund_request_status_history,
+    execute_external_refund,
+    format_refund_request_response,
+    ensure_refund_can_restore_previous_booking_status,
+)
+from backend.utils.review import (
+    build_hidden_high_value_review_query,
+    build_low_value_review_query,
+    format_review_detail_response,
+    format_review_with_booking_response,
+)
 from backend.utils.review_embedding_queue import (
     enqueue_review_embedding_delete,
     enqueue_review_embedding_sync,
@@ -61,12 +71,30 @@ from backend.schemas import (
     ProviderPortfolioVerificationUpdate,
     ProviderVerificationUpdate,
     RefundRequestStatus,
+    HighValueReviewShowRequest,
+    LowValueReviewHideRequest,
     ReviewVisibilityUpdate,
+    SettlementStatus,
 )
+from backend.constants import LOW_VALUE_REVIEW_THRESHOLD
 from backend.utils.response import success_response
+from decimal import Decimal, InvalidOperation
+
 from backend.core.clock import utc_now
 
 router = ApiRouter(tags=["Admin"])
+
+
+def _parse_review_threshold(value) -> Decimal:
+    try:
+        threshold = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise HTTPException(status_code=400, detail="Threshold must be a number")
+    if threshold <= 0:
+        raise HTTPException(status_code=400, detail="Threshold must be greater than 0")
+    return threshold
+
+
 
 
 def count_by_value(db: Session, model, field, values: list[str]):
@@ -175,8 +203,6 @@ def get_admin_dashboard(
             },
         }
     )
-
-
 @router.get("/admin/users")
 def get_users(
     page: int = 1,
@@ -192,8 +218,6 @@ def get_users(
     return success_response(
         build_paginated_response(safe_users, total, page, page_size)
     )
-
-
 @router.put("/admin/users/{user_id}/status")
 def update_user_status(
     user_id: int,
@@ -230,8 +254,6 @@ def update_user_status(
             "user": format_user_response(user),
         }
     )
-
-
 @router.get("/admin/providers")
 def get_admin_providers(
     verification_status: ProviderVerificationStatus | None = None,
@@ -283,6 +305,15 @@ def update_provider_verification(
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
+    provider_user = db.query(models.User).filter(models.User.id == profile.user_id).first()
+    if provider_user and provider_user.identity_verification_status is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Use the identity-verifications and qualification-verifications "
+                "decision endpoints"
+            ),
+        )
     step = verification_data.verification_step
     if step is None:
         old_status = profile.verification_status
@@ -298,8 +329,6 @@ def update_provider_verification(
             profile.qualification_verification_status = new_status
         history_step = step
     else:
-        if profile.identity_verification_status != ProviderVerificationStatus.approved:
-            raise HTTPException(status_code=400, detail="Identity approval is required before qualification review")
         old_status = profile.qualification_verification_status
         new_status = verification_data.verification_status
         profile.qualification_verification_status = new_status
@@ -345,7 +374,6 @@ def update_provider_verification(
             "profile": format_provider_profile_with_rating(profile, db),
         }
     )
-
 
 @router.get("/admin/providers/{provider_profile_id}/verification-history")
 def get_provider_verification_history(
@@ -568,6 +596,9 @@ async def admin_update_booking_status(
 @router.get("/admin/payments")
 def get_all_payments(
     status: PaymentStatus | None = None,
+    settlement_status: SettlementStatus | None = None,
+    provider_profile_id: int | None = None,
+    booking_id: int | None = None,
     page: int = 1,
     page_size: int = 20,
     current_user: models.User = Depends(require_admin),
@@ -576,12 +607,85 @@ def get_all_payments(
     query = db.query(models.Payment)
     if status:
         query = query.filter(models.Payment.status == status)
+    if settlement_status:
+        query = query.join(
+            models.PaymentSettlement,
+            models.PaymentSettlement.payment_id == models.Payment.id,
+        ).filter(models.PaymentSettlement.status == settlement_status)
+    if provider_profile_id is not None:
+        query = query.filter(
+            models.Payment.provider_profile_id == provider_profile_id
+        )
+    if booking_id is not None:
+        query = query.filter(models.Payment.booking_id == booking_id)
     query = query.order_by(models.Payment.created_at.desc())
     payments, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for payment in payments:
-        result.append(format_payment_response(payment, db))
+        result.append(format_payment_response(payment, db, include_settlement=True))
     return success_response(build_paginated_response(result, total, page, page_size))
+
+
+def _mask_secret(value: str | None) -> str | None:
+    if not value:
+        return value
+    if len(value) <= 4:
+        return "*" * len(value)
+    return "*" * (len(value) - 4) + value[-4:]
+
+
+@router.get("/admin/submerchants")
+def get_admin_submerchants(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.ProviderSubmerchant).order_by(
+        models.ProviderSubmerchant.updated_at.desc()
+    )
+    submerchants, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for submerchant in submerchants:
+        item = format_submerchant_response(submerchant)
+        item["iban"] = _mask_secret(item.get("iban"))
+        item["identity_number"] = _mask_secret(item.get("identity_number"))
+        item["tax_number"] = _mask_secret(item.get("tax_number"))
+        result.append(item)
+    return success_response(build_paginated_response(result, total, page, page_size))
+
+
+@router.post("/admin/payments/{payment_id}/settlement/retry")
+def retry_payment_settlement(
+    payment_id: int,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    payment = db.get(models.Payment, payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    settlement = (
+        db.query(models.PaymentSettlement)
+        .filter(models.PaymentSettlement.payment_id == payment_id)
+        .first()
+    )
+    if not settlement:
+        raise HTTPException(status_code=404, detail="Payment settlement not found")
+    if settlement.status != SettlementStatus.approval_failed.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Only failed Marketplace approvals can be retried",
+        )
+    from backend.tasks.marketplace_tasks import enqueue_payment_settlement
+
+    if not enqueue_payment_settlement(payment_id):
+        raise HTTPException(status_code=503, detail="Settlement retry could not be queued")
+    return success_response(
+        {
+            "message": "Marketplace settlement retry queued",
+            "payment": format_payment_response(payment, db, include_settlement=True),
+        }
+    )
 
 
 @router.get("/admin/refund-requests")
@@ -671,7 +775,7 @@ async def admin_approve_refund_request(
         db.query(models.Payment)
         .filter(
             models.Payment.id == refund_request.payment_id,
-            models.Payment.status == PaymentStatus.paid,
+            models.Payment.status.in_([PaymentStatus.paid, PaymentStatus.partially_refunded]),
         )
         .first()
     )
@@ -686,6 +790,7 @@ async def admin_approve_refund_request(
             detail="Only refunding bookings can be refunded by admin",
         )
 
+    await execute_external_refund(payment, refund_request, db)
     now = utc_now()
     old_status = booking.status
     old_refund_status = refund_request.status
@@ -693,9 +798,11 @@ async def admin_approve_refund_request(
     refund_request.admin_note = decision_data.admin_note
     refund_request.admin_responded_at = now
     refund_request.refunded_at = now
-    payment.status = PaymentStatus.refunded
-    payment.refunded_at = now
-    booking.status = BookingStatus.refunded
+    booking.status = (
+        BookingStatus.refunded
+        if refund_request.refund_amount >= payment.amount
+        else BookingStatus.partially_refunded
+    )
     booking.status_note = decision_data.admin_note
     add_booking_status_history(
         booking, old_status, booking.status, booking.status_note, current_user, db
@@ -799,14 +906,7 @@ async def admin_reject_refund_request(
             status_code=400,
             detail="Only refunding bookings can be restored after admin rejection",
         )
-    if refund_request.previous_booking_status not in [
-        BookingStatus.accepted,
-        BookingStatus.awaiting_confirmation,
-    ]:
-        raise HTTPException(
-            status_code=400,
-            detail="Refund request has an invalid previous booking status",
-        )
+    ensure_refund_can_restore_previous_booking_status(refund_request)
 
     now = utc_now()
     old_status = booking.status
@@ -1081,5 +1181,111 @@ def update_review_visibility(
             "message": "Review visibility updated successfully",
             "embedding_task_id": embedding_task_id,
             "review": format_review_detail_response(review, db),
+        }
+    )
+
+
+@router.get("/admin/reviews/low-value")
+def get_low_value_reviews(
+    threshold: float = float(LOW_VALUE_REVIEW_THRESHOLD),
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Visible reviews whose booking was too cheap to be a real job."""
+    limit = _parse_review_threshold(threshold)
+    query = build_low_value_review_query(limit, db)
+    rows, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for review, total_amount, business_name in rows:
+        result.append(
+            format_review_with_booking_response(review, total_amount, business_name, db)
+        )
+    response = build_paginated_response(result, total, page, page_size)
+    response["data"]["threshold"] = float(limit)
+    return response
+
+
+@router.post("/admin/reviews/low-value/hide")
+def hide_low_value_reviews(
+    hide_data: LowValueReviewHideRequest,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Hide every visible review whose booking was below the threshold."""
+    limit = _parse_review_threshold(hide_data.threshold)
+    rows = build_low_value_review_query(limit, db).all()
+
+    hidden_reviews = [review for review, _amount, _name in rows]
+    for review in hidden_reviews:
+        review.is_visible = 0
+    db.commit()
+
+    hidden_ids = []
+    for review in hidden_reviews:
+        db.refresh(review)
+        hidden_ids.append(review.id)
+        enqueue_review_embedding_delete(review, db, current_user.id)
+
+    return success_response(
+        {
+            "message": f"{len(hidden_ids)} reviews hidden",
+            "threshold": float(limit),
+            "hidden": len(hidden_ids),
+            "review_ids": hidden_ids,
+        }
+    )
+
+
+@router.get("/admin/reviews/high-value-hidden")
+def get_hidden_high_value_reviews(
+    threshold: float = float(LOW_VALUE_REVIEW_THRESHOLD),
+    page: int = 1,
+    page_size: int = 20,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Hidden reviews whose booking was expensive enough to have been a real job."""
+    limit = _parse_review_threshold(threshold)
+    query = build_hidden_high_value_review_query(limit, db)
+    rows, total, page, page_size = paginate_query(query, page, page_size)
+    result = []
+    for review, total_amount, business_name in rows:
+        result.append(
+            format_review_with_booking_response(review, total_amount, business_name, db)
+        )
+    response = build_paginated_response(result, total, page, page_size)
+    response["data"]["threshold"] = float(limit)
+    return response
+
+
+@router.post("/admin/reviews/high-value-hidden/show")
+def show_hidden_high_value_reviews(
+    show_data: HighValueReviewShowRequest,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Make every hidden review at or above the threshold visible again."""
+    limit = _parse_review_threshold(show_data.threshold)
+    rows = build_hidden_high_value_review_query(limit, db).all()
+
+    restored_reviews = [review for review, _amount, _name in rows]
+    for review in restored_reviews:
+        review.is_visible = 1
+    db.commit()
+
+    restored_ids = []
+    for review in restored_reviews:
+        db.refresh(review)
+        restored_ids.append(review.id)
+        enqueue_review_embedding_sync(review, db, current_user.id)
+
+    return success_response(
+        {
+            "message": f"{len(restored_ids)} reviews made visible",
+            "threshold": float(limit),
+            "restored": len(restored_ids),
+            "review_ids": restored_ids,
         }
     )

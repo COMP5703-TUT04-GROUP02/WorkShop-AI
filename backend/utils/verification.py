@@ -1,4 +1,4 @@
-"""Demo email/phone verification helpers. No codes are generated or sent."""
+"""Email and phone verification helpers. Email codes live in email_verification_service; phone is still a demo."""
 
 from sqlalchemy.orm import Session
 

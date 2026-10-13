@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from decimal import Decimal
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
@@ -115,3 +116,13 @@ class RatingSummaryResponse(BaseModel):
 class ReviewVisibilityUpdate(BaseModel):
     is_visible: bool
 
+
+class LowValueReviewHideRequest(BaseModel):
+    """The amount, in TRY, under which a reviewed booking counts as token-priced."""
+
+    threshold: Decimal = Field(gt=0, le=1000000)
+
+class HighValueReviewShowRequest(BaseModel):
+    """The amount, in TRY, at or above which a hidden review should go back."""
+
+    threshold: Decimal = Field(gt=0, le=1000000)

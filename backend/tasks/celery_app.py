@@ -15,6 +15,7 @@ celery_app = Celery(
         "backend.tasks.ai_tasks",
         "backend.tasks.notification_tasks",
         "backend.tasks.review_tasks",
+        "backend.tasks.marketplace_tasks",
     ],
 )
 

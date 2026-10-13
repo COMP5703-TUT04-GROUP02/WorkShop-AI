@@ -9,22 +9,23 @@ import {
 } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { getProviderProfile } from "../api/provider";
-import { isQualificationApproved } from "../utils/providerVerification";
+import { getProviderSubmerchant } from "../api/marketplace";
+import { getProviderVerificationStatus } from "../api/provider";
 import { useAuth } from "./AuthContext";
 
-/**
- * WS-105. The gate used to open as soon as the big profile form was filled in.
- * Admin approval of the qualification step is what unlocks the app now, so a
- * complete but unreviewed profile stays locked.
- */
-const PROVIDER_PROFILE_REQUIRED_MESSAGE =
-  "An admin needs to approve your qualification first. Start with identity verification on Home.";
+const STEP_LABELS = {
+  identity: "ID verification",
+  qualification: "Service verification",
+  payout: "Payout account",
+} as const;
+
+type ProviderOnboardingStep = keyof typeof STEP_LABELS;
 
 type ProviderProfileGateContextValue = {
   hasProviderProfile: boolean | null;
+  incompleteProviderSteps: ProviderOnboardingStep[];
+  isProviderProfileLoading: boolean;
   isProviderProfileRequired: boolean;
-  markProviderProfileCreated: () => void;
   refreshProviderProfileStatus: () => Promise<void>;
   showProviderProfileRequiredMessage: () => void;
 };
@@ -41,56 +42,94 @@ export function ProviderProfileGateProvider({
   const [hasProviderProfile, setHasProviderProfile] = useState<boolean | null>(
     user?.role === "provider" ? null : true,
   );
+  const [incompleteProviderSteps, setIncompleteProviderSteps] = useState<
+    ProviderOnboardingStep[]
+  >([]);
+  const [isProviderProfileLoading, setIsProviderProfileLoading] = useState(
+    user?.role === "provider",
+  );
   const [isRequiredMessageVisible, setIsRequiredMessageVisible] =
     useState(false);
 
   const refreshProviderProfileStatus = useCallback(async () => {
     if (user?.role !== "provider") {
       setHasProviderProfile(true);
+      setIncompleteProviderSteps([]);
+      setIsProviderProfileLoading(false);
       return;
     }
 
     try {
-      const profile = await getProviderProfile();
-      setHasProviderProfile(isQualificationApproved(profile));
+      const [verification, payoutAccount] = await Promise.all([
+        getProviderVerificationStatus(),
+        getProviderSubmerchant(),
+      ]);
+      const incompleteSteps: ProviderOnboardingStep[] = [];
+      if (verification?.identity_status !== "approved") {
+        incompleteSteps.push("identity");
+      }
+      if (verification?.qualification_status !== "approved") {
+        incompleteSteps.push("qualification");
+      }
+      if (payoutAccount?.status !== "active") {
+        incompleteSteps.push("payout");
+      }
+      setIncompleteProviderSteps(incompleteSteps);
+      setHasProviderProfile(incompleteSteps.length === 0);
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response
         ?.status;
 
-      // No profile yet means nothing is approved. Any other failure (offline,
-      // a 500) says nothing about approval, and this flag now locks the
-      // provider's working tabs — so keep whatever was last known instead of
-      // unlocking on an error.
+      // A missing onboarding record is incomplete. Other failures keep the
+      // last known decision so a transient request cannot unlock the provider.
       if (status === 404) {
         setHasProviderProfile(false);
+        setIncompleteProviderSteps([
+          "identity",
+          "qualification",
+          "payout",
+        ]);
+      } else {
+        setHasProviderProfile((current) => current ?? false);
       }
+    } finally {
+      setIsProviderProfileLoading(false);
     }
-  }, [user?.role]);
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     void refreshProviderProfileStatus();
   }, [refreshProviderProfileStatus]);
 
-  const markProviderProfileCreated = useCallback(() => {
-    setHasProviderProfile(true);
-  }, []);
-
   const showProviderProfileRequiredMessage = useCallback(() => {
+    if (isProviderProfileLoading) {
+      return;
+    }
     setIsRequiredMessageVisible(true);
-  }, []);
+  }, [isProviderProfileLoading]);
+
+  const requiredMessage = incompleteProviderSteps.length > 0
+    ? `Complete ${incompleteProviderSteps
+        .map((step) => STEP_LABELS[step])
+        .join(", ")} before using provider work tools. Continue from Home or Account → Verification.`
+    : "Complete all provider verification steps before using provider work tools. Continue from Home or Account → Verification.";
 
   const value = useMemo(
     () => ({
       hasProviderProfile,
+      incompleteProviderSteps,
+      isProviderProfileLoading,
       isProviderProfileRequired:
-        user?.role === "provider" && hasProviderProfile !== true,
-      markProviderProfileCreated,
+        user?.role === "provider" &&
+        !isProviderProfileLoading &&
+        hasProviderProfile === false,
       refreshProviderProfileStatus,
       showProviderProfileRequiredMessage,
     }),
     [
       hasProviderProfile,
-      markProviderProfileCreated,
+      incompleteProviderSteps,
+      isProviderProfileLoading,
       refreshProviderProfileStatus,
       showProviderProfileRequiredMessage,
       user?.role,
@@ -110,7 +149,7 @@ export function ProviderProfileGateProvider({
           <View style={styles.dialog}>
             <Text style={styles.dialogTitle}>Verification required</Text>
             <Text style={styles.dialogMessage}>
-              {PROVIDER_PROFILE_REQUIRED_MESSAGE}
+              {requiredMessage}
             </Text>
             <Pressable
               accessibilityRole="button"

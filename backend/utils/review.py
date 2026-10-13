@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 from backend import models
@@ -42,3 +44,67 @@ def get_provider_rating_summary(provider_id: int, db: Session):
         "average_rating": average_rating,
         "review_count": review_count,
     }
+
+
+def _reviewed_booking_query(db: Session):
+    """Every review joined to the booking that paid for it and its provider."""
+    return (
+        db.query(
+            models.Review,
+            models.Booking.total_amount,
+            models.ProviderProfile.business_name,
+        )
+        .join(models.Booking, models.Booking.id == models.Review.booking_id)
+        .join(
+            models.ProviderProfile,
+            models.ProviderProfile.id == models.Review.provider_profile_id,
+        )
+    )
+
+
+def build_low_value_review_query(threshold: Decimal, db: Session):
+    """Visible reviews whose booking total is under the threshold, cheapest first.
+
+    A booking priced far below what any provider charges cannot be a real job,
+    so a review attached to one was almost certainly bought with a token order.
+    """
+    return (
+        _reviewed_booking_query(db)
+        .filter(
+            models.Review.is_visible == 1,
+            models.Booking.total_amount < threshold,
+        )
+        .order_by(models.Booking.total_amount.asc(), models.Review.id.asc())
+    )
+
+
+def build_hidden_high_value_review_query(threshold: Decimal, db: Session):
+    """Hidden reviews whose booking total is at or above the threshold, dearest first.
+
+    The mirror of the sweep above: a review sitting on a properly priced job was
+    not bought, so if it is hidden it was most likely caught by a sweep run at
+    too high an amount and should go back.
+    """
+    return (
+        _reviewed_booking_query(db)
+        .filter(
+            models.Review.is_visible == 0,
+            models.Booking.total_amount >= threshold,
+        )
+        .order_by(models.Booking.total_amount.desc(), models.Review.id.asc())
+    )
+
+
+def format_review_with_booking_response(
+    review: models.Review,
+    booking_total_amount,
+    provider_business_name: str | None,
+    db: Session,
+):
+    result = format_review_detail_response(review, db)
+    result["booking_total_amount"] = (
+        float(booking_total_amount) if booking_total_amount is not None else None
+    )
+    result["provider_business_name"] = provider_business_name
+
+    return result

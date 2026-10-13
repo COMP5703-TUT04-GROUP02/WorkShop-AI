@@ -16,30 +16,58 @@ import {
   approveAdminRefundAppeal,
   getAdminProviderProfile,
   getAdminProviderPortfolioItem,
+  getAdminPayments,
+  getAdminSubmerchants,
   getPendingRefundAppeals,
   getPendingProviderProfiles,
   getPendingProviderPortfolios,
   rejectAdminRefundAppeal,
+  retryAdminSettlement,
   updateAdminProviderProfileVerification,
   updateAdminProviderPortfolioVerification,
 } from "../../api/admin";
 import { PortfolioMediaCarousel } from "../../components/PortfolioMediaCarousel";
+import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
-import { getRefundServiceStageLabel } from "../../constants/labels";
-import type { RefundRequestSummary } from "../../types/booking";
+import type { PaymentHistoryEntry, RefundRequestSummary } from "../../types/booking";
+import type { AdminSubmerchant } from "../../types/marketplace";
 import type { ProviderPortfolio, ProviderProfile } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
+import { formatDateTime } from "../../utils/datetime";
+import { formatMoney } from "../../utils/money";
+import { getPaymentStatusLabel } from "../../constants/labels";
 import { AISubscriptionPanel } from "./AISubscriptionPanel";
+import {
+  HiddenReviewRestorePanel,
+  LowValueReviewPanel,
+} from "./ReviewSweepPanels";
+import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
+import { ReviewEmbeddingAdminPanel } from "./ReviewEmbeddingAdminPanel";
 
 const PAGE_SIZE = 20;
+
+type AdminPaymentFilters = {
+  status?: string;
+  settlementStatus?: string;
+  providerProfileId?: number;
+  bookingId?: number;
+};
 
 export function AdminDashboardScreen() {
   const [pendingProfiles, setPendingProfiles] = useState<ProviderProfile[]>([]);
   const [pendingPortfolios, setPendingPortfolios] = useState<ProviderPortfolio[]>([]);
   const [pendingAppeals, setPendingAppeals] = useState<RefundRequestSummary[]>([]);
+  const [submerchants, setSubmerchants] = useState<AdminSubmerchant[]>([]);
+  const [marketplacePayments, setMarketplacePayments] = useState<PaymentHistoryEntry[]>([]);
+  const [paymentFilters, setPaymentFilters] = useState<AdminPaymentFilters>({});
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [paymentTotalPages, setPaymentTotalPages] = useState(1);
+  const [retryQueuedPaymentIds, setRetryQueuedPaymentIds] = useState<
+    Record<number, boolean>
+  >({});
   const [selectedProfile, setSelectedProfile] = useState<ProviderProfile | null>(
     null,
   );
@@ -55,24 +83,73 @@ export function AdminDashboardScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isActing, setIsActing] = useState(false);
 
-  const loadPendingReviews = useCallback(async () => {
+  const loadPendingReviews = useCallback(async (
+    requestedPaymentPage = paymentPage,
+    requestedPaymentFilters = paymentFilters,
+  ) => {
     setIsLoading(true);
     setMessage("");
     try {
-      const [profileResult, portfolioResult, appealResult] = await Promise.all([
-        getPendingProviderProfiles(1, PAGE_SIZE),
+      const [portfolioResult, appealResult, submerchantResult, paymentResult] = await Promise.all([
         getPendingProviderPortfolios(1, PAGE_SIZE),
         getPendingRefundAppeals(1, PAGE_SIZE),
+        getAdminSubmerchants(1, PAGE_SIZE),
+        getAdminPayments(requestedPaymentPage, PAGE_SIZE, requestedPaymentFilters),
       ]);
-      setPendingProfiles(profileResult?.items ?? []);
       setPendingPortfolios(portfolioResult?.items ?? []);
       setPendingAppeals(appealResult?.items ?? []);
+      setSubmerchants(submerchantResult?.items ?? []);
+      setMarketplacePayments(paymentResult?.items ?? []);
+      setPaymentPage(paymentResult?.page ?? requestedPaymentPage);
+      setPaymentTotalPages(paymentResult?.total_pages ?? 1);
     } catch (error) {
       setMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [paymentFilters, paymentPage]);
+
+  function handlePaymentFiltersChange(nextFilters: AdminPaymentFilters) {
+    setPaymentFilters(nextFilters);
+    setPaymentPage(1);
+    void loadPendingReviews(1, nextFilters);
+  }
+
+  function handlePaymentPageChange(nextPage: number) {
+    if (nextPage < 1 || nextPage > paymentTotalPages || nextPage === paymentPage) {
+      return;
+    }
+    setPaymentPage(nextPage);
+    void loadPendingReviews(nextPage, paymentFilters);
+  }
+
+  async function handleRetrySettlement(paymentId: number) {
+    setIsActing(true);
+    setActionError("");
+    setRetryQueuedPaymentIds((current) => ({ ...current, [paymentId]: true }));
+    try {
+      await retryAdminSettlement(paymentId);
+      await loadPendingReviews();
+      Alert.alert("Settlement retry requested", "The latest settlement status has been loaded.");
+      setTimeout(() => {
+        setRetryQueuedPaymentIds((current) => {
+          const next = { ...current };
+          delete next[paymentId];
+          return next;
+        });
+        void loadPendingReviews();
+      }, 1500);
+    } catch (error) {
+      setRetryQueuedPaymentIds((current) => {
+        const next = { ...current };
+        delete next[paymentId];
+        return next;
+      });
+      setActionError(getErrorMessage(error));
+    } finally {
+      setIsActing(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -290,7 +367,7 @@ export function AdminDashboardScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Admin dashboard</Text>
-          <Text style={styles.subtitle}>Profile, portfolio, and refund appeal review</Text>
+          <Text style={styles.subtitle}>Provider verification, portfolio, and refund review</Text>
         </View>
         <SecondaryButton
           disabled={isLoading || isActing}
@@ -303,29 +380,33 @@ export function AdminDashboardScreen() {
 
       <AISubscriptionPanel />
 
+      <ReviewEmbeddingAdminPanel />
+
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Profiles pending review</Text>
-        {isLoading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
-        ) : pendingProfiles.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No provider profiles pending review</Text>
-            <Text style={styles.emptyText}>
-              Provider profiles enter pending status after first submission or resubmission.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.list}>
-            {pendingProfiles.map((profile) => (
-              <ProfileReviewCard
-                key={profile.id}
-                onPress={() => void openProfile(profile.id)}
-                profile={profile}
-              />
-            ))}
-          </View>
-        )}
+        <ProviderVerificationAdminPanel />
       </View>
+
+      <View style={styles.section}>
+        <LowValueReviewPanel />
+      </View>
+
+      <View style={styles.section}>
+        <HiddenReviewRestorePanel />
+      </View>
+
+      <MarketplaceSection
+        isActing={isActing}
+        onRetrySettlement={(paymentId) => void handleRetrySettlement(paymentId)}
+        filters={paymentFilters}
+        onFiltersChange={handlePaymentFiltersChange}
+        page={paymentPage}
+        totalPages={paymentTotalPages}
+        onPageChange={handlePaymentPageChange}
+        retryQueuedPaymentIds={retryQueuedPaymentIds}
+        payments={marketplacePayments}
+        submerchants={submerchants}
+      />
+
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Portfolios pending review</Text>
@@ -375,17 +456,6 @@ export function AdminDashboardScreen() {
         )}
       </View>
 
-      <ProfileReviewModal
-        actionError={actionError}
-        isActing={isActing}
-        onApprove={() => void approveProfile()}
-        onClose={closeProfile}
-        onReject={() => void rejectProfile()}
-        profile={selectedProfile}
-        rejectReason={profileRejectReason}
-        setRejectReason={setProfileRejectReason}
-      />
-
       <PortfolioReviewModal
         actionError={actionError}
         isActing={isActing}
@@ -409,6 +479,261 @@ export function AdminDashboardScreen() {
       />
     </ScrollView>
   );
+}
+
+function MarketplaceSection({
+  filters,
+  isActing,
+  onFiltersChange,
+  onPageChange,
+  onRetrySettlement,
+  page,
+  payments,
+  retryQueuedPaymentIds,
+  submerchants,
+  totalPages,
+}: {
+  filters: AdminPaymentFilters;
+  isActing: boolean;
+  onFiltersChange: (filters: AdminPaymentFilters) => void;
+  onPageChange: (page: number) => void;
+  onRetrySettlement: (paymentId: number) => void;
+  page: number;
+  payments: PaymentHistoryEntry[];
+  retryQueuedPaymentIds: Record<number, boolean>;
+  submerchants: AdminSubmerchant[];
+  totalPages: number;
+}) {
+  const [providerFilter, setProviderFilter] = useState(
+    filters.providerProfileId == null ? "" : String(filters.providerProfileId),
+  );
+  const [bookingFilter, setBookingFilter] = useState(
+    filters.bookingId == null ? "" : String(filters.bookingId),
+  );
+
+  function applyIdFilters() {
+    const providerProfileId = parsePositiveInteger(providerFilter);
+    const bookingId = parsePositiveInteger(bookingFilter);
+    onFiltersChange({
+      ...filters,
+      providerProfileId,
+      bookingId,
+    });
+  }
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Marketplace</Text>
+      {submerchants.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No payout accounts</Text>
+          <Text style={styles.emptyText}>Provider payout account status will appear here.</Text>
+        </View>
+      ) : (
+        <View style={styles.list}>
+          {submerchants.map((submerchant) => (
+            <View key={submerchant.id} style={styles.reviewCard}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Provider #{submerchant.provider_profile_id}</Text>
+                <Text style={styles.pendingBadge}>{submerchant.status}</Text>
+              </View>
+              <Text style={styles.cardMeta}>
+                {submerchant.submerchant_type} · IBAN {maskSecret(submerchant.iban)}
+              </Text>
+              <Text style={styles.cardMeta}>
+                ID {maskSecret(submerchant.identity_number)} · Tax {maskSecret(submerchant.tax_number)}
+              </Text>
+              {submerchant.iyzico_error_code || submerchant.iyzico_error_message ? (
+                <Text style={styles.errorText}>
+                  {submerchant.iyzico_error_code || "iyzico"}: {submerchant.iyzico_error_message || "Unknown error"}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.filterCard}>
+        <Text style={styles.filterTitle}>Payment filters</Text>
+        <Text style={styles.filterLabel}>Payment status</Text>
+        <View style={styles.filterRow}>
+          {[
+            ["All", undefined],
+            ["Authorized", "authorized"],
+            ["Paid", "paid"],
+            ["Failed", "failed"],
+          ].map(([label, value]) => (
+            <FilterChip
+              active={filters.status === value}
+              key={String(label)}
+              label={String(label)}
+              onPress={() =>
+                onFiltersChange({ ...filters, status: value as string | undefined })
+              }
+            />
+          ))}
+        </View>
+        <Text style={styles.filterLabel}>Settlement status</Text>
+        <View style={styles.filterRow}>
+          {[
+            ["All", undefined],
+            ["Pending", "pending"],
+            ["Approved", "approved"],
+            ["Failed", "approval_failed"],
+          ].map(([label, value]) => (
+            <FilterChip
+              active={filters.settlementStatus === value}
+              key={String(label)}
+              label={String(label)}
+              onPress={() =>
+                onFiltersChange({
+                  ...filters,
+                  settlementStatus: value as string | undefined,
+                })
+              }
+            />
+          ))}
+        </View>
+        <TextField
+          keyboardType="number-pad"
+          label="Provider profile ID"
+          onChangeText={setProviderFilter}
+          placeholder="Optional"
+          value={providerFilter}
+        />
+        <TextField
+          keyboardType="number-pad"
+          label="Booking ID"
+          onChangeText={setBookingFilter}
+          placeholder="Optional"
+          value={bookingFilter}
+        />
+        <SecondaryButton label="Apply ID filters" onPress={applyIdFilters} />
+      </View>
+
+      {payments.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No marketplace payments</Text>
+          <Text style={styles.emptyText}>Payment splits and settlement status will appear here.</Text>
+        </View>
+      ) : (
+        <View style={styles.list}>
+          {payments.map((payment) => {
+            const settlement = payment.settlement;
+            return (
+              <View key={payment.id} style={styles.reviewCard}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>Payment #{payment.id}</Text>
+                  <Text style={styles.pendingBadge}>{getPaymentStatusLabel(payment.status)}</Text>
+                </View>
+                <Text style={styles.cardMeta}>
+                  Total {formatMoney(payment.amount)} · Booking #{payment.booking_id}
+                </Text>
+                <Text style={styles.cardMeta}>
+                  Customer {payment.booking?.customer?.name || `#${payment.customer_id}`} · Provider {payment.booking?.provider?.business_name || `#${payment.provider_profile_id}`}
+                </Text>
+                <Text style={styles.cardMeta}>
+                  Transaction {payment.payment_transaction_id || "Not available"}
+                </Text>
+                <Text style={styles.cardMeta}>
+                  Created {formatDateTime(payment.created_at)}
+                  {payment.authorized_at
+                    ? ` · Authorized ${formatDateTime(payment.authorized_at)}`
+                    : ""}
+                  {payment.paid_at ? ` · Paid ${formatDateTime(payment.paid_at)}` : ""}
+                </Text>
+                {settlement ? (
+                  <>
+                    <MarketplaceBreakdownCard payment={payment} title="Settlement breakdown" />
+                    {settlement.merchant_payout_amount != null ? (
+                      <Text style={styles.cardMeta}>
+                        Platform payout after known deductions {formatMoney(settlement.merchant_payout_amount)}
+                      </Text>
+                    ) : null}
+                    {settlement.status === "approval_failed" ? (
+                      retryQueuedPaymentIds[payment.id] ? (
+                        <Text style={styles.retryQueuedText}>
+                          Settlement retry queued; waiting for the worker result.
+                        </Text>
+                      ) : (
+                        <SecondaryButton
+                          disabled={isActing}
+                          label="Retry settlement"
+                          onPress={() => onRetrySettlement(payment.id)}
+                        />
+                      )
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <MarketplaceBreakdownCard payment={payment} title="Payment estimate" />
+                    <Text style={styles.cardMeta}>No settlement record yet</Text>
+                  </>
+                )}
+                {payment.failure_code || payment.failure_message ? (
+                  <Text style={styles.errorText}>
+                    {payment.failure_code || "payment_error"}: {payment.failure_message || "Unknown payment error"}
+                  </Text>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      )}
+      {payments.length > 0 ? (
+        <View style={styles.paginationRow}>
+          <SecondaryButton
+            disabled={isActing || page <= 1}
+            label="Previous"
+            onPress={() => onPageChange(page - 1)}
+          />
+          <Text style={styles.paginationText}>Page {page} of {totalPages}</Text>
+          <SecondaryButton
+            disabled={isActing || page >= totalPages}
+            label="Next"
+            onPress={() => onPageChange(page + 1)}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function FilterChip({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[styles.filterChip, active ? styles.filterChipActive : null]}
+    >
+      <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : null]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function parsePositiveInteger(value: string) {
+  const parsed = Number(value.trim());
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function maskSecret(value: string | null | undefined) {
+  if (!value) {
+    return "—";
+  }
+  if (value.length <= 4) {
+    return `••••${value}`;
+  }
+  return `••••${value.slice(-4)}`;
 }
 
 function ProfileReviewCard({
@@ -463,8 +788,7 @@ function RefundAppealCard({
         {appeal.appeal_reason || "No reason provided"}
       </Text>
       <Text style={styles.cardMeta}>
-        Refund request #{appeal.id} · {getRefundServiceStageLabel(appeal.service_stage)} ·
-        Customer #{appeal.customer_id} · Provider #{appeal.provider_profile_id}
+        Refund request #{appeal.id} · Customer #{appeal.customer_id} · Provider #{appeal.provider_profile_id}
       </Text>
       {appeal.booking?.service_description ? (
         <Text numberOfLines={1} style={styles.cardMeta}>
@@ -525,14 +849,6 @@ function ProfileReviewModal({
               <ProfileDetailRow label="Service province" value={profile.service_province} />
               <ProfileDetailRow label="Service tags" value={profile.tags.join(", ")} />
               <ProfileDetailRow label="Hourly rate" value={String(profile.hourly_rate)} />
-              <ProfileDetailRow
-                label="Years of experience"
-                value={String(profile.experience_years)}
-              />
-              <ProfileDetailRow
-                label="Service radius"
-                value={`${profile.service_radius_km} km`}
-              />
               <ProfileDetailRow label="Phone number" value={profile.phone_number} />
               <ProfileDetailRow label="Address" value={profile.address} />
               <ProfileDetailRow
@@ -651,10 +967,6 @@ function RefundAppealModal({
               <ProfileDetailRow
                 label="Refund status"
                 value={getRefundStatusLabel(appeal.status)}
-              />
-              <ProfileDetailRow
-                label="Service stage"
-                value={getRefundServiceStageLabel(appeal.service_stage)}
               />
               <ProfileDetailRow label="Customer" value={`#${appeal.customer_id}`} />
               <ProfileDetailRow
@@ -925,6 +1237,59 @@ const styles = StyleSheet.create({
   list: {
     gap: spacing.md,
   },
+  filterCard: {
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+  },
+  filterTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  filterLabel: {
+    color: colors.mutedText,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  filterChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: "#E7F6F0",
+  },
+  filterChipText: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  filterChipTextActive: {
+    color: colors.primary,
+  },
+  paginationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  paginationText: {
+    color: colors.mutedText,
+    fontSize: 13,
+  },
   reviewCard: {
     gap: spacing.sm,
     borderWidth: 1,
@@ -966,6 +1331,11 @@ const styles = StyleSheet.create({
   cardMeta: {
     color: colors.mutedText,
     fontSize: 13,
+  },
+  retryQueuedText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

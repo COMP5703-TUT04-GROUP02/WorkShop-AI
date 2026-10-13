@@ -9,10 +9,9 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 from celery.result import AsyncResult
 import logging
-from backend.auth import get_current_user, get_db, require_admin
+from backend.auth import get_db, require_admin, require_verified_user
 from backend.schemas import (
     AIActionConfirmRequest,
-    AIActionType,
     AIPendingActionStatus,
     AIChatRequest,
     AIChatResponseData,
@@ -21,10 +20,7 @@ from backend.schemas import (
     AIToolExecuteRequest,
     ApiResponse,
     AsyncTaskType,
-    BookingNoteUpdate,
     BookingCreate,
-    ProviderBookingQuoteCreate,
-    ProviderRefundRejectCreate,
 )
 from backend.services.milvus_service import (
     check_milvus_connection,
@@ -58,22 +54,7 @@ from backend.utils.async_task import (
     format_async_task_response,
     sync_async_task_record_from_celery,
 )
-from backend.utils.customer_booking_actions import (
-    cancel_customer_booking_action,
-    confirm_customer_booking_complete_action,
-    create_customer_booking_action,
-    create_customer_refund_request_action,
-    pay_customer_booking_action,
-    reject_customer_booking_complete_action,
-    reject_customer_booking_quote_action,
-)
-from backend.utils.provider_booking_actions import (
-    approve_provider_refund_request_action,
-    complete_provider_booking_action,
-    quote_provider_booking_action,
-    reject_provider_booking_action,
-    reject_provider_refund_request_action,
-)
+from backend.utils.customer_booking_actions import create_customer_booking_action
 from backend.utils.ai_pending_action import (
     cancel_ai_pending_action,
     expire_user_pending_actions,
@@ -198,7 +179,7 @@ def get_ai_tasks(
     status: str | None = None,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.AsyncTask)
@@ -217,7 +198,7 @@ def get_ai_tasks(
 @router.get("/ai/tasks/{task_id}")
 def get_ai_task_status(
     task_id: str,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     async_task = (
@@ -235,7 +216,7 @@ def get_ai_task_status(
 @router.post("/ai/chat")
 def enqueue_ai_chat(
     request_data: AIChatRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     task = ai_chat_task.delay(current_user.id, request_data.model_dump())
@@ -248,7 +229,7 @@ def enqueue_ai_chat(
 @router.post("/ai/chat/async")
 def enqueue_ai_chat_alias(
     request_data: AIChatRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(enqueue_ai_chat(request_data, current_user, db))
@@ -257,7 +238,7 @@ def enqueue_ai_chat_alias(
 @router.post("/ai/chat/sync", response_model=ApiResponse[AIChatResponseData])
 def ai_chat_sync(
     request_data: AIChatRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -276,7 +257,7 @@ def ai_chat_sync(
 def get_ai_chat_messages(
     page: int = 1,
     page_size: int = 50,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     expire_user_pending_actions(current_user.id, db)
@@ -340,7 +321,7 @@ def sync_ai_action_statuses_in_chat_history(
 
 @router.delete("/ai/chat/messages")
 def clear_ai_chat_messages(
-    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: models.User = Depends(require_verified_user), db: Session = Depends(get_db)
 ):
     deleted_count = delete_ai_chat_messages(current_user.id, db)
     return success_response(
@@ -353,7 +334,7 @@ def clear_ai_chat_messages(
 
 @router.get("/ai/tools")
 def get_ai_tools(
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(get_langchain_tool_summaries(current_user, db))
@@ -362,7 +343,7 @@ def get_ai_tools(
 @router.post("/ai/tools/run")
 def run_ai_tool(
     request_data: AIToolExecuteRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(
@@ -378,7 +359,7 @@ def run_ai_tool(
 @router.post("/ai/tools/agent-preview")
 def preview_ai_tool_agent(
     request_data: AIToolAgentPreviewRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     return success_response(
@@ -397,7 +378,7 @@ def get_ai_tool_call_logs(
     status: str | None = None,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.AIToolCallLog)
@@ -420,7 +401,7 @@ def get_ai_pending_actions(
     status: AIPendingActionStatus | None = None,
     page: int = 1,
     page_size: int = 20,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     expire_user_pending_actions(current_user.id, db)
@@ -439,7 +420,7 @@ def get_ai_pending_actions(
 @router.put("/ai/actions/{action_id}/cancel")
 def cancel_ai_action(
     action_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     pending_action = cancel_ai_pending_action(action_id, current_user, db)
@@ -456,7 +437,7 @@ def cancel_ai_action(
 @router.post("/ai/actions/confirm")
 async def confirm_ai_action(
     request_data: AIActionConfirmRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     action = get_confirmable_ai_pending_action(
@@ -467,99 +448,15 @@ async def confirm_ai_action(
     payload = load_json(action.payload_json, {})
 
     try:
-        action_type = AIActionType(action.action_type)
-        if action_type == AIActionType.create_booking:
-            booking_data = BookingCreate(**payload)
-            result = await create_customer_booking_action(
-                booking_data,
-                current_user,
-                db,
-                attachments=None,
-            )
-        elif action_type == AIActionType.cancel_booking:
-            result = await cancel_customer_booking_action(
-                payload["booking_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.request_refund:
-            result = await create_customer_refund_request_action(
-                payload["booking_id"],
-                payload["service_stage"],
-                payload["reason"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.pay_booking:
-            result = await pay_customer_booking_action(
-                payload["booking_id"],
-                payload.get("payment_method", "mock"),
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_quote:
-            result = await reject_customer_booking_quote_action(
-                payload["booking_id"],
-                payload["status_note"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.confirm_complete:
-            result = await confirm_customer_booking_complete_action(
-                payload["booking_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_complete:
-            result = await reject_customer_booking_complete_action(
-                payload["booking_id"],
-                payload["status_note"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.quote_booking:
-            quote_data = ProviderBookingQuoteCreate(
-                quote_amount=payload["quote_amount"],
-                quote_message=payload.get("quote_message"),
-            )
-            result = await quote_provider_booking_action(
-                payload["booking_id"],
-                quote_data,
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_booking:
-            note_data = BookingNoteUpdate(status_note=payload["status_note"])
-            result = await reject_provider_booking_action(
-                payload["booking_id"],
-                note_data,
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.complete_booking:
-            result = await complete_provider_booking_action(
-                payload["booking_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.approve_refund:
-            result = await approve_provider_refund_request_action(
-                payload["refund_request_id"],
-                current_user,
-                db,
-            )
-        elif action_type == AIActionType.reject_refund:
-            reject_data = ProviderRefundRejectCreate(
-                provider_note=payload["provider_note"]
-            )
-            result = await reject_provider_refund_request_action(
-                payload["refund_request_id"],
-                reject_data,
-                current_user,
-                db,
-            )
-        else:
+        if action.action_type != "create_booking":
             raise HTTPException(status_code=400, detail="Unsupported AI action type")
+        booking_data = BookingCreate(**payload)
+        result = await create_customer_booking_action(
+            booking_data,
+            current_user,
+            db,
+            attachments=None,
+        )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
     except KeyError as exc:
@@ -588,7 +485,7 @@ async def confirm_ai_action(
 @router.get("/ai/actions/{action_id}")
 def get_ai_pending_action(
     action_id: int,
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
     action = get_ai_pending_action_or_404(action_id, current_user, db)

@@ -16,6 +16,8 @@ export type User = {
   phone_verified: boolean;
   last_login_at: string | null;
   created_at: string | null;
+  identity_verification_status?: string | null;
+  qualification_verification_status?: string | null;
 };
 
 export type ApiResponse<T> = {
@@ -39,12 +41,35 @@ export type RegisterRequest = {
   confirm_password: string;
   tos_accepted: boolean;
   role: Exclude<UserRole, "admin">;
+  /** The code mailed by sendRegisterEmailCode; the account starts verified. */
+  email_code: string;
   /**
    * WS-92. The joined display name, which chat and bookings still read.
    * WS-91 builds it on the server and ignores this field; until that lands,
    * today's /register still requires it. Both backends accept the payload.
    */
   name: string;
+};
+
+export type SocialProvider = "google" | "apple";
+
+export type SocialLoginRequest = {
+  provider: SocialProvider;
+  id_token: string;
+  /** The raw nonce; the backend checks it against the one inside the token. */
+  nonce?: string;
+  /** Role and Terms are only read when this sign-in creates the account. */
+  role?: Exclude<UserRole, "admin">;
+  tos_accepted?: boolean;
+  /** Apple gives the name to the app once, on first consent, never in the token. */
+  first_name?: string;
+  last_name?: string;
+};
+
+export type SocialLoginResponse = TokenResponse & {
+  provider: SocialProvider;
+  is_new_user: boolean;
+  linked_social_account: boolean;
 };
 
 export type UserProfilePatchPayload = {

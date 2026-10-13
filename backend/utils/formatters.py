@@ -17,6 +17,12 @@ def format_user_response(user):
         "is_banned": user.is_banned,
         "email_verified": user.email_verified_at is not None,
         "phone_verified": user.phone_verified_at is not None,
+        "identity_verification_status": getattr(
+            user, "identity_verification_status", None
+        ),
+        "qualification_verification_status": getattr(
+            user, "qualification_verification_status", None
+        ),
         "last_login_at": user.last_login_at,
         "created_at": user.created_at,
     }
@@ -62,10 +68,12 @@ def format_provider_certificate_response(certificate):
     }
 
 
-def format_provider_profile_response(profile, db=None):
+def format_provider_profile_response(
+    profile, db=None, *, include_verification_documents: bool = True
+):
     certificate_files = []
 
-    if db is not None:
+    if db is not None and include_verification_documents:
         from backend import models
 
         certificate_files = (
@@ -81,7 +89,11 @@ def format_provider_profile_response(profile, db=None):
         format_provider_certificate_response(certificate)
         for certificate in certificate_files
     ]
-    if not formatted_certificate_files and profile.certificate_url:
+    if (
+        include_verification_documents
+        and not formatted_certificate_files
+        and profile.certificate_url
+    ):
         formatted_certificate_files = [
             {
                 "id": 0,
@@ -106,13 +118,16 @@ def format_provider_profile_response(profile, db=None):
         "service_location_id": profile.service_location_id,
         "latitude": profile.latitude,
         "longitude": profile.longitude,
-        "service_radius_km": profile.service_radius_km,
+        "business_place_id": getattr(profile, "business_place_id", None),
         "tags": tags_to_list(profile.tags),
-        "certificate_name": profile.certificate_name,
-        "certificate_url": profile.certificate_url,
+        "certificate_name": (
+            profile.certificate_name if include_verification_documents else ""
+        ),
+        "certificate_url": (
+            profile.certificate_url if include_verification_documents else ""
+        ),
         "certificate_files": formatted_certificate_files,
         "hourly_rate": profile.hourly_rate,
-        "experience_years": profile.experience_years,
         "verification_status": profile.verification_status,
         "entity_type": getattr(profile, "entity_type", "personal"),
         "identity_verification_status": getattr(
@@ -214,6 +229,8 @@ def format_booking_attachment_response(attachment):
         "id": attachment.id,
         "booking_id": attachment.booking_id,
         "uploaded_by_user_id": attachment.uploaded_by_user_id,
+        "quote_revision_id": attachment.quote_revision_id,
+        "purpose": attachment.purpose,
         "original_file_name": attachment.original_file_name,
         "file_name": attachment.file_name,
         "file_url": attachment.file_url,
@@ -230,6 +247,7 @@ def format_booking_response(booking):
         "provider_profile_id": booking.provider_profile_id,
         "chat_room_id": booking.chat_room_id,
         "title": booking.title,
+        "service_category": booking.service_category,
         "service_description": booking.service_description,
         "service_address": booking.service_address,
         "service_latitude": booking.service_latitude,
@@ -244,9 +262,23 @@ def format_booking_response(booking):
         "total_amount": booking.total_amount,
         "quote_amount": booking.quote_amount,
         "quote_message": booking.quote_message,
+        "expected_service_amount": booking.expected_service_amount,
+        "visit_fee_amount": booking.visit_fee_amount,
+        "final_quote_amount": booking.final_quote_amount,
+        "final_quote_message": booking.final_quote_message,
         "quoted_at": booking.quoted_at,
+        "arrival_started_at": booking.arrival_started_at,
+        "final_quote_declined_at": booking.final_quote_declined_at,
+        "final_quote_decline_reason": booking.final_quote_decline_reason,
+        "final_quote_confirmed_at": booking.final_quote_confirmed_at,
+        "closed_reason": booking.closed_reason,
         "status": booking.status,
         "status_note": booking.status_note,
+        "booking_notice": (
+            "This booking is temporarily unable to continue."
+            if booking.onboarding_paused
+            else None
+        ),
     }
 
 

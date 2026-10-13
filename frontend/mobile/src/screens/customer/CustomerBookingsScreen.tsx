@@ -1,10 +1,14 @@
-import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,49 +17,92 @@ import {
 
 import {
   acceptCustomerBookingQuote,
+  acceptCustomerFinalQuote,
   appealCustomerRefund,
   cancelCustomerBooking,
+  cancelCustomerBookingAfterVisit,
   cancelCustomerRefund,
   confirmCustomerBookingComplete,
   createCustomerReview,
   getCustomerBookings,
+  getCustomerPayments,
   payCustomerBooking,
   rejectCustomerBookingQuote,
+  rejectCustomerFinalQuote,
   requestCustomerRefund,
 } from "../../api/customer";
+import { getBookingById } from "../../api/chat";
 import { CustomerReviewModal } from "../../components/CustomerReviewModal";
+import { useConfirmation } from "../../utils/useConfirmation";
+import { CompletionProofGallery } from "../../components/CompletionProofGallery";
+import { CustomerBookingDetailModal } from "../../components/CustomerBookingDetailModal";
+import { BookingPriceBreakdown } from "../../components/BookingPriceBreakdown";
+import { BookingCoreDetails } from "../../components/BookingCoreDetails";
+import { BookingContextInformation } from "../../components/BookingContextInformation";
+import { ActionReasonModal } from "../../components/ActionReasonModal";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
+import type { RootStackParamList } from "../../navigation/types";
 import { colors, radius, spacing } from "../../theme/theme";
-import type { BookingDetail, RefundServiceStage } from "../../types/booking";
+import type {
+  BookingActionResponseData,
+  BookingDetail,
+  PaymentSummary,
+} from "../../types/booking";
+import { getPaymentStatusLabel } from "../../constants/labels";
 import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney, formatPayLabel } from "../../utils/money";
+import {
+  createPaymentIdempotencyKey,
+  getPaymentAction,
+  getPaymentStatusTone,
+  indexLatestPayments,
+  shouldRotatePaymentIdempotencyKey,
+} from "../../utils/payment";
+import {
+  canCustomerCancelBooking,
+  canCustomerRequestRefund,
+  getCustomerBookingListAction,
+  shouldShowFinalQuote,
+  shouldShowInitialQuote,
+  shouldShowInitialQuoteHistory,
+} from "../../utils/bookingActions";
+import { createLatestRequestGuard } from "../../utils/latestRequest";
+import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
 
-const CANCELLABLE_STATUSES = ["pending", "quoted", "awaiting_payment"];
-const HIDDEN_ORDER_STATUSES = ["completed", "cancelled", "rejected", "refunded"];
-const REFUND_SERVICE_STAGES: Array<{
-  label: string;
-  value: RefundServiceStage;
-}> = [
-  { label: "Not started", value: "not_started" },
-  { label: "In progress", value: "in_progress" },
-  { label: "Service completed", value: "service_completed" },
+const HIDDEN_ORDER_STATUSES = [
+  "completed",
+  "cancelled",
+  "rejected",
+  "refunded",
+  "partially_refunded",
+  "visit_completed_closed",
 ];
-
+type ReasonAction = "decline_quote" | "decline_final_quote" | "refund";
 export function CustomerBookingsScreen() {
+  const navigation = useNavigation<
+    NativeStackNavigationProp<RootStackParamList>
+  >();
+  const { confirmationModal, requestConfirmation } = useConfirmation();
+  const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  const [paymentsByBookingId, setPaymentsByBookingId] = useState<
+    Record<number, PaymentSummary>
+  >({});
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
+  const paymentInFlightRef = useRef(false);
+  const paymentIdempotencyKeysRef = useRef<Record<number, string>>({});
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [rejectReason, setRejectReason] = useState("");
-  const [refundServiceStage, setRefundServiceStage] =
-    useState<RefundServiceStage>("in_progress");
   const [refundReason, setRefundReason] = useState("");
+  const [refundAmount, setRefundAmount] = useState("");
   const [refundAppealReason, setRefundAppealReason] = useState("");
+  const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null);
   const [reviewBooking, setReviewBooking] = useState<BookingDetail | null>(null);
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -63,8 +110,18 @@ export function CustomerBookingsScreen() {
   const loadBookings = useCallback(async () => {
     setMessage("");
     try {
-      const result = await getCustomerBookings(undefined, 1, 100);
+      const [result, paymentResult] = await Promise.all([
+        getCustomerBookings(undefined, 1, 100),
+        getCustomerPayments(1, 100),
+      ]);
+      const payments = paymentResult?.items ?? [];
+      payments.forEach((payment) => {
+        if (shouldRotatePaymentIdempotencyKey(payment)) {
+          delete paymentIdempotencyKeysRef.current[payment.booking_id];
+        }
+      });
       setBookings(filterActiveBookings(result?.items ?? []));
+      setPaymentsByBookingId(indexLatestPayments(payments));
     } catch (error) {
       setMessage(getErrorMessage(error));
     }
@@ -76,9 +133,19 @@ export function CustomerBookingsScreen() {
     async function loadInitialBookings() {
       setIsLoading(true);
       try {
-        const result = await getCustomerBookings(undefined, 1, 100);
+        const [result, paymentResult] = await Promise.all([
+          getCustomerBookings(undefined, 1, 100),
+          getCustomerPayments(1, 100),
+        ]);
         if (isActive) {
+          const payments = paymentResult?.items ?? [];
+          payments.forEach((payment) => {
+            if (shouldRotatePaymentIdempotencyKey(payment)) {
+              delete paymentIdempotencyKeysRef.current[payment.booking_id];
+            }
+          });
           setBookings(filterActiveBookings(result?.items ?? []));
+          setPaymentsByBookingId(indexLatestPayments(payments));
         }
       } catch (error) {
         if (isActive) {
@@ -98,37 +165,109 @@ export function CustomerBookingsScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (
+        previousState.match(/inactive|background/) &&
+        nextState === "active"
+      ) {
+        void loadBookings();
+      }
+      previousState = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [loadBookings]);
+
   useFocusEffect(
     useCallback(() => {
       void loadBookings();
     }, [loadBookings]),
   );
 
-  function openBooking(booking: BookingDetail) {
-    setSelectedBooking(booking);
+  useEffect(
+    () => () => openBookingRequestGuard.invalidate(),
+    [openBookingRequestGuard],
+  );
+
+  async function openBooking(booking: BookingDetail) {
+    const requestGeneration = openBookingRequestGuard.begin();
+    const detail = await resolveBookingReferenceDetail(booking, getBookingById);
+    if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
+    setSelectedBooking(detail);
     setRejectReason("");
-    setRefundServiceStage(getDefaultRefundServiceStage(booking.status));
     setRefundReason("");
+    setRefundAmount("");
     setRefundAppealReason("");
     setActionError("");
+    setReasonAction(null);
+  }
+
+  function updateSelectedBooking(booking: BookingDetail) {
+    setSelectedBooking((current) => ({
+      ...booking,
+      reference_price_range:
+        booking.reference_price_range ?? current?.reference_price_range,
+    }));
   }
 
   function closeBooking() {
+    openBookingRequestGuard.invalidate();
     setSelectedBooking(null);
     setRejectReason("");
-    setRefundServiceStage("in_progress");
     setRefundReason("");
+    setRefundAmount("");
     setRefundAppealReason("");
+    setActionError("");
+    setReasonAction(null);
+  }
+
+  async function openReasonDialog(booking: BookingDetail, action: ReasonAction) {
+    const requestGeneration = openBookingRequestGuard.begin();
+    const detail = await resolveBookingReferenceDetail(booking, getBookingById);
+    if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
+    setSelectedBooking(detail);
+    setReasonAction(action);
     setActionError("");
   }
 
-  function openRefundForm(booking: BookingDetail) {
-    openBooking(booking);
-    setActionError("Select the service stage and enter a refund reason.");
+  function confirmReasonAction() {
+    if (!selectedBooking || !reasonAction) {
+      return;
+    }
+    if (!rejectReason.trim() && reasonAction !== "refund") {
+      setActionError("Enter a reason for declining the quote.");
+      return;
+    }
+    if (reasonAction === "refund" && !refundReason.trim()) {
+      setActionError("Enter a refund reason.");
+      return;
+    }
+    if (reasonAction === "refund") {
+      const parsedAmount = refundAmount.trim() ? Number(refundAmount) : undefined;
+      const paidAmount = paymentsByBookingId[selectedBooking.id]?.amount ?? selectedBooking.quote_amount;
+      if (
+        parsedAmount !== undefined &&
+        (!Number.isFinite(parsedAmount) || parsedAmount <= 0 || (paidAmount != null && parsedAmount > paidAmount))
+      ) {
+        setActionError("Refund amount must be greater than 0 and no more than the paid amount.");
+        return;
+      }
+    }
+    const action = reasonAction;
+    setReasonAction(null);
+    if (action === "decline_quote") {
+      void handleRejectQuote(selectedBooking);
+    } else if (action === "decline_final_quote") {
+      void handleRejectFinalQuote(selectedBooking);
+    } else {
+      void handleRequestRefund(selectedBooking);
+    }
   }
 
   async function runBookingAction(
-    action: () => Promise<{ booking?: BookingDetail } | null | undefined>,
+    action: () => Promise<BookingActionResponseData | null | undefined>,
     successMessage: string,
   ) {
     setIsActing(true);
@@ -136,7 +275,9 @@ export function CustomerBookingsScreen() {
     try {
       const result = await action();
       if (result?.booking) {
-        setSelectedBooking(result.booking);
+        updateSelectedBooking(
+          await resolveBookingReferenceDetail(result.booking, getBookingById),
+        );
       }
       await loadBookings();
       Alert.alert("Success", successMessage);
@@ -167,11 +308,88 @@ export function CustomerBookingsScreen() {
     );
   }
 
-  async function handlePayBooking(booking: BookingDetail) {
+  async function handleAcceptFinalQuote(booking: BookingDetail) {
     await runBookingAction(
-      () => payCustomerBooking(booking.id),
-      "Payment successful. The booking is in progress.",
+      () => acceptCustomerFinalQuote(booking.id),
+      "Final quote accepted. Service payment is due.",
     );
+  }
+
+  async function handleRejectFinalQuote(booking: BookingDetail) {
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setActionError("Enter a reason for declining the final quote.");
+      return;
+    }
+    await runBookingAction(
+      () => rejectCustomerFinalQuote(booking.id, reason),
+      "Final quote declined. The provider can submit a revised quote.",
+    );
+  }
+
+  async function handlePayBooking(booking: BookingDetail) {
+    if (paymentInFlightRef.current) {
+      return;
+    }
+
+    paymentInFlightRef.current = true;
+    setIsActing(true);
+    setActionError("");
+    try {
+      const idempotencyKey =
+        paymentIdempotencyKeysRef.current[booking.id] ??
+        (paymentIdempotencyKeysRef.current[booking.id] =
+          createPaymentIdempotencyKey());
+      const paymentStage =
+        booking.status === "awaiting_service_payment" ? "service_fee" : "visit_fee";
+      const result = await payCustomerBooking(
+        booking.id,
+        "iyzico_checkout",
+        idempotencyKey,
+        paymentStage,
+      );
+      const payment = result?.payment;
+      if (result?.booking) {
+        updateSelectedBooking(
+          await resolveBookingReferenceDetail(result.booking, getBookingById),
+        );
+      }
+      if (payment) {
+        setPaymentsByBookingId((current) => ({
+          ...current,
+          [payment.booking_id]: payment,
+        }));
+      }
+
+      if (shouldRotatePaymentIdempotencyKey(payment)) {
+        delete paymentIdempotencyKeysRef.current[booking.id];
+      }
+
+      if (result?.payment_page_url) {
+        delete paymentIdempotencyKeysRef.current[booking.id];
+        await Linking.openURL(result.payment_page_url);
+        setMessage("iyzico checkout opened. Return here after payment to refresh the status.");
+        void loadBookings();
+      } else if (payment?.status) {
+        setMessage(`Payment status: ${getPaymentStatusLabel(payment.status)}.`);
+      } else {
+        setMessage("Payment checkout is being prepared. Refresh this page shortly.");
+      }
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      paymentInFlightRef.current = false;
+      setIsActing(false);
+    }
+  }
+
+  function openProvider(booking: BookingDetail) {
+    if (Platform.OS === "web") {
+      closeBooking();
+    }
+    navigation.navigate("CustomerProviderDetail", {
+      providerId: booking.provider_profile_id,
+    });
   }
 
   async function handleCancelBooking(booking: BookingDetail) {
@@ -181,6 +399,31 @@ export function CustomerBookingsScreen() {
     );
   }
 
+  async function handleCancelAfterVisit(booking: BookingDetail) {
+    await runBookingAction(
+      () => cancelCustomerBookingAfterVisit(booking.id),
+      "Booking cancelled.",
+    );
+  }
+
+  function confirmCancelBooking(booking: BookingDetail) {
+    requestConfirmation({
+      title: "Cancel booking?",
+      message: "This booking will be cancelled and this action cannot be undone. Any paid amount will not be refunded automatically. If you need a refund, use the refund process separately.",
+      onConfirm: () => void handleCancelBooking(booking),
+      confirmLabel: "Cancel",
+    });
+  }
+
+  function confirmCancelAfterVisit(booking: BookingDetail) {
+    requestConfirmation({
+      title: "Cancel booking?",
+      message: "The booking will be closed without requesting a refund. Any paid amount will not be refunded automatically. If you need a refund, use the refund process separately.",
+      onConfirm: () => void handleCancelAfterVisit(booking),
+      confirmLabel: "Cancel",
+    });
+  }
+
   async function handleRequestRefund(booking: BookingDetail) {
     const reason = refundReason.trim();
     if (!reason) {
@@ -188,8 +431,25 @@ export function CustomerBookingsScreen() {
       return;
     }
 
+    const parsedAmount = refundAmount.trim() ? Number(refundAmount) : undefined;
+    const paidAmount = paymentsByBookingId[booking.id]?.amount ?? booking.quote_amount;
+    if (
+      parsedAmount !== undefined &&
+      (!Number.isFinite(parsedAmount) ||
+        parsedAmount <= 0 ||
+        (paidAmount != null && parsedAmount > paidAmount))
+    ) {
+      setActionError("Refund amount must be greater than 0 and no more than the paid amount.");
+      return;
+    }
+
     await runBookingAction(
-      () => requestCustomerRefund(booking.id, refundServiceStage, reason),
+      () =>
+        requestCustomerRefund(
+          booking.id,
+          reason,
+          parsedAmount,
+        ),
       "Refund request sent.",
     );
   }
@@ -230,6 +490,18 @@ export function CustomerBookingsScreen() {
     setActionError("");
     try {
       const result = await confirmCustomerBookingComplete(booking.id);
+      if (result?.payment_page_url) {
+        updateSelectedBooking(
+          await resolveBookingReferenceDetail(
+            result.booking ?? booking,
+            getBookingById,
+          ),
+        );
+        await Linking.openURL(result.payment_page_url);
+        setMessage("The final quote changed. Complete the new authorization, then confirm again.");
+        await loadBookings();
+        return;
+      }
       setSelectedBooking(null);
       await loadBookings();
       setReviewError("");
@@ -244,6 +516,15 @@ export function CustomerBookingsScreen() {
     } finally {
       setIsActing(false);
     }
+  }
+
+  function confirmCancelRefund(booking: BookingDetail) {
+    requestConfirmation({
+      title: "Cancel refund request?",
+      message: "The refund request will be withdrawn. You can submit a new request later if the booking remains eligible.",
+      onConfirm: () => void handleCancelRefund(booking),
+      confirmLabel: "Cancel refund",
+    });
   }
 
   async function handleSubmitReview(rating: number, comment: string) {
@@ -291,41 +572,71 @@ export function CustomerBookingsScreen() {
           {bookings.map((booking) => (
             <BookingCard
               booking={booking}
+              payment={paymentsByBookingId[booking.id]}
               disabled={isActing}
               key={booking.id}
               onAcceptQuote={handleAcceptQuote}
-        onCancel={handleCancelBooking}
-        onConfirmComplete={handleConfirmComplete}
-        onOpen={openBooking}
-        onPay={handlePayBooking}
-        onRequestRefund={openRefundForm}
+              onAcceptFinalQuote={handleAcceptFinalQuote}
+              onConfirmComplete={handleConfirmComplete}
+              onOpen={openBooking}
+              onPay={handlePayBooking}
             />
           ))}
         </View>
       )}
 
-      <BookingDetailModal
+      <CustomerBookingDetailModal
         actionError={actionError}
         booking={selectedBooking}
+        payment={selectedBooking ? paymentsByBookingId[selectedBooking.id] : null}
         isActing={isActing}
-        onAcceptQuote={handleAcceptQuote}
-        onAppealRefund={handleAppealRefund}
-        onCancel={handleCancelBooking}
-        onCancelRefund={handleCancelRefund}
+        onAcceptQuote={() => selectedBooking && void handleAcceptQuote(selectedBooking)}
+        onAcceptFinalQuote={() => selectedBooking && void handleAcceptFinalQuote(selectedBooking)}
+        onAppealRefund={() => selectedBooking && void handleAppealRefund(selectedBooking)}
+        onCancel={() => selectedBooking && confirmCancelBooking(selectedBooking)}
+        onCancelAfterVisit={() => selectedBooking && confirmCancelAfterVisit(selectedBooking)}
+        onCancelRefund={() => selectedBooking && confirmCancelRefund(selectedBooking)}
         onClose={closeBooking}
-        onConfirmComplete={handleConfirmComplete}
-        onPay={handlePayBooking}
-        onRejectQuote={handleRejectQuote}
-        onRequestRefund={handleRequestRefund}
+        onConfirmComplete={() => selectedBooking && void handleConfirmComplete(selectedBooking)}
+        onPay={() => selectedBooking && void handlePayBooking(selectedBooking)}
+        onOpenProvider={openProvider}
+        onRejectQuote={() => selectedBooking && void openReasonDialog(selectedBooking, "decline_quote")}
+        onRejectFinalQuote={() => selectedBooking && void openReasonDialog(selectedBooking, "decline_final_quote")}
+        onRequestRefund={() => selectedBooking && void openReasonDialog(selectedBooking, "refund")}
         refundAppealReason={refundAppealReason}
+        refundAmount={refundAmount}
         refundReason={refundReason}
-        refundServiceStage={refundServiceStage}
-        rejectReason={rejectReason}
         setRefundAppealReason={setRefundAppealReason}
+        setRefundAmount={(value) => {
+          setRefundAmount(value);
+          setActionError("");
+        }}
         setRefundReason={setRefundReason}
-        setRefundServiceStage={setRefundServiceStage}
-        setRejectReason={setRejectReason}
       />
+
+      {selectedBooking && reasonAction ? (
+        <ActionReasonModal
+          amount={refundAmount}
+          amountLabel="Refund amount (optional)"
+          confirmLabel={reasonAction === "refund" ? "Request refund" : "Submit decline"}
+          onCancel={() => setReasonAction(null)}
+          onChangeAmount={reasonAction === "refund" ? setRefundAmount : undefined}
+          onChangeReason={reasonAction === "refund" ? setRefundReason : setRejectReason}
+          onConfirm={confirmReasonAction}
+          reason={reasonAction === "refund" ? refundReason : rejectReason}
+          reasonLabel={reasonAction === "refund" ? "Refund reason" : "Decline reason"}
+          title={
+            reasonAction === "refund"
+              ? "Request a refund"
+              : reasonAction === "decline_final_quote"
+                ? "Decline final quote"
+                : "Decline quote"
+          }
+          error={actionError}
+        />
+      ) : null}
+
+      {confirmationModal}
 
       <CustomerReviewModal
         booking={reviewBooking}
@@ -341,29 +652,37 @@ export function CustomerBookingsScreen() {
 function BookingCard({
   booking,
   disabled,
+  payment,
   onAcceptQuote,
-  onCancel,
+  onAcceptFinalQuote,
   onConfirmComplete,
   onOpen,
   onPay,
-  onRequestRefund,
 }: {
   booking: BookingDetail;
   disabled: boolean;
+  payment?: PaymentSummary | null;
   onAcceptQuote: (booking: BookingDetail) => void;
-  onCancel: (booking: BookingDetail) => void;
+  onAcceptFinalQuote: (booking: BookingDetail) => void;
   onConfirmComplete: (booking: BookingDetail) => void;
   onOpen: (booking: BookingDetail) => void;
   onPay: (booking: BookingDetail) => void;
-  onRequestRefund: (booking: BookingDetail) => void;
 }) {
-  const canPay = booking.status === "awaiting_payment";
-  const canAcceptQuote = booking.status === "quoted";
-  const canCancel = CANCELLABLE_STATUSES.includes(String(booking.status));
-  const canRequestRefund = ["accepted", "awaiting_confirmation"].includes(
-    String(booking.status),
-  );
-  const canConfirmComplete = booking.status === "awaiting_confirmation";
+  const listAction = getCustomerBookingListAction(booking, payment);
+  const paymentAction = getPaymentAction(booking.status, payment);
+  const payableAmount =
+    booking.status === "awaiting_service_payment"
+      ? booking.final_quote_amount ?? booking.quote_amount
+      : booking.visit_fee_amount ?? booking.quote_amount;
+  const payableLabel =
+    booking.status === "awaiting_service_payment" ? "Service amount" : "Visit fee";
+  const showAcceptedFinalQuoteAmounts =
+    [
+      "awaiting_service_payment",
+      "service_paid",
+      "awaiting_confirmation",
+      "accepted",
+    ].includes(String(booking.status)) && booking.final_quote_amount != null;
 
   return (
     <Pressable
@@ -373,14 +692,26 @@ function BookingCard({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleGroup}>
-          <Text style={styles.cardTitle}>Booking #{booking.id}</Text>
+          <Text style={styles.cardTitle}>{booking.title || `Booking #${booking.id}`}</Text>
           <Text style={styles.providerName}>
             {booking.provider?.business_name || `Provider #${booking.provider_profile_id}`}
           </Text>
         </View>
-        <Text style={[styles.statusBadge, getStatusBadgeStyle(booking.status)]}>
-          {getBookingStatusLabel(booking.status)}
-        </Text>
+        <View style={styles.statusStack}>
+          <Text style={[styles.statusBadge, getStatusBadgeStyle(booking.status)]}>
+            {getBookingStatusLabel(booking.status)}
+          </Text>
+          {payment ? (
+            <Text
+              style={[
+                styles.statusBadge,
+                getPaymentBadgeStyle(payment.status),
+              ]}
+            >
+              {getPaymentStatusLabel(payment.status)}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       <Text numberOfLines={2} style={styles.description}>
@@ -393,49 +724,63 @@ function BookingCard({
       <Text numberOfLines={1} style={styles.metaText}>
         {booking.service_address}
       </Text>
-      <Text style={styles.amountText}>
-        {booking.quote_amount == null ? "Awaiting quote" : formatMoney(booking.quote_amount)}
-      </Text>
+      {showAcceptedFinalQuoteAmounts ? (
+        <>
+          <Text style={styles.amountText}>
+            {booking.visit_fee_amount == null
+              ? "Awaiting visit fee"
+              : `Visit fee: ${formatMoney(booking.visit_fee_amount)}`}
+          </Text>
+          <Text style={styles.amountText}>
+            Service amount: {formatMoney(booking.final_quote_amount ?? 0)}
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.amountText}>
+          {payableAmount == null
+            ? booking.status === "awaiting_service_payment"
+              ? "Awaiting service amount"
+              : "Awaiting visit fee"
+            : `${payableLabel}: ${formatMoney(payableAmount)}`}
+        </Text>
+      )}
       {booking.current_refund_request ? (
         <Text style={styles.refundText}>
           Refund: {getRefundStatusLabel(booking.current_refund_request.status)}
         </Text>
       ) : null}
 
-      {canAcceptQuote || canPay || canCancel || canRequestRefund || canConfirmComplete ? (
+      {listAction ? (
         <View style={styles.cardActions}>
-          {canCancel ? (
-            <SecondaryButton
-              disabled={disabled}
-              label="Cancel booking"
-              onPress={() => onCancel(booking)}
-            />
-          ) : null}
-          {canAcceptQuote ? (
+          {listAction === "accept_quote" ? (
             <PrimaryButton
               disabled={disabled}
               label="Accept quote"
               onPress={() => onAcceptQuote(booking)}
             />
           ) : null}
-          {canConfirmComplete ? (
+          {listAction === "accept_final_quote" ? (
+            <PrimaryButton
+              disabled={disabled}
+              label="Accept final quote"
+              onPress={() => onAcceptFinalQuote(booking)}
+            />
+          ) : null}
+          {listAction === "confirm_complete" ? (
             <PrimaryButton
               disabled={disabled}
               label="Confirm complete"
               onPress={() => onConfirmComplete(booking)}
             />
           ) : null}
-          {canRequestRefund ? (
-            <SecondaryButton
-              disabled={disabled}
-              label="Request refund"
-              onPress={() => onRequestRefund(booking)}
-            />
-          ) : null}
-          {canPay ? (
+          {listAction === "pay" ? (
             <PrimaryButton
               disabled={disabled}
-              label={formatPayLabel(booking.quote_amount)}
+              label={
+                paymentAction === "continue"
+                  ? "Continue payment"
+                  : formatPayLabel(payableAmount)
+              }
               onPress={() => onPay(booking)}
             />
           ) : null}
@@ -445,278 +790,31 @@ function BookingCard({
   );
 }
 
-function BookingDetailModal({
-  actionError,
-  booking,
-  isActing,
-  onAcceptQuote,
-  onAppealRefund,
-  onCancel,
-  onCancelRefund,
-  onClose,
-  onConfirmComplete,
-  onPay,
-  onRejectQuote,
-  onRequestRefund,
-  refundAppealReason,
-  refundReason,
-  refundServiceStage,
-  rejectReason,
-  setRefundAppealReason,
-  setRefundReason,
-  setRefundServiceStage,
-  setRejectReason,
+
+function DetailRow({
+  label,
+  onPress,
+  value,
 }: {
-  actionError: string;
-  booking: BookingDetail | null;
-  isActing: boolean;
-  onAcceptQuote: (booking: BookingDetail) => void;
-  onAppealRefund: (booking: BookingDetail) => void;
-  onCancel: (booking: BookingDetail) => void;
-  onCancelRefund: (booking: BookingDetail) => void;
-  onClose: () => void;
-  onConfirmComplete: (booking: BookingDetail) => void;
-  onPay: (booking: BookingDetail) => void;
-  onRejectQuote: (booking: BookingDetail) => void;
-  onRequestRefund: (booking: BookingDetail) => void;
-  refundAppealReason: string;
-  refundReason: string;
-  refundServiceStage: RefundServiceStage;
-  rejectReason: string;
-  setRefundAppealReason: (value: string) => void;
-  setRefundReason: (value: string) => void;
-  setRefundServiceStage: (value: RefundServiceStage) => void;
-  setRejectReason: (value: string) => void;
+  label: string;
+  onPress?: () => void;
+  value: string;
 }) {
-  if (!booking) {
-    return null;
-  }
-
-  const canRejectQuote = booking.status === "quoted";
-  const canAcceptQuote = booking.status === "quoted";
-  const canPay = booking.status === "awaiting_payment";
-  const canCancel = CANCELLABLE_STATUSES.includes(String(booking.status));
-  const canRequestRefund = ["accepted", "awaiting_confirmation"].includes(
-    String(booking.status),
-  );
-  const canConfirmComplete = booking.status === "awaiting_confirmation";
-  const canCancelRefund =
-    booking.status === "refunding" &&
-    ["pending", "rejected"].includes(
-      String(booking.current_refund_request?.status || ""),
-    );
-  const canAppealRefund =
-    booking.status === "refunding" &&
-    booking.current_refund_request?.status === "rejected";
-
-  return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
-          <ScrollView contentContainerStyle={styles.detailContent}>
-            <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
-            <DetailRow
-              label="Provider"
-              value={
-                booking.provider?.business_name || `Provider #${booking.provider_profile_id}`
-              }
-            />
-            <DetailRow label="Service description" value={booking.service_description} />
-            <DetailRow label="Service address" value={booking.service_address} />
-            <DetailRow
-              label="Scheduled time"
-              value={`${formatDateTime(booking.scheduled_start_time)} - ${formatDateTime(
-                booking.scheduled_end_time,
-              )}`}
-            />
-            <DetailRow
-              label="Quote amount"
-              value={
-                booking.quote_amount == null ? "—" : formatMoney(booking.quote_amount)
-              }
-            />
-            <DetailRow label="Quote notes" value={booking.quote_message || "—"} />
-            <DetailRow label="Notes" value={booking.status_note || "—"} />
-            {booking.current_refund_request ? (
-              <>
-                <DetailRow
-                  label="Refund status"
-                  value={getRefundStatusLabel(booking.current_refund_request.status)}
-                />
-                <DetailRow
-                  label="Refund stage"
-                  value={getRefundServiceStageLabel(
-                    booking.current_refund_request.service_stage,
-                  )}
-                />
-                <DetailRow
-                  label="Refund reason"
-                  value={booking.current_refund_request.reason}
-                />
-                <DetailRow
-                  label="Provider response"
-                  value={booking.current_refund_request.provider_note || "—"}
-                />
-                <DetailRow
-                  label="Support response"
-                  value={booking.current_refund_request.admin_note || "—"}
-                />
-                <DetailRow
-                  label="Appeal reason"
-                  value={booking.current_refund_request.appeal_reason || "—"}
-                />
-              </>
-            ) : null}
-
-            {canRejectQuote ? (
-              <TextField
-                label="Decline reason"
-                multiline
-                numberOfLines={3}
-                onChangeText={setRejectReason}
-                placeholder="e.g. Price is too high"
-                value={rejectReason}
-              />
-            ) : null}
-
-            {canPay ? (
-              <Text style={styles.payHint}>
-                This demo charges {formatMoney(booking.quote_amount)} automatically.
-              </Text>
-            ) : null}
-
-            {canRequestRefund ? (
-              <>
-                <View style={styles.stageBox}>
-                  <Text style={styles.detailLabel}>Refund stage</Text>
-                  <View style={styles.stageOptions}>
-                    {REFUND_SERVICE_STAGES.map((stage) => (
-                      <Pressable
-                        accessibilityRole="button"
-                        key={stage.value}
-                        onPress={() => setRefundServiceStage(stage.value)}
-                        style={[
-                          styles.stageButton,
-                          refundServiceStage === stage.value
-                            ? styles.stageButtonActive
-                            : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.stageButtonText,
-                            refundServiceStage === stage.value
-                              ? styles.stageButtonTextActive
-                              : null,
-                          ]}
-                        >
-                          {stage.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-                <TextField
-                  label="Refund reason"
-                  multiline
-                  numberOfLines={3}
-                  onChangeText={setRefundReason}
-                  placeholder="Reason for refund"
-                  value={refundReason}
-                />
-              </>
-            ) : null}
-
-            {canAppealRefund ? (
-              <TextField
-                label="Appeal reason"
-                multiline
-                numberOfLines={3}
-                onChangeText={setRefundAppealReason}
-                  placeholder="Reason for appeal"
-                value={refundAppealReason}
-              />
-            ) : null}
-
-          </ScrollView>
-
-          {actionError ? <Text style={styles.actionErrorText}>{actionError}</Text> : null}
-
-          <View style={styles.modalActions}>
-            <SecondaryButton disabled={isActing} label="Close" onPress={onClose} />
-            {canCancel ? (
-              <SecondaryButton
-                disabled={isActing}
-                label="Cancel booking"
-                onPress={() => onCancel(booking)}
-              />
-            ) : null}
-            {canRejectQuote ? (
-              <SecondaryButton
-                disabled={isActing}
-                label="Decline quote"
-                onPress={() => onRejectQuote(booking)}
-              />
-            ) : null}
-            {canAcceptQuote ? (
-              <PrimaryButton
-                disabled={isActing}
-                isLoading={isActing}
-                label="Accept quote"
-                onPress={() => onAcceptQuote(booking)}
-              />
-            ) : null}
-            {canConfirmComplete ? (
-              <PrimaryButton
-                disabled={isActing}
-                isLoading={isActing}
-                label="Confirm complete"
-                onPress={() => onConfirmComplete(booking)}
-              />
-            ) : null}
-            {canRequestRefund ? (
-              <SecondaryButton
-                disabled={isActing}
-                label="Request refund"
-                onPress={() => onRequestRefund(booking)}
-              />
-            ) : null}
-            {canCancelRefund ? (
-              <SecondaryButton
-                disabled={isActing}
-                label="Cancel refund"
-                onPress={() => onCancelRefund(booking)}
-              />
-            ) : null}
-            {canAppealRefund ? (
-              <PrimaryButton
-                disabled={isActing}
-                isLoading={isActing}
-                label="Submit appeal"
-                onPress={() => onAppealRefund(booking)}
-              />
-            ) : null}
-            {canPay ? (
-              <PrimaryButton
-                disabled={isActing}
-                isLoading={isActing}
-                label={formatPayLabel(booking.quote_amount)}
-                onPress={() => onPay(booking)}
-              />
-            ) : null}
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      {onPress ? (
+        <Pressable
+          accessibilityHint="Opens the provider profile"
+          accessibilityLabel={`Open ${value}`}
+          accessibilityRole="link"
+          onPress={onPress}
+        >
+          <Text style={[styles.detailValue, styles.detailLink]}>{value}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.detailValue}>{value}</Text>
+      )}
     </View>
   );
 }
@@ -730,6 +828,7 @@ function getBookingStatusLabel(status: string) {
     rejected: "Declined",
     refunding: "Refund in progress",
     refunded: "Refunded",
+    partially_refunded: "Partially refunded",
     awaiting_confirmation: "Awaiting confirmation",
     completed: "Completed",
     cancelled: "Cancelled",
@@ -751,24 +850,6 @@ function getRefundStatusLabel(status: string) {
   return labels[status] || status;
 }
 
-function getRefundServiceStageLabel(stage: string) {
-  const labels: Record<string, string> = {
-    not_started: "Not started",
-    in_progress: "In progress",
-    service_completed: "Service completed",
-  };
-
-  return labels[stage] || stage;
-}
-
-function getDefaultRefundServiceStage(status: string): RefundServiceStage {
-  if (status === "awaiting_confirmation") {
-    return "service_completed";
-  }
-
-  return "in_progress";
-}
-
 function filterActiveBookings(bookings: BookingDetail[]) {
   return bookings.filter(
     (booking) => !HIDDEN_ORDER_STATUSES.includes(String(booking.status)),
@@ -782,10 +863,29 @@ function getStatusBadgeStyle(status: string) {
   if (status === "accepted" || status === "completed") {
     return styles.statusSuccess;
   }
-  if (status === "cancelled" || status === "rejected" || status === "refunded") {
+  if (
+    status === "cancelled" ||
+    status === "rejected" ||
+    status === "refunded" ||
+    status === "partially_refunded"
+  ) {
     return styles.statusMuted;
   }
   return styles.statusNeutral;
+}
+
+function getPaymentBadgeStyle(status: string) {
+  const tone = getPaymentStatusTone(status);
+  if (tone === "success") {
+    return styles.statusSuccess;
+  }
+  if (tone === "danger") {
+    return styles.statusDanger;
+  }
+  if (tone === "muted") {
+    return styles.statusMuted;
+  }
+  return styles.statusWarning;
 }
 
 const styles = StyleSheet.create({
@@ -841,6 +941,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  actionHint: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   actionErrorText: {
     color: colors.danger,
     fontSize: 14,
@@ -866,6 +971,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
+  },
+  statusStack: {
+    alignItems: "flex-end",
+    gap: spacing.xs,
   },
   cardTitleGroup: {
     flex: 1,
@@ -903,6 +1012,10 @@ const styles = StyleSheet.create({
   statusMuted: {
     backgroundColor: colors.surface,
     color: colors.mutedText,
+  },
+  statusDanger: {
+    backgroundColor: "#FEF2F2",
+    color: colors.danger,
   },
   description: {
     color: colors.text,
@@ -964,6 +1077,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  detailLink: {
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontWeight: "700",
   },
   modalActions: {
     flexDirection: "row",

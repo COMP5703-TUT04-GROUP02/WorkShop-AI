@@ -9,17 +9,22 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi import HTTPException
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import CORS_ORIGINS, UPLOAD_DIR
 from backend.routers import (
     admin,
+    admin_verification,
     ai,
     auth,
     customer,
     provider,
+    provider_verification,
     public,
+    payment,
+    marketplace,
     shared,
     websocket,
 )
@@ -31,11 +36,12 @@ from backend.utils.errors import (
 from backend.utils.response import success_response
 
 Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+SAMPLE_MEDIA_DIR = Path(__file__).resolve().parent / "sample_media"
 
 OPENAPI_TAGS = [
     {
         "name": "Auth",
-        "description": "Registration, login, token refresh, logout, mock verify, and account security.",
+        "description": "Registration, login, token refresh, logout, email and phone verification, and account security.",
     },
     {
         "name": "Public",
@@ -48,6 +54,14 @@ OPENAPI_TAGS = [
     {
         "name": "Provider",
         "description": "Provider-only endpoints: profile, quotes, completion, refunds, and earnings.",
+    },
+    {
+        "name": "Payment",
+        "description": "iyzico Sandbox payment callbacks and payment-provider integration.",
+    },
+    {
+        "name": "Marketplace",
+        "description": "Provider payout details and local validation.",
     },
     {
         "name": "Admin",
@@ -76,6 +90,45 @@ app = FastAPI(
     openapi_tags=OPENAPI_TAGS,
 )
 
+
+def _normalize_file_schemas(value):
+    """Make FastAPI's OpenAPI 3.1 file schemas render in Swagger UI.
+
+    Pydantic emits ``contentMediaType`` for UploadFile values under OpenAPI
+    3.1. Swagger UI versions used by local deployments do not consistently
+    turn that representation into a file picker, especially for arrays. The
+    endpoint still receives real multipart UploadFile values; this only adds
+    the widely-supported ``format: binary`` hint to the generated contract.
+    """
+
+    if isinstance(value, dict):
+        if value.get("contentMediaType") == "application/octet-stream":
+            value.pop("contentMediaType", None)
+            value["format"] = "binary"
+        for child in value.values():
+            _normalize_file_schemas(child)
+    elif isinstance(value, list):
+        for child in value:
+            _normalize_file_schemas(child)
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    app.openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=OPENAPI_TAGS,
+    )
+    _normalize_file_schemas(app.openapi_schema)
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -89,12 +142,21 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount(
+    "/sample-media",
+    StaticFiles(directory=SAMPLE_MEDIA_DIR),
+    name="sample-media",
+)
 
 app.include_router(auth.router)
 app.include_router(public.router)
 app.include_router(customer.router)
 app.include_router(provider.router)
+app.include_router(provider_verification.router)
+app.include_router(payment.router)
+app.include_router(marketplace.router)
 app.include_router(admin.router)
+app.include_router(admin_verification.router)
 app.include_router(shared.router)
 app.include_router(ai.router)
 app.include_router(websocket.router)

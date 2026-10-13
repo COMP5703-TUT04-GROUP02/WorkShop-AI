@@ -1,19 +1,33 @@
+import axios from "axios";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { changeEmail, changePassword, verifyEmail, verifyPhone } from "../api/auth";
+import {
+  changeEmail,
+  changePassword,
+  sendEmailCode,
+  verifyEmail,
+  verifyPhone,
+} from "../api/auth";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { TextField } from "../components/TextField";
-import { VERIFY_CODE_HINT, VerifyCodeModal } from "../components/VerifyCodeModal";
+import {
+  EMAIL_CODE_HINT,
+  PHONE_CODE_HINT,
+  VerifyCodeModal,
+} from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../theme/theme";
 import { getErrorMessage } from "../utils/errors";
 
 /**
  * WS-85 and WS-88. One security screen for customers and providers:
- * demo verification for email and phone, change password, change email.
+ * email and phone verification, change password, change email.
+ *
+ * Email codes are mailed by the backend before the code modal opens. Phone
+ * verification is still a demo that accepts any six digits.
  *
  * Every write goes through the WS-84 endpoints, which return the updated user,
  * so the status shown here comes from the server rather than local guessing.
@@ -27,6 +41,9 @@ export function AccountSecurityScreen() {
   const [isSubmittingCode, setIsSubmittingCode] = useState(false);
   const [codeError, setCodeError] = useState("");
   const [verifyMessage, setVerifyMessage] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+  const [isSendingVerifyCode, setIsSendingVerifyCode] = useState(false);
+  const [resendAfterSeconds, setResendAfterSeconds] = useState(60);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -38,6 +55,56 @@ export function AccountSecurityScreen() {
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
+  const [isSendingEmailChangeCode, setIsSendingEmailChangeCode] = useState(false);
+
+  /**
+   * Mails a code, then opens the modal. A 429 means a code was sent moments
+   * ago and is still in the inbox, so the modal opens anyway with the wait
+   * shown; any other failure stays on the card.
+   */
+  async function sendCodeAndOpen(
+    action: "verify-email" | "change-email",
+    showError: (message: string) => void,
+  ) {
+    setCodeError("");
+    try {
+      const sent =
+        action === "change-email"
+          ? await sendEmailCode("change_email", newEmail.trim())
+          : await sendEmailCode("verify_email");
+      setResendAfterSeconds(sent.resend_after_seconds);
+      setPending(action);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        setCodeError(getErrorMessage(error));
+        setPending(action);
+        return;
+      }
+      showError(getErrorMessage(error));
+    }
+  }
+
+  async function handleStartEmailVerify() {
+    setVerifyMessage("");
+    setVerifyError("");
+    setIsSendingVerifyCode(true);
+    await sendCodeAndOpen("verify-email", setVerifyError);
+    setIsSendingVerifyCode(false);
+  }
+
+  async function handleResendCode() {
+    setCodeError("");
+    try {
+      if (pending === "change-email") {
+        await sendEmailCode("change_email", newEmail.trim());
+      } else {
+        await sendEmailCode("verify_email");
+      }
+    } catch (error) {
+      setCodeError(getErrorMessage(error));
+      throw error;
+    }
+  }
 
   function closeCodeModal() {
     setPending("none");
@@ -110,7 +177,7 @@ export function AccountSecurityScreen() {
     }
   }
 
-  function handleStartEmailChange() {
+  async function handleStartEmailChange() {
     setEmailError("");
     setEmailMessage("");
 
@@ -120,7 +187,9 @@ export function AccountSecurityScreen() {
       return;
     }
 
-    setPending("change-email");
+    setIsSendingEmailChangeCode(true);
+    await sendCodeAndOpen("change-email", setEmailError);
+    setIsSendingEmailChangeCode(false);
   }
 
   return (
@@ -136,11 +205,15 @@ export function AccountSecurityScreen() {
           <StatusPill verified={Boolean(user?.email_verified)} />
         </View>
         <SecondaryButton
-          label={user?.email_verified ? "Verify email again" : "Verify email"}
-          onPress={() => {
-            setVerifyMessage("");
-            setPending("verify-email");
-          }}
+          disabled={isSendingVerifyCode}
+          label={
+            isSendingVerifyCode
+              ? "Sending code..."
+              : user?.email_verified
+                ? "Verify email again"
+                : "Verify email"
+          }
+          onPress={() => void handleStartEmailVerify()}
         />
 
         <View style={styles.divider} />
@@ -158,12 +231,16 @@ export function AccountSecurityScreen() {
           label={user?.phone_verified ? "Verify phone again" : "Verify phone"}
           onPress={() => {
             setVerifyMessage("");
+            setVerifyError("");
             setPending("verify-phone");
           }}
         />
 
         {verifyMessage ? <Text style={styles.success}>{verifyMessage}</Text> : null}
-        <Text style={styles.hint}>{VERIFY_CODE_HINT}</Text>
+        {verifyError ? <Text style={styles.error}>{verifyError}</Text> : null}
+        <Text style={styles.hint}>
+          We email a 6-digit code to verify your address. {PHONE_CODE_HINT}
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -204,8 +281,8 @@ export function AccountSecurityScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Change sign-in email</Text>
         <Text style={styles.hint}>
-          We ask for a 6-digit code to confirm the change, the same demo code as
-          verification.
+          We email a 6-digit code to the new address. The change takes effect
+          once you enter it.
         </Text>
         <TextField
           keyboardType="email-address"
@@ -218,8 +295,9 @@ export function AccountSecurityScreen() {
         {emailMessage ? <Text style={styles.success}>{emailMessage}</Text> : null}
         <PrimaryButton
           disabled={!newEmail.trim()}
+          isLoading={isSendingEmailChangeCode}
           label="Send code"
-          onPress={handleStartEmailChange}
+          onPress={() => void handleStartEmailChange()}
         />
       </View>
 
@@ -235,14 +313,17 @@ export function AccountSecurityScreen() {
       <VerifyCodeModal
         description={
           pending === "change-email"
-            ? `Enter the code to confirm ${newEmail.trim()} as your sign-in email.`
+            ? `We sent a code to ${newEmail.trim()}. Enter it to make this your sign-in email.`
             : pending === "verify-phone"
               ? "Enter the code sent to the phone number on your profile."
-              : `Enter the code sent to ${user?.email ?? "your email"}.`
+              : `We sent a code to ${user?.email ?? "your email"}.`
         }
         errorMessage={codeError}
+        hint={pending === "verify-phone" ? PHONE_CODE_HINT : EMAIL_CODE_HINT}
         isSubmitting={isSubmittingCode}
         onCancel={closeCodeModal}
+        onResend={pending === "verify-phone" ? undefined : handleResendCode}
+        resendAfterSeconds={pending === "verify-phone" ? 0 : resendAfterSeconds}
         onSubmit={(code) => void handleCodeSubmit(code)}
         title={pending === "change-email" ? "Confirm new email" : "Verify"}
         visible={pending !== "none"}

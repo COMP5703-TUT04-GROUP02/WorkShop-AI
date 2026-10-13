@@ -50,9 +50,10 @@ def test_answer_prompts_follow_user_language_and_istanbul_try():
 
 def test_casual_chat_states_what_the_assistant_can_do():
     text = CASUAL_CHAT_SYSTEM_PROMPT
-    assert "nearby providers" in text
+    assert "recommend providers" in text
+    assert "answer FAQs" in text
     assert "reviews" in text
-    assert "booking" in text
+    assert "place an order" in text
 
 
 def test_intent_prompt_keeps_four_intents():
@@ -81,19 +82,19 @@ def test_tool_calling_prompt_has_four_sections_and_routing():
         assert heading in text
 
     expected_tools = {
-        "search_providers": "Find local providers",
-        "prepare_booking_draft_action": "Book, reserve, or create an order",
-        "summarize_provider_reviews": "Reviews, price, attitude, or reputation",
-        "create_chat_room": "Chat with a known provider_profile_id",
-        "get_booking_status": "One booking's status",
-        "prepare_refund_request_action": "Request a refund",
-        "prepare_pay_booking_action": "Pay or accept a quote",
+        "search_providers": "Recommend local providers",
+        "prepare_booking_draft_action": "Help place an order",
+        "summarize_provider_reviews": "Compare providers",
+        "search_help_articles": "Answer a customer FAQ",
     }
     for tool, clue in expected_tools.items():
         assert tool in text
         assert clue in text
 
-    assert "Booking overrides search" in text
+    assert "Booking overrides provider search" in text
+    assert "A provider selection by itself is booking intent" in text
+    assert "Never merely reply that the provider was selected" in text
+    assert "question asking for an opinion, reviews, reputation, or comparison" in text
     assert "Do not invent provider_profile_id" in text
     assert "user's language" in text
     assert "TRY" in text
@@ -104,3 +105,25 @@ def test_booking_draft_continuation_does_not_research_providers():
     assert "Do not call search_providers" in text
     assert "prepare_booking_draft_action" in text
     assert "user's language" in text
+
+
+def test_tool_calling_prompt_excludes_removed_tools():
+    text = TOOL_CALLING_SYSTEM_PROMPT
+    for removed_tool in (
+        "create_chat_room",
+        "get_booking_status",
+        "explain_booking_flow",
+        "get_platform_capabilities",
+        "prepare_cancel_booking_action",
+        "prepare_refund_request_action",
+        "prepare_pay_booking_action",
+        "prepare_reject_quote_action",
+        "prepare_confirm_complete_action",
+        "prepare_reject_complete_action",
+        "prepare_quote_booking_action",
+        "prepare_reject_booking_action",
+        "prepare_complete_booking_action",
+        "prepare_approve_refund_action",
+        "prepare_reject_refund_action",
+    ):
+        assert removed_tool not in text

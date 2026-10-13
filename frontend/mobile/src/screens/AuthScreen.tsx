@@ -1,9 +1,9 @@
-import { useNavigation } from "@react-navigation/native";
-import { Check } from "lucide-react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useState } from "react";
+import axios from "axios";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,10 +13,18 @@ import {
   View,
 } from "react-native";
 
+import { sendRegisterEmailCode } from "../api/auth";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RoleSegmentedControl } from "../components/RoleSegmentedControl";
 import { SecondaryButton } from "../components/SecondaryButton";
+import {
+  SocialSignInButtons,
+  type SocialCredential,
+} from "../components/SocialSignInButtons";
+import { SocialSignUpModal } from "../components/SocialSignUpModal";
+import { TermsCheckbox } from "../components/TermsCheckbox";
 import { TextField } from "../components/TextField";
+import { EMAIL_CODE_HINT } from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../navigation/types";
@@ -27,7 +35,7 @@ import { getErrorMessage } from "../utils/errors";
 type AuthMode = "login" | "register";
 
 export function AuthScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithSocial } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [mode, setMode] = useState<AuthMode>("login");
@@ -40,20 +48,135 @@ export function AuthScreen() {
   const [role, setRole] = useState<RegisterRequest["role"]>("customer");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Sign-up proves the email first: a code is mailed to it and must be
+  // entered before the account is created.
+  const [emailCode, setEmailCode] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState("");
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [codeMessage, setCodeMessage] = useState("");
+  // A Google or Apple sign-in with no account yet. Its token is sent again
+  // with the role and Terms from the sign-up sheet, so the provider is not
+  // asked twice and Apple's one-time name is not lost.
+  const [pendingSocial, setPendingSocial] = useState<SocialCredential | null>(null);
+  const [showSocialSignUp, setShowSocialSignUp] = useState(false);
+  const [socialSignUpError, setSocialSignUpError] = useState("");
+  const [isCreatingSocial, setIsCreatingSocial] = useState(false);
 
   const isRegisterMode = mode === "register";
   const isWebDesktop = useIsWebDesktop();
+  // This screen has no header, so keep the form clear of the status bar,
+  // notch and home indicator. Insets are zero on web.
+  const insets = useSafeAreaInsets();
+  const normalizedEmail = email.trim().toLowerCase();
+  // Editing the address after a code went out means the code no longer fits.
+  const hasCodeForEmail = codeSentTo !== "" && codeSentTo === normalizedEmail;
+
+  useEffect(() => {
+    if (resendIn <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setResendIn((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   function toggleMode() {
     setMode(isRegisterMode ? "login" : "register");
     setErrorMessage("");
+    setCodeMessage("");
   }
 
-  function showSocialLoginTodo(provider: "Google" | "Apple") {
-    Alert.alert(
-      `${provider} sign-in is not implemented`,
-      "This button is a reminder to connect OAuth. Use email and password for the demo.",
-    );
+  async function handleSendCode() {
+    setErrorMessage("");
+    setCodeMessage("");
+
+    if (!normalizedEmail.includes("@")) {
+      setErrorMessage("Enter your email address first.");
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const sent = await sendRegisterEmailCode(normalizedEmail);
+      setCodeSentTo(sent.sent_to);
+      setEmailCode("");
+      setResendIn(sent.resend_after_seconds);
+      setCodeMessage(`We sent a 6-digit code to ${sent.sent_to}.`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSendingCode(false);
+    }
+  }
+
+  // Coming back from the Terms or Privacy page reopens the sign-up sheet.
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingSocial) {
+        setShowSocialSignUp(true);
+      }
+    }, [pendingSocial]),
+  );
+
+  function socialPayload(credential: SocialCredential) {
+    return {
+      provider: credential.provider,
+      id_token: credential.idToken,
+      nonce: credential.nonce,
+      first_name: credential.firstName,
+      last_name: credential.lastName,
+    };
+  }
+
+  async function handleSocialCredential(credential: SocialCredential) {
+    setErrorMessage("");
+    setIsSubmitting(true);
+    try {
+      await signInWithSocial(socialPayload(credential));
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        // No account for this Google or Apple ID yet.
+        setPendingSocial(credential);
+        setSocialSignUpError("");
+        setShowSocialSignUp(true);
+      } else {
+        setErrorMessage(getErrorMessage(error));
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function completeSocialSignUp(nextRole: RegisterRequest["role"]) {
+    if (!pendingSocial) {
+      return;
+    }
+    setIsCreatingSocial(true);
+    setSocialSignUpError("");
+    try {
+      await signInWithSocial({
+        ...socialPayload(pendingSocial),
+        role: nextRole,
+        tos_accepted: true,
+      });
+      setPendingSocial(null);
+      setShowSocialSignUp(false);
+    } catch (error) {
+      setSocialSignUpError(getErrorMessage(error));
+    } finally {
+      setIsCreatingSocial(false);
+    }
+  }
+
+  function cancelSocialSignUp() {
+    setPendingSocial(null);
+    setShowSocialSignUp(false);
+  }
+
+  function openLegalFromSheet(document: "terms" | "privacy") {
+    // A modal would cover the pushed page, so hide it until we are back.
+    setShowSocialSignUp(false);
+    navigation.navigate("Legal", { document });
   }
 
   // WS-92. Checked here as well as on the server so a typo or an unticked box
@@ -61,6 +184,14 @@ export function AuthScreen() {
   function findRegisterProblem() {
     if (!firstName.trim() || !lastName.trim()) {
       return "Enter your first name and last name.";
+    }
+
+    if (!hasCodeForEmail) {
+      return "Tap Send code to get a verification code for your email.";
+    }
+
+    if (!/^\d{6}$/.test(emailCode)) {
+      return "Enter the 6-digit code from your email.";
     }
 
     if (password !== confirmPassword) {
@@ -101,6 +232,7 @@ export function AuthScreen() {
           confirm_password: confirmPassword,
           tos_accepted: termsAccepted,
           role,
+          email_code: emailCode,
           // Names are stored as typed: FDS C-R05 says not to uppercase on save.
           name: `${first} ${last}`.trim(),
         });
@@ -117,7 +249,11 @@ export function AuthScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={[styles.keyboardView, isWebDesktop ? styles.keyboardViewDesktop : null]}
+      style={[
+        styles.keyboardView,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
+        isWebDesktop ? styles.keyboardViewDesktop : null,
+      ]}
     >
       {isWebDesktop ? (
         <View style={styles.hero}>
@@ -169,13 +305,59 @@ export function AuthScreen() {
             </>
           ) : null}
 
-          <TextField
-            keyboardType="email-address"
-            label="Email"
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            value={email}
-          />
+          {isRegisterMode ? (
+            <View style={styles.emailCodeBlock}>
+              <View style={styles.emailRow}>
+                <View style={styles.emailField}>
+                  <TextField
+                    keyboardType="email-address"
+                    label="Email"
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    value={email}
+                  />
+                </View>
+                <SecondaryButton
+                  disabled={isSendingCode || (hasCodeForEmail && resendIn > 0)}
+                  label={
+                    isSendingCode
+                      ? "Sending..."
+                      : !hasCodeForEmail
+                        ? "Send code"
+                        : resendIn > 0
+                          ? `Resend (${resendIn}s)`
+                          : "Resend"
+                  }
+                  onPress={() => void handleSendCode()}
+                  style={styles.sendCodeButton}
+                />
+              </View>
+              {hasCodeForEmail ? (
+                <>
+                  <TextField
+                    keyboardType="number-pad"
+                    label="Email verification code"
+                    maxLength={6}
+                    onChangeText={(value) => setEmailCode(value.replace(/[^0-9]/g, ""))}
+                    placeholder="123456"
+                    value={emailCode}
+                  />
+                  {codeMessage ? (
+                    <Text style={styles.codeHint}>{codeMessage}</Text>
+                  ) : null}
+                  <Text style={styles.codeHint}>{EMAIL_CODE_HINT}</Text>
+                </>
+              ) : null}
+            </View>
+          ) : (
+            <TextField
+              keyboardType="email-address"
+              label="Email"
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              value={email}
+            />
+          )}
 
           <TextField
             label="Password"
@@ -196,35 +378,11 @@ export function AuthScreen() {
           ) : null}
 
           {isRegisterMode ? (
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: termsAccepted }}
-              onPress={() => setTermsAccepted((accepted) => !accepted)}
-              style={styles.termsRow}
-            >
-              <View style={[styles.checkbox, termsAccepted ? styles.checkboxChecked : null]}>
-                {termsAccepted ? <Check color="#FFFFFF" size={14} /> : null}
-              </View>
-              <Text style={styles.termsText}>
-                I accept the{" "}
-                <Text
-                  accessibilityRole="link"
-                  onPress={() => navigation.navigate("Legal", { document: "terms" })}
-                  style={styles.termsLink}
-                >
-                  Terms of Use
-                </Text>{" "}
-                and the{" "}
-                <Text
-                  accessibilityRole="link"
-                  onPress={() => navigation.navigate("Legal", { document: "privacy" })}
-                  style={styles.termsLink}
-                >
-                  Privacy Policy
-                </Text>
-                .
-              </Text>
-            </Pressable>
+            <TermsCheckbox
+              checked={termsAccepted}
+              onOpenDocument={(document) => navigation.navigate("Legal", { document })}
+              onToggle={() => setTermsAccepted((accepted) => !accepted)}
+            />
           ) : null}
 
           {isRegisterMode ? (
@@ -250,17 +408,11 @@ export function AuthScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.socialButtons}>
-            <SecondaryButton
-              label="Continue with Google"
-              onPress={() => showSocialLoginTodo("Google")}
-            />
-            <SecondaryButton
-              label="Continue with Apple"
-              onPress={() => showSocialLoginTodo("Apple")}
-            />
-            <Text style={styles.socialHint}>To do: connect Google and Apple sign-in.</Text>
-          </View>
+          <SocialSignInButtons
+            disabled={isSubmitting}
+            onCredential={(credential) => void handleSocialCredential(credential)}
+            onError={setErrorMessage}
+          />
 
           <Pressable onPress={toggleMode} style={styles.switchButton}>
             <Text style={styles.switchText}>
@@ -291,6 +443,18 @@ export function AuthScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {pendingSocial ? (
+        <SocialSignUpModal
+          errorMessage={socialSignUpError}
+          isSubmitting={isCreatingSocial}
+          onCancel={cancelSocialSignUp}
+          onOpenDocument={openLegalFromSheet}
+          onSubmit={(nextRole) => void completeSocialSignUp(nextRole)}
+          provider={pendingSocial.provider}
+          visible={showSocialSignUp}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -382,40 +546,30 @@ const styles = StyleSheet.create({
   roleBlock: {
     gap: spacing.sm,
   },
-  termsRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    marginTop: 1,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  termsText: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  termsLink: {
-    color: colors.primary,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
   fieldLabel: {
     color: colors.text,
     fontSize: 14,
     fontWeight: "600",
+  },
+  emailCodeBlock: {
+    gap: spacing.sm,
+  },
+  emailRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.sm,
+  },
+  emailField: {
+    flex: 1,
+  },
+  sendCodeButton: {
+    minHeight: 48,
+    minWidth: 120,
+  },
+  codeHint: {
+    color: colors.mutedText,
+    fontSize: 13,
+    lineHeight: 18,
   },
   errorText: {
     color: colors.danger,
@@ -435,15 +589,6 @@ const styles = StyleSheet.create({
   dividerText: {
     color: colors.mutedText,
     fontSize: 13,
-  },
-  socialButtons: {
-    gap: spacing.sm,
-  },
-  socialHint: {
-    color: colors.mutedText,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: "center",
   },
   switchButton: {
     alignItems: "center",

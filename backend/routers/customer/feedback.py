@@ -9,7 +9,6 @@ from fastapi import Depends, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from backend import models
-from backend.ai.tools import create_chat_room_tool
 from backend.auth import get_db, require_customer
 from backend.constants import ALLOWED_PROVIDER_TAGS
 from backend.core.clock import utc_now
@@ -49,7 +48,6 @@ from backend.utils.formatters import format_customer_profile_response
 from backend.utils.notification import create_admin_notifications, create_notification
 from backend.utils.pagination import build_paginated_response, paginate_query
 from backend.utils.payment import format_payment_response
-from backend.services.payment_gateway import payment_gateway
 from backend.utils.provider import (
     format_favorite_provider_response,
     format_provider_profile_with_rating,

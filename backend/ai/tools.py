@@ -1,28 +1,12 @@
-"""AI tool business implementations.
-
-Functions invoked by LangChain tools: search providers, summarize reviews, query bookings,
-explain booking flow, and prepare pending user-confirmed actions. Reuses standard business utils
-so AI follows the same status rules as regular APIs.
-"""
+"""Business logic for provider recommendations, FAQs, bookings, and review comparison."""
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
 
 from backend import models
-from backend.schemas import (
-    BookingNoteUpdate,
-    BookingCreate,
-    BookingStatus,
-    NotificationRelatedType,
-    NotificationType,
-    PaymentStatus,
-    ProviderBookingQuoteCreate,
-    ProviderRefundRejectCreate,
-    RefundRequestStatus,
-)
 from backend.services.ai_service import (
     generate_embedding,
+    summarize_provider_reviews as summarize_reviews_with_model,
 )
 from backend.services.milvus_service import search_review_embeddings
 from backend.utils.ai import (
@@ -32,134 +16,40 @@ from backend.utils.ai import (
     has_review_context,
     normalize_ai_recommendation_tags,
 )
-from backend.utils.ai_pending_action import create_ai_pending_action, format_provider_preview
-from backend.utils.chat import (
-    format_chat_room_response_with_unread,
-    get_or_create_chat_room,
-)
-from backend.utils.booking import (
-    ensure_booking_status,
-    format_booking_detail_response,
-    get_active_refund_request,
-    get_booking_for_user_or_404,
-)
-from backend.utils.availability import ensure_provider_available_for_datetime_range
+from backend.utils.ai_pending_action import format_provider_preview
 from backend.utils.location import has_location
-from backend.utils.notification import create_notification
-from backend.utils.provider import get_provider_profile_for_user
+from backend.utils.provider_eligibility import require_provider_can_accept_orders
 from backend.utils.service_locations import resolve_location_context
-
-PLATFORM_CAPABILITIES = [
-    "Recommend providers by service need, e.g. cleaning, childcare, elderly care, electrician, plumbing, painter, locksmith, technician, moving.",
-    "Summarize candidate provider reviews: price, attitude, highlights, and risks.",
-    "Open a chat between customer and provider.",
-    "Build booking drafts from customer descriptions and ask for missing address, schedule, or provider.",
-    "Query booking status and explain quotes, payment, service, acceptance, refunds, complaints, and cancellation.",
-    "Prepare cancel, refund, payment, and completion actions as confirmation cards — never executed directly.",
-]
+from backend.services.faq_service import get_faq_items, search_faq
 
 
-def get_platform_capabilities_tool(question: str | None = None):
+
+HELP_ARTICLE_NOT_FOUND_ANSWER = (
+    "I could not find a help article for that. You can browse every answer "
+    "under Account > Help and Support."
+)
+
+
+def search_help_articles_tool(query: str = "", faq_ids: list[str] | None = None):
+    """Answer with the best FAQ match verbatim.
+
+    The model picks faq_ids from the catalog in the tool description, which
+    handles any language and paraphrase; keyword search on query is only the
+    fallback when it picks none (or only unknown ids). Every match, the best
+    one first, is returned in articles; the app links them into Help.
+    """
+    articles = get_faq_items("customer", faq_ids or [])[:3] or search_faq(
+        "customer", query
+    )
+    if not articles:
+        return {"query": query, "articles": [], "answer": HELP_ARTICLE_NOT_FOUND_ANSWER}
+
+    best = articles[0]
     return {
-        "question": question,
-        "capabilities": PLATFORM_CAPABILITIES,
-        "answer": "Here is what I can help with:\n"
-        + "\n".join(
-            f"{index}. {capability}"
-            for index, capability in enumerate(PLATFORM_CAPABILITIES, start=1)
-        ),
+        "query": query,
+        "articles": articles,
+        "answer": f"**{best['question']}**\n\n{best['answer']}",
     }
-
-
-BOOKING_STATUS_EXPLANATIONS = {
-    "pending": {
-        "label": "Awaiting provider quote",
-        "meaning": "Customer created a booking request; provider has not quoted or rejected yet.",
-        "next_actions": [
-            "provider can submit a quote",
-            "provider can reject the booking",
-            "customer can cancel the booking",
-        ],
-    },
-    "quoted": {
-        "label": "Provider quoted",
-        "meaning": "Provider gave a price; work has not started yet.",
-        "next_actions": [
-            "customer can pay and accept the quote",
-            "customer can reject the quote; booking returns to pending",
-            "customer can cancel the booking",
-        ],
-    },
-    "accepted": {
-        "label": "Paid, in progress",
-        "meaning": "Customer paid; booking is active and provider can perform service.",
-        "next_actions": [
-            "provider can mark complete after service",
-            "customer can request a refund",
-            "customer can file a complaint",
-        ],
-    },
-    "awaiting_confirmation": {
-        "label": "Awaiting customer acceptance",
-        "meaning": "Provider marked complete; waiting for customer acceptance.",
-        "next_actions": [
-            "customer can confirm completion",
-            "customer can reject completion",
-            "customer can request a refund",
-            "customer can file a complaint",
-        ],
-    },
-    "completed": {
-        "label": "Completed",
-        "meaning": "Customer confirmed completion; booking closed normally.",
-        "next_actions": [
-            "customer can leave a review",
-            "customer can request a refund",
-            "customer can file a complaint",
-        ],
-    },
-    "refunding": {
-        "label": "Refund in progress",
-        "meaning": "Customer requested a refund; awaiting provider action.",
-        "next_actions": [
-            "provider can approve refund",
-            "provider can reject refund with a reason",
-            "customer can cancel refund request and restore prior status",
-        ],
-    },
-    "refunded": {
-        "label": "Refunded",
-        "meaning": "Refund completed; booking closed.",
-        "next_actions": [],
-    },
-    "cancelled": {
-        "label": "Cancelled",
-        "meaning": "Customer cancelled before payment was finalized.",
-        "next_actions": [],
-    },
-    "rejected": {
-        "label": "Provider rejected",
-        "meaning": "Provider rejected the customer booking request.",
-        "next_actions": [],
-    },
-}
-
-BOOKING_FLOW_STEPS = [
-    "Customer selects a provider from recommendations or the provider profile page.",
-    "If not created from chat, the system creates a chat room and posts booking info.",
-    "New bookings start as pending; provider gets a notification.",
-    "Provider must quote to accept; booking becomes quoted.",
-    "Customer can reject quote; booking returns to pending for a new quote.",
-    "After accepting quote, booking is awaiting_payment with a payment record.",
-    "Customer can cancel while pending, quoted, or awaiting_payment.",
-    "After payment, booking becomes accepted and work can begin.",
-    "Provider marks complete; booking becomes awaiting_confirmation.",
-    "Customer acceptance moves booking to completed.",
-    "Refunds and complaints are allowed in accepted, awaiting_confirmation, and completed.",
-    "Refund requests move to refunding; approved -> refunded; rejected stays refunding; customer can cancel refund.",
-]
-
-
 def get_customer_profile_for_ai_tool(current_user: models.User, db: Session):
     if current_user.role != "customer":
         return None
@@ -327,158 +217,72 @@ def summarize_provider_reviews_tool(
         review_context_source = "sqlite"
         review_context = build_provider_review_context(provider_ids, db)
 
+    try:
+        answer = summarize_reviews_with_model(question, review_context)
+    except Exception:
+        answer = build_review_summary_fallback(question, review_context)
+
     return {
-        "answer": "I found relevant review data.",
+        "answer": answer,
         "review_context_source": review_context_source,
         "review_context": review_context,
     }
 
 
-def format_booking_status_history(history: models.BookingStatusHistory):
-    return {
-        "id": history.id,
-        "booking_id": history.booking_id,
-        "changed_by_user_id": history.changed_by_user_id,
-        "old_status": history.old_status,
-        "new_status": history.new_status,
-        "note": history.note,
-        "changed_at": history.changed_at,
-    }
+def build_review_summary_fallback(question: str, review_context: list[dict]):
+    """Return a useful grounded comparison when the summary model is unavailable."""
 
+    if not review_context:
+        return (
+            "没有找到这些商家的可见评价。"
+            if any("\u4e00" <= character <= "\u9fff" for character in question)
+            else "I could not find visible reviews for these providers."
+        )
 
-def format_payment_for_ai_tool(payment: models.Payment):
-    return {
-        "id": payment.id,
-        "booking_id": payment.booking_id,
-        "amount": payment.amount,
-        "currency": payment.currency,
-        "status": payment.status,
-        "payment_method": payment.payment_method,
-        "created_at": payment.created_at,
-        "paid_at": payment.paid_at,
-        "refunded_at": payment.refunded_at,
-    }
-
-
-def format_refund_request_for_ai_tool(refund_request: models.RefundRequest):
-    return {
-        "id": refund_request.id,
-        "booking_id": refund_request.booking_id,
-        "payment_id": refund_request.payment_id,
-        "service_stage": refund_request.service_stage,
-        "reason": refund_request.reason,
-        "status": refund_request.status,
-        "provider_note": refund_request.provider_note,
-        "appeal_reason": refund_request.appeal_reason,
-        "admin_note": refund_request.admin_note,
-        "previous_booking_status": refund_request.previous_booking_status,
-        "created_at": refund_request.created_at,
-        "responded_at": refund_request.responded_at,
-        "appealed_at": refund_request.appealed_at,
-        "admin_responded_at": refund_request.admin_responded_at,
-        "cancelled_at": refund_request.cancelled_at,
-        "refunded_at": refund_request.refunded_at,
-    }
-
-
-def get_booking_status_tool(
-    booking_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    histories = (
-        db.query(models.BookingStatusHistory)
-        .filter(models.BookingStatusHistory.booking_id == booking.id)
-        .order_by(models.BookingStatusHistory.id.desc())
-        .limit(5)
-        .all()
+    ranked = sorted(
+        review_context,
+        key=lambda item: (
+            item.get("average_rating") or 0,
+            item.get("review_count") or 0,
+            item.get("completed_bookings") or 0,
+            -(item.get("hourly_rate") or float("inf")),
+        ),
+        reverse=True,
     )
-    payments = (
-        db.query(models.Payment)
-        .filter(models.Payment.booking_id == booking.id)
-        .order_by(models.Payment.id.desc())
-        .all()
+    best = ranked[0]
+    name = best.get("business_name") or best.get("provider_name") or "The first provider"
+    rating = best.get("average_rating") or 0
+    review_count = best.get("review_count") or 0
+    completed = best.get("completed_bookings") or 0
+    hourly_rate = best.get("hourly_rate")
+    negative_count = len(best.get("negative_reviews") or [])
+    is_chinese = any("\u4e00" <= character <= "\u9fff" for character in question)
+
+    if is_chinese:
+        price_text = f"，参考价格为 TRY {hourly_rate}/小时" if hourly_rate is not None else ""
+        risk_text = (
+            f"；相关检索中也有 {negative_count} 条负面评价，建议下单前查看详情"
+            if negative_count
+            else "；相关检索中没有发现负面评价"
+        )
+        return (
+            f"根据当前可见评价，{name} 的综合表现最好：平均 {rating}/5，"
+            f"共 {review_count} 条评价，已完成 {completed} 个订单{price_text}{risk_text}。"
+        )
+
+    price_text = f", with a reference price of TRY {hourly_rate}/hr" if hourly_rate is not None else ""
+    risk_text = (
+        f" The retrieved context also contains {negative_count} negative review(s), so check the details before booking."
+        if negative_count
+        else " No negative reviews appeared in the retrieved context."
     )
-    refund_requests = (
-        db.query(models.RefundRequest)
-        .filter(models.RefundRequest.booking_id == booking.id)
-        .order_by(models.RefundRequest.id.desc())
-        .all()
+    return (
+        f"Based on the visible reviews, {name} has the strongest overall record: "
+        f"{rating}/5 from {review_count} review(s) and {completed} completed booking(s)"
+        f"{price_text}.{risk_text}"
     )
-    status = booking.status
-
-    return {
-        "booking": format_booking_detail_response(booking, db),
-        "status_explanation": BOOKING_STATUS_EXPLANATIONS.get(status),
-        "recent_status_histories": [
-            format_booking_status_history(history) for history in histories
-        ],
-        "payments": [format_payment_for_ai_tool(payment) for payment in payments],
-        "refund_requests": [
-            format_refund_request_for_ai_tool(refund_request)
-            for refund_request in refund_requests
-        ],
-    }
 
 
-def explain_booking_flow_tool(topic: str | None = None):
-    normalized_topic = topic.strip().lower() if topic else None
-    topic_status_map = {
-        "pending": ["pending"],
-        "quoted": ["quoted"],
-        "quote": ["quoted"],
-        "payment": ["quoted", "accepted"],
-        "pay": ["quoted", "accepted"],
-        "complete": ["accepted", "awaiting_confirmation", "completed"],
-        "refund": [
-            "accepted",
-            "awaiting_confirmation",
-            "completed",
-            "refunding",
-            "refunded",
-        ],
-        "complaint": ["accepted", "awaiting_confirmation", "completed"],
-        "cancel": ["pending", "quoted", "cancelled"],
-        "reject": ["pending", "quoted", "rejected"],
-    }
-    selected_statuses = None
-    if normalized_topic:
-        selected_statuses = topic_status_map.get(normalized_topic)
-
-    if not selected_statuses:
-        selected_statuses = list(BOOKING_STATUS_EXPLANATIONS.keys())
-
-    return {
-        "topic": topic,
-        "flow_steps": BOOKING_FLOW_STEPS,
-        "statuses": {
-            status: BOOKING_STATUS_EXPLANATIONS[status]
-            for status in selected_statuses
-            if status in BOOKING_STATUS_EXPLANATIONS
-        },
-    }
-
-
-def build_pending_ai_action(
-    action_type: str,
-    summary: str,
-    payload: dict,
-    current_user: models.User,
-    db: Session,
-    warnings: list[str] | None = None,
-):
-    action = create_ai_pending_action(
-        current_user.id,
-        action_type,
-        payload,
-        summary,
-        warnings,
-        db,
-    )
-    action["confirmation_required"] = True
-
-    return action
 
 
 def ensure_current_user_is_customer(current_user: models.User):
@@ -488,137 +292,6 @@ def ensure_current_user_is_customer(current_user: models.User):
         )
 
 
-def ensure_current_user_is_provider(current_user: models.User):
-    if current_user.role != "provider":
-        raise HTTPException(
-            status_code=403, detail="Only providers can use this action"
-        )
-
-
-def get_provider_booking_for_ai_action(
-    booking_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_provider(current_user)
-    provider_profile = get_provider_profile_for_user(current_user.id, db)
-    booking = (
-        db.query(models.Booking)
-        .filter(
-            models.Booking.id == booking_id,
-            models.Booking.provider_profile_id == provider_profile.id,
-        )
-        .first()
-    )
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    return booking
-
-
-def get_provider_refund_request_for_ai_action(
-    refund_request_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_provider(current_user)
-    provider_profile = get_provider_profile_for_user(current_user.id, db)
-    refund_request = (
-        db.query(models.RefundRequest)
-        .filter(
-            models.RefundRequest.id == refund_request_id,
-            models.RefundRequest.provider_profile_id == provider_profile.id,
-        )
-        .first()
-    )
-    if not refund_request:
-        raise HTTPException(status_code=404, detail="Refund request not found")
-
-    return refund_request
-
-
-def prepare_create_booking_action_tool(
-    provider_profile_id: int,
-    service_description: str,
-    service_address: str,
-    service_latitude: float,
-    service_longitude: float,
-    scheduled_start_time,
-    scheduled_end_time,
-    current_user: models.User,
-    db: Session,
-    chat_room_id: int | None = None,
-):
-    ensure_current_user_is_customer(current_user)
-    booking_data = BookingCreate(
-        provider_profile_id=provider_profile_id,
-        chat_room_id=chat_room_id,
-        title=" ".join(service_description.split()[:30]),
-        service_description=service_description,
-        service_address=service_address,
-        service_latitude=service_latitude,
-        service_longitude=service_longitude,
-        scheduled_start_time=scheduled_start_time,
-        scheduled_end_time=scheduled_end_time,
-    )
-    provider_profile = (
-        db.query(models.ProviderProfile)
-        .filter(models.ProviderProfile.id == booking_data.provider_profile_id)
-        .first()
-    )
-    if not provider_profile:
-        raise HTTPException(status_code=404, detail="Provider profile not found")
-    if provider_profile.verification_status != "approved":
-        raise HTTPException(
-            status_code=400, detail="Provider is not approved for bookings"
-        )
-
-    ensure_provider_available_for_datetime_range(
-        provider_profile.id,
-        booking_data.scheduled_start_time,
-        booking_data.scheduled_end_time,
-        db,
-    )
-
-    if booking_data.chat_room_id is not None:
-        chat_room = (
-            db.query(models.ChatRoom)
-            .filter(models.ChatRoom.id == booking_data.chat_room_id)
-            .first()
-        )
-        if not chat_room:
-            raise HTTPException(status_code=404, detail="Chat room not found")
-        if chat_room.customer_id != current_user.id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can only create bookings from your own chats",
-            )
-        if chat_room.provider_profile_id != booking_data.provider_profile_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Chat room provider does not match booking provider",
-            )
-
-    payload = {
-        "provider_profile_id": booking_data.provider_profile_id,
-        "chat_room_id": booking_data.chat_room_id,
-        "title": booking_data.title,
-        "service_description": booking_data.service_description,
-        "service_address": booking_data.service_address,
-        "service_latitude": booking_data.service_latitude,
-        "service_longitude": booking_data.service_longitude,
-        "scheduled_start_time": booking_data.scheduled_start_time.isoformat(),
-        "scheduled_end_time": booking_data.scheduled_end_time.isoformat(),
-    }
-
-    return build_pending_ai_action(
-        "create_booking",
-        "On confirm, creates a booking request and opens or reuses a chat room with the provider.",
-        payload,
-        current_user,
-        db,
-        ["AI booking creation does not include attachments; use the standard booking API for images or video."],
-    )
 
 
 BOOKING_DRAFT_FIELD_CONFIG = {
@@ -630,32 +303,7 @@ BOOKING_DRAFT_FIELD_CONFIG = {
     "service_description": {
         "label": "Service description",
         "type": "string",
-        "question": "Describe the service needed, e.g. elderly daily care, escort to appointment, meal assistance.",
-    },
-    "service_address": {
-        "label": "Service address",
-        "type": "string",
-        "question": "Please provide the service address; the app can also fill this from location.",
-    },
-    "service_latitude": {
-        "label": "Service latitude",
-        "type": "number",
-        "question": "Service latitude is still needed; the app can send it from location.",
-    },
-    "service_longitude": {
-        "label": "Service longitude",
-        "type": "number",
-        "question": "Service longitude is still needed; the app can send it from location.",
-    },
-    "scheduled_start_time": {
-        "label": "Start time",
-        "type": "datetime",
-        "question": "When should the service start? Please give a specific time.",
-    },
-    "scheduled_end_time": {
-        "label": "End time",
-        "type": "datetime",
-        "question": "When should the service end? Please give a specific time.",
+        "question": "Please describe the specific task you want this provider to complete.",
     },
 }
 
@@ -761,24 +409,11 @@ def build_booking_draft_missing_info_response(
     }
 
 
-def normalize_booking_draft_datetime(value):
-    if isinstance(value, str):
-        return datetime.fromisoformat(value)
-
-    return value
-
-
 def prepare_booking_draft_action_tool(
     current_user: models.User,
     db: Session,
     provider_profile_id: int | None = None,
     service_description: str | None = None,
-    service_address: str | None = None,
-    service_latitude: float | None = None,
-    service_longitude: float | None = None,
-    scheduled_start_time=None,
-    scheduled_end_time=None,
-    chat_room_id: int | None = None,
     existing_draft: dict | None = None,
     provider_choices: list[dict] | None = None,
 ):
@@ -787,13 +422,7 @@ def prepare_booking_draft_action_tool(
         existing_draft,
         {
             "provider_profile_id": provider_profile_id,
-            "chat_room_id": chat_room_id,
             "service_description": service_description,
-            "service_address": service_address,
-            "service_latitude": service_latitude,
-            "service_longitude": service_longitude,
-            "scheduled_start_time": scheduled_start_time,
-            "scheduled_end_time": scheduled_end_time,
         },
     )
     missing_field_names = [
@@ -810,485 +439,24 @@ def prepare_booking_draft_action_tool(
             provider_choices,
         )
 
-    return prepare_create_booking_action_tool(
-        provider_profile_id=draft["provider_profile_id"],
-        chat_room_id=draft.get("chat_room_id"),
-        service_description=draft["service_description"],
-        service_address=draft["service_address"],
-        service_latitude=draft["service_latitude"],
-        service_longitude=draft["service_longitude"],
-        scheduled_start_time=normalize_booking_draft_datetime(
-            draft["scheduled_start_time"]
-        ),
-        scheduled_end_time=normalize_booking_draft_datetime(
-            draft["scheduled_end_time"]
-        ),
-        current_user=current_user,
-        db=db,
-    )
-
-
-def prepare_cancel_booking_action_tool(
-    booking_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_customer(current_user)
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    if booking.customer_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only cancel your booking")
-
-    ensure_booking_status(
-        booking,
-        [BookingStatus.pending, BookingStatus.quoted, BookingStatus.awaiting_payment],
-        "Only pending, quoted or awaiting payment bookings can be cancelled",
-    )
-
-    return build_pending_ai_action(
-        "cancel_booking",
-        f"On confirm, booking {booking.id} will be cancelled.",
-        {
-            "booking_id": booking.id,
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_refund_request_action_tool(
-    booking_id: int,
-    service_stage: str,
-    reason: str,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_customer(current_user)
-    if not reason.strip():
-        raise HTTPException(status_code=400, detail="Refund reason cannot be empty")
-
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    if booking.customer_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="You can only request refunds for your booking"
-        )
-
-    ensure_booking_status(
-        booking,
-        [
-            BookingStatus.accepted,
-            BookingStatus.awaiting_confirmation,
-        ],
-        "Only active paid or awaiting confirmation bookings can request a refund",
-    )
-    payment = (
-        db.query(models.Payment)
-        .filter(
-            models.Payment.booking_id == booking.id,
-            models.Payment.customer_id == current_user.id,
-            models.Payment.status == PaymentStatus.paid,
-        )
-        .first()
-    )
-    if not payment:
-        raise HTTPException(
-            status_code=400, detail="Paid payment not found for this booking"
-        )
-
-    if get_active_refund_request(booking, db):
-        raise HTTPException(
-            status_code=400, detail="This booking already has an active refund request"
-        )
-
-    return build_pending_ai_action(
-        "request_refund",
-        f"On confirm, a refund request will be created for booking {booking.id} and the provider will be notified.",
-        {
-            "booking_id": booking.id,
-            "service_stage": service_stage,
-            "reason": reason.strip(),
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_pay_booking_action_tool(
-    booking_id: int,
-    current_user: models.User,
-    db: Session,
-    payment_method: str = "mock",
-):
-    ensure_current_user_is_customer(current_user)
-    if not payment_method.strip():
-        raise HTTPException(status_code=400, detail="Payment method cannot be empty")
-
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    if booking.customer_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only pay your booking")
-
-    ensure_booking_status(
-        booking,
-        [BookingStatus.awaiting_payment],
-        "Only awaiting payment bookings can be paid",
-    )
-    if booking.quote_amount is None:
-        raise HTTPException(status_code=400, detail="Booking has no quote amount")
-
-    pending_payment = (
-        db.query(models.Payment)
-        .filter(
-            models.Payment.booking_id == booking.id,
-            models.Payment.status == PaymentStatus.pending,
-        )
-        .first()
-    )
-    if not pending_payment:
-        raise HTTPException(
-            status_code=400,
-            detail="Pending payment not found for this booking",
-        )
-
-    return build_pending_ai_action(
-        "pay_booking",
-        f"On confirm, quote {booking.quote_amount} TRY for booking {booking.id} will be paid and work will begin.",
-        {
-            "booking_id": booking.id,
-            "payment_method": payment_method.strip(),
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_reject_quote_action_tool(
-    booking_id: int,
-    status_note: str,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_customer(current_user)
-    if not status_note.strip():
-        raise HTTPException(status_code=400, detail="Status note cannot be empty")
-
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    if booking.customer_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="You can only reject quotes for your booking"
-        )
-
-    ensure_booking_status(
-        booking, [BookingStatus.quoted], "Only quoted bookings can reject a quote"
-    )
-
-    return build_pending_ai_action(
-        "reject_quote",
-        f"On confirm, the quote for booking {booking.id} will be rejected and it returns to pending.",
-        {
-            "booking_id": booking.id,
-            "status_note": status_note.strip(),
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_confirm_complete_action_tool(
-    booking_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_customer(current_user)
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    if booking.customer_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only confirm completion for your booking",
-        )
-
-    ensure_booking_status(
-        booking,
-        [BookingStatus.awaiting_confirmation],
-        "Only bookings waiting for confirmation can be completed",
-    )
-
-    return build_pending_ai_action(
-        "confirm_complete",
-        f"On confirm, booking {booking.id} will be accepted and marked completed.",
-        {
-            "booking_id": booking.id,
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_reject_complete_action_tool(
-    booking_id: int,
-    status_note: str,
-    current_user: models.User,
-    db: Session,
-):
-    ensure_current_user_is_customer(current_user)
-    if not status_note.strip():
-        raise HTTPException(status_code=400, detail="Status note cannot be empty")
-
-    booking = get_booking_for_user_or_404(booking_id, current_user, db)
-    if booking.customer_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only reject completion for your booking",
-        )
-
-    ensure_booking_status(
-        booking,
-        [BookingStatus.awaiting_confirmation],
-        "Only bookings waiting for confirmation can be rejected",
-    )
-
-    return build_pending_ai_action(
-        "reject_complete",
-        f"On confirm, completion for booking {booking.id} will be rejected and it returns to accepted.",
-        {
-            "booking_id": booking.id,
-            "status_note": status_note.strip(),
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_quote_booking_action_tool(
-    booking_id: int,
-    quote_amount: float,
-    current_user: models.User,
-    db: Session,
-    quote_message: str | None = None,
-):
-    quote_data = ProviderBookingQuoteCreate(
-        quote_amount=quote_amount,
-        quote_message=quote_message,
-    )
-    booking = get_provider_booking_for_ai_action(booking_id, current_user, db)
-    ensure_booking_status(
-        booking,
-        [BookingStatus.pending],
-        "Only pending bookings can receive a quote",
-    )
-
-    return build_pending_ai_action(
-        "quote_booking",
-        f"On confirm, booking {booking.id} will be quoted {quote_data.quote_amount} TRY and the customer notified.",
-        {
-            "booking_id": booking.id,
-            "quote_amount": quote_data.quote_amount,
-            "quote_message": quote_data.quote_message,
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_reject_booking_action_tool(
-    booking_id: int,
-    status_note: str,
-    current_user: models.User,
-    db: Session,
-):
-    note_data = BookingNoteUpdate(status_note=status_note)
-    booking = get_provider_booking_for_ai_action(booking_id, current_user, db)
-    ensure_booking_status(
-        booking,
-        [BookingStatus.pending],
-        "Only pending bookings can be rejected",
-    )
-
-    return build_pending_ai_action(
-        "reject_booking",
-        f"On confirm, booking {booking.id} will be rejected and the reason sent to the customer.",
-        {
-            "booking_id": booking.id,
-            "status_note": note_data.status_note,
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_complete_booking_action_tool(
-    booking_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    booking = get_provider_booking_for_ai_action(booking_id, current_user, db)
-    ensure_booking_status(
-        booking,
-        [BookingStatus.accepted],
-        "Only accepted bookings can be completed",
-    )
-
-    return build_pending_ai_action(
-        "complete_booking",
-        f"On confirm, booking {booking.id} will be marked complete pending customer acceptance.",
-        {
-            "booking_id": booking.id,
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_approve_refund_action_tool(
-    refund_request_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    refund_request = get_provider_refund_request_for_ai_action(
-        refund_request_id,
-        current_user,
-        db,
-    )
-    if refund_request.status != RefundRequestStatus.pending:
-        raise HTTPException(
-            status_code=400, detail="Only pending refund requests can be approved"
-        )
-
-    booking = get_provider_booking_for_ai_action(
-        refund_request.booking_id,
-        current_user,
-        db,
-    )
-    ensure_booking_status(
-        booking,
-        [BookingStatus.refunding],
-        "Only refunding bookings can be refunded",
-    )
-
-    return build_pending_ai_action(
-        "approve_refund",
-        f"On confirm, refund request {refund_request.id} will be approved and booking {booking.id} becomes refunded.",
-        {
-            "refund_request_id": refund_request.id,
-        },
-        current_user,
-        db,
-    )
-
-
-def prepare_reject_refund_action_tool(
-    refund_request_id: int,
-    provider_note: str,
-    current_user: models.User,
-    db: Session,
-):
-    reject_data = ProviderRefundRejectCreate(provider_note=provider_note)
-    refund_request = get_provider_refund_request_for_ai_action(
-        refund_request_id,
-        current_user,
-        db,
-    )
-    if refund_request.status != RefundRequestStatus.pending:
-        raise HTTPException(
-            status_code=400, detail="Only pending refund requests can be rejected"
-        )
-
-    booking = get_provider_booking_for_ai_action(
-        refund_request.booking_id,
-        current_user,
-        db,
-    )
-    ensure_booking_status(
-        booking,
-        [BookingStatus.refunding],
-        "Only refunding bookings can keep a rejected refund request",
-    )
-
-    return build_pending_ai_action(
-        "reject_refund",
-        f"On confirm, refund request {refund_request.id} will be rejected and booking {booking.id} stays refunding.",
-        {
-            "refund_request_id": refund_request.id,
-            "provider_note": reject_data.provider_note,
-        },
-        current_user,
-        db,
-    )
-
-
-def create_chat_room_tool(
-    provider_profile_id: int,
-    current_user: models.User,
-    db: Session,
-):
-    if current_user.role != "customer":
-        raise HTTPException(
-            status_code=403,
-            detail="Only customers can start chats with providers",
-        )
-
     provider_profile = (
         db.query(models.ProviderProfile)
-        .filter(models.ProviderProfile.id == provider_profile_id)
+        .filter(models.ProviderProfile.id == draft["provider_profile_id"])
         .first()
     )
     if not provider_profile:
         raise HTTPException(status_code=404, detail="Provider profile not found")
+    require_provider_can_accept_orders(provider_profile, db)
 
-    if provider_profile.user_id == current_user.id:
-        raise HTTPException(
-            status_code=400,
-            detail="You cannot open a chat with yourself",
-        )
-
-    if provider_profile.verification_status != "approved":
-        raise HTTPException(
-            status_code=400,
-            detail="Only approved providers can receive chats",
-        )
-
-    existing_chat_room = (
-        db.query(models.ChatRoom)
-        .filter(
-            models.ChatRoom.customer_id == current_user.id,
-            models.ChatRoom.provider_profile_id == provider_profile_id,
-        )
-        .first()
-    )
-    if existing_chat_room:
-        return {
-            "message": "Chat room already exists",
-            "created": False,
-            "chat_room": format_chat_room_response_with_unread(
-                existing_chat_room,
-                db,
-                current_user,
-            ),
-        }
-
-    chat_room = get_or_create_chat_room(
-        customer_id=current_user.id,
-        provider_profile_id=provider_profile_id,
-        db=db,
-    )
-    db.commit()
-    db.refresh(chat_room)
-
-    create_notification(
-        provider_profile.user_id,
-        "New chat started",
-        "A customer started a chat with you",
-        NotificationType.chat_started,
-        NotificationRelatedType.chat_room,
-        chat_room.id,
-        db,
-    )
-    db.commit()
-
+    polished_description = str(draft["service_description"]).strip()
+    title = " ".join(polished_description.split()[:10])
     return {
-        "message": "Chat room created successfully",
-        "created": True,
-        "chat_room": format_chat_room_response_with_unread(
-            chat_room,
-            db,
-            current_user,
-        ),
+        "draft_status": "ready_for_form",
+        "draft_type": "create_booking",
+        "provider_profile_id": provider_profile.id,
+        "provider": format_provider_preview(provider_profile),
+        "form_defaults": {
+            "title": title,
+            "service_description": polished_description,
+        },
     }

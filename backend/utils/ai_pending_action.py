@@ -1,8 +1,4 @@
-"""AI pending action helpers.
-
-AI cannot directly create bookings, payments, refunds, or change status; it creates `AIPendingAction` first.
-The frontend shows preview/confirmation cards; routers execute real actions after user confirmation.
-"""
+"""Pending confirmation support for AI-assisted booking creation."""
 
 import json
 from datetime import timedelta
@@ -17,6 +13,7 @@ from backend.core.clock import parse_dt, utc_now
 from backend.core.serialize import jsonable
 
 AI_PENDING_ACTION_EXPIRE_MINUTES = 30
+SUPPORTED_AI_ACTION_TYPE = "create_booking"
 
 
 def dump_json(data: Any):
@@ -55,83 +52,6 @@ def build_field(label: str, value: Any):
         "label": label,
         "value": value,
     }
-
-
-def get_booking_preview_data(booking_id: int | None, db: Session):
-    if booking_id is None:
-        return None, None
-
-    booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
-    if not booking:
-        return None, None
-
-    provider = (
-        db.query(models.ProviderProfile)
-        .filter(models.ProviderProfile.id == booking.provider_profile_id)
-        .first()
-    )
-
-    return booking, provider
-
-
-def build_booking_fields(
-    booking: models.Booking, provider: models.ProviderProfile | None
-):
-    return [
-        build_field("Booking ID", booking.id),
-        build_field("Provider", provider.business_name if provider else None),
-        build_field("Service description", booking.service_description),
-        build_field("Service address", booking.service_address),
-        build_field("Start time", booking.scheduled_start_time),
-        build_field("End time", booking.scheduled_end_time),
-        build_field("Current status", booking.status),
-    ]
-
-
-def get_refund_request_preview_data(refund_request_id: int | None, db: Session):
-    if refund_request_id is None:
-        return None, None, None
-
-    refund_request = (
-        db.query(models.RefundRequest)
-        .filter(models.RefundRequest.id == refund_request_id)
-        .first()
-    )
-    if not refund_request:
-        return None, None, None
-
-    booking, provider = get_booking_preview_data(refund_request.booking_id, db)
-
-    return refund_request, booking, provider
-
-
-def build_refund_request_fields(
-    refund_request: models.RefundRequest,
-    booking: models.Booking | None,
-    provider: models.ProviderProfile | None,
-):
-    fields = [
-        build_field("Refund request ID", refund_request.id),
-        build_field("Booking ID", refund_request.booking_id),
-        build_field("Provider", provider.business_name if provider else None),
-        build_field("Refund stage", refund_request.service_stage),
-        build_field("Refund reason", refund_request.reason),
-        build_field("Refund status", refund_request.status),
-        build_field("Provider reply", refund_request.provider_note),
-        build_field("Appeal reason", refund_request.appeal_reason),
-        build_field("Admin reply", refund_request.admin_note),
-    ]
-    if booking:
-        fields.extend(
-            [
-                build_field("Service description", booking.service_description),
-                build_field("Service address", booking.service_address),
-                build_field("Booking status", booking.status),
-                build_field("Booking amount", booking.quote_amount),
-            ]
-        )
-
-    return fields
 
 
 def build_ai_pending_action_preview(
@@ -179,128 +99,7 @@ def build_ai_pending_action_preview(
         )
         return preview
 
-    if action_type in ["approve_refund", "reject_refund"]:
-        refund_request = None
-        booking = None
-        provider = None
-        if db is not None:
-            refund_request, booking, provider = get_refund_request_preview_data(
-                payload.get("refund_request_id"),
-                db,
-            )
-
-        refund_action_config = {
-            "approve_refund": {
-                "title": "Confirm approve refund",
-                "confirm_label": "Confirm approve refund",
-            },
-            "reject_refund": {
-                "title": "Confirm reject refund",
-                "confirm_label": "Confirm reject refund",
-                "extra_fields": [build_field("Rejection reason", payload.get("provider_note"))],
-            },
-        }
-        config = refund_action_config[action_type]
-        preview.update(
-            {
-                "title": config["title"],
-                "confirm_label": config["confirm_label"],
-                "refund_request_id": payload.get("refund_request_id"),
-                "booking_id": booking.id if booking else None,
-                "provider": format_provider_preview(provider),
-            }
-        )
-        if refund_request:
-            preview["fields"] = build_refund_request_fields(
-                refund_request,
-                booking,
-                provider,
-            ) + config.get("extra_fields", [])
-        else:
-            preview["fields"] = [
-                build_field("Refund request ID", payload.get("refund_request_id")),
-                *config.get("extra_fields", []),
-            ]
-            preview["warning"] = "Refund request not found or unreadable; it will be re-validated on confirm."
-
-        return preview
-
-    booking = None
-    provider = None
-    if db is not None:
-        booking, provider = get_booking_preview_data(payload.get("booking_id"), db)
-
-    action_config = {
-        "cancel_booking": {
-            "title": "Confirm cancel booking",
-            "confirm_label": "Confirm cancel booking",
-        },
-        "request_refund": {
-            "title": "Confirm refund request",
-            "confirm_label": "Confirm submit refund",
-            "extra_fields": [build_field("Refund reason", payload.get("reason"))],
-        },
-        "pay_booking": {
-            "title": "Confirm pay quote",
-            "confirm_label": "Confirm pay quote",
-            "extra_fields": [
-                build_field("Payment method", payload.get("payment_method", "mock"))
-            ],
-        },
-        "reject_quote": {
-            "title": "Confirm reject quote",
-            "confirm_label": "Confirm reject quote",
-            "extra_fields": [build_field("Rejection reason", payload.get("status_note"))],
-        },
-        "confirm_complete": {
-            "title": "Confirm service complete",
-            "confirm_label": "Confirm acceptance",
-        },
-        "reject_complete": {
-            "title": "Confirm reject completion",
-            "confirm_label": "Confirm reject completion",
-            "extra_fields": [build_field("Rejection reason", payload.get("status_note"))],
-        },
-        "quote_booking": {
-            "title": "Confirm submit quote",
-            "confirm_label": "Confirm submit quote",
-            "extra_fields": [
-                build_field("Quote amount", payload.get("quote_amount")),
-                build_field("Quote message", payload.get("quote_message")),
-            ],
-        },
-        "reject_booking": {
-            "title": "Confirm reject booking",
-            "confirm_label": "Confirm reject booking",
-            "extra_fields": [build_field("Rejection reason", payload.get("status_note"))],
-        },
-        "complete_booking": {
-            "title": "Confirm mark complete",
-            "confirm_label": "Confirm mark complete",
-        },
-    }
-    config = action_config.get(action_type, {})
-    preview.update(
-        {
-            "title": config.get("title", action.summary),
-            "confirm_label": config.get("confirm_label", "Confirm"),
-            "booking_id": payload.get("booking_id"),
-            "provider": format_provider_preview(provider),
-        }
-    )
-
-    if booking:
-        fields = build_booking_fields(booking, provider)
-        if action_type == "pay_booking":
-            fields.append(build_field("Quote amount", booking.quote_amount))
-        preview["fields"] = fields + config.get("extra_fields", [])
-    else:
-        preview["fields"] = [
-            build_field("Booking ID", payload.get("booking_id")),
-            *config.get("extra_fields", []),
-        ]
-        preview["warning"] = "Booking not found or unreadable; it will be re-validated on confirm."
-
+    preview["warning"] = "This AI action type is no longer supported."
     return preview
 
 
@@ -335,6 +134,9 @@ def create_ai_pending_action(
     warnings: list[str] | None,
     db: Session,
 ):
+    if action_type != SUPPORTED_AI_ACTION_TYPE:
+        raise HTTPException(status_code=400, detail="Unsupported AI action type")
+
     now = utc_now()
     action = models.AIPendingAction(
         user_id=user_id,

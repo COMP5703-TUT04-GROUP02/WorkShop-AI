@@ -65,6 +65,15 @@ def get_location_chain(db: Session, location: models.ServiceLocation):
     return list(reversed(chain))
 
 
+def format_service_area(db: Session, location: models.ServiceLocation):
+    return {
+        "id": location.id,
+        "name": location.name,
+        "level": location.level,
+        "label": " / ".join(item.name for item in get_location_chain(db, location)),
+    }
+
+
 def get_province_for_location(db: Session, location: models.ServiceLocation):
     return get_location_chain(db, location)[0]
 
@@ -125,6 +134,11 @@ def location_scope_ids(db: Session, location_id: int):
     return scope
 
 
+def location_ancestor_ids(db: Session, location_id: int):
+    selected = get_location(db, location_id)
+    return {location.id for location in get_location_chain(db, selected)}
+
+
 def validate_profile_location(
     db: Session,
     location_id: int | None,
@@ -159,10 +173,16 @@ def filter_provider_query_by_location(
     if location_id is not None:
         selected = get_location(db, location_id)
         scoped_ids = location_scope_ids(db, location_id)
+        accepted_area_ids = scoped_ids | location_ancestor_ids(db, location_id)
         province = get_province_for_location(db, selected)
         normalized_province = normalize_location_name(province.name)
         return query.filter(
             or_(
+                models.ProviderProfile.id.in_(
+                    db.query(models.ProviderServiceArea.provider_profile_id).filter(
+                        models.ProviderServiceArea.service_location_id.in_(accepted_area_ids)
+                    )
+                ),
                 models.ProviderProfile.service_location_id.in_(scoped_ids),
                 and_(
                     models.ProviderProfile.service_location_id.is_(None),
@@ -187,6 +207,11 @@ def filter_provider_query_by_location(
             scoped_ids = location_scope_ids(db, province.id)
             return query.filter(
                 or_(
+                    models.ProviderProfile.id.in_(
+                        db.query(models.ProviderServiceArea.provider_profile_id).filter(
+                            models.ProviderServiceArea.service_location_id.in_(scoped_ids)
+                        )
+                    ),
                     models.ProviderProfile.service_location_id.in_(scoped_ids),
                     (
                         models.ProviderProfile.service_location_id.is_(None)
@@ -215,6 +240,19 @@ def profile_matches_location(
 ):
     if location_id is not None:
         selected = get_location(db, location_id)
+        accepted_area_ids = location_scope_ids(db, location_id) | location_ancestor_ids(
+            db, location_id
+        )
+        has_area = (
+            db.query(models.ProviderServiceArea.id)
+            .filter(
+                models.ProviderServiceArea.provider_profile_id == profile.id,
+                models.ProviderServiceArea.service_location_id.in_(accepted_area_ids),
+            )
+            .first()
+        )
+        if has_area:
+            return True
         if profile.service_location_id in location_scope_ids(db, location_id):
             return True
         return (

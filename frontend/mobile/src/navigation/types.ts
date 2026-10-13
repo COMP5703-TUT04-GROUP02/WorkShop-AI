@@ -18,6 +18,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
+  VerifyEmail: undefined;
   Legal: {
     document: LegalDocument;
   };
@@ -44,12 +45,22 @@ export type RootStackParamList = {
     providerProfileId?: number;
   };
   AccountEdit: undefined;
+  ProviderVerification: undefined;
+  ProviderIdentityVerification: undefined;
+  ProviderServiceVerification: undefined;
+  ProviderPayoutAccount: undefined;
+  ProviderOperatingSettings: undefined;
   AccountSecurity: undefined;
-  Help: undefined;
+  // faqId opens the FAQ on that answer, e.g. CUST-PAY-007.
+  Help: { faqId?: string } | undefined;
   BookingHistory: undefined;
   Notifications: undefined;
   NotificationSettings: undefined;
   Payments: undefined;
+  PaymentResult: {
+    booking_id?: string;
+    payment_status?: string;
+  };
   CustomerFavourites: undefined;
   ProviderPortfolioList: undefined;
   ProviderPortfolioCreate: undefined;

@@ -21,55 +21,48 @@ from backend.ai.clients import get_message_content, get_qwen_chat_model
 from backend.ai.langchain_tools import build_langchain_tools
 from backend.utils.ai_tool_log import create_ai_tool_call_log
 
-TOOL_CALLING_SYSTEM_PROMPT = """You are Workshop AI's tool-calling assistant. Choose tools from the user message and context. Do not name a chat vendor or model.
+TOOL_CALLING_SYSTEM_PROMPT = """You are Workshop AI's customer assistant. You have exactly four tools. Never claim or attempt any capability outside them, and do not name a chat vendor or model.
 
 ## Routing
-- Find local providers: search_providers. service_tags must be core tags only: cleaning, childcare, elderly_care, electrician, plumbing, painter, locksmith, technician, moving. Never map unknown needs to other; use an empty array.
-- Book, reserve, or create an order: prepare_booking_draft_action only. Do not call search_providers. Booking overrides search.
-- Reviews, price, attitude, or reputation: summarize_provider_reviews.
-- Chat with a known provider_profile_id: create_chat_room.
-- One booking's status, quote, payment, refund, or next step: get_booking_status.
-- How booking, quotes, payment, refunds, complaints, or cancellation work: explain_booking_flow.
-- What you can do or how to use you, including minor typos: get_platform_capabilities.
-- Cancel a booking: prepare_cancel_booking_action (confirmation draft only).
-- Request a refund: prepare_refund_request_action with booking_id, service_stage, and reason.
-- Pay or accept a quote: prepare_pay_booking_action.
-- Reject a quote: prepare_reject_quote_action.
-- Confirm completion: prepare_confirm_complete_action.
-- Reject completion: prepare_reject_complete_action.
-- Provider quote: prepare_quote_booking_action.
-- Provider reject booking: prepare_reject_booking_action.
-- Provider mark complete: prepare_complete_booking_action.
-- Provider approve refund: prepare_approve_refund_action.
-- Provider reject refund: prepare_reject_refund_action.
+- Recommend local providers: search_providers. service_tags must be core tags only: cleaning, childcare, elderly_care, electrician, plumbing, painter, locksmith, technician, moving. Never map an unknown need to another tag; use an empty array.
+- Answer a customer FAQ or policy/how-to question: search_help_articles with a short English query and the best matching FAQ ids.
+- Help place an order: prepare_booking_draft_action only. Booking overrides provider search when the user explicitly asks to book, reserve, or create an order.
+- Compare providers using reviews, price, attitude, or reputation: summarize_provider_reviews.
 
 ## References
-- actionable_context lists bookings or refund requests the user can act on.
-- Phrases like "this booking", "that order", or "this refund" fill booking_id or refund_request_id from that list.
-- Auto-fill an id only when there is one candidate or the user clearly points at one record. Otherwise ask. Do not guess.
-- If the action is clear but the id is missing, call the tool with known args; the backend returns choices.
-- "first one" or "number 1" with recommended_provider_context or candidate_provider_ids: use that index for prepare_booking_draft_action, create_chat_room, or summarize_provider_reviews.
-- If booking_draft lacks provider_profile_id and the user picks by rank or price, they are choosing from recommended_provider_context.
+- Resolve rank and name references from recommended_provider_context or candidate_provider_ids before choosing a tool. Never invent a provider_profile_id.
+- Decide what the customer wants to do with the resolved provider separately from resolving which provider they mean.
+- A provider selection by itself is booking intent after recommendations. Examples: "first one", "choose the first one", "book the second provider", "就选第一个", "第一个", and "跟第一个下单". You MUST call prepare_booking_draft_action with the resolved provider_profile_id. If no task description was given, omit it so the tool saves the selected provider and asks for the task. Never merely reply that the provider was selected.
+- A question asking for an opinion, reviews, reputation, or comparison is review intent, not booking intent. Examples: "how is the first one?", "reviews for the second provider", "compare the first and second", "第一个怎么样", "评价第一个商家", and "对比第一和第二个商家". You MUST call summarize_provider_reviews with the resolved provider ids.
+- When the message contains both a provider reference and an explicit request to book or order, booking intent wins unless the user is clearly asking about reviews or comparison instead.
+- If a booking draft lacks provider_profile_id and the user picks by rank or price, use recommended_provider_context.
 
 ## Drafts
-- Prefer prepare_booking_draft_action even with partial info. It returns missing fields, provider choices, and next questions. A confirmation draft only when complete.
-- If booking_draft exists and the user changes provider, address, time, or description, call it with only the new fields.
-- If the user cancels the draft ("start over", "never mind", "don't book"), do not continue booking; the backend clears the draft.
-- Relative dates (today, tomorrow) with current_date: convert to ISO datetimes. If date or time is unclear, leave fields empty.
-- Only call prepare_create_booking_action when provider_profile_id, description, address, location, and times are all explicit. It only creates a pending confirmation. Never say the order already exists.
+- Call prepare_booking_draft_action even with partial information. It needs only a provider and a specific task description.
+- If the provider is known but the task is vague or absent, ask what specific work the customer needs.
+- When the customer provides the task, rewrite it as a concise, professional service description in the customer's language. Preserve every fact and never invent requirements, urgency, materials, or damage.
+- If booking_draft exists and the user changes the provider or task description, pass only the new fields.
+- If the user cancels the draft ("start over", "never mind", "don't book"), do not continue it.
+- A complete draft opens the normal booking form. The customer chooses the service category, location, schedule, and attachments there, then submits it personally.
+- Never ask for an address, latitude, longitude, service category, appointment time, or attachment in AI chat.
+- Never say an order exists merely because the booking form was prepared.
 
 ## Safety
-- Do not invent provider_profile_id, address, coordinates, or appointment times.
-- All database-changing actions require user confirmation first.
-- If draft_status=missing_info or missing_fields is present, ask the missing_fields questions. Do not say booking or payment can proceed.
-- If information is insufficient, do not invent parameters; say what is still needed.
-- When you speak to the user, reply in the user's language. Quote money in TRY.
+- Do not invent provider_profile_id, task details, FAQ content, or review facts.
+- This tool never creates a booking; booking creation happens only when the customer submits the normal booking form.
+- Do not offer AI chat, booking-status lookup, payment, refund, cancellation, quote, completion, or other removed tools. Direct users to the normal app screens or FAQ where appropriate.
+- Reply in the user's language. Quote money in TRY.
 """
 
 TOOL_CHOICE_RETRY_PROMPT = (
-    "The last tool choice invoked no tools and returned an empty reply. "
-    "Re-evaluate. "
-    "Follow system rules, the user message, and context to pick the best tool. "
+    "Re-evaluate the last answer before replying. It did not invoke a tool even though "
+    "the conversation may contain provider recommendations or an active booking draft. "
+    "First resolve which provider the user means from the supplied context, then decide "
+    "whether the user wants to book that provider or evaluate/compare them. A provider "
+    "selection by itself after recommendations is booking intent and MUST call "
+    "prepare_booking_draft_action. A review, opinion, reputation, or comparison request "
+    "MUST call summarize_provider_reviews. Never say a provider was selected unless the "
+    "booking tool was actually called. "
     "If no tool fits, reply in the user's language about what information is still needed. "
     "Do not invent parameters or call tools unnecessarily."
 )
@@ -85,7 +78,8 @@ def build_tool_calling_user_message(
     return (
         f"User message: {message}\n\n"
         "Available context: "
-        f"{json.dumps(context, ensure_ascii=False)}"
+        # Actionable bookings carry datetimes, which json.dumps cannot encode.
+        f"{json.dumps(jsonable_encoder(context), ensure_ascii=False)}"
     )
 
 
@@ -106,8 +100,24 @@ def canned_answer_from_tool_results(tool_results: list[dict[str, Any]]) -> str |
     return "\n\n".join(answers)
 
 
-def should_retry_empty_tool_choice(response):
-    return not response.tool_calls and not get_message_content(response).strip()
+def should_retry_tool_choice(
+    response,
+    context: dict[str, Any] | None = None,
+):
+    """Retry model routing when conversational state suggests a tool may be needed."""
+
+    if response.tool_calls:
+        return False
+
+    if not get_message_content(response).strip():
+        return True
+
+    context = context or {}
+    return bool(
+        context.get("recommended_provider_context")
+        or context.get("candidate_provider_ids")
+        or context.get("booking_draft")
+    )
 
 
 def select_langchain_tools(
@@ -303,7 +313,7 @@ def choose_and_run_langchain_tools(
 
     first_response = model.invoke(messages)
 
-    if should_retry_empty_tool_choice(first_response):
+    if should_retry_tool_choice(first_response, context):
         retry_messages = [
             *messages,
             SystemMessage(content=TOOL_CHOICE_RETRY_PROMPT),

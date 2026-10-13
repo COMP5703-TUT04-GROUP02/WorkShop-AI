@@ -22,7 +22,8 @@ def test_register_and_login(client):
     assert created.json()["success"] is True
     assert created.json()["data"]["user"]["email"] == "customer@example.com"
     assert created.json()["data"]["user"]["role"] == "customer"
-    assert created.json()["data"]["user"]["email_verified"] is False
+    # The sign-up code proved the address, so the account starts verified.
+    assert created.json()["data"]["user"]["email_verified"] is True
     assert created.json()["data"]["user"]["phone_verified"] is False
 
     session = login(client)
@@ -35,7 +36,7 @@ def test_register_and_login(client):
     me = client.get("/me", headers={"Authorization": f"Bearer {data['access_token']}"})
     assert me.status_code == 200
     assert me.json()["data"]["email"] == "customer@example.com"
-    assert me.json()["data"]["email_verified"] is False
+    assert me.json()["data"]["email_verified"] is True
     assert me.json()["data"]["phone_verified"] is False
 
 
@@ -98,7 +99,7 @@ def test_refresh_token_issues_new_pair(client):
 def test_social_login_creates_customer(client, monkeypatch):
     monkeypatch.setattr(
         "backend.routers.auth.verify_social_identity",
-        lambda provider, token: VerifiedSocialIdentity(
+        lambda provider, token, nonce=None: VerifiedSocialIdentity(
             provider="google",
             provider_user_id="google-sub-1",
             email="google.user@example.com",
@@ -107,7 +108,12 @@ def test_social_login_creates_customer(client, monkeypatch):
     )
     response = client.post(
         "/social-login",
-        json={"provider": "google", "id_token": "fake-token", "role": "customer"},
+        json={
+            "provider": "google",
+            "id_token": "fake-token",
+            "role": "customer",
+            "tos_accepted": True,
+        },
     )
     assert response.status_code == 200, response.text
     data = response.json()["data"]

@@ -11,6 +11,7 @@ import {
 import {
   getCurrentUser,
   loginWithPassword,
+  loginWithSocial,
   logoutByRefreshToken,
   patchCurrentUser,
   registerUser,
@@ -18,7 +19,12 @@ import {
   uploadCurrentUserAvatar,
 } from "../api/auth";
 import { setSessionHooks, setSessionTokens } from "../api/client";
-import type { RegisterRequest, User, UserProfilePatchPayload } from "../types/auth";
+import type {
+  RegisterRequest,
+  SocialLoginRequest,
+  User,
+  UserProfilePatchPayload,
+} from "../types/auth";
 
 const ACCESS_TOKEN_KEY = "workshop_ai_access_token";
 const REFRESH_TOKEN_KEY = "workshop_ai_refresh_token";
@@ -28,6 +34,7 @@ type AuthContextValue = {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (payload: RegisterRequest) => Promise<void>;
+  signInWithSocial: (payload: SocialLoginRequest) => Promise<void>;
   signOut: () => Promise<void>;
   updateUserProfile: (payload: { name: string }) => Promise<User>;
   patchUserProfile: (payload: UserProfilePatchPayload) => Promise<User>;
@@ -119,6 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await saveSession(data.access_token, data.refresh_token, data.user);
   }
 
+  async function signInWithSocial(payload: SocialLoginRequest) {
+    const data = await loginWithSocial(payload);
+    await saveSession(data.access_token, data.refresh_token, data.user);
+  }
+
   async function signOut() {
     const tokenToRevoke = refreshToken;
     await clearSession();
@@ -163,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       signIn,
       signUp,
+      signInWithSocial,
       signOut,
       updateUserProfile,
       patchUserProfile,
