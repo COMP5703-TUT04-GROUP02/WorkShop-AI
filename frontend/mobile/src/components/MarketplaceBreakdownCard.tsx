@@ -14,6 +14,7 @@ export function MarketplaceBreakdownCard({
   serviceAmountLabel = "Expected service amount",
   visitFeeAmount,
   title = "Marketplace split",
+  adminLayout = false,
 }: {
   amount?: number | string | null;
   estimateOnly?: boolean;
@@ -22,6 +23,7 @@ export function MarketplaceBreakdownCard({
   serviceAmountLabel?: string;
   visitFeeAmount?: number | string | null;
   title?: string;
+  adminLayout?: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const breakdown = getMarketplaceBreakdown(estimateOnly ? null : payment, amount);
@@ -45,8 +47,9 @@ export function MarketplaceBreakdownCard({
         <Row label="Estimated customer total" value={formatMoney(breakdown.total)} />
       ) : null}
       <View style={styles.separator} />
-      <Row label="Total deductions" value={formatMoney(totalDeductions)} emphasized />
+      {!adminLayout ? <Row label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
       <Row label="Expected provider income" value={formatMoney(providerIncome)} emphasized />
+      {adminLayout ? <Row label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
       <Pressable
         accessibilityLabel={isExpanded ? "Hide fee details" : "View fee details"}
         accessibilityRole="button"
@@ -61,13 +64,13 @@ export function MarketplaceBreakdownCard({
       {isExpanded ? (
         <View style={styles.details}>
           <Row label="Platform commission" value={formatMoney(breakdown.platformCommission)} />
-          <Row label="Provider share" value={formatMoney(breakdown.providerShare)} />
+          {!adminLayout ? <Row label="Provider share" value={formatMoney(breakdown.providerShare)} /> : null}
           <Row
             label={`iyzico fee${breakdown.feeIsEstimated ? " (estimate)" : ""}`}
             value={formatMoney(breakdown.iyzicoFee)}
           />
           <Row label="VAT estimate" value={formatMoney(breakdown.taxAmount)} />
-          <Row label={payoutLabel} value={formatMoney(providerIncome)} />
+          {!adminLayout ? <Row label={payoutLabel} value={formatMoney(providerIncome)} /> : null}
         </View>
       ) : null}
       {settlement ? (

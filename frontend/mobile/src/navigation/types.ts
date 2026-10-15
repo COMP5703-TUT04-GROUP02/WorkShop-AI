@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
+import type { AdminArea } from "./AdminMenu";
 
 /** WS-90. The static legal pages; WS-92's register checkbox links to them. */
 export type LegalDocument = "privacy" | "terms";
@@ -12,7 +13,7 @@ export type MainTabParamList = {
   ProviderSchedule: undefined;
   ProviderBookings: undefined;
   ProviderChats: undefined;
-  AdminDashboard: undefined;
+  AdminDashboard: { area?: AdminArea } | undefined;
   Account: undefined;
 };
 

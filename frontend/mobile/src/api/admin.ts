@@ -102,12 +102,25 @@ export async function updateAdminProviderProfileVerification(
   return response.data.data;
 }
 
-export async function getPendingProviderPortfolios(page = 1, pageSize = 20) {
+export type AdminRecordFilters = {
+  providerProfileId?: number;
+  customerId?: number;
+  refundRequestId?: number;
+  status?: string;
+};
+
+export async function setAdminReviewVisibility(reviewId: number, isVisible: boolean) {
+  const response = await apiClient.put(`/admin/reviews/${reviewId}/visibility`, { is_visible: isVisible });
+  return response.data.data;
+}
+
+export async function getPendingProviderPortfolios(page = 1, pageSize = 20, filters: AdminRecordFilters = {}) {
   const response = await apiClient.get<ApiResponse<PaginatedData<ProviderPortfolio>>>(
     "/admin/provider-portfolios",
     {
       params: {
         verification_status: "pending",
+        provider_profile_id: filters.providerProfileId,
         page,
         page_size: pageSize,
       },
@@ -143,12 +156,15 @@ export async function updateAdminProviderPortfolioVerification(
   return response.data.data;
 }
 
-export async function getPendingRefundAppeals(page = 1, pageSize = 20) {
+export async function getPendingRefundAppeals(page = 1, pageSize = 20, filters: AdminRecordFilters = {}) {
   const response = await apiClient.get<
     ApiResponse<PaginatedData<RefundRequestSummary>>
   >("/admin/refund-requests", {
     params: {
       status: "appealed",
+      refund_request_id: filters.refundRequestId,
+      customer_id: filters.customerId,
+      provider_profile_id: filters.providerProfileId,
       page,
       page_size: pageSize,
     },
@@ -189,11 +205,11 @@ export async function rejectAdminRefundAppeal(
   return response.data.data;
 }
 
-export async function getAdminSubmerchants(page = 1, pageSize = 20) {
+export async function getAdminSubmerchants(page = 1, pageSize = 20, filters: AdminRecordFilters = {}) {
   const response = await apiClient.get<
     ApiResponse<PaginatedData<AdminSubmerchant>>
   >("/admin/submerchants", {
-    params: { page, page_size: pageSize },
+    params: { page, page_size: pageSize, status: filters.status, provider_profile_id: filters.providerProfileId },
   });
   return response.data.data;
 }

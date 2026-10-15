@@ -5,6 +5,7 @@ import { AISubscriptionPanel } from "./AISubscriptionPanel";
 import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
 import { ReviewEmbeddingAdminPanel } from "./ReviewEmbeddingAdminPanel";
 import {
+  ReviewManagementPanel,
   HiddenReviewRestorePanel,
   LowValueReviewPanel,
 } from "./ReviewSweepPanels";
@@ -18,6 +19,10 @@ export function AdminIdentityVerificationScreen() {
       <ProviderVerificationAdminPanel mode="identity" />
     </AdminPage>
   );
+}
+
+export function AdminVerificationScreen() {
+  return <AdminPage><ProviderVerificationAdminPanel /></AdminPage>;
 }
 
 export function AdminQualificationVerificationScreen() {
@@ -34,25 +39,16 @@ export function AdminQualificationVerificationScreen() {
 export function AdminReviewManagementScreen() {
   return (
     <AdminPage
-      title="Review management"
-      subtitle="Hide reviews tied to low-value bookings and restore valid hidden reviews."
+      title="Review visibility management"
     >
-      <View style={styles.section}>
-        <LowValueReviewPanel />
-      </View>
-      <View style={styles.section}>
-        <HiddenReviewRestorePanel />
-      </View>
+      <ReviewManagementPanel />
     </AdminPage>
   );
 }
 
 export function AdminCustomerAIConfigScreen() {
   return (
-    <AdminPage
-      title="Customer AI config"
-      subtitle="Manage the model connection used by the customer AI assistant."
-    >
+    <AdminPage>
       <AISubscriptionPanel />
     </AdminPage>
   );
@@ -60,10 +56,7 @@ export function AdminCustomerAIConfigScreen() {
 
 export function AdminReviewEmbeddingScreen() {
   return (
-    <AdminPage
-      title="Review embedding / search"
-      subtitle="Monitor review vector indexing and search infrastructure."
-    >
+    <AdminPage>
       <ReviewEmbeddingAdminPanel />
     </AdminPage>
   );
@@ -75,15 +68,15 @@ function AdminPage({
   title,
 }: {
   children: React.ReactNode;
-  subtitle: string;
-  title: string;
+  subtitle?: string;
+  title?: string;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View>
+      {title ? <View>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      </View> : null}
       {children}
     </ScrollView>
   );

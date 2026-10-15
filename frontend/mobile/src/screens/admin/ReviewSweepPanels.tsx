@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   getHiddenHighValueReviews,
   getLowValueReviews,
-  hideLowValueReviews,
-  showHiddenHighValueReviews,
+  setAdminReviewVisibility,
 } from "../../api/admin";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
@@ -15,6 +14,8 @@ import type { LowValueReview } from "../../types/review";
 import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
+import { applySelectedReviews, retainSelectedIds } from "./adminState";
+import { useRef } from "react";
 
 const DEFAULT_THRESHOLD = "100";
 const PAGE_SIZE = 50;
@@ -34,7 +35,7 @@ type SweepCopy = {
   footnote: string;
   amountIsWarning: boolean;
   fetchPage: (threshold: number) => Promise<SweepPage | null | undefined>;
-  apply: (threshold: number) => Promise<number>;
+  visible: boolean;
 };
 
 /** Hides reviews that sit on a booking too cheap to have been a real job. */
@@ -53,7 +54,7 @@ const HIDE_CHEAP: SweepCopy = {
     "Hidden too much? Use the restore sweep below to bring back the ones on properly priced jobs.",
   amountIsWarning: true,
   fetchPage: (threshold) => getLowValueReviews(threshold, 1, PAGE_SIZE),
-  apply: async (threshold) => (await hideLowValueReviews(threshold))?.hidden ?? 0,
+  visible: false,
 };
 
 /** The mirror: puts back hidden reviews that sit on a properly priced job. */
@@ -73,162 +74,82 @@ const RESTORE_EXPENSIVE: SweepCopy = {
     "This only brings back reviews that were hidden. Anything already visible is left alone.",
   amountIsWarning: false,
   fetchPage: (threshold) => getHiddenHighValueReviews(threshold, 1, PAGE_SIZE),
-  apply: async (threshold) =>
-    (await showHiddenHighValueReviews(threshold))?.restored ?? 0,
+  visible: true,
 };
 
-function ReviewSweepPanel({ copy }: { copy: SweepCopy }) {
+function ReviewSweepPanel({ copy, revision = 0, onChanged = () => {} }: { copy: SweepCopy; revision?: number; onChanged?: () => void }) {
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   const [reviews, setReviews] = useState<LowValueReview[]>([]);
+  const [selected, setSelected] = useState<number[]>([]);
   const [total, setTotal] = useState(0);
-  const [hasChecked, setHasChecked] = useState(false);
+  const [checkedAmount, setCheckedAmount] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-
-  function parseThreshold() {
-    const value = Number(threshold);
-    if (!Number.isFinite(value) || value <= 0) return null;
-    return value;
-  }
-
-  const check = useCallback(
-    async (amount: number) => {
-      setIsChecking(true);
-      setError("");
-      setMessage("");
-      try {
-        const result = await copy.fetchPage(amount);
-        setReviews(result?.items ?? []);
-        setTotal(result?.total ?? 0);
-        setHasChecked(true);
-      } catch (checkError) {
-        setError(getErrorMessage(checkError));
-      } finally {
-        setIsChecking(false);
-      }
-    },
-    [copy],
-  );
-
-  useEffect(() => {
-    void check(Number(DEFAULT_THRESHOLD));
-  }, [check]);
-
-  function handleCheck() {
-    const amount = parseThreshold();
-    if (amount === null) {
-      setError("Enter an amount greater than 0.");
-      return;
-    }
-    void check(amount);
-  }
-
-  async function handleApply() {
-    const amount = parseThreshold();
-    if (amount === null) {
-      setError("Enter an amount greater than 0.");
-      return;
-    }
-    setIsApplying(true);
-    setError("");
-    setMessage("");
+  const request = useRef(0);
+  const lastRevision = useRef(revision);
+  const check = useCallback(async (amount: number) => {
+    const ticket = ++request.current;
+    setIsChecking(true);
     try {
-      const changed = await copy.apply(amount);
-      await check(amount);
-      setMessage(copy.resultText(changed));
-    } catch (applyError) {
-      setError(getErrorMessage(applyError));
-    } finally {
-      setIsApplying(false);
-    }
+      const result = await copy.fetchPage(amount);
+      if (ticket !== request.current) return;
+      const items = result?.items ?? [];
+      setReviews(items); setTotal(result?.total ?? 0); setCheckedAmount(amount);
+      setSelected((current) => retainSelectedIds(current, items.map((item) => item.id)));
+    } catch (err) {
+      if (ticket === request.current) { setError(getErrorMessage(err)); setCheckedAmount(null); }
+    } finally { if (ticket === request.current) setIsChecking(false); }
+  }, [copy]);
+  useEffect(() => { void check(Number(DEFAULT_THRESHOLD)); return () => { request.current++; }; }, [check]);
+  useEffect(() => {
+    if (lastRevision.current === revision) return;
+    lastRevision.current = revision;
+    if (checkedAmount !== null) void check(checkedAmount);
+  }, [revision, check, checkedAmount]);
+  const busy = isChecking || isApplying;
+  async function apply() {
+    if (checkedAmount === null || selected.length === 0 || busy) return;
+    const targets = retainSelectedIds(selected, reviews.map((item) => item.id));
+    setIsApplying(true); setError(""); setMessage("");
+    try {
+      const result = await applySelectedReviews(targets, (id) => setAdminReviewVisibility(id, copy.visible));
+      setSelected(result.failed.map((item) => item.id));
+      await check(checkedAmount);
+      setMessage(result.succeeded.length ? copy.resultText(result.succeeded.length) : "");
+      if (result.failed.length) setError(`${result.failed.length} not confirmed: ${result.failed.map((item) => "#" + item.id + ": " + item.message).join("; ")}. Check the latest results before retrying.`);
+      onChanged();
+    } finally { setIsApplying(false); }
   }
-
-  const isBusy = isChecking || isApplying;
-
-  return (
-    <View style={styles.panel}>
-      <Text style={styles.title}>{copy.title}</Text>
-      <Text style={styles.subtitle}>{copy.subtitle}</Text>
-
-      <View style={styles.controls}>
-        <View style={styles.thresholdField}>
-          <TextField
-            label={copy.thresholdLabel}
-            value={threshold}
-            onChangeText={setThreshold}
-            keyboardType="numeric"
-            placeholder={DEFAULT_THRESHOLD}
-          />
-        </View>
-        <View style={styles.checkButton}>
-          <SecondaryButton label="Check" onPress={handleCheck} disabled={isBusy} />
-        </View>
-      </View>
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-
-      {isChecking && reviews.length === 0 ? (
-        <ActivityIndicator />
-      ) : !hasChecked ? null : total === 0 ? (
-        <Text style={styles.emptyText}>{copy.emptyText}</Text>
-      ) : (
-        <>
-          <Text style={styles.countText}>
-            {total} {total === 1 ? "review" : "reviews"} matched
-            {reviews.length < total ? ` (showing the first ${reviews.length})` : ""}
-          </Text>
-
-          {reviews.map((review) => (
-            <View key={review.id} style={styles.row}>
-              <View style={styles.rowTop}>
-                <Text
-                  style={[
-                    styles.amount,
-                    copy.amountIsWarning ? styles.amountWarning : null,
-                  ]}
-                >
-                  {review.booking_total_amount === null
-                    ? "No amount"
-                    : formatMoney(review.booking_total_amount)}
-                </Text>
-                <Text style={styles.meta}>
-                  {review.rating} stars
-                  {review.created_at ? ` · ${formatDateTime(review.created_at)}` : ""}
-                </Text>
-              </View>
-              <Text style={styles.provider}>
-                {review.provider_business_name ||
-                  `Provider #${review.provider_profile_id}`}
-              </Text>
-              <Text style={styles.comment}>
-                {review.comment || "No comment provided."}
-              </Text>
-            </View>
-          ))}
-
-          <PrimaryButton
-            label={copy.actionLabel(total)}
-            onPress={() => void handleApply()}
-            isLoading={isApplying}
-            disabled={isBusy}
-          />
-          <Text style={styles.footnote}>{copy.footnote}</Text>
-        </>
-      )}
-    </View>
-  );
+  return <View style={styles.panel}>
+    <Text style={styles.title}>{copy.title}</Text><Text style={styles.subtitle}>{copy.subtitle}</Text>
+    <View style={styles.controls}><View style={styles.thresholdField}><TextField label={copy.thresholdLabel} value={threshold} editable={!busy} keyboardType="numeric" onChangeText={(value) => { request.current++; setIsChecking(false); setThreshold(value); setSelected([]); setReviews([]); setCheckedAmount(null); setMessage(""); setError(""); }} /></View>
+    <SecondaryButton label="Check" disabled={busy} onPress={() => { const amount = Number(threshold); if (!Number.isFinite(amount) || amount <= 0) { setError("Enter an amount greater than 0."); return; } setMessage(""); setError(""); void check(amount); }} /></View>
+    {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+    {message ? <Text accessibilityLiveRegion="polite" style={styles.message}>{message}</Text> : null}
+    {isChecking ? <ActivityIndicator /> : null}
+    {checkedAmount === null ? <Text style={styles.meta}>Click Check before selecting reviews.</Text> : <>
+      <Text style={styles.countText}>{total} matched · {selected.length} selected{reviews.length < total ? ` · showing first ${reviews.length}` : ""}</Text>
+      <View style={styles.controls}><SecondaryButton label="Select all shown" disabled={busy || !reviews.length} onPress={() => setSelected(reviews.map((item) => item.id))} /><SecondaryButton label="Clear selection" disabled={busy || !selected.length} onPress={() => setSelected([])} /></View>
+      {total === 0 ? <Text style={styles.emptyText}>{copy.emptyText}</Text> : null}
+      {reviews.map((review) => <Pressable key={review.id} accessibilityRole="checkbox" accessibilityLabel={`Select review #${review.id}`} accessibilityState={{ checked: selected.includes(review.id), disabled: busy }} disabled={busy} onPress={() => setSelected((current) => current.includes(review.id) ? current.filter((id) => id !== review.id) : [...current, review.id])} style={styles.row}>
+        <View style={styles.rowTop}><Text style={styles.amount}>{selected.includes(review.id) ? "☑" : "☐"} {review.booking_total_amount === null ? "No amount" : formatMoney(review.booking_total_amount)}</Text><Text style={styles.meta}>{review.rating} stars{review.created_at ? " · " + formatDateTime(review.created_at) : ""}</Text></View>
+        <Text style={styles.provider}>{review.provider_business_name || `Provider #${review.provider_profile_id}`}</Text><Text style={styles.comment}>{review.comment || "No comment provided."}</Text>
+      </Pressable>)}
+      <PrimaryButton label={copy.actionLabel(selected.length)} disabled={busy || selected.length === 0} isLoading={isApplying} onPress={() => void apply()} />
+      <Text style={styles.footnote}>{copy.footnote}</Text>
+    </>}
+  </View>;
 }
 
-export function LowValueReviewPanel() {
-  return <ReviewSweepPanel copy={HIDE_CHEAP} />;
+export function ReviewManagementPanel() {
+  const [revision, setRevision] = useState(0);
+  const changed = () => setRevision((value) => value + 1);
+  return <View style={{ gap: spacing.xl }}><ReviewSweepPanel copy={HIDE_CHEAP} revision={revision} onChanged={changed} /><ReviewSweepPanel copy={RESTORE_EXPENSIVE} revision={revision} onChanged={changed} /></View>;
 }
-
-export function HiddenReviewRestorePanel() {
-  return <ReviewSweepPanel copy={RESTORE_EXPENSIVE} />;
-}
+export function LowValueReviewPanel() { return <ReviewSweepPanel copy={HIDE_CHEAP} />; }
+export function HiddenReviewRestorePanel() { return <ReviewSweepPanel copy={RESTORE_EXPENSIVE} />; }
 
 const styles = StyleSheet.create({
   panel: { gap: spacing.md },

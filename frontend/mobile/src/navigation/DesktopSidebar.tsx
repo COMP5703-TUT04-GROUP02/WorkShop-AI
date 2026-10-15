@@ -1,12 +1,13 @@
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ComponentType } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { colors, layout, spacing } from "../theme/theme";
+import { AdminMenu, type AdminArea } from "./AdminMenu";
 import { tabIcons } from "./tabIcons";
 import type { MainTabParamList, RootStackParamList } from "./types";
 
@@ -42,7 +43,8 @@ export function DesktopSidebar() {
   return (
     <View style={styles.sidebar}>
       <Text style={styles.brand}>Workshop AI</Text>
-      <View style={styles.nav}>
+      <ScrollView contentContainerStyle={styles.nav}>
+        {user?.role === "admin" ? <AdminMenu active={active.tab === "AdminDashboard" ? active.area ?? "ai" : undefined} onSelect={(area) => navigation.navigate("Main", { screen: "AdminDashboard", params: { area } })} /> : null}
         {items.map((item) => {
           const isActive = item.route
             ? active.stack === item.route
@@ -97,7 +99,7 @@ export function DesktopSidebar() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -113,11 +115,13 @@ function useActiveDesktopRoute(defaultTab: keyof MainTabParamList) {
       return {
         stack: "Main",
         tab: (tabRoute?.name ?? defaultTab) as keyof MainTabParamList,
+        area: (tabRoute?.params as { area?: AdminArea } | undefined)?.area,
       };
     }
 
     return {
       stack: route.name,
+      area: undefined as AdminArea | undefined,
       tab: undefined as keyof MainTabParamList | undefined,
     };
   });
@@ -174,31 +178,7 @@ function getSidebarItems(
     ];
   }
 
-  if (role === "admin") {
-    return [
-      { tab: "AdminDashboard", label: "Admin", icon: tabIcons.admin },
-      {
-        tab: "AdminDashboard",
-        label: "Identity verification",
-        icon: tabIcons.admin,
-        route: "AdminIdentityVerification",
-      },
-      {
-        tab: "AdminDashboard",
-        label: "Qualification verification",
-        icon: tabIcons.admin,
-        route: "AdminQualificationVerification",
-      },
-      { tab: "AdminDashboard", label: "Portfolio review", icon: tabIcons.admin, route: "AdminPortfolioReview" },
-      { tab: "AdminDashboard", label: "Refund disputes", icon: tabIcons.admin, route: "AdminRefundDisputes" },
-      { tab: "AdminDashboard", label: "Payments & settlements", icon: tabIcons.admin, route: "AdminPaymentsSettlements" },
-      { tab: "AdminDashboard", label: "Payout accounts", icon: tabIcons.admin, route: "AdminPayoutAccounts" },
-      { tab: "AdminDashboard", label: "Review management", icon: tabIcons.admin, route: "AdminReviewManagement" },
-      { tab: "AdminDashboard", label: "Customer AI config", icon: tabIcons.admin, route: "AdminCustomerAIConfig" },
-      { tab: "AdminDashboard", label: "Review embedding", icon: tabIcons.admin, route: "AdminReviewEmbedding" },
-      accountItem,
-    ];
-  }
+  if (role === "admin") return [accountItem];
 
   return [
     {

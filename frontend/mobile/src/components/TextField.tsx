@@ -21,6 +21,7 @@ type TextFieldProps = {
   numberOfLines?: number;
   maxLength?: number;
   editable?: boolean;
+  onSubmitEditing?: TextInputProps["onSubmitEditing"];
   error?: string;
 };
 
@@ -36,6 +37,7 @@ export function TextField({
   numberOfLines,
   maxLength,
   editable = true,
+  onSubmitEditing,
   error,
 }: TextFieldProps) {
   return (
@@ -48,6 +50,7 @@ export function TextField({
         keyboardType={keyboardType}
         maxLength={maxLength}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedText}
         secureTextEntry={secureTextEntry}
