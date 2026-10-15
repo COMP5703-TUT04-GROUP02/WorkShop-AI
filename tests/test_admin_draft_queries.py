@@ -99,6 +99,35 @@ def seed_refunds(db, marketplace):
     return rows
 
 
+@pytest.mark.parametrize("status", ["refunded", "partially_refunded"])
+def test_payment_refund_status_filters_are_exact(client, db_session, marketplace, status):
+    rows = seed_refunds(db_session, marketplace)
+    payment = db_session.get(models.Payment, rows[0].payment_id)
+    payment.status = status
+    other = db_session.get(models.Payment, rows[2].payment_id)
+    other.status = "partially_refunded" if status == "refunded" else "refunded"
+    db_session.commit()
+
+    data = get_data(client, marketplace, "/admin/payments", status=status)
+    assert data["total"] == 1
+    assert data["items"][0]["id"] == payment.id
+    assert data["items"][0]["status"] == status
+    assert get_data(client, marketplace, "/admin/payments")["total"] == 3
+    assert get_data(client, marketplace, "/admin/payments", status="paid")["total"] == 1
+    assert (
+        get_data(
+            client, marketplace, "/admin/payments", status=status, booking_id=payment.booking_id
+        )["total"]
+        == 1
+    )
+    assert (
+        get_data(
+            client, marketplace, "/admin/payments", status=status, booking_id=other.booking_id
+        )["total"]
+        == 0
+    )
+
+
 def test_payout_accounts_have_real_twenty_row_pages(client, db_session, marketplace):
     from backend.core.clock import utc_now
 

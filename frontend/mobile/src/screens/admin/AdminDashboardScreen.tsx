@@ -549,6 +549,8 @@ function MarketplaceSection({
             ["Authorized", "authorized"],
             ["Paid", "paid"],
             ["Failed", "failed"],
+            ["Refunded", "refunded"],
+            ["Partially refunded", "partially_refunded"],
           ].map(([label, value]) => (
             <FilterChip
               active={filters.status === value}
