@@ -1,6 +1,6 @@
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
@@ -43,7 +43,7 @@ export function DesktopSidebar() {
   return (
     <View style={styles.sidebar}>
       <Text style={styles.brand}>Workshop AI</Text>
-      <ScrollView contentContainerStyle={styles.nav}>
+      <SidebarNavigation isAdmin={user?.role === "admin"}>
         {user?.role === "admin" ? <AdminMenu active={active.tab === "AdminDashboard" ? active.area ?? "ai" : undefined} onSelect={(area) => navigation.navigate("Main", { screen: "AdminDashboard", params: { area } })} /> : null}
         {items.map((item) => {
           const isActive = item.route
@@ -99,9 +99,16 @@ export function DesktopSidebar() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </SidebarNavigation>
     </View>
   );
+}
+
+function SidebarNavigation({ isAdmin, children }: { isAdmin: boolean; children: ReactNode }) {
+  // Keep the original container for customer/provider navigation.
+  return isAdmin
+    ? <ScrollView contentContainerStyle={styles.nav}>{children}</ScrollView>
+    : <View style={styles.nav}>{children}</View>;
 }
 
 function useActiveDesktopRoute(defaultTab: keyof MainTabParamList) {
