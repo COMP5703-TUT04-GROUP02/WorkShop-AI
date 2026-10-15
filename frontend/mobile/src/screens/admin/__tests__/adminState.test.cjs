@@ -1,6 +1,25 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { parseAdminId, retainSelectedIds, groupApplications, applySelectedReviews } = require("../../../../.test-build/screens/admin/adminState.js");
+const { parseAdminId, retainSelectedIds, groupApplications, applySelectedReviews, payoutFiltersForStatus, isAdminIdPending } = require("../../../../.test-build/screens/admin/adminState.js");
+
+test("payout status changes immediately use only the already submitted provider ID", () => {
+  const applied = {providerProfileId: 3, status: "rejected"};
+  assert.deepEqual(payoutFiltersForStatus(applied, "active"), {providerProfileId: 3, status: "active"});
+  assert.deepEqual(applied, {providerProfileId: 3, status: "rejected"});
+  assert.deepEqual(payoutFiltersForStatus({}, "draft"), {providerProfileId: undefined, status: "draft"});
+});
+test("all payout statuses removes only the status, not the submitted provider ID", () => {
+  assert.deepEqual(payoutFiltersForStatus({providerProfileId: 3}, ""), {providerProfileId: 3, status: undefined});
+  assert.deepEqual(payoutFiltersForStatus({}, ""), {providerProfileId: undefined, status: undefined});
+});
+test("unsent provider edits are detected without applying them or treating # as different", () => {
+  assert.equal(isAdminIdPending("#3", 3), false);
+  assert.equal(isAdminIdPending(" 3 ", 3), false);
+  assert.equal(isAdminIdPending("", undefined), false);
+  assert.equal(isAdminIdPending("2", 3), true);
+  assert.equal(isAdminIdPending("", 3), true);
+  assert.equal(isAdminIdPending("bad", 3), true);
+});
 
 test("ID search accepts optional # and blank, rejects partial/unsafe identifiers", () => {
   assert.equal(parseAdminId(" #42 "), 42);

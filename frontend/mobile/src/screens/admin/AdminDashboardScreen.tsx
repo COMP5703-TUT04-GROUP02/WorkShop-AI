@@ -368,7 +368,7 @@ function AdminOperationsScreen({ section }: { section: OperationsSection }) {
       </View>
 
       {section !== "payments" ? <>
-        <AdminRecordSearch section={section} disabled={isLoading || isActing} onDirty={() => { setRecordQueryDirty(true); closePortfolio(); closeAppeal(); }} onSearch={(filters) => { closePortfolio(); closeAppeal(); setRecordPage(1); setRecordQueryDirty(false); setRecordFilters(filters); }} />
+        <AdminRecordSearch section={section} appliedFilters={recordFilters} disabled={isLoading || isActing} onDirty={() => { setRecordQueryDirty(true); closePortfolio(); closeAppeal(); }} onSearch={(filters) => { closePortfolio(); closeAppeal(); setRecordPage(1); setRecordQueryDirty(false); setRecordFilters(filters); }} />
         <Text style={styles.cardMeta}>{recordQueryDirty ? "Conditions changed. Search to update results." : `${recordTotal} results matching the filters above`}</Text>
       </> : null}
 

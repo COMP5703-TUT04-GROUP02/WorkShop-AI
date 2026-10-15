@@ -13,6 +13,18 @@ export function retainSelectedIds(selected: number[], available: number[]) {
   return selected.filter((id) => valid.has(id));
 }
 
+export function payoutFiltersForStatus(
+  applied: { providerProfileId?: number },
+  status: string,
+) {
+  return { providerProfileId: applied.providerProfileId, status: status || undefined };
+}
+
+export function isAdminIdPending(value: string, appliedId?: number) {
+  try { return parseAdminId(value) !== appliedId; }
+  catch { return true; }
+}
+
 export function groupApplications<T extends { kind: string; item: { user_id: number; id: number } }>(items: T[]) {
   const groups = new Map<number, T[]>();
   items.forEach((entry) => groups.set(entry.item.user_id, [...(groups.get(entry.item.user_id) ?? []), entry]));
