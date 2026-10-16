@@ -13,6 +13,7 @@ export const ADMIN_PAGES = [
   ["reviews", "Review visibility management"],
   ["payouts", "Provider payout accounts"],
   ["payments", "Payments & settlements"],
+  ["bookings", "Booking lookup"],
   ["refunds", "Refund appeals pending review"],
 ] as const;
 export type AdminArea = typeof ADMIN_PAGES[number][0];

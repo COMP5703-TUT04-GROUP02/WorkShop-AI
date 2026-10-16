@@ -29,6 +29,7 @@ import {
 } from "../../api/admin";
 import type { AdminRecordFilters } from "../../api/admin";
 import { AdminRecordSearch } from "./AdminRecordSearch";
+import { AdminBookingsScreen } from "./AdminBookingsScreen";
 import { parseAdminId } from "./adminState";
 import { AdminMenu, type AdminArea } from "../../navigation/AdminMenu";
 import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
@@ -69,6 +70,7 @@ export function AdminDashboardScreen() {
     : area === "refunds" ? <AdminRefundDisputesScreen />
     : area === "payments" ? <AdminPaymentsSettlementsScreen />
     : area === "payouts" ? <AdminPayoutAccountsScreen />
+    : area === "bookings" ? <AdminBookingsScreen />
     : area === "reviews" ? <AdminReviewManagementScreen />
     : area === "embedding" ? <AdminReviewEmbeddingScreen /> : <AdminCustomerAIConfigScreen />;
   return <View style={{ flex: 1 }}>

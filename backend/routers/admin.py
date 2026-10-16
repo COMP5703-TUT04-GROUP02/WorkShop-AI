@@ -17,6 +17,7 @@ from backend.utils.booking import (
     get_booking_or_404,
     save_booking,
 )
+from backend.utils.admin_booking import format_admin_booking_detail
 from backend.utils.chat import (
     create_booking_status_chat_message,
     format_chat_message_response,
@@ -521,18 +522,37 @@ def get_all_bookings(
     status: BookingStatus | None = None,
     page: int = 1,
     page_size: int = 20,
+    booking_id: int | None = Query(default=None, gt=0),
+    customer_id: int | None = Query(default=None, gt=0),
+    provider_profile_id: int | None = Query(default=None, gt=0),
     current_user: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.Booking)
+    if booking_id is not None:
+        query = query.filter(models.Booking.id == booking_id)
+    if customer_id is not None:
+        query = query.filter(models.Booking.customer_id == customer_id)
+    if provider_profile_id is not None:
+        query = query.filter(models.Booking.provider_profile_id == provider_profile_id)
     if status:
         query = query.filter(models.Booking.status == status)
-    query = query.order_by(models.Booking.booking_at.desc())
+    query = query.order_by(models.Booking.booking_at.desc(), models.Booking.id.desc())
     bookings, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for booking in bookings:
         result.append(format_booking_detail_response(booking, db))
     return success_response(build_paginated_response(result, total, page, page_size))
+
+
+@router.get("/admin/bookings/{booking_id}")
+def get_admin_booking_detail(
+    booking_id: int,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    booking = get_booking_or_404(booking_id, db)
+    return success_response(format_admin_booking_detail(booking, db))
 
 
 @router.put("/admin/bookings/{booking_id}/status")
