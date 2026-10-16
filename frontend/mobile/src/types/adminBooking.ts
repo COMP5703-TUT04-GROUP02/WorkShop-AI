@@ -1,7 +1,9 @@
 import type { BookingDetail } from "./booking";
 
+export type AdminBookingStatusGroup = "pending" | "awaiting_payment" | "in_progress" | "completed" | "refund_related" | "closed";
+
 export type AdminBookingFilters = {
-  status?: string;
+  statusGroup?: AdminBookingStatusGroup;
   bookingId?: number;
   customerId?: number;
   providerProfileId?: number;

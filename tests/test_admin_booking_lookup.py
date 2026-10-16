@@ -54,6 +54,77 @@ def read(client, marketplace, path="/admin/bookings", **params):
     return response.json()["data"]
 
 
+def test_admin_groups_partition_workflow_statuses():
+    from backend.schemas import BookingStatus
+    from backend.utils.admin_booking import ADMIN_BOOKING_STATUS_GROUPS
+
+    statuses = [status for values in ADMIN_BOOKING_STATUS_GROUPS.values() for status in values]
+    assert len(ADMIN_BOOKING_STATUS_GROUPS) == 6
+    assert len(statuses) == len(set(statuses)) == 22
+    assert set(statuses) == {status.value for status in BookingStatus}
+
+
+def test_group_filters_cover_all_states_before_pagination_and_keep_raw_detail(
+    client, db_session, marketplace
+):
+    from backend.schemas import BookingStatus
+    from backend.utils.admin_booking import ADMIN_BOOKING_STATUS_GROUPS
+
+    customer_id = marketplace["customer"]["user"]["id"]
+    provider_id = marketplace["provider_profile"]["id"]
+    rows = {}
+    stamp = utc_now()
+    for status in BookingStatus:
+        row = completed_booking(db_session, customer_id, provider_id, "100")
+        row.status = status.value
+        row.booking_at = stamp
+        rows[status.value] = row
+    db_session.commit()
+    for group, members in ADMIN_BOOKING_STATUS_GROUPS.items():
+        pages = [
+            read(client, marketplace, status_group=group.value, page_size=1, page=page)
+            for page in range(1, len(members) + 1)
+        ]
+        assert all(page["total"] == page["total_pages"] == len(members) for page in pages)
+        assert [page["items"][0]["id"] for page in pages] == sorted(
+            [rows[s].id for s in members], reverse=True
+        )
+        assert {page["items"][0]["status"] for page in pages} == set(members)
+    target = rows["quoted"]
+    assert (
+        read(
+            client,
+            marketplace,
+            status_group="pending",
+            booking_id=target.id,
+            customer_id=customer_id,
+            provider_profile_id=provider_id,
+        )["total"]
+        == 1
+    )
+    assert read(client, marketplace, status_group="completed", booking_id=target.id)["total"] == 0
+    assert (
+        read(client, marketplace, status_group="pending", customer_id=customer_id + 999)["total"]
+        == 0
+    )
+    # The pre-existing exact-status parameter still works, and combines via AND.
+    assert read(client, marketplace, status_group="pending", status="quoted")["total"] == 1
+    assert read(client, marketplace, status_group="pending", status="completed")["total"] == 0
+    assert read(client, marketplace, f"/admin/bookings/{target.id}")["status"] == "quoted"
+    db_session.expire_all()
+    assert {row.status for row in db_session.query(models.Booking).all()} == {
+        s.value for s in BookingStatus
+    }
+    assert (
+        client.get(
+            "/admin/bookings",
+            params={"status_group": "not-valid"},
+            headers=marketplace["admin"]["headers"],
+        ).status_code
+        == 422
+    )
+
+
 def test_lookup_exact_and_filters_before_pagination(client, db_session, marketplace, lookup_rows):
     a, b, c, d = lookup_rows
     all_rows = read(client, marketplace)

@@ -1,38 +1,46 @@
-import { BOOKING_STATUS_LABELS } from "../../constants/labels";
+import { getBookingStatusLabel } from "../../constants/labels";
 import { colors } from "../../theme/theme";
-import type { AdminBookingFilters } from "../../types/adminBooking";
+import type { AdminBookingFilters, AdminBookingStatusGroup } from "../../types/adminBooking";
 import { parseDateTime } from "../../utils/datetime";
 
-// Match the existing Customer/Provider booking badges, not a new colour system.
+// Retain system success/warning/neutral tones; avoid saturated indigo blocks.
 const TONES = {
   success: { backgroundColor: "#ECFDF3", color: colors.primary },
   warning: { backgroundColor: "#FFF7ED", color: "#C2410C" },
-  neutral: { backgroundColor: "#EEF2FF", color: "#3730A3" },
+  neutral: { backgroundColor: "#F0F3F5", color: "#526779" },
+  refund: { backgroundColor: "#F7F3EC", color: "#80684B" },
   muted: { backgroundColor: colors.surface, color: colors.mutedText },
-  danger: { backgroundColor: "#FEF2F2", color: colors.danger },
 };
 
-export function bookingStatusStyle(status: string) {
-  if (["completed", "accepted", "visit_paid", "service_paid"].includes(status)) return TONES.success;
-  if (status === "provider_no_show") return TONES.danger;
-  if (["rejected", "cancelled", "cancelled_before_visit", "refunded", "partially_refunded", "visit_completed_closed", "service_cancelled_after_payment"].includes(status)) return TONES.muted;
-  if (["pending", "awaiting_payment", "awaiting_visit_payment", "awaiting_service_payment", "final_quote_sent", "awaiting_confirmation", "refunding"].includes(status)) return TONES.warning;
-  return TONES.neutral;
+export const BOOKING_STATUS_OPTIONS = [
+  { value: "pending", label: "Pending", statuses: ["pending", "quoted"] },
+  { value: "awaiting_payment", label: "Awaiting payment", statuses: ["awaiting_payment", "awaiting_visit_payment", "awaiting_service_payment"] },
+  { value: "in_progress", label: "In progress", statuses: ["visit_paid", "provider_arrived", "awaiting_final_quote", "final_quote_sent", "service_paid", "accepted", "awaiting_confirmation"] },
+  { value: "completed", label: "Completed", statuses: ["completed"] },
+  { value: "refund_related", label: "Refund related", statuses: ["refunding", "refunded", "partially_refunded"] },
+  { value: "closed", label: "Closed", statuses: ["rejected", "cancelled", "cancelled_before_visit", "provider_no_show", "visit_completed_closed", "service_cancelled_after_payment"] },
+] as const;
+
+function bookingGroup(status: string) {
+  return BOOKING_STATUS_OPTIONS.find(group => group.statuses.some(item => item === status));
 }
 
-const DISTINCT_CLOSED_LABELS: Record<string, string> = {
-  cancelled_before_visit: "Closed — cancelled before visit",
-  provider_no_show: "Closed — provider no-show",
-  visit_completed_closed: "Closed — visit completed",
-  service_cancelled_after_payment: "Closed — service cancelled after payment",
-};
+export function bookingGroupLabel(status: string) {
+  return bookingGroup(status)?.label ?? getBookingStatusLabel(status);
+}
 
-export const BOOKING_STATUS_OPTIONS = Object.entries(BOOKING_STATUS_LABELS).map(([value, label]) => ({
-  value, label: DISTINCT_CLOSED_LABELS[value] ?? label,
-}));
+export function bookingStatusStyle(status: string) {
+  switch (bookingGroup(status)?.value) {
+    case "completed": return TONES.success;
+    case "pending": case "awaiting_payment": return TONES.warning;
+    case "in_progress": return TONES.neutral;
+    case "refund_related": return TONES.refund;
+    default: return TONES.muted;
+  }
+}
 
-export function bookingFiltersForStatus(applied: AdminBookingFilters, status?: string): AdminBookingFilters {
-  return { ...applied, status };
+export function bookingFiltersForStatus(applied: AdminBookingFilters, statusGroup?: AdminBookingStatusGroup): AdminBookingFilters {
+  return { ...applied, statusGroup };
 }
 
 /** English UI; retain the same device-local timezone as the existing formatter. */

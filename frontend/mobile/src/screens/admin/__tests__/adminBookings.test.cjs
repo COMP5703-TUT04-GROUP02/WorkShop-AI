@@ -145,18 +145,16 @@ test("status selection immediately uses submitted IDs, not unsent/invalid draft 
   h.find(p => p.label === "Customer user ID").onChangeText("2"); h.render();
   h.find(p => p.label === "Search").onPress(); h.render(); await tick(); h.render();
   h.find(p => p.label === "Customer user ID").onChangeText("invalid"); h.render();
-  h.find(p => p.accessibilityLabel === "Booking status filter").onPress(); h.render();
   h.find(p => p.accessibilityLabel === "Filter bookings: Completed").onPress(); h.render(); await tick(); h.render();
   assert.equal(calls.at(-1)[0], 1);
   assert.equal(calls.at(-1)[2].customerId, 2);
-  assert.equal(calls.at(-1)[2].status, "completed");
+  assert.equal(calls.at(-1)[2].statusGroup, "completed");
   h.find(p => p.label === "Customer user ID").onChangeText("7"); h.render();
   h.find(p => p.label === "Search").onPress(); h.render(); await tick(); h.render();
   assert.equal(calls.at(-1)[2].customerId, 7);
-  assert.equal(calls.at(-1)[2].status, "completed");
-  h.find(p => p.accessibilityLabel === "Booking status filter").onPress(); h.render();
-  h.find(p => p.accessibilityLabel === "Filter bookings: All statuses").onPress(); h.render(); await tick(); h.render();
-  assert.equal(calls.at(-1)[2].status, undefined);
+  assert.equal(calls.at(-1)[2].statusGroup, "completed");
+  h.find(p => p.accessibilityLabel === "Filter bookings: All").onPress(); h.render(); await tick(); h.render();
+  assert.equal(calls.at(-1)[2].statusGroup, undefined);
   assert.equal(calls.at(-1)[2].customerId, 7);
   h.find(p => p.label === "Clear search").onPress(); h.render(); await tick(); h.render();
   assert.equal(Object.keys(calls.at(-1)[2]).length, 0);
@@ -166,7 +164,6 @@ test("status selection immediately uses submitted IDs, not unsent/invalid draft 
 test("a late earlier-status response cannot replace the current filter results", async () => {
   const pending = [];
   const h = harness({ getAdminBookings: () => new Promise(resolve => pending.push(resolve)) });
-  h.find(p => p.accessibilityLabel === "Booking status filter").onPress(); h.render();
   h.find(p => p.accessibilityLabel === "Filter bookings: Completed").onPress(); h.render();
   pending[1](result([booking(2)])); await tick(); h.render();
   pending[0](result([booking(1)])); await tick(); h.render();
@@ -175,16 +172,32 @@ test("a late earlier-status response cannot replace the current filter results",
   h.dispose();
 });
 
-test("all 22 backend statuses have distinct exact filter values, with disambiguated Closed labels", () => {
-  const { BOOKING_STATUS_OPTIONS, bookingStatusStyle } = load("bookingPresentation.ts");
-  assert.equal(BOOKING_STATUS_OPTIONS.length, 22);
-  assert.equal(new Set(BOOKING_STATUS_OPTIONS.map(option => option.value)).size, 22);
-  assert.equal(new Set(BOOKING_STATUS_OPTIONS.map(option => option.label)).size, 22);
+test("six groups partition all 22 workflow statuses while cards use broad labels and muted system tones", () => {
+  const { BOOKING_STATUS_OPTIONS, bookingStatusStyle, bookingGroupLabel } = load("bookingPresentation.ts");
+  assert.equal(BOOKING_STATUS_OPTIONS.length, 6);
+  const statuses = BOOKING_STATUS_OPTIONS.flatMap(group => group.statuses);
+  assert.equal(statuses.length, 22);
+  assert.equal(new Set(statuses).size, 22);
+  const original = load("../../constants/labels.ts").BOOKING_STATUS_LABELS;
+  assert.deepEqual([...statuses].sort(), Object.keys(original).sort());
   assert.equal(bookingStatusStyle("completed").color, theme.colors.primary);
   assert.equal(bookingStatusStyle("cancelled").color, theme.colors.mutedText);
   assert.equal(bookingStatusStyle("pending").color, "#C2410C");
-  assert.equal(bookingStatusStyle("quoted").color, "#3730A3");
-  assert.equal(bookingStatusStyle("provider_no_show").color, theme.colors.danger);
+  assert.equal(bookingStatusStyle("accepted").color, "#526779");
+  assert.equal(bookingStatusStyle("accepted").backgroundColor, "#F0F3F5");
+  assert.equal(bookingGroupLabel("quoted"), "Pending");
+  assert.equal(bookingGroupLabel("awaiting_confirmation"), "In progress");
+  assert.equal(bookingGroupLabel("partially_refunded"), "Refund related");
+  assert.equal(bookingGroupLabel("provider_no_show"), "Closed");
+});
+
+test("All and six group choices are directly available without a dropdown or nested scrolling", () => {
+  const h = harness({ getAdminBookings: async () => result([]) });
+  const options = nodes(h.render()).filter(node => node.props?.accessibilityLabel?.startsWith("Filter bookings:"));
+  assert.equal(options.length, 7);
+  assert.equal(h.find(p => p.accessibilityLabel === "Booking status filter"), undefined);
+  assert.equal(h.find(p => p.nestedScrollEnabled), undefined);
+  h.dispose();
 });
 
 test("all dossier timestamps use English dates, preserve missing values, and do not follow browser locale", () => {
@@ -200,10 +213,10 @@ test("all dossier timestamps use English dates, preserve missing values, and do 
   assert.equal(formatBookingDateTime("not-a-date"), "—");
 });
 
-test("Admin booking API forwards status together with exact IDs and paging", async () => {
+test("Admin booking API forwards the status group together with exact IDs and paging", async () => {
   let request;
   const api = load("../../api/admin.ts", { "./client": { apiClient: { get: async (...args) => { request = args; return { data: { data: {} } }; } } } });
-  await api.getAdminBookings(2, 20, { status: "cancelled", bookingId: 10, customerId: 2, providerProfileId: 3 });
+  await api.getAdminBookings(2, 20, { statusGroup: "closed", bookingId: 10, customerId: 2, providerProfileId: 3 });
   assert.equal(request[0], "/admin/bookings");
-  assert.deepEqual(JSON.parse(JSON.stringify(request[1].params)), { page: 2, page_size: 20, status: "cancelled", booking_id: 10, customer_id: 2, provider_profile_id: 3 });
+  assert.deepEqual(JSON.parse(JSON.stringify(request[1].params)), { page: 2, page_size: 20, status_group: "closed", booking_id: 10, customer_id: 2, provider_profile_id: 3 });
 });

@@ -4,11 +4,52 @@ Keep this separate from customer/provider serializers and state-transition helpe
 Chat-room contents and provider onboarding documents are not booking records.
 """
 
+from enum import Enum
+
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.utils.booking import format_booking_detail_response
 from backend.utils.marketplace import format_payment_settlement
+
+
+class AdminBookingGroup(str, Enum):
+    pending = "pending"
+    awaiting_payment = "awaiting_payment"
+    in_progress = "in_progress"
+    completed = "completed"
+    refund_related = "refund_related"
+    closed = "closed"
+
+
+# Query categories only. Never rewrite the stored workflow status.
+ADMIN_BOOKING_STATUS_GROUPS = {
+    AdminBookingGroup.pending: ("pending", "quoted"),
+    AdminBookingGroup.awaiting_payment: (
+        "awaiting_payment",
+        "awaiting_visit_payment",
+        "awaiting_service_payment",
+    ),
+    AdminBookingGroup.in_progress: (
+        "visit_paid",
+        "provider_arrived",
+        "awaiting_final_quote",
+        "final_quote_sent",
+        "service_paid",
+        "accepted",
+        "awaiting_confirmation",
+    ),
+    AdminBookingGroup.completed: ("completed",),
+    AdminBookingGroup.refund_related: ("refunding", "refunded", "partially_refunded"),
+    AdminBookingGroup.closed: (
+        "rejected",
+        "cancelled",
+        "cancelled_before_visit",
+        "provider_no_show",
+        "visit_completed_closed",
+        "service_cancelled_after_payment",
+    ),
+}
 
 
 def _project(record, fields: str):

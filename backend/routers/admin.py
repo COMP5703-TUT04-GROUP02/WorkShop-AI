@@ -17,7 +17,11 @@ from backend.utils.booking import (
     get_booking_or_404,
     save_booking,
 )
-from backend.utils.admin_booking import format_admin_booking_detail
+from backend.utils.admin_booking import (
+    ADMIN_BOOKING_STATUS_GROUPS,
+    AdminBookingGroup,
+    format_admin_booking_detail,
+)
 from backend.utils.chat import (
     create_booking_status_chat_message,
     format_chat_message_response,
@@ -525,6 +529,7 @@ def get_all_bookings(
     booking_id: int | None = Query(default=None, gt=0),
     customer_id: int | None = Query(default=None, gt=0),
     provider_profile_id: int | None = Query(default=None, gt=0),
+    status_group: AdminBookingGroup | None = None,
     current_user: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -537,6 +542,8 @@ def get_all_bookings(
         query = query.filter(models.Booking.provider_profile_id == provider_profile_id)
     if status:
         query = query.filter(models.Booking.status == status)
+    if status_group is not None:
+        query = query.filter(models.Booking.status.in_(ADMIN_BOOKING_STATUS_GROUPS[status_group]))
     query = query.order_by(models.Booking.booking_at.desc(), models.Booking.id.desc())
     bookings, total, page, page_size = paginate_query(query, page, page_size)
     result = []
