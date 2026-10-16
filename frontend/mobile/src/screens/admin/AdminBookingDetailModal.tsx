@@ -6,8 +6,8 @@ import { SecondaryButton } from "../../components/SecondaryButton";
 import { getBookingStatusLabel } from "../../constants/labels";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { AdminBookingDetail, AdminBookingRecord } from "../../types/adminBooking";
-import { formatDateTime } from "../../utils/datetime";
 import { formatMoney } from "../../utils/money";
+import { bookingStatusStyle, formatBookingDateTime } from "./bookingPresentation";
 
 const BOOKING_GROUPS = [
   ["Booking overview", ["id", "title", "status", "status_note", "booking_notice", "chat_room_id", "closed_reason"]],
@@ -35,13 +35,13 @@ export function bookingValue(key: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   if (key === "status") return String(value).replace(/_/g, " ");
   if (key === "is_visible" || key === "onboarding_paused" || typeof value === "boolean") return value ? "Yes" : "No";
-  if (key.endsWith("_at") || key === "scheduled_start_time" || key === "scheduled_end_time") return formatDateTime(String(value));
+  if (key.endsWith("_at") || key === "scheduled_start_time" || key === "scheduled_end_time") return formatBookingDateTime(String(value));
   if (key.endsWith("_amount") || key === "amount" || key === "iyzico_commission_fee") return formatMoney(value as number);
   return String(value);
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return <View style={styles.row}><Text style={styles.label}>{label}</Text><Text selectable style={styles.value}>{value}</Text></View>;
+function Row({ label, value, status }: { label: string; value: string; status?: string }) {
+  return <View style={styles.row}><Text style={styles.label}>{label}</Text><Text selectable style={[styles.value, status ? { color: bookingStatusStyle(status).color } : null]}>{value}</Text></View>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -70,14 +70,14 @@ export function AdminBookingDetailModal({ bookingId, booking, loading, error, on
     <View style={styles.overlay}>
       <View style={styles.sheet} accessibilityViewIsModal>
         <View style={styles.header}>
-          <View style={{ flex: 1 }}><Text accessibilityRole="header" style={styles.title}>Booking #{bookingId}</Text><Text style={styles.muted}>Read-only booking details</Text></View>
+          <View style={{ flex: 1 }}><Text accessibilityRole="header" style={styles.title}>Booking #{bookingId}</Text></View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close booking details" onPress={onClose} style={styles.close}><X size={22} color={colors.text} /></Pressable>
         </View>
         {loading ? <ActivityIndicator accessibilityLabel="Loading booking details" color={colors.primary} />
           : error ? <View style={styles.card}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><SecondaryButton label="Retry loading details" onPress={onRetry} /></View>
           : booking ? <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             {BOOKING_GROUPS.map(([title, keys]) => <Section title={title} key={title}>
-              {keys.map(key => <Row key={key} label={labelFor(key)} value={key === "status" ? getBookingStatusLabel(booking.status) : bookingValue(key, booking[key])} />)}
+              {keys.map(key => <Row key={key} label={labelFor(key)} status={key === "status" ? booking.status : undefined} value={key === "status" ? getBookingStatusLabel(booking.status) : bookingValue(key, booking[key])} />)}
             </Section>)}
             <Section title="Customer and provider">
               <Row label="Customer user ID" value={`#${booking.customer_id}`} />

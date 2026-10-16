@@ -1,4 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -10,12 +11,12 @@ import { getBookingStatusLabel } from "../../constants/labels";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { AdminBookingDetail, AdminBookingFilters } from "../../types/adminBooking";
 import type { BookingDetail } from "../../types/booking";
-import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
 import { createLatestRequestGuard } from "../../utils/latestRequest";
 import { parseAdminId } from "./adminState";
 import { AdminBookingDetailModal } from "./AdminBookingDetailModal";
+import { BOOKING_STATUS_OPTIONS, bookingFiltersForStatus, bookingStatusStyle, formatBookingDateTime } from "./bookingPresentation";
 
 const FIELDS = [
   ["bookingId", "Booking ID"],
@@ -29,6 +30,7 @@ export function AdminBookingsScreen() {
   const [values, setValues] = useState(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<IdKey, string>>>({});
   const [filters, setFilters] = useState<AdminBookingFilters>({});
+  const [statusExpanded, setStatusExpanded] = useState(false);
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<BookingDetail[]>([]);
   const [total, setTotal] = useState(0);
@@ -72,12 +74,11 @@ export function AdminBookingsScreen() {
   function edit(key: IdKey, value: string) {
     setValues(current => ({ ...current, [key]: value }));
     setErrors(current => ({ ...current, [key]: undefined }));
-    setDirty(true); setItems([]); setTotal(0); setError(""); setLoading(false);
-    listGuard.current.invalidate(); closeDetail();
+    setDirty(true);
   }
 
   function search(clear = false) {
-    const next: AdminBookingFilters = {};
+    const next: AdminBookingFilters = clear ? {} : { status: filters.status };
     const invalid: Partial<Record<IdKey, string>> = {};
     if (!clear) FIELDS.forEach(([key]) => {
       try { next[key] = parseAdminId(values[key]); }
@@ -88,6 +89,11 @@ export function AdminBookingsScreen() {
     listGuard.current.invalidate(); closeDetail();
     if (clear) setValues(EMPTY);
     setDirty(false); setPage(1); setFilters(next);
+  }
+
+  function selectStatus(status?: string) {
+    listGuard.current.invalidate(); closeDetail(); setStatusExpanded(false);
+    setPage(1); setFilters(bookingFiltersForStatus(filters, status));
   }
 
   async function openDetail(id: number) {
@@ -109,29 +115,42 @@ export function AdminBookingsScreen() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Booking lookup</Text>
       <View style={styles.search}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Booking status filter"
+          accessibilityState={{ expanded: statusExpanded }} aria-expanded={statusExpanded}
+          onPress={() => setStatusExpanded(!statusExpanded)} style={styles.statusSelect}>
+          <Text style={styles.filterLabel}>Booking status: {BOOKING_STATUS_OPTIONS.find(option => option.value === filters.status)?.label ?? "All statuses"}</Text>
+          {statusExpanded ? <ChevronDown size={18} color={colors.mutedText} /> : <ChevronRight size={18} color={colors.mutedText} />}
+        </Pressable>
+        {statusExpanded ? <ScrollView style={styles.statusOptions} nestedScrollEnabled>
+          {[{ value: undefined, label: "All statuses" }, ...BOOKING_STATUS_OPTIONS].map(option => <Pressable
+            key={option.value ?? "all"} accessibilityRole="button" accessibilityState={{ selected: filters.status === option.value }}
+            accessibilityLabel={`Filter bookings: ${option.label}`} onPress={() => selectStatus(option.value)}
+            style={[styles.statusOption, filters.status === option.value && styles.statusSelected]}>
+            <Text style={option.value ? bookingStatusStyle(option.value) : styles.meta}>{option.label}</Text>
+          </Pressable>)}
+        </ScrollView> : null}
         <View style={styles.row}>{FIELDS.map(([key, label]) => <View key={key} style={styles.field}>
           <TextField label={label} value={values[key]} keyboardType="number-pad" error={errors[key]}
             onChangeText={value => edit(key, value)} onSubmitEditing={() => search()} />
         </View>)}</View>
-        <Text style={styles.meta}>All booking statuses. All filled fields must match.</Text>
         <View style={styles.row}>
           <PrimaryButton label="Search" onPress={() => search()} />
           <SecondaryButton label="Clear search" onPress={() => search(true)} />
         </View>
       </View>
-      {dirty ? <Text style={styles.meta}>Search to apply the changed IDs.</Text>
-        : loading ? <ActivityIndicator accessibilityLabel="Loading bookings" color={colors.primary} />
+      {dirty ? <Text style={styles.meta}>ID changes not applied. Search to update.</Text> : null}
+      {loading ? <ActivityIndicator accessibilityLabel="Loading bookings" color={colors.primary} />
         : error ? <View style={styles.search}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><SecondaryButton label="Retry search" onPress={() => void load()} /></View>
         : <>
           <Text style={styles.meta}>Results matching the filters above · {total} {total === 1 ? "booking" : "bookings"}</Text>
           {!items.length ? <View style={styles.search}><Text style={styles.heading}>No matching bookings</Text><Text style={styles.meta}>Check the IDs or clear the search.</Text></View> : null}
           {items.map(booking => <Pressable key={booking.id} accessibilityRole="button"
             accessibilityLabel={`View booking #${booking.id} details`} onPress={() => void openDetail(booking.id)} style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}>
-            <View style={styles.row}><Text style={styles.heading}>Booking #{booking.id}</Text><Text style={styles.badge}>{getBookingStatusLabel(booking.status)}</Text></View>
+            <View style={styles.row}><Text style={styles.heading}>Booking #{booking.id}</Text><Text style={[styles.badge, bookingStatusStyle(booking.status)]}>{getBookingStatusLabel(booking.status)}</Text></View>
             <Text style={styles.heading}>{booking.title}</Text>
             <Text style={styles.meta}>Customer #{booking.customer_id} · {booking.customer?.name || "—"}</Text>
             <Text style={styles.meta}>Provider #{booking.provider_profile_id} · {booking.provider?.business_name || "—"}</Text>
-            <Text style={styles.meta}>Scheduled {formatDateTime(booking.scheduled_start_time)}</Text>
+            <Text style={styles.meta}>Scheduled {formatBookingDateTime(booking.scheduled_start_time)}</Text>
             <Text>Booking total: {formatMoney(booking.total_amount)}</Text>
             <Text style={styles.link}>View details</Text>
           </Pressable>)}
@@ -157,7 +176,12 @@ const styles = StyleSheet.create({
   card: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   heading: { color: colors.text, fontSize: 17, fontWeight: "700" },
   meta: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
-  badge: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  badge: { fontSize: 13, fontWeight: "700", paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, overflow: "hidden" },
+  statusSelect: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, minHeight: 44 },
+  filterLabel: { color: colors.text, flex: 1, fontSize: 14, fontWeight: "600" },
+  statusOptions: { maxHeight: 240, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },
+  statusOption: { padding: spacing.sm, minHeight: 44, justifyContent: "center" },
+  statusSelected: { backgroundColor: "#E9F7F3" },
   link: { color: colors.primary, fontWeight: "600" },
   error: { color: colors.danger },
   pagination: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },

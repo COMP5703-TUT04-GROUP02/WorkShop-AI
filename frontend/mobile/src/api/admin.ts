@@ -113,7 +113,7 @@ export type AdminRecordFilters = {
 export async function getAdminBookings(page = 1, pageSize = 20, filters: AdminBookingFilters = {}) {
   const response = await apiClient.get<ApiResponse<PaginatedData<BookingDetail>>>(
     "/admin/bookings",
-    { params: { page, page_size: pageSize, booking_id: filters.bookingId,
+    { params: { page, page_size: pageSize, status: filters.status, booking_id: filters.bookingId,
       customer_id: filters.customerId, provider_profile_id: filters.providerProfileId } },
   );
   return response.data.data;

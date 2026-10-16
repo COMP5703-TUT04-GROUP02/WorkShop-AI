@@ -11,7 +11,7 @@ const native = Object.fromEntries(["View", "Text", "ScrollView", "Pressable", "M
   ({ children }) => React.createElement("div", { "data-native": name }, children),
 ]));
 native.StyleSheet = { create: value => value };
-const theme = { colors: {}, radius: { md: 8 }, spacing: { xs: 4, sm: 8, md: 16, lg: 24 } };
+const theme = { colors: { primary: "#10A37F", surface: "#F7F7F8", mutedText: "#6E6E80", danger: "#D92D20" }, radius: { md: 8 }, spacing: { xs: 4, sm: 8, md: 16, lg: 24 } };
 function load(file, mocks = {}) {
   const filename = path.resolve(__dirname, "..", file);
   const code = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
@@ -23,9 +23,11 @@ function load(file, mocks = {}) {
     if (name === "react-native") return native;
     if (name === "../../theme/theme") return theme;
     if (name === "react" || name === "react/jsx-runtime") return require(name);
-    if (name === "../../utils/datetime") return { formatDateTime: value => value };
+    if (name === "../../utils/datetime") return load("../../utils/datetime.ts");
     if (name === "../../utils/money") return { formatMoney: value => value == null ? "—" : `${Number(value).toFixed(2)} TRY` };
-    if (name === "../../constants/labels") return { getBookingStatusLabel: value => value };
+    if (name === "../../constants/labels") return load("../../constants/labels.ts");
+    if (name === "./bookingPresentation") return load("bookingPresentation.ts");
+    if (name === "lucide-react-native") return { X: () => null, ChevronDown: () => null, ChevronRight: () => null };
     if (name.startsWith("../../components/")) return { [name.split("/").at(-1)]: () => null };
     throw new Error(`Unexpected dependency: ${name}`);
   } }, { filename });
@@ -91,12 +93,13 @@ test("screen submits combined exact IDs, rejects invalid input, and resets pagin
   h.dispose();
 });
 
-test("editing a query invalidates an in-flight list and old results cannot reopen", async () => {
+test("unsent IDs do not change the last submitted query or its valid in-flight result", async () => {
   let finish;
   const h = harness({ getAdminBookings: () => new Promise(resolve => { finish = resolve; }) });
   h.find(p => p.label === "Booking ID").onChangeText("2"); h.render();
   finish(result([booking(1)])); await tick(); h.render();
-  assert.equal(h.find(p => p.accessibilityLabel === "View booking #1 details"), undefined);
+  assert.ok(h.find(p => p.accessibilityLabel === "View booking #1 details"));
+  assert.ok(h.find(p => p.children === "ID changes not applied. Search to update."));
   h.dispose();
 });
 
@@ -129,7 +132,78 @@ test("detail panel renders all business sections without decision/payment/edit a
   for (const section of ["Service and location", "Schedule and lifecycle", "Pricing and current quote", "Customer and provider", "Quote revisions", "Payments", "Refund requests", "Attachments", "Status history", "Complaints", "Review"]) assert.ok(html.includes(section), section);
   assert.match(html, /Declined/);
   assert.doesNotMatch(html, />Approve<|>Reject<|>Pay<|>Save<|>Retry settlement</);
+  assert.doesNotMatch(html, /Read-only booking details/);
   assert.equal(bookingValue("visit_fee_amount", 0), "0.00 TRY");
   assert.equal(bookingValue("onboarding_paused", false), "No");
   assert.equal(bookingValue("final_quote_amount", null), "—");
+});
+
+test("status selection immediately uses submitted IDs, not unsent/invalid draft IDs; Search intersects and Clear resets", async () => {
+  const calls = [];
+  const h = harness({ getAdminBookings: async (...args) => { calls.push(args); return result([booking(1)]); } });
+  await tick(); h.render();
+  h.find(p => p.label === "Customer user ID").onChangeText("2"); h.render();
+  h.find(p => p.label === "Search").onPress(); h.render(); await tick(); h.render();
+  h.find(p => p.label === "Customer user ID").onChangeText("invalid"); h.render();
+  h.find(p => p.accessibilityLabel === "Booking status filter").onPress(); h.render();
+  h.find(p => p.accessibilityLabel === "Filter bookings: Completed").onPress(); h.render(); await tick(); h.render();
+  assert.equal(calls.at(-1)[0], 1);
+  assert.equal(calls.at(-1)[2].customerId, 2);
+  assert.equal(calls.at(-1)[2].status, "completed");
+  h.find(p => p.label === "Customer user ID").onChangeText("7"); h.render();
+  h.find(p => p.label === "Search").onPress(); h.render(); await tick(); h.render();
+  assert.equal(calls.at(-1)[2].customerId, 7);
+  assert.equal(calls.at(-1)[2].status, "completed");
+  h.find(p => p.accessibilityLabel === "Booking status filter").onPress(); h.render();
+  h.find(p => p.accessibilityLabel === "Filter bookings: All statuses").onPress(); h.render(); await tick(); h.render();
+  assert.equal(calls.at(-1)[2].status, undefined);
+  assert.equal(calls.at(-1)[2].customerId, 7);
+  h.find(p => p.label === "Clear search").onPress(); h.render(); await tick(); h.render();
+  assert.equal(Object.keys(calls.at(-1)[2]).length, 0);
+  h.dispose();
+});
+
+test("a late earlier-status response cannot replace the current filter results", async () => {
+  const pending = [];
+  const h = harness({ getAdminBookings: () => new Promise(resolve => pending.push(resolve)) });
+  h.find(p => p.accessibilityLabel === "Booking status filter").onPress(); h.render();
+  h.find(p => p.accessibilityLabel === "Filter bookings: Completed").onPress(); h.render();
+  pending[1](result([booking(2)])); await tick(); h.render();
+  pending[0](result([booking(1)])); await tick(); h.render();
+  assert.ok(h.find(p => p.accessibilityLabel === "View booking #2 details"));
+  assert.equal(h.find(p => p.accessibilityLabel === "View booking #1 details"), undefined);
+  h.dispose();
+});
+
+test("all 22 backend statuses have distinct exact filter values, with disambiguated Closed labels", () => {
+  const { BOOKING_STATUS_OPTIONS, bookingStatusStyle } = load("bookingPresentation.ts");
+  assert.equal(BOOKING_STATUS_OPTIONS.length, 22);
+  assert.equal(new Set(BOOKING_STATUS_OPTIONS.map(option => option.value)).size, 22);
+  assert.equal(new Set(BOOKING_STATUS_OPTIONS.map(option => option.label)).size, 22);
+  assert.equal(bookingStatusStyle("completed").color, theme.colors.primary);
+  assert.equal(bookingStatusStyle("cancelled").color, theme.colors.mutedText);
+  assert.equal(bookingStatusStyle("pending").color, "#C2410C");
+  assert.equal(bookingStatusStyle("quoted").color, "#3730A3");
+  assert.equal(bookingStatusStyle("provider_no_show").color, theme.colors.danger);
+});
+
+test("all dossier timestamps use English dates, preserve missing values, and do not follow browser locale", () => {
+  const { formatBookingDateTime } = load("bookingPresentation.ts");
+  const { bookingValue } = load("AdminBookingDetailModal.tsx");
+  for (const key of ["created_at", "booking_at", "scheduled_start_time", "scheduled_end_time", "onboarding_paused_at", "changed_at", "paid_at", "blockage_resolved_at"]) {
+    const output = bookingValue(key, "2026-10-16T07:30:00Z");
+    assert.match(output, /16 Oct 2026/);
+    assert.doesNotMatch(output, /[\u4e00-\u9fff]/);
+    assert.equal(output, formatBookingDateTime("2026-10-16T07:30:00Z"));
+  }
+  assert.equal(formatBookingDateTime(null), "—");
+  assert.equal(formatBookingDateTime("not-a-date"), "—");
+});
+
+test("Admin booking API forwards status together with exact IDs and paging", async () => {
+  let request;
+  const api = load("../../api/admin.ts", { "./client": { apiClient: { get: async (...args) => { request = args; return { data: { data: {} } }; } } } });
+  await api.getAdminBookings(2, 20, { status: "cancelled", bookingId: 10, customerId: 2, providerProfileId: 3 });
+  assert.equal(request[0], "/admin/bookings");
+  assert.deepEqual(JSON.parse(JSON.stringify(request[1].params)), { page: 2, page_size: 20, status: "cancelled", booking_id: 10, customer_id: 2, provider_profile_id: 3 });
 });

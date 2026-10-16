@@ -1,6 +1,7 @@
 import type { BookingDetail } from "./booking";
 
 export type AdminBookingFilters = {
+  status?: string;
   bookingId?: number;
   customerId?: number;
   providerProfileId?: number;
