@@ -29,6 +29,7 @@ import {
 } from "../../api/admin";
 import type { AdminRecordFilters } from "../../api/admin";
 import { AdminRecordSearch } from "./AdminRecordSearch";
+import { AdminBookingsScreen } from "./AdminBookingsScreen";
 import { parseAdminId } from "./adminState";
 import { AdminMenu, type AdminArea } from "../../navigation/AdminMenu";
 import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
@@ -39,6 +40,7 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import type { PaymentHistoryEntry, RefundRequestSummary } from "../../types/booking";
 import type { AdminSubmerchant } from "../../types/marketplace";
 import type { ProviderPortfolio, ProviderProfile } from "../../types/provider";
@@ -69,6 +71,7 @@ export function AdminDashboardScreen() {
     : area === "refunds" ? <AdminRefundDisputesScreen />
     : area === "payments" ? <AdminPaymentsSettlementsScreen />
     : area === "payouts" ? <AdminPayoutAccountsScreen />
+    : area === "bookings" ? <AdminBookingsScreen />
     : area === "reviews" ? <AdminReviewManagementScreen />
     : area === "embedding" ? <AdminReviewEmbeddingScreen /> : <AdminCustomerAIConfigScreen />;
   return <View style={{ flex: 1 }}>
@@ -1176,7 +1179,7 @@ function getRefundStatusLabel(status: string) {
 }
 
 const styles = StyleSheet.create({
-  paymentTotal: { color: colors.text, fontWeight: "800", fontSize: 16 },
+  paymentTotal: { ...type.cardTitle, color: colors.text },
   paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: "#F0F2F5", padding: spacing.lg, gap: spacing.sm },
   container: {
     flex: 1,
@@ -1188,18 +1191,19 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
   },
   title: {
+    ...type.pageTitle,
+    flexShrink: 1,
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
   },
   subtitle: {
+    ...type.body,
     color: colors.mutedText,
-    fontSize: 15,
     marginTop: spacing.xs,
   },
   hubGrid: {
@@ -1219,28 +1223,24 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   hubCardTitle: {
+    ...type.cardTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
   },
   hubCardDescription: {
+    ...type.body,
     flex: 1,
     color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 20,
   },
   hubCardLink: {
+    ...type.label,
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: "700",
   },
   section: {
     gap: spacing.md,
   },
   sectionTitle: {
+    ...type.sectionTitle,
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "800",
   },
   loader: {
     paddingVertical: spacing.xl,
@@ -1254,14 +1254,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   emptyTitle: {
+    ...type.cardTitle,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
   },
   emptyText: {
+    ...type.body,
     color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 20,
   },
   list: {
     gap: spacing.md,
@@ -1275,14 +1273,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   filterTitle: {
+    ...type.cardTitle,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
   },
   filterLabel: {
+    ...type.label,
     color: colors.mutedText,
-    fontSize: 13,
-    fontWeight: "700",
   },
   filterRow: {
     flexDirection: "row",
@@ -1302,9 +1298,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#E7F6F0",
   },
   filterChipText: {
+    ...type.label,
     color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: "700",
   },
   filterChipTextActive: {
     color: colors.primary,
@@ -1316,8 +1311,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   paginationText: {
+    ...type.caption,
     color: colors.mutedText,
-    fontSize: 13,
   },
   reviewCard: {
     gap: spacing.sm,
@@ -1337,34 +1332,30 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   cardTitle: {
+    ...type.cardTitle,
     flex: 1,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "800",
   },
   pendingBadge: {
+    ...type.badge,
     overflow: "hidden",
     borderRadius: radius.sm,
     backgroundColor: "#FFF7ED",
     color: "#C2410C",
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    fontSize: 12,
-    fontWeight: "800",
   },
   cardDescription: {
+    ...type.body,
     color: colors.text,
-    fontSize: 14,
-    lineHeight: 20,
   },
   cardMeta: {
+    ...type.caption,
     color: colors.mutedText,
-    fontSize: 13,
   },
   retryQueuedText: {
+    ...type.label,
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,
@@ -1390,13 +1381,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   modalTitle: {
+    ...type.modalTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
   },
   modalSubtitle: {
+    ...type.caption,
     color: colors.mutedText,
-    fontSize: 13,
   },
   closeButton: {
     width: 40,
@@ -1419,18 +1409,16 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   detailTitle: {
+    ...type.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
   },
   detailText: {
+    ...type.body,
     color: colors.text,
-    fontSize: 14,
-    lineHeight: 21,
   },
   detailMeta: {
+    ...type.caption,
     color: colors.mutedText,
-    fontSize: 13,
   },
   detailRow: {
     flexDirection: "row",
@@ -1438,16 +1426,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   detailLabel: {
+    ...type.label,
     minWidth: 86,
     color: colors.mutedText,
-    fontSize: 13,
-    fontWeight: "700",
   },
   detailValue: {
+    ...type.body,
     flex: 1,
     color: colors.text,
-    fontSize: 13,
-    lineHeight: 19,
     textAlign: "right",
   },
   modalActions: {
@@ -1457,8 +1443,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   errorText: {
+    ...type.body,
     color: colors.danger,
-    fontSize: 14,
-    lineHeight: 20,
   },
 });

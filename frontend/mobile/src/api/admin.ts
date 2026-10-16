@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types/auth";
-import type { PaymentHistoryEntry, RefundRequestSummary } from "../types/booking";
+import type { BookingDetail, PaymentHistoryEntry, RefundRequestSummary } from "../types/booking";
+import type { AdminBookingDetail, AdminBookingFilters } from "../types/adminBooking";
 import type { PaginatedData } from "../types/chat";
 import type { LowValueReview } from "../types/review";
 import type { AdminSubmerchant } from "../types/marketplace";
@@ -108,6 +109,20 @@ export type AdminRecordFilters = {
   refundRequestId?: number;
   status?: string;
 };
+
+export async function getAdminBookings(page = 1, pageSize = 20, filters: AdminBookingFilters = {}) {
+  const response = await apiClient.get<ApiResponse<PaginatedData<BookingDetail>>>(
+    "/admin/bookings",
+    { params: { page, page_size: pageSize, status_group: filters.statusGroup, booking_id: filters.bookingId,
+      customer_id: filters.customerId, provider_profile_id: filters.providerProfileId } },
+  );
+  return response.data.data;
+}
+
+export async function getAdminBooking(bookingId: number) {
+  const response = await apiClient.get<ApiResponse<AdminBookingDetail>>(`/admin/bookings/${bookingId}`);
+  return response.data.data;
+}
 
 export async function setAdminReviewVisibility(reviewId: number, isVisible: boolean) {
   const response = await apiClient.put(`/admin/reviews/${reviewId}/visibility`, { is_visible: isVisible });

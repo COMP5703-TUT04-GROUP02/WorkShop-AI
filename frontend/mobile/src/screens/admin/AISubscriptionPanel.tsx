@@ -17,6 +17,7 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import { getErrorMessage } from "../../utils/errors";
 
 const FALLBACK_PROVIDERS: LLMProviderChoice[] = [
@@ -446,14 +447,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   sectionTitle: {
+    ...type.pageTitle,
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "800",
   },
   active: {
+    ...type.label,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
   },
   card: {
     gap: spacing.sm,
@@ -464,22 +463,19 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   cardTitle: {
+    ...type.cardTitle,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
   },
   cardBody: {
+    ...type.body,
     color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 20,
   },
   modelBlock: {
     gap: spacing.sm,
   },
   modelLabel: {
+    ...type.label,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
   },
   providerRow: {
     flexDirection: "row",
@@ -499,28 +495,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   chipLabel: {
+    ...type.label,
     color: colors.mutedText,
-    fontSize: 14,
-    fontWeight: "600",
   },
   chipLabelSelected: {
     color: colors.primary,
   },
   code: {
+    ...type.code,
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: 2,
   },
   link: {
+    ...type.label,
     color: colors.primary,
-    fontSize: 14,
-    lineHeight: 20,
   },
   errorText: {
+    ...type.body,
     color: colors.danger,
-    fontSize: 14,
-    lineHeight: 20,
   },
   actions: {
     flexDirection: "row",

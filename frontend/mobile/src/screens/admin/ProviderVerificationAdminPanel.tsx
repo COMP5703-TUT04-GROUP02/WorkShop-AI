@@ -13,6 +13,7 @@ import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { getProviderTagLabel } from "../../constants/providerTags";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import type {
   IdentityVerificationApplication,
   QualificationVerificationApplication,
@@ -192,6 +193,28 @@ function Row({ label, value }: { label: string; value: string }) { return <View 
 const styles = StyleSheet.create({
   applicant: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, gap: spacing.md },
   application: { gap: spacing.sm },
-  section: { gap: spacing.md }, header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, flex: { flex: 1 }, title: { color: colors.text, fontSize: 20, fontWeight: "700" }, subtitle: { color: colors.mutedText, fontSize: 13, marginTop: spacing.xs }, error: { color: colors.danger }, queue: { gap: spacing.sm }, queueTitle: { color: colors.text, fontSize: 16, fontWeight: "700" }, list: { gap: spacing.sm }, empty: { color: colors.mutedText, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md },
-  reviewCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md, gap: spacing.xs }, activeCard: { borderColor: colors.primary }, cardTitle: { flex: 1, color: colors.text, fontWeight: "700" }, pending: { color: "#8A5A00", fontSize: 12, fontWeight: "700" }, detail: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, detailTitle: { color: colors.text, fontSize: 18, fontWeight: "700" }, link: { color: colors.primary, fontWeight: "700" }, rows: { gap: spacing.sm }, row: { flexDirection: "row", gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm }, rowLabel: { width: 120, color: colors.mutedText }, rowValue: { flex: 1, color: colors.text }, actions: { gap: spacing.sm }, files: { gap: spacing.sm }, fileCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, gap: spacing.xs }, preview: { width: "100%", height: 220, backgroundColor: colors.surface, borderRadius: radius.sm },
+  section: { gap: spacing.md },
+  header: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  flex: { flex: 1, minWidth: 200 },
+  title: { ...type.pageTitle, color: colors.text },
+  subtitle: { ...type.body, color: colors.mutedText, marginTop: spacing.xs },
+  error: { ...type.body, color: colors.danger },
+  queue: { gap: spacing.sm },
+  queueTitle: { ...type.sectionTitle, color: colors.text },
+  list: { gap: spacing.sm },
+  empty: { ...type.body, color: colors.mutedText, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md },
+  reviewCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md, gap: spacing.xs },
+  activeCard: { borderColor: colors.primary },
+  cardTitle: { ...type.cardTitle, flex: 1, color: colors.text },
+  pending: { ...type.badge, color: "#8A5A00" },
+  detail: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md },
+  detailTitle: { ...type.cardTitle, color: colors.text },
+  link: { ...type.label, color: colors.primary },
+  rows: { gap: spacing.sm },
+  row: { flexDirection: "row", gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm },
+  rowLabel: { ...type.label, width: 120, color: colors.mutedText },
+  rowValue: { ...type.body, flex: 1, color: colors.text },
+  actions: { gap: spacing.sm }, files: { gap: spacing.sm },
+  fileCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, gap: spacing.xs },
+  preview: { width: "100%", height: 220, backgroundColor: colors.surface, borderRadius: radius.sm },
 });
