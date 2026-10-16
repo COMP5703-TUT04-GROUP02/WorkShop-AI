@@ -19,12 +19,17 @@ import type {
   VerificationUploadFile,
 } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
+import { groupApplications } from "./adminState";
 
 type Selection =
   | { kind: "identity"; item: IdentityVerificationApplication }
   | { kind: "qualification"; item: QualificationVerificationApplication };
 
-export function ProviderVerificationAdminPanel() {
+export function ProviderVerificationAdminPanel({
+  mode = "all",
+}: {
+  mode?: "all" | "identity" | "qualification";
+}) {
   const [identities, setIdentities] = useState<IdentityVerificationApplication[]>([]);
   const [qualifications, setQualifications] = useState<QualificationVerificationApplication[]>([]);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -38,17 +43,17 @@ export function ProviderVerificationAdminPanel() {
     setMessage("");
     try {
       const [nextIdentities, nextQualifications] = await Promise.all([
-        getAdminIdentityVerifications(),
-        getAdminQualificationVerifications(),
+        mode === "qualification" ? Promise.resolve([]) : getAdminIdentityVerifications(),
+        mode === "identity" ? Promise.resolve([]) : getAdminQualificationVerifications(),
       ]);
-      setIdentities(nextIdentities);
-      setQualifications(nextQualifications);
+      setIdentities(nextIdentities ?? []);
+      setQualifications(nextQualifications ?? []);
     } catch (error) {
       setMessage(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => void load(), [load]);
 
@@ -78,23 +83,29 @@ export function ProviderVerificationAdminPanel() {
     }
   }
 
+  const applications: Selection[] = [
+    ...(mode === "qualification" ? [] : identities.map((item): Selection => ({ kind: "identity", item }))),
+    ...(mode === "identity" ? [] : qualifications.map((item): Selection => ({ kind: "qualification", item }))),
+  ];
+  const groups = groupApplications(applications);
   return <View style={styles.section}>
     <View style={styles.header}><View style={styles.flex}><Text style={styles.title}>Provider verification</Text><Text style={styles.subtitle}>Identity and service verification are reviewed separately.</Text></View><SecondaryButton label="Refresh" onPress={() => void load()} disabled={isLoading || isActing} /></View>
-    {message ? <Text style={styles.error}>{message}</Text> : null}
-    {isLoading ? <ActivityIndicator color={colors.primary} /> : <>
-      <Queue title="Identity applications" empty="No identity applications pending review.">
-        {identities.map((item) => <ReviewCard key={item.id} active={selection?.kind === "identity" && selection.item.id === item.id} title={`${item.submitted_first_name} ${item.submitted_last_name}`} subtitle={`Provider user #${item.user_id} · ${item.document_type.replace("_", " ")}`} onPress={() => { setSelection({ kind: "identity", item }); setRejectReason(""); }} />)}
-      </Queue>
-      <Queue title="Service verification applications" empty="No service verification applications pending review.">
-        {qualifications.map((item) => <ReviewCard key={item.id} active={selection?.kind === "qualification" && selection.item.id === item.id} title={item.display_name} subtitle={`${item.entity_type} · ${item.service_categories.map(getProviderTagLabel).join(", ")}`} onPress={() => { setSelection({ kind: "qualification", item }); setRejectReason(""); }} />)}
-      </Queue>
-    </>}
-    {selection ? <View style={styles.detail}>
-      <View style={styles.header}><Text style={styles.detailTitle}>{selection.kind === "identity" ? "Identity review" : "Service verification review"}</Text><Pressable onPress={() => setSelection(null)}><Text style={styles.link}>Close</Text></Pressable></View>
+    {message ? <Text accessibilityRole="alert" style={styles.error}>{message}</Text> : null}
+    {isLoading ? <ActivityIndicator color={colors.primary} /> : groups.length === 0 ? <Text style={styles.empty}>No applications pending review.</Text> : groups.map(([userId, entries]) => <View key={userId} style={styles.applicant}>
+      <Text style={styles.cardTitle}>{entries.find((entry) => entry.kind === "identity")?.item.submitted_first_name ?? entries.find((entry) => entry.kind === "qualification")?.item.display_name ?? "Provider"} · Provider user #{userId}</Text>
+      {entries.map((entry) => <View key={entry.kind + ":" + entry.item.id} style={styles.application}>
+        <ReviewCard active={selection?.kind === entry.kind && selection.item.id === entry.item.id}
+          title={entry.kind === "identity" ? "Identity verification" : "Service verification"}
+          subtitle={entry.kind === "identity" ? `${entry.item.submitted_first_name} ${entry.item.submitted_last_name} · ${entry.item.document_type.replace("_", " ")}` : `${entry.item.display_name} · ${entry.item.service_categories.map(getProviderTagLabel).join(", ")}`}
+          onPress={() => { if (isActing) return; setSelection(entry); setRejectReason(""); setMessage(""); }} />
+        {selection?.kind === entry.kind && selection.item.id === entry.item.id ? <View style={styles.detail}>
+      <View style={styles.header}><Text style={styles.detailTitle}>{selection.kind === "identity" ? "Identity review" : "Service verification review"}</Text><Pressable accessibilityRole="button" disabled={isActing} onPress={() => { setSelection(null); setRejectReason(""); }}><Text style={styles.link}>Close</Text></Pressable></View>
       {selection.kind === "identity" ? <IdentityDetails item={selection.item} /> : <QualificationDetails item={selection.item} />}
-      <TextField label="Rejection reason" multiline numberOfLines={3} onChangeText={setRejectReason} placeholder="Required only when rejecting" value={rejectReason} />
+      <TextField label="Rejection reason" editable={!isActing} multiline numberOfLines={3} onChangeText={setRejectReason} placeholder="Required only when rejecting" value={rejectReason} />
       <View style={styles.actions}><SecondaryButton disabled={isActing} label="Reject" onPress={() => void decide("rejected")} /><PrimaryButton disabled={isActing} isLoading={isActing} label="Approve" onPress={() => void decide("approved")} /></View>
     </View> : null}
+      </View>)}
+    </View>)}
   </View>;
 }
 
@@ -104,7 +115,7 @@ function Queue({ title, empty, children }: { title: string; empty: string; child
 }
 
 function ReviewCard({ active, title, subtitle, onPress }: { active: boolean; title: string; subtitle: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.reviewCard, active ? styles.activeCard : null]}><View style={styles.header}><Text style={styles.cardTitle}>{title}</Text><Text style={styles.pending}>Pending</Text></View><Text style={styles.subtitle}>{subtitle}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityState={{ expanded: active }} onPress={onPress} style={[styles.reviewCard, active ? styles.activeCard : null]}><View style={styles.header}><Text style={styles.cardTitle}>{title}</Text><Text style={styles.pending}>Pending</Text></View><Text style={styles.subtitle}>{subtitle}</Text></Pressable>;
 }
 
 function IdentityDetails({ item }: { item: IdentityVerificationApplication }) {
@@ -179,6 +190,8 @@ function VerificationFiles({ files }: { files: VerificationUploadFile[] }) {
 function Row({ label, value }: { label: string; value: string }) { return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value || "-"}</Text></View>; }
 
 const styles = StyleSheet.create({
+  applicant: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, gap: spacing.md },
+  application: { gap: spacing.sm },
   section: { gap: spacing.md }, header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, flex: { flex: 1 }, title: { color: colors.text, fontSize: 20, fontWeight: "700" }, subtitle: { color: colors.mutedText, fontSize: 13, marginTop: spacing.xs }, error: { color: colors.danger }, queue: { gap: spacing.sm }, queueTitle: { color: colors.text, fontSize: 16, fontWeight: "700" }, list: { gap: spacing.sm }, empty: { color: colors.mutedText, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md },
   reviewCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md, gap: spacing.xs }, activeCard: { borderColor: colors.primary }, cardTitle: { flex: 1, color: colors.text, fontWeight: "700" }, pending: { color: "#8A5A00", fontSize: 12, fontWeight: "700" }, detail: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, detailTitle: { color: colors.text, fontSize: 18, fontWeight: "700" }, link: { color: colors.primary, fontWeight: "700" }, rows: { gap: spacing.sm }, row: { flexDirection: "row", gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm }, rowLabel: { width: 120, color: colors.mutedText }, rowValue: { flex: 1, color: colors.text }, actions: { gap: spacing.sm }, files: { gap: spacing.sm }, fileCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, gap: spacing.xs }, preview: { width: "100%", height: 220, backgroundColor: colors.surface, borderRadius: radius.sm },
 });

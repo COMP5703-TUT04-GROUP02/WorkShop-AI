@@ -1,6 +1,7 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { X } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +27,12 @@ import {
   updateAdminProviderProfileVerification,
   updateAdminProviderPortfolioVerification,
 } from "../../api/admin";
+import type { AdminRecordFilters } from "../../api/admin";
+import { AdminRecordSearch } from "./AdminRecordSearch";
+import { parseAdminId } from "./adminState";
+import { AdminMenu, type AdminArea } from "../../navigation/AdminMenu";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
+import { AdminCustomerAIConfigScreen, AdminReviewEmbeddingScreen, AdminReviewManagementScreen, AdminVerificationScreen } from "./AdminPanelScreens";
 import { PortfolioMediaCarousel } from "../../components/PortfolioMediaCarousel";
 import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownCard";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -39,13 +46,7 @@ import { getErrorMessage } from "../../utils/errors";
 import { formatDateTime } from "../../utils/datetime";
 import { formatMoney } from "../../utils/money";
 import { getPaymentStatusLabel } from "../../constants/labels";
-import { AISubscriptionPanel } from "./AISubscriptionPanel";
-import {
-  HiddenReviewRestorePanel,
-  LowValueReviewPanel,
-} from "./ReviewSweepPanels";
-import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
-import { ReviewEmbeddingAdminPanel } from "./ReviewEmbeddingAdminPanel";
+import type { RootStackParamList } from "../../navigation/types";
 
 const PAGE_SIZE = 20;
 
@@ -56,63 +57,122 @@ type AdminPaymentFilters = {
   bookingId?: number;
 };
 
+type OperationsSection = "portfolio" | "refunds" | "payments" | "payouts";
+
 export function AdminDashboardScreen() {
-  const [pendingProfiles, setPendingProfiles] = useState<ProviderProfile[]>([]);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute();
+  const area = (route.params as { area?: AdminArea } | undefined)?.area ?? "ai";
+  const desktop = useIsWebDesktop();
+  const content = area === "verification" ? <AdminVerificationScreen />
+    : area === "portfolio" ? <AdminPortfolioReviewScreen />
+    : area === "refunds" ? <AdminRefundDisputesScreen />
+    : area === "payments" ? <AdminPaymentsSettlementsScreen />
+    : area === "payouts" ? <AdminPayoutAccountsScreen />
+    : area === "reviews" ? <AdminReviewManagementScreen />
+    : area === "embedding" ? <AdminReviewEmbeddingScreen /> : <AdminCustomerAIConfigScreen />;
+  return <View style={{ flex: 1 }}>
+    {!desktop ? <ScrollView style={{ maxHeight: 240, flexGrow: 0 }}><AdminMenu active={area} onSelect={(next) => navigation.navigate("Main", { screen: "AdminDashboard", params: { area: next } })} /></ScrollView> : null}
+    <View key={area} style={{ flex: 1 }}>{content}</View>
+  </View>;
+}
+
+export function AdminPortfolioReviewScreen() {
+  return <AdminOperationsScreen section="portfolio" />;
+}
+
+export function AdminRefundDisputesScreen() {
+  return <AdminOperationsScreen section="refunds" />;
+}
+
+export function AdminPaymentsSettlementsScreen() {
+  return <AdminOperationsScreen section="payments" />;
+}
+
+export function AdminPayoutAccountsScreen() {
+  return <AdminOperationsScreen section="payouts" />;
+}
+
+function AdminOperationsScreen({ section }: { section: OperationsSection }) {
   const [pendingPortfolios, setPendingPortfolios] = useState<ProviderPortfolio[]>([]);
   const [pendingAppeals, setPendingAppeals] = useState<RefundRequestSummary[]>([]);
   const [submerchants, setSubmerchants] = useState<AdminSubmerchant[]>([]);
   const [marketplacePayments, setMarketplacePayments] = useState<PaymentHistoryEntry[]>([]);
+  const [recordFilters, setRecordFilters] = useState<AdminRecordFilters>({});
+  const [recordPage, setRecordPage] = useState(1);
+  const [recordTotal, setRecordTotal] = useState(0);
+  const [recordTotalPages, setRecordTotalPages] = useState(1);
+  const [recordQueryDirty, setRecordQueryDirty] = useState(false);
   const [paymentFilters, setPaymentFilters] = useState<AdminPaymentFilters>({});
   const [paymentPage, setPaymentPage] = useState(1);
   const [paymentTotalPages, setPaymentTotalPages] = useState(1);
   const [retryQueuedPaymentIds, setRetryQueuedPaymentIds] = useState<
     Record<number, boolean>
   >({});
-  const [selectedProfile, setSelectedProfile] = useState<ProviderProfile | null>(
-    null,
-  );
   const [selectedPortfolio, setSelectedPortfolio] =
     useState<ProviderPortfolio | null>(null);
   const [selectedAppeal, setSelectedAppeal] =
     useState<RefundRequestSummary | null>(null);
-  const [profileRejectReason, setProfileRejectReason] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [appealAdminNote, setAppealAdminNote] = useState("");
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isActing, setIsActing] = useState(false);
+  const listRequest = useRef(0);
+  const detailRequest = useRef(0);
 
   const loadPendingReviews = useCallback(async (
     requestedPaymentPage = paymentPage,
     requestedPaymentFilters = paymentFilters,
   ) => {
+    const ticket = ++listRequest.current;
     setIsLoading(true);
     setMessage("");
+    setPendingPortfolios([]); setPendingAppeals([]); setSubmerchants([]); setMarketplacePayments([]);
+    setRecordTotal(0);
     try {
-      const [portfolioResult, appealResult, submerchantResult, paymentResult] = await Promise.all([
-        getPendingProviderPortfolios(1, PAGE_SIZE),
-        getPendingRefundAppeals(1, PAGE_SIZE),
-        getAdminSubmerchants(1, PAGE_SIZE),
-        getAdminPayments(requestedPaymentPage, PAGE_SIZE, requestedPaymentFilters),
-      ]);
-      setPendingPortfolios(portfolioResult?.items ?? []);
-      setPendingAppeals(appealResult?.items ?? []);
-      setSubmerchants(submerchantResult?.items ?? []);
-      setMarketplacePayments(paymentResult?.items ?? []);
-      setPaymentPage(paymentResult?.page ?? requestedPaymentPage);
-      setPaymentTotalPages(paymentResult?.total_pages ?? 1);
+      if (section === "portfolio") {
+        const result = await getPendingProviderPortfolios(recordPage, PAGE_SIZE, recordFilters);
+        if (ticket !== listRequest.current) return;
+        setPendingPortfolios(result?.items ?? []);
+        setRecordTotal(result?.total ?? 0);
+        setRecordTotalPages(Math.max(1, result?.total_pages ?? 1));
+        if (recordPage > (result?.total_pages ?? 1)) setRecordPage(Math.max(1, result?.total_pages ?? 1));
+      } else if (section === "refunds") {
+        const result = await getPendingRefundAppeals(recordPage, PAGE_SIZE, recordFilters);
+        if (ticket !== listRequest.current) return;
+        setPendingAppeals(result?.items ?? []);
+        setRecordTotal(result?.total ?? 0);
+        setRecordTotalPages(Math.max(1, result?.total_pages ?? 1));
+        if (recordPage > (result?.total_pages ?? 1)) setRecordPage(Math.max(1, result?.total_pages ?? 1));
+      } else if (section === "payouts") {
+        const result = await getAdminSubmerchants(recordPage, PAGE_SIZE, recordFilters);
+        if (ticket !== listRequest.current) return;
+        setSubmerchants(result?.items ?? []);
+        setRecordTotal(result?.total ?? 0);
+        setRecordTotalPages(Math.max(1, result?.total_pages ?? 1));
+      } else {
+        const result = await getAdminPayments(
+          requestedPaymentPage,
+          PAGE_SIZE,
+          requestedPaymentFilters,
+        );
+        if (ticket !== listRequest.current) return;
+        setMarketplacePayments(result?.items ?? []);
+        setPaymentPage(result?.page ?? requestedPaymentPage);
+        setPaymentTotalPages(Math.max(1, result?.total_pages ?? 1));
+      }
     } catch (error) {
-      setMessage(getErrorMessage(error));
+      if (ticket === listRequest.current) setMessage(getErrorMessage(error));
     } finally {
-      setIsLoading(false);
+      if (ticket === listRequest.current) setIsLoading(false);
     }
-  }, [paymentFilters, paymentPage]);
+  }, [paymentFilters, paymentPage, section, recordPage, recordFilters]);
 
   function handlePaymentFiltersChange(nextFilters: AdminPaymentFilters) {
     setPaymentFilters(nextFilters);
     setPaymentPage(1);
-    void loadPendingReviews(1, nextFilters);
   }
 
   function handlePaymentPageChange(nextPage: number) {
@@ -120,7 +180,6 @@ export function AdminDashboardScreen() {
       return;
     }
     setPaymentPage(nextPage);
-    void loadPendingReviews(nextPage, paymentFilters);
   }
 
   async function handleRetrySettlement(paymentId: number) {
@@ -130,15 +189,7 @@ export function AdminDashboardScreen() {
     try {
       await retryAdminSettlement(paymentId);
       await loadPendingReviews();
-      Alert.alert("Settlement retry requested", "The latest settlement status has been loaded.");
-      setTimeout(() => {
-        setRetryQueuedPaymentIds((current) => {
-          const next = { ...current };
-          delete next[paymentId];
-          return next;
-        });
-        void loadPendingReviews();
-      }, 1500);
+      setMessage(`Payment #${paymentId}: retry queued, not yet settled. Refresh to check the worker result.`);
     } catch (error) {
       setRetryQueuedPaymentIds((current) => {
         const next = { ...current };
@@ -154,83 +205,17 @@ export function AdminDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadPendingReviews();
+      return () => { listRequest.current += 1; };
     }, [loadPendingReviews]),
   );
 
-  async function openProfile(providerProfileId: number) {
-    setActionError("");
-    setProfileRejectReason("");
-    try {
-      const result = await getAdminProviderProfile(providerProfileId);
-      setSelectedProfile(result);
-    } catch (error) {
-      setMessage(getErrorMessage(error));
-    }
-  }
-
-  function closeProfile() {
-    setSelectedProfile(null);
-    setProfileRejectReason("");
-    setActionError("");
-  }
-
-  async function approveProfile() {
-    if (!selectedProfile) {
-      return;
-    }
-
-    setIsActing(true);
-    setActionError("");
-    try {
-      await updateAdminProviderProfileVerification(
-        selectedProfile.id,
-        "approved",
-        "Provider profile approved",
-      );
-      await loadPendingReviews();
-      Alert.alert("Approved", "Provider profile approved.");
-      closeProfile();
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setIsActing(false);
-    }
-  }
-
-  async function rejectProfile() {
-    if (!selectedProfile) {
-      return;
-    }
-
-    const cleanReason = profileRejectReason.trim();
-    if (!cleanReason) {
-      setActionError("Enter a rejection reason.");
-      return;
-    }
-
-    setIsActing(true);
-    setActionError("");
-    try {
-      await updateAdminProviderProfileVerification(
-        selectedProfile.id,
-        "rejected",
-        cleanReason,
-      );
-      await loadPendingReviews();
-      Alert.alert("Declined", "The provider has been notified.");
-      closeProfile();
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setIsActing(false);
-    }
-  }
-
   async function openPortfolio(portfolioId: number) {
+    const ticket = ++detailRequest.current;
     setActionError("");
     setRejectReason("");
     try {
       const result = await getAdminProviderPortfolioItem(portfolioId);
+      if (ticket !== detailRequest.current) return;
       setSelectedPortfolio(result);
     } catch (error) {
       setMessage(getErrorMessage(error));
@@ -238,6 +223,7 @@ export function AdminDashboardScreen() {
   }
 
   function closePortfolio() {
+    detailRequest.current++;
     setSelectedPortfolio(null);
     setRejectReason("");
     setActionError("");
@@ -324,11 +310,10 @@ export function AdminDashboardScreen() {
     setIsActing(true);
     setActionError("");
     try {
-      await approveAdminRefundAppeal(selectedAppeal.id, cleanNote);
+      const result = await approveAdminRefundAppeal(selectedAppeal.id, cleanNote);
       await loadPendingReviews();
-      Alert.alert("Refund approved", "This booking is now closed.", [
-        { text: "OK", onPress: closeAppeal },
-      ]);
+      closeAppeal();
+      setMessage(`Refund #${selectedAppeal.id}: ${result?.refund_request.status ?? "approved"} · ${formatMoney(result?.refund_request.refund_amount ?? selectedAppeal.refund_amount)}.`);
     } catch (error) {
       setActionError(getErrorMessage(error));
     } finally {
@@ -352,9 +337,8 @@ export function AdminDashboardScreen() {
     try {
       await rejectAdminRefundAppeal(selectedAppeal.id, cleanNote);
       await loadPendingReviews();
-      Alert.alert("Refund declined", "The booking has resumed.", [
-        { text: "OK", onPress: closeAppeal },
-      ]);
+      closeAppeal();
+      setMessage(`Refund #${selectedAppeal.id} declined. The previous booking status has been restored.`);
     } catch (error) {
       setActionError(getErrorMessage(error));
     } finally {
@@ -366,55 +350,56 @@ export function AdminDashboardScreen() {
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Admin dashboard</Text>
-          <Text style={styles.subtitle}>Provider verification, portfolio, and refund review</Text>
+          <Text style={styles.title}>
+            {section === "portfolio"
+              ? "Portfolios pending review"
+              : section === "refunds"
+                ? "Refund appeals pending review"
+                : section === "payments"
+                  ? "Payments & settlements"
+                  : "Provider payout accounts"}
+          </Text>
         </View>
         <SecondaryButton
           disabled={isLoading || isActing}
           label="Refresh"
-          onPress={() => void loadPendingReviews()}
+          onPress={() => { setRetryQueuedPaymentIds({}); void loadPendingReviews(); }}
         />
       </View>
 
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {section !== "payments" ? <>
+        <AdminRecordSearch section={section} appliedFilters={recordFilters} disabled={isLoading || isActing} onDirty={() => { setRecordQueryDirty(true); closePortfolio(); closeAppeal(); }} onSearch={(filters) => { closePortfolio(); closeAppeal(); setRecordPage(1); setRecordQueryDirty(false); setRecordFilters(filters); }} />
+        <Text style={styles.cardMeta}>{recordQueryDirty ? "Conditions changed. Search to update results." : `${recordTotal} results matching the filters above`}</Text>
+      </> : null}
 
-      <AISubscriptionPanel />
+      {message ? <Text accessibilityLiveRegion="polite" style={styles.cardMeta}>{message}</Text> : null}
 
-      <ReviewEmbeddingAdminPanel />
+      {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
 
-      <View style={styles.section}>
-        <ProviderVerificationAdminPanel />
-      </View>
+      {(section === "payments" || section === "payouts") && !recordQueryDirty && isLoading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
+      ) : (section === "payments" || section === "payouts") && !recordQueryDirty ? (
+        <MarketplaceSection
+          isActing={isActing}
+          onRetrySettlement={(paymentId) => void handleRetrySettlement(paymentId)}
+          filters={paymentFilters}
+          onFiltersChange={handlePaymentFiltersChange}
+          page={paymentPage}
+          totalPages={paymentTotalPages}
+          onPageChange={handlePaymentPageChange}
+          retryQueuedPaymentIds={retryQueuedPaymentIds}
+          payments={marketplacePayments}
+          submerchants={submerchants}
+          view={section}
+        />
+      ) : null}
 
-      <View style={styles.section}>
-        <LowValueReviewPanel />
-      </View>
-
-      <View style={styles.section}>
-        <HiddenReviewRestorePanel />
-      </View>
-
-      <MarketplaceSection
-        isActing={isActing}
-        onRetrySettlement={(paymentId) => void handleRetrySettlement(paymentId)}
-        filters={paymentFilters}
-        onFiltersChange={handlePaymentFiltersChange}
-        page={paymentPage}
-        totalPages={paymentTotalPages}
-        onPageChange={handlePaymentPageChange}
-        retryQueuedPaymentIds={retryQueuedPaymentIds}
-        payments={marketplacePayments}
-        submerchants={submerchants}
-      />
-
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Portfolios pending review</Text>
+      {section === "portfolio" && !recordQueryDirty && !isLoading ? <View style={styles.section}>
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : pendingPortfolios.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No portfolios pending review</Text>
+            <Text style={styles.emptyTitle}>No matching portfolios pending review</Text>
             <Text style={styles.emptyText}>
               Newly uploaded portfolios enter pending status first.
             </Text>
@@ -430,15 +415,14 @@ export function AdminDashboardScreen() {
             ))}
           </View>
         )}
-      </View>
+      </View> : null}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Refund appeals pending review</Text>
+      {section === "refunds" && !recordQueryDirty && !isLoading ? <View style={styles.section}>
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : pendingAppeals.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No refund appeals</Text>
+            <Text style={styles.emptyTitle}>No matching refund appeals</Text>
             <Text style={styles.emptyText}>
               Customer appeals against provider refund rejections appear here.
             </Text>
@@ -454,9 +438,11 @@ export function AdminDashboardScreen() {
             ))}
           </View>
         )}
-      </View>
+      </View> : null}
 
-      <PortfolioReviewModal
+      {section !== "payments" && !recordQueryDirty && !isLoading ? <View style={styles.paginationRow}><SecondaryButton label="Previous" disabled={isActing || recordPage <= 1} onPress={() => setRecordPage(recordPage - 1)} /><Text style={styles.cardMeta}>Page {recordPage} of {recordTotalPages} · 20 per page</Text><SecondaryButton label="Next" disabled={isActing || recordPage >= recordTotalPages} onPress={() => setRecordPage(recordPage + 1)} /></View> : null}
+
+      {section === "portfolio" ? <PortfolioReviewModal
         actionError={actionError}
         isActing={isActing}
         onApprove={() => void approvePortfolio()}
@@ -465,9 +451,9 @@ export function AdminDashboardScreen() {
         portfolio={selectedPortfolio}
         rejectReason={rejectReason}
         setRejectReason={setRejectReason}
-      />
+      /> : null}
 
-      <RefundAppealModal
+      {section === "refunds" ? <RefundAppealModal
         actionError={actionError}
         adminNote={appealAdminNote}
         appeal={selectedAppeal}
@@ -476,7 +462,7 @@ export function AdminDashboardScreen() {
         onClose={closeAppeal}
         onReject={() => void rejectAppeal()}
         setAdminNote={setAppealAdminNote}
-      />
+      /> : null}
     </ScrollView>
   );
 }
@@ -492,6 +478,7 @@ function MarketplaceSection({
   retryQueuedPaymentIds,
   submerchants,
   totalPages,
+  view,
 }: {
   filters: AdminPaymentFilters;
   isActing: boolean;
@@ -503,6 +490,7 @@ function MarketplaceSection({
   retryQueuedPaymentIds: Record<number, boolean>;
   submerchants: AdminSubmerchant[];
   totalPages: number;
+  view: "payments" | "payouts";
 }) {
   const [providerFilter, setProviderFilter] = useState(
     filters.providerProfileId == null ? "" : String(filters.providerProfileId),
@@ -510,26 +498,25 @@ function MarketplaceSection({
   const [bookingFilter, setBookingFilter] = useState(
     filters.bookingId == null ? "" : String(filters.bookingId),
   );
+  const [filterError, setFilterError] = useState("");
 
   function applyIdFilters() {
-    const providerProfileId = parsePositiveInteger(providerFilter);
-    const bookingId = parsePositiveInteger(bookingFilter);
-    onFiltersChange({
-      ...filters,
-      providerProfileId,
-      bookingId,
-    });
+    try {
+      const providerProfileId = parseAdminId(providerFilter);
+      const bookingId = parseAdminId(bookingFilter);
+      setFilterError("");
+      onFiltersChange({ ...filters, providerProfileId, bookingId });
+    } catch { setFilterError("Enter a positive whole ID, or leave it blank."); }
   }
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Marketplace</Text>
-      {submerchants.length === 0 ? (
+      {view === "payouts" && submerchants.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No payout accounts</Text>
+          <Text style={styles.emptyTitle}>No matching payout accounts</Text>
           <Text style={styles.emptyText}>Provider payout account status will appear here.</Text>
         </View>
-      ) : (
+      ) : view === "payouts" ? (
         <View style={styles.list}>
           {submerchants.map((submerchant) => (
             <View key={submerchant.id} style={styles.reviewCard}>
@@ -551,9 +538,9 @@ function MarketplaceSection({
             </View>
           ))}
         </View>
-      )}
+      ) : null}
 
-      <View style={styles.filterCard}>
+      {view === "payments" ? <View style={styles.filterCard}>
         <Text style={styles.filterTitle}>Payment filters</Text>
         <Text style={styles.filterLabel}>Payment status</Text>
         <View style={styles.filterRow}>
@@ -562,6 +549,8 @@ function MarketplaceSection({
             ["Authorized", "authorized"],
             ["Paid", "paid"],
             ["Failed", "failed"],
+            ["Refunded", "refunded"],
+            ["Partially refunded", "partially_refunded"],
           ].map(([label, value]) => (
             <FilterChip
               active={filters.status === value}
@@ -598,6 +587,7 @@ function MarketplaceSection({
           keyboardType="number-pad"
           label="Provider profile ID"
           onChangeText={setProviderFilter}
+          onSubmitEditing={applyIdFilters}
           placeholder="Optional"
           value={providerFilter}
         />
@@ -605,29 +595,32 @@ function MarketplaceSection({
           keyboardType="number-pad"
           label="Booking ID"
           onChangeText={setBookingFilter}
+          onSubmitEditing={applyIdFilters}
           placeholder="Optional"
           value={bookingFilter}
         />
         <SecondaryButton label="Apply ID filters" onPress={applyIdFilters} />
-      </View>
+        {filterError ? <Text accessibilityRole="alert" style={styles.errorText}>{filterError}</Text> : null}
+      </View> : null}
 
-      {payments.length === 0 ? (
+      {view === "payments" ? <Text style={styles.cardMeta}>Results matching the filters above</Text> : null}
+      {view === "payments" && payments.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No marketplace payments</Text>
+          <Text style={styles.emptyTitle}>No matching marketplace payments</Text>
           <Text style={styles.emptyText}>Payment splits and settlement status will appear here.</Text>
         </View>
-      ) : (
+      ) : view === "payments" ? (
         <View style={styles.list}>
           {payments.map((payment) => {
             const settlement = payment.settlement;
             return (
-              <View key={payment.id} style={styles.reviewCard}>
+              <View key={payment.id} style={styles.paymentCard}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Payment #{payment.id}</Text>
                   <Text style={styles.pendingBadge}>{getPaymentStatusLabel(payment.status)}</Text>
                 </View>
-                <Text style={styles.cardMeta}>
-                  Total {formatMoney(payment.amount)} · Booking #{payment.booking_id}
+                <Text style={styles.paymentTotal}>
+                  Payment total: {formatMoney(payment.amount)} · Booking #{payment.booking_id}
                 </Text>
                 <Text style={styles.cardMeta}>
                   Customer {payment.booking?.customer?.name || `#${payment.customer_id}`} · Provider {payment.booking?.provider?.business_name || `#${payment.provider_profile_id}`}
@@ -644,7 +637,7 @@ function MarketplaceSection({
                 </Text>
                 {settlement ? (
                   <>
-                    <MarketplaceBreakdownCard payment={payment} title="Settlement breakdown" />
+                    <MarketplaceBreakdownCard adminLayout payment={payment} title="Settlement breakdown" />
                     {settlement.merchant_payout_amount != null ? (
                       <Text style={styles.cardMeta}>
                         Platform payout after known deductions {formatMoney(settlement.merchant_payout_amount)}
@@ -666,7 +659,7 @@ function MarketplaceSection({
                   </>
                 ) : (
                   <>
-                    <MarketplaceBreakdownCard payment={payment} title="Payment estimate" />
+                    <MarketplaceBreakdownCard adminLayout payment={payment} title="Payment estimate" />
                     <Text style={styles.cardMeta}>No settlement record yet</Text>
                   </>
                 )}
@@ -679,8 +672,8 @@ function MarketplaceSection({
             );
           })}
         </View>
-      )}
-      {payments.length > 0 ? (
+      ) : null}
+      {view === "payments" && payments.length > 0 ? (
         <View style={styles.paginationRow}>
           <SecondaryButton
             disabled={isActing || page <= 1}
@@ -934,6 +927,7 @@ function RefundAppealModal({
   onReject: () => void;
   setAdminNote: (value: string) => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   if (!appeal) {
     return null;
   }
@@ -942,7 +936,7 @@ function RefundAppealModal({
   const payment = appeal.payment;
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+    <Modal animationType="slide" onRequestClose={() => { if (!isActing) { setConfirming(false); onClose(); } }} transparent visible>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
@@ -954,7 +948,7 @@ function RefundAppealModal({
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
-              onPress={onClose}
+              onPress={() => { setConfirming(false); onClose(); }}
               style={styles.closeButton}
             >
               <X color={colors.text} size={22} />
@@ -975,7 +969,7 @@ function RefundAppealModal({
               />
               <ProfileDetailRow
                 label="Refund amount"
-                value={payment ? `${payment.amount} ${payment.currency}` : "-"}
+                value={appeal.refund_amount != null && payment ? `${formatMoney(appeal.refund_amount)}` : "Unavailable"}
               />
               <ProfileDetailRow
                 label="Booking status"
@@ -1017,7 +1011,8 @@ function RefundAppealModal({
               label="Support note"
               multiline
               numberOfLines={4}
-              onChangeText={setAdminNote}
+              editable={!isActing}
+              onChangeText={(value) => { setConfirming(false); setAdminNote(value); }}
               placeholder="Shown to the customer and provider"
               value={adminNote}
             />
@@ -1025,13 +1020,13 @@ function RefundAppealModal({
           </ScrollView>
 
           <View style={styles.modalActions}>
-            <SecondaryButton disabled={isActing} label="Cancel" onPress={onClose} />
-            <SecondaryButton disabled={isActing} label="Reject refund" onPress={onReject} />
+            <SecondaryButton disabled={isActing} label={confirming ? "Back" : "Cancel"} onPress={() => { if (confirming) setConfirming(false); else onClose(); }} />
+            {!confirming ? <SecondaryButton disabled={isActing} label="Reject refund" onPress={onReject} /> : null}
             <PrimaryButton
-              disabled={isActing}
+              disabled={isActing || !adminNote.trim() || appeal.refund_amount == null}
               isLoading={isActing}
-              label="Approve refund"
-              onPress={onApprove}
+              label={confirming ? `Confirm refund #${appeal.id} · ${formatMoney(appeal.refund_amount)}` : "Approve refund"}
+              onPress={() => { if (confirming) { setConfirming(false); onApprove(); } else setConfirming(true); }}
             />
           </View>
         </View>
@@ -1181,6 +1176,8 @@ function getRefundStatusLabel(status: string) {
 }
 
 const styles = StyleSheet.create({
+  paymentTotal: { color: colors.text, fontWeight: "800", fontSize: 16 },
+  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: "#F0F2F5", padding: spacing.lg, gap: spacing.sm },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1204,6 +1201,38 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontSize: 15,
     marginTop: spacing.xs,
+  },
+  hubGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  hubCard: {
+    minWidth: 260,
+    flexBasis: 280,
+    flexGrow: 1,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+  },
+  hubCardTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  hubCardDescription: {
+    flex: 1,
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  hubCardLink: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   section: {
     gap: spacing.md,

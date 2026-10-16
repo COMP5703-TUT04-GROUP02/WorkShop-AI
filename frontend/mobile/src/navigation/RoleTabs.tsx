@@ -208,6 +208,7 @@ export function RoleTabs() {
           component={AdminDashboardScreen}
           options={{
             title: "Admin",
+            headerShown: false,
             tabBarLabel: "Admin",
             tabBarIcon: tabIcons.admin,
           }}

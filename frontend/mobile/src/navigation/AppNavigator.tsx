@@ -24,6 +24,19 @@ import { NotificationSettingsScreen } from "../screens/NotificationSettingsScree
 import { PaymentsScreen } from "../screens/PaymentsScreen";
 import { PaymentResultScreen } from "../screens/PaymentResultScreen";
 import { VerifyEmailScreen } from "../screens/VerifyEmailScreen";
+import {
+  AdminPaymentsSettlementsScreen,
+  AdminPayoutAccountsScreen,
+  AdminPortfolioReviewScreen,
+  AdminRefundDisputesScreen,
+} from "../screens/admin/AdminDashboardScreen";
+import {
+  AdminCustomerAIConfigScreen,
+  AdminIdentityVerificationScreen,
+  AdminQualificationVerificationScreen,
+  AdminReviewEmbeddingScreen,
+  AdminReviewManagementScreen,
+} from "../screens/admin/AdminPanelScreens";
 import { CustomerFavouritesScreen } from "../screens/customer/CustomerFavouritesScreen";
 import { CustomerProviderDetailScreen } from "../screens/customer/CustomerProviderDetailScreen";
 import { CustomerProviderPortfolioDetailScreen } from "../screens/customer/CustomerProviderPortfolioDetailScreen";
@@ -87,6 +100,33 @@ const GuardedProviderPortfolioDetailScreen = withRequiredProviderProfile(
 );
 const GuardedProviderOperatingSettingsScreen = withRequiredProviderProfile(
   ProviderOperatingSettingsScreen,
+);
+const GuardedAdminIdentityVerificationScreen = withRequiredAdmin(
+  AdminIdentityVerificationScreen,
+);
+const GuardedAdminQualificationVerificationScreen = withRequiredAdmin(
+  AdminQualificationVerificationScreen,
+);
+const GuardedAdminPortfolioReviewScreen = withRequiredAdmin(
+  AdminPortfolioReviewScreen,
+);
+const GuardedAdminRefundDisputesScreen = withRequiredAdmin(
+  AdminRefundDisputesScreen,
+);
+const GuardedAdminPaymentsSettlementsScreen = withRequiredAdmin(
+  AdminPaymentsSettlementsScreen,
+);
+const GuardedAdminPayoutAccountsScreen = withRequiredAdmin(
+  AdminPayoutAccountsScreen,
+);
+const GuardedAdminReviewManagementScreen = withRequiredAdmin(
+  AdminReviewManagementScreen,
+);
+const GuardedAdminCustomerAIConfigScreen = withRequiredAdmin(
+  AdminCustomerAIConfigScreen,
+);
+const GuardedAdminReviewEmbeddingScreen = withRequiredAdmin(
+  AdminReviewEmbeddingScreen,
 );
 
 const navigationTheme = {
@@ -308,6 +348,51 @@ function AuthenticatedStack() {
         component={GuardedProviderPortfolioDetailScreen}
         options={{ title: "Portfolio" }}
       />
+      <Stack.Screen
+        name="AdminIdentityVerification"
+        component={GuardedAdminIdentityVerificationScreen}
+        options={{ title: "Identity verification" }}
+      />
+      <Stack.Screen
+        name="AdminQualificationVerification"
+        component={GuardedAdminQualificationVerificationScreen}
+        options={{ title: "Qualification verification" }}
+      />
+      <Stack.Screen
+        name="AdminPortfolioReview"
+        component={GuardedAdminPortfolioReviewScreen}
+        options={{ title: "Portfolio review" }}
+      />
+      <Stack.Screen
+        name="AdminRefundDisputes"
+        component={GuardedAdminRefundDisputesScreen}
+        options={{ title: "Refund disputes" }}
+      />
+      <Stack.Screen
+        name="AdminPaymentsSettlements"
+        component={GuardedAdminPaymentsSettlementsScreen}
+        options={{ title: "Payments & settlements" }}
+      />
+      <Stack.Screen
+        name="AdminPayoutAccounts"
+        component={GuardedAdminPayoutAccountsScreen}
+        options={{ title: "Provider payout accounts" }}
+      />
+      <Stack.Screen
+        name="AdminReviewManagement"
+        component={GuardedAdminReviewManagementScreen}
+        options={{ title: "Review management" }}
+      />
+      <Stack.Screen
+        name="AdminCustomerAIConfig"
+        component={GuardedAdminCustomerAIConfigScreen}
+        options={{ title: "Customer AI config" }}
+      />
+      <Stack.Screen
+        name="AdminReviewEmbedding"
+        component={GuardedAdminReviewEmbeddingScreen}
+        options={{ title: "Review embedding / search" }}
+      />
     </Stack.Navigator>
   );
 }
@@ -370,6 +455,22 @@ function withRequiredProviderProfile<P extends object>(
     }
 
     return <ScreenComponent {...props} />;
+  };
+}
+
+function withRequiredAdmin<P extends object>(ScreenComponent: ComponentType<P>) {
+  return function RequiredAdminStackScreen(props: P) {
+    const { user } = useAuth();
+    const navigation =
+      useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+    useEffect(() => {
+      if (user?.role !== "admin") {
+        navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+      }
+    }, [navigation, user?.role]);
+
+    return user?.role === "admin" ? <ScreenComponent {...props} /> : null;
   };
 }
 

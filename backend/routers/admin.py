@@ -5,7 +5,7 @@ refunds, review visibility, and stats. Not for customer/provider roles.
 """
 
 from datetime import datetime, timezone
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend import models
@@ -76,6 +76,7 @@ from backend.schemas import (
     ReviewVisibilityUpdate,
     SettlementStatus,
 )
+from backend.schemas.marketplace import SubmerchantStatus
 from backend.constants import LOW_VALUE_REVIEW_THRESHOLD
 from backend.utils.response import success_response
 from decimal import Decimal, InvalidOperation
@@ -421,15 +422,18 @@ def get_admin_provider_portfolios(
     verification_status: ProviderVerificationStatus | None = None,
     page: int = 1,
     page_size: int = 20,
+    provider_profile_id: int | None = Query(default=None, gt=0),
     current_user: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.ProviderPortfolio)
+    if provider_profile_id is not None:
+        query = query.filter(models.ProviderPortfolio.provider_profile_id == provider_profile_id)
     if verification_status:
         query = query.filter(
             models.ProviderPortfolio.verification_status == verification_status
         )
-    query = query.order_by(models.ProviderPortfolio.created_at.desc())
+    query = query.order_by(models.ProviderPortfolio.created_at.desc(), models.ProviderPortfolio.id.desc())
     portfolios, total, page, page_size = paginate_query(query, page, page_size)
     result = [
         format_provider_portfolio_response(portfolio, db) for portfolio in portfolios
@@ -638,12 +642,18 @@ def _mask_secret(value: str | None) -> str | None:
 def get_admin_submerchants(
     page: int = 1,
     page_size: int = 20,
+    status: SubmerchantStatus | None = None,
+    provider_profile_id: int | None = Query(default=None, gt=0),
     current_user: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.ProviderSubmerchant).order_by(
-        models.ProviderSubmerchant.updated_at.desc()
+        models.ProviderSubmerchant.updated_at.desc(), models.ProviderSubmerchant.id.desc()
     )
+    if status is not None:
+        query = query.filter(models.ProviderSubmerchant.status == status.value)
+    if provider_profile_id is not None:
+        query = query.filter(models.ProviderSubmerchant.provider_profile_id == provider_profile_id)
     submerchants, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for submerchant in submerchants:
@@ -693,13 +703,22 @@ def get_all_refund_requests(
     status: RefundRequestStatus | None = None,
     page: int = 1,
     page_size: int = 20,
+    refund_request_id: int | None = Query(default=None, gt=0),
+    customer_id: int | None = Query(default=None, gt=0),
+    provider_profile_id: int | None = Query(default=None, gt=0),
     current_user: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.RefundRequest)
+    if refund_request_id is not None:
+        query = query.filter(models.RefundRequest.id == refund_request_id)
+    if customer_id is not None:
+        query = query.filter(models.RefundRequest.customer_id == customer_id)
+    if provider_profile_id is not None:
+        query = query.filter(models.RefundRequest.provider_profile_id == provider_profile_id)
     if status:
         query = query.filter(models.RefundRequest.status == status)
-    query = query.order_by(models.RefundRequest.created_at.desc())
+    query = query.order_by(models.RefundRequest.created_at.desc(), models.RefundRequest.id.desc())
     refund_requests, total, page, page_size = paginate_query(query, page, page_size)
     result = []
     for refund_request in refund_requests:
