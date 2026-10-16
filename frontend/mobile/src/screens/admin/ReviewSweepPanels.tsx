@@ -10,6 +10,7 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import type { LowValueReview } from "../../types/review";
 import { formatDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
@@ -153,15 +154,15 @@ export function HiddenReviewRestorePanel() { return <ReviewSweepPanel copy={REST
 
 const styles = StyleSheet.create({
   panel: { gap: spacing.md },
-  title: { fontSize: 18, fontWeight: "700", color: colors.text },
-  subtitle: { fontSize: 14, color: colors.mutedText, lineHeight: 20 },
+  title: { ...type.sectionTitle, color: colors.text },
+  subtitle: { ...type.body, color: colors.mutedText },
   controls: { flexDirection: "row", alignItems: "flex-end", gap: spacing.md },
   thresholdField: { flex: 1, maxWidth: 260 },
   checkButton: { minWidth: 120 },
-  error: { fontSize: 14, color: colors.danger },
-  message: { fontSize: 14, color: colors.text },
-  countText: { fontSize: 14, fontWeight: "600", color: colors.text },
-  emptyText: { fontSize: 14, color: colors.mutedText },
+  error: { ...type.body, color: colors.danger },
+  message: { ...type.body, color: colors.text },
+  countText: { ...type.label, color: colors.text },
+  emptyText: { ...type.body, color: colors.mutedText },
   row: {
     gap: spacing.xs,
     borderWidth: 1,
@@ -176,10 +177,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-  amount: { fontSize: 16, fontWeight: "700", color: colors.text },
+  amount: { ...type.cardTitle, color: colors.text },
   amountWarning: { color: colors.danger },
-  meta: { fontSize: 13, color: colors.mutedText },
-  provider: { fontSize: 15, fontWeight: "600", color: colors.text },
-  comment: { fontSize: 14, color: colors.mutedText, lineHeight: 20 },
-  footnote: { fontSize: 13, color: colors.mutedText },
+  meta: { ...type.caption, color: colors.mutedText },
+  provider: { ...type.label, color: colors.text },
+  comment: { ...type.body, color: colors.mutedText },
+  footnote: { ...type.caption, color: colors.mutedText },
 });

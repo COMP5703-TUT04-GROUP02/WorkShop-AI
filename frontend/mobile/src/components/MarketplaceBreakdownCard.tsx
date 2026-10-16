@@ -5,6 +5,7 @@ import { colors, radius, spacing } from "../theme/theme";
 import type { PaymentHistoryEntry, PaymentSummary } from "../types/booking";
 import { getMarketplaceBreakdown } from "../utils/marketplace";
 import { formatMoney } from "../utils/money";
+import { adminTypography } from "../theme/adminTypography";
 
 export function MarketplaceBreakdownCard({
   amount,
@@ -40,52 +41,54 @@ export function MarketplaceBreakdownCard({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
-      {visitFeeAmount != null ? <Row label="Visit fee" value={formatMoney(visitFeeAmount)} /> : null}
-      {serviceAmount != null ? <Row label={serviceAmountLabel} value={formatMoney(serviceAmount)} /> : null}
+      <Text style={[styles.title, adminLayout && adminTypography.cardTitle]}>{title}</Text>
+      {visitFeeAmount != null ? <Row adminLayout={adminLayout} label="Visit fee" value={formatMoney(visitFeeAmount)} /> : null}
+      {serviceAmount != null ? <Row adminLayout={adminLayout} label={serviceAmountLabel} value={formatMoney(serviceAmount)} /> : null}
       {visitFeeAmount != null || serviceAmount != null ? (
-        <Row label="Estimated customer total" value={formatMoney(breakdown.total)} />
+        <Row adminLayout={adminLayout} label="Estimated customer total" value={formatMoney(breakdown.total)} />
       ) : null}
       <View style={styles.separator} />
       {!adminLayout ? <Row label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
-      <Row label="Expected provider income" value={formatMoney(providerIncome)} emphasized />
-      {adminLayout ? <Row label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
+      <Row adminLayout={adminLayout} label="Expected provider income" value={formatMoney(providerIncome)} emphasized />
+      {adminLayout ? <Row adminLayout label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
       <Pressable
         accessibilityLabel={isExpanded ? "Hide fee details" : "View fee details"}
         accessibilityRole="button"
         onPress={() => setIsExpanded((expanded) => !expanded)}
         style={styles.detailsToggle}
       >
-        <Text style={styles.detailsToggleText}>
+        <Text style={[styles.detailsToggleText, adminLayout && adminTypography.label]}>
           {isExpanded ? "Hide fee details" : "View fee details"}
         </Text>
         <Text style={styles.detailsToggleIcon}>{isExpanded ? "−" : "+"}</Text>
       </Pressable>
       {isExpanded ? (
         <View style={styles.details}>
-          <Row label="Platform commission" value={formatMoney(breakdown.platformCommission)} />
+          <Row adminLayout={adminLayout} label="Platform commission" value={formatMoney(breakdown.platformCommission)} />
           {!adminLayout ? <Row label="Provider share" value={formatMoney(breakdown.providerShare)} /> : null}
           <Row
+            adminLayout={adminLayout}
             label={`iyzico fee${breakdown.feeIsEstimated ? " (estimate)" : ""}`}
             value={formatMoney(breakdown.iyzicoFee)}
           />
-          <Row label="VAT estimate" value={formatMoney(breakdown.taxAmount)} />
+          <Row adminLayout={adminLayout} label="VAT estimate" value={formatMoney(breakdown.taxAmount)} />
           {!adminLayout ? <Row label={payoutLabel} value={formatMoney(providerIncome)} /> : null}
         </View>
       ) : null}
       {settlement ? (
-        <Row label="Settlement" value={formatSettlementStatus(settlement.status)} />
+        <Row adminLayout={adminLayout} label="Settlement" value={formatSettlementStatus(settlement.status)} />
       ) : (
-        <Text style={styles.note}>Estimate until the payment is captured.</Text>
+        <Text style={[styles.note, adminLayout && adminTypography.caption]}>Estimate until the payment is captured.</Text>
       )}
-      <Text style={styles.note}>
+      <Text style={[styles.note, adminLayout && adminTypography.caption]}>
         Tax and payment fees are fixed Sandbox estimates; the final settlement comes from iyzico.
       </Text>
       {settlement?.failure_message ? (
-        <Text style={styles.error}>{settlement.failure_message}</Text>
+        <Text style={[styles.error, adminLayout && adminTypography.body]}>{settlement.failure_message}</Text>
       ) : null}
       {settlement?.provider_recovery_amount != null ? (
         <Row
+          adminLayout={adminLayout}
           label="Recovery"
           value={`${formatMoney(settlement.provider_recovery_amount)} · ${settlement.recovery_status || "Pending"}`}
         />
@@ -95,18 +98,20 @@ export function MarketplaceBreakdownCard({
 }
 
 function Row({
+  adminLayout = false,
   emphasized = false,
   label,
   value,
 }: {
+  adminLayout?: boolean;
   emphasized?: boolean;
   label: string;
   value: string;
 }) {
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, emphasized ? styles.emphasized : null]}>{label}</Text>
-      <Text style={[styles.value, emphasized ? styles.emphasized : null]}>{value}</Text>
+      <Text style={[styles.label, emphasized ? styles.emphasized : null, adminLayout && (emphasized ? adminTypography.label : adminTypography.body)]}>{label}</Text>
+      <Text style={[styles.value, emphasized ? styles.emphasized : null, adminLayout && adminTypography.label]}>{value}</Text>
     </View>
   );
 }

@@ -22,6 +22,7 @@ import {
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import { getErrorMessage } from "../../utils/errors";
 
 const POLL_INTERVAL_MS = 2000;
@@ -356,8 +357,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerCopy: { flex: 1, minWidth: 240 },
-  title: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  subtitle: { color: colors.mutedText, fontSize: 14, lineHeight: 20, marginTop: spacing.xs },
+  title: { ...type.pageTitle, color: colors.text },
+  subtitle: { ...type.body, color: colors.mutedText, marginTop: spacing.xs },
   statusGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   statusCard: {
     minWidth: 112,
@@ -369,8 +370,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.md,
   },
-  statusLabel: { color: colors.mutedText, fontSize: 12, fontWeight: "700" },
-  statusValue: { color: colors.text, fontSize: 24, fontWeight: "800" },
+  statusLabel: { ...type.label, color: colors.mutedText },
+  statusValue: { ...type.metric, color: colors.text },
   successValue: { color: colors.primary },
   pendingValue: { color: "#C2410C" },
   dangerValue: { color: colors.danger },
@@ -388,9 +389,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
-  serviceLabel: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  readyText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
-  mutedText: { color: colors.mutedText, fontSize: 13 },
+  serviceLabel: { ...type.label, color: colors.text },
+  readyText: { ...type.badge, color: colors.primary },
+  mutedText: { ...type.caption, color: colors.mutedText },
   taskCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -400,10 +401,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   taskCopy: { flex: 1 },
-  taskTitle: { color: colors.text, fontSize: 14, fontWeight: "800" },
-  taskText: { color: colors.mutedText, fontSize: 12, marginTop: spacing.xs },
-  successMessage: { color: colors.primary, fontSize: 14, fontWeight: "700" },
-  errorMessage: { color: colors.danger, fontSize: 14 },
+  taskTitle: { ...type.cardTitle, color: colors.text },
+  taskText: { ...type.caption, color: colors.mutedText, marginTop: spacing.xs },
+  successMessage: { ...type.body, color: colors.primary },
+  errorMessage: { ...type.body, color: colors.danger },
   confirmationCard: {
     gap: spacing.sm,
     borderWidth: 1,
@@ -412,9 +413,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF7ED",
     padding: spacing.md,
   },
-  confirmationTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
-  confirmationText: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
+  confirmationTitle: { ...type.cardTitle, color: colors.text },
+  confirmationText: { ...type.body, color: colors.mutedText },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   actionButton: { flexGrow: 1 },
-  note: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
+  note: { ...type.caption, color: colors.mutedText },
 });

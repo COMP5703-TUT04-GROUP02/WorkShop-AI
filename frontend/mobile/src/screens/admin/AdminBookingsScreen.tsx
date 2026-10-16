@@ -7,6 +7,7 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import type { AdminBookingDetail, AdminBookingFilters, AdminBookingStatusGroup } from "../../types/adminBooking";
 import type { BookingDetail } from "../../types/booking";
 import { getErrorMessage } from "../../utils/errors";
@@ -143,7 +144,7 @@ export function AdminBookingsScreen() {
             <Text style={styles.meta}>Customer #{booking.customer_id} · {booking.customer?.name || "—"}</Text>
             <Text style={styles.meta}>Provider #{booking.provider_profile_id} · {booking.provider?.business_name || "—"}</Text>
             <Text style={styles.meta}>Scheduled {formatBookingDateTime(booking.scheduled_start_time)}</Text>
-            <Text>Booking total: {formatMoney(booking.total_amount)}</Text>
+            <Text style={styles.body}>Booking total: {formatMoney(booking.total_amount)}</Text>
             <Text style={styles.link}>View details</Text>
           </Pressable>)}
           {items.length ? <View style={styles.pagination}>
@@ -161,20 +162,21 @@ export function AdminBookingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md },
-  title: { color: colors.text, fontSize: 28, fontWeight: "800" },
+  title: { ...type.pageTitle, color: colors.text },
   search: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
   field: { flexBasis: 200, flexGrow: 1, maxWidth: 320 },
   card: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  heading: { color: colors.text, fontSize: 17, fontWeight: "700" },
-  meta: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
-  badge: { fontSize: 13, fontWeight: "700", paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, overflow: "hidden" },
-  filterLabel: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  heading: { ...type.cardTitle, color: colors.text },
+  body: { ...type.body, color: colors.text },
+  meta: { ...type.caption, color: colors.mutedText },
+  badge: { ...type.badge, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, overflow: "hidden" },
+  filterLabel: { ...type.label, color: colors.text },
   statusOption: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minHeight: 44, justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.background },
   statusSelected: { backgroundColor: "#E9F7F3", borderColor: colors.primary },
-  optionLabel: { color: colors.mutedText, fontSize: 14, fontWeight: "600" },
+  optionLabel: { ...type.label, color: colors.mutedText },
   optionSelected: { color: colors.primary },
-  link: { color: colors.primary, fontWeight: "600" },
-  error: { color: colors.danger },
+  link: { ...type.label, color: colors.primary },
+  error: { ...type.body, color: colors.danger },
   pagination: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
 });

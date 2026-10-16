@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import { AISubscriptionPanel } from "./AISubscriptionPanel";
 import { ProviderVerificationAdminPanel } from "./ProviderVerificationAdminPanel";
 import { ReviewEmbeddingAdminPanel } from "./ReviewEmbeddingAdminPanel";
@@ -85,11 +86,10 @@ function AdminPage({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { gap: spacing.lg, padding: spacing.lg },
-  title: { color: colors.text, fontSize: 28, fontWeight: "800" },
+  title: { ...type.pageTitle, color: colors.text },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 15,
-    lineHeight: 21,
+    ...type.body,
     marginTop: spacing.xs,
   },
   section: { gap: spacing.md },

@@ -22,6 +22,7 @@ function load(file, mocks = {}) {
     if (name in mocks) return mocks[name];
     if (name === "react-native") return native;
     if (name === "../../theme/theme") return theme;
+    if (name === "../../theme/adminTypography") return load("../../theme/adminTypography.ts");
     if (name === "react" || name === "react/jsx-runtime") return require(name);
     if (name === "../../utils/datetime") return load("../../utils/datetime.ts");
     if (name === "../../utils/money") return { formatMoney: value => value == null ? "—" : `${Number(value).toFixed(2)} TRY` };
@@ -41,6 +42,55 @@ function nodes(tree) {
 const booking = id => ({ id, title: `Booking ${id}`, customer_id: 2, provider_profile_id: 3, status: "pending", total_amount: 100 });
 const result = items => ({ items, total: 2, total_pages: 2 });
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+function contentStyles(file) {
+  const source = fs.readFileSync(path.resolve(__dirname, "..", file), "utf8");
+  const start = source.lastIndexOf("const styles = StyleSheet.create(");
+  assert.ok(start >= 0, file);
+  const code = ts.transpileModule(`${source.slice(start)}\nmodule.exports = styles;`, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const module = { exports: {} };
+  vm.runInNewContext(code, { module, StyleSheet: native.StyleSheet, ...theme,
+    type: load("../../theme/adminTypography.ts").adminTypography });
+  return module.exports;
+}
+
+test("all Admin page headings use the same semantic typography", () => {
+  const tokens = load("../../theme/adminTypography.ts").adminTypography;
+  for (const [file, key] of [
+    ["AdminPanelScreens.tsx", "title"], ["AdminDashboardScreen.tsx", "title"],
+    ["AdminBookingsScreen.tsx", "title"], ["AISubscriptionPanel.tsx", "sectionTitle"],
+    ["ReviewEmbeddingAdminPanel.tsx", "title"], ["ProviderVerificationAdminPanel.tsx", "title"],
+  ]) {
+    const style = contentStyles(file)[key];
+    for (const [property, value] of Object.entries(tokens.pageTitle)) assert.equal(style[property], value, `${file}:${property}`);
+    assert.equal(style.fontFamily, undefined, "retain the app's system font");
+  }
+});
+
+test("Admin sections, cards, modal titles, fields and status options keep their roles", () => {
+  const tokens = load("../../theme/adminTypography.ts").adminTypography;
+  const roles = {
+    "AdminDashboardScreen.tsx": { modalTitle: "modalTitle", detailTitle: "sectionTitle", cardTitle: "cardTitle", filterTitle: "cardTitle", filterLabel: "label", filterChipText: "label", detailValue: "body", pendingBadge: "badge" },
+    "AdminBookingDetailModal.tsx": { title: "modalTitle", sectionTitle: "sectionTitle", recordTitle: "cardTitle", label: "label", value: "body" },
+    "AdminBookingsScreen.tsx": { heading: "cardTitle", filterLabel: "label", optionLabel: "label", badge: "badge", meta: "caption" },
+    "AdminRecordSearch.tsx": { optionLabel: "label", muted: "caption" },
+    "ReviewSweepPanels.tsx": { title: "sectionTitle", amount: "cardTitle", comment: "body" },
+    "ProviderVerificationAdminPanel.tsx": { cardTitle: "cardTitle", detailTitle: "cardTitle", rowLabel: "label", rowValue: "body" },
+    "AISubscriptionPanel.tsx": { cardTitle: "cardTitle", modelLabel: "label", code: "code" },
+    "ReviewEmbeddingAdminPanel.tsx": { statusValue: "metric", taskTitle: "cardTitle", confirmationTitle: "cardTitle" },
+  };
+  for (const [file, mappings] of Object.entries(roles)) {
+    const styles = contentStyles(file);
+    for (const [key, role] of Object.entries(mappings)) for (const [property, value] of Object.entries(tokens[role]))
+      assert.equal(styles[key][property], value, `${file}:${key}:${property}`);
+  }
+  const search = contentStyles("AdminRecordSearch.tsx");
+  assert.equal(search.active.fontSize, undefined, "selection only changes color, not font size");
+  const detail = contentStyles("AdminBookingDetailModal.tsx");
+  assert.ok(detail.sectionTitle.fontSize > detail.recordTitle.fontSize, "nested payment records are subordinate to sections");
+});
 
 // Exercise the actual screen's callbacks/state with local hook/native substitutes.
 // This is not a native-device renderer; browser interaction is verified separately.

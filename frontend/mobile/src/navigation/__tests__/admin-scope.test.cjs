@@ -30,6 +30,7 @@ function load(relative, mocks = {}) {
       if (name in mocks) return mocks[name];
       if (name === "react-native") return native;
       if (name === "../theme/theme") return theme;
+      if (name === "../theme/adminTypography") return load("theme/adminTypography.ts");
       if (name === "react" || name === "react/jsx-runtime") return require(name);
       throw new Error(`Unexpected dependency: ${name}`);
     },
@@ -82,6 +83,14 @@ test("shared settlement card keeps legacy layout unless adminLayout is explicitl
   const admin = render({ amount: 100, adminLayout: true });
   assert.ok(admin.indexOf("Expected provider income") < admin.indexOf("Total deductions"));
   assert.doesNotMatch(admin, /Provider share/);
+  const titleStyle = props => {
+    const title = MarketplaceBreakdownCard({ amount: 100, ...props }).props.children[0];
+    return Object.assign({}, ...title.props.style.filter(Boolean));
+  };
+  assert.equal(titleStyle({}).fontSize, 13, "other roles keep the original compact split title");
+  assert.equal(titleStyle({}).fontWeight, "800");
+  assert.equal(titleStyle({ adminLayout: true }).fontSize, 16, "only Admin opts into its card hierarchy");
+  assert.equal(titleStyle({ adminLayout: true }).fontWeight, "700");
 });
 test("shared TextField leaves old callers unchanged and only forwards an opt-in submit callback", () => {
   const { TextField } = load("components/TextField.tsx");

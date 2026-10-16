@@ -5,6 +5,7 @@ import { BookingAttachmentGallery } from "../../components/BookingAttachmentGall
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { getBookingStatusLabel } from "../../constants/labels";
 import { colors, radius, spacing } from "../../theme/theme";
+import { adminTypography as type } from "../../theme/adminTypography";
 import type { AdminBookingDetail, AdminBookingRecord } from "../../types/adminBooking";
 import { formatMoney } from "../../utils/money";
 import { bookingStatusStyle, formatBookingDateTime } from "./bookingPresentation";
@@ -93,9 +94,9 @@ export function AdminBookingDetailModal({ bookingId, booking, loading, error, on
             <Section title={`Payments (${booking.payments.length})`}>
               {!booking.payments.length ? <Text style={styles.muted}>No records</Text> : null}
               {booking.payments.map(({ settlement, ...payment }) => <View style={styles.record} key={payment.id}>
-                <Text style={styles.sectionTitle}>Payment #{payment.id}</Text>
+                <Text style={styles.recordTitle}>Payment #{payment.id}</Text>
                 <Fields record={payment as AdminBookingRecord} currency={String(payment.currency)} />
-                <Text style={styles.sectionTitle}>Settlement</Text>
+                <Text style={styles.recordTitle}>Settlement</Text>
                 {settlement ? <Fields record={settlement} currency={String(payment.currency)} /> : <Text style={styles.muted}>No settlement record</Text>}
               </View>)}
             </Section>
@@ -127,15 +128,16 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0, 0, 0, 0.28)" },
   sheet: { height: "92%", padding: spacing.lg, gap: spacing.md, backgroundColor: colors.background, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  title: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  title: { ...type.modalTitle, color: colors.text },
   close: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   content: { gap: spacing.md, paddingBottom: spacing.lg },
   card: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  sectionTitle: { ...type.sectionTitle, color: colors.text },
+  recordTitle: { ...type.cardTitle, color: colors.text },
   record: { gap: spacing.sm, paddingVertical: spacing.md, borderTopWidth: 1, borderColor: colors.border },
   row: { flexDirection: "row", flexWrap: "wrap", columnGap: spacing.md, rowGap: spacing.xs },
-  label: { color: colors.mutedText, fontSize: 13, fontWeight: "600", flexBasis: 180 },
-  value: { flexBasis: 220, flexGrow: 1, flexShrink: 1, color: colors.text, fontSize: 14, lineHeight: 21 },
-  muted: { color: colors.mutedText, fontSize: 13 },
-  error: { color: colors.danger },
+  label: { ...type.label, color: colors.mutedText, flexBasis: 180 },
+  value: { ...type.body, flexBasis: 220, flexGrow: 1, flexShrink: 1, color: colors.text },
+  muted: { ...type.caption, color: colors.mutedText },
+  error: { ...type.body, color: colors.danger },
 });
