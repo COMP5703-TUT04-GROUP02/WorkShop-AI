@@ -380,6 +380,7 @@ export function AccountEditScreen() {
       </View>
 
       {user?.role === "customer" ? <LocationCascadePickerModal
+        fallbackProvinceName={serviceProvince}
         onClose={() => setIsProvincePickerVisible(false)}
         onSelect={(selection) => {
           setServiceProvince(selection.serviceProvince);

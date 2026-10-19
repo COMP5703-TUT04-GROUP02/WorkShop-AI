@@ -15,6 +15,40 @@ export const EMPTY_LOCATION_CASCADE: LocationCascadeState = {
   district: null,
 };
 
+export const CUSTOMER_DEFAULT_LOCATION_CODES = {
+  province: "tr-istanbul",
+  city: "tr-istanbul-city",
+  district: "tr-istanbul-city-kadikoy",
+} as const;
+
+export function findLocationByCode(
+  locations: ServiceLocation[],
+  code: string,
+): ServiceLocation | null {
+  return locations.find((location) => location.code === code) ?? null;
+}
+
+export function findLocationByName(
+  locations: ServiceLocation[],
+  name: string,
+): ServiceLocation | null {
+  const normalizedName = name.trim().toLocaleLowerCase("en");
+  return locations.find(
+    (location) => location.name.toLocaleLowerCase("en") === normalizedName,
+  ) ?? null;
+}
+
+export function sortServiceLocations(
+  locations: ServiceLocation[],
+  preferredCode?: string,
+): ServiceLocation[] {
+  return [...locations].sort((left, right) => {
+    if (left.code === preferredCode) return -1;
+    if (right.code === preferredCode) return 1;
+    return left.name.localeCompare(right.name, "en", { sensitivity: "base" });
+  });
+}
+
 export function chooseProvince(
   _current: LocationCascadeState,
   province: ServiceLocation,

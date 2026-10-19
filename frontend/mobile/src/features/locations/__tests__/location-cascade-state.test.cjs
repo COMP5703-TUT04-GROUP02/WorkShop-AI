@@ -5,7 +5,11 @@ const {
   chooseCity,
   chooseDistrict,
   chooseProvince,
+  CUSTOMER_DEFAULT_LOCATION_CODES,
+  findLocationByCode,
+  findLocationByName,
   getCompletedLocation,
+  sortServiceLocations,
 } = require("../../../../.test-build/features/locations/location-cascade-state.js");
 
 const istanbul = {
@@ -113,4 +117,25 @@ test("operating settings can select a whole province or city", () => {
       label: "Istanbul / Istanbul",
     },
   );
+});
+
+test("customer defaults resolve by code and appear before alphabetic options", () => {
+  const adana = { ...istanbul, id: 6, code: "tr-adana", name: "Adana" };
+  const izmir = { ...istanbul, id: 7, code: "tr-izmir", name: "Izmir" };
+  assert.equal(
+    findLocationByCode([adana, istanbul, izmir], CUSTOMER_DEFAULT_LOCATION_CODES.province),
+    istanbul,
+  );
+  assert.deepEqual(
+    sortServiceLocations([izmir, istanbul, adana], CUSTOMER_DEFAULT_LOCATION_CODES.province),
+    [istanbul, adana, izmir],
+  );
+  const besiktas = { ...kadikoy, id: 8, code: "tr-istanbul-city-besiktas", name: "Besiktas" };
+  const sisli = { ...kadikoy, id: 9, code: "tr-istanbul-city-sisli", name: "Sisli" };
+  assert.deepEqual(
+    sortServiceLocations([sisli, besiktas, kadikoy], CUSTOMER_DEFAULT_LOCATION_CODES.district),
+    [kadikoy, besiktas, sisli],
+  );
+  assert.equal(findLocationByCode([besiktas], CUSTOMER_DEFAULT_LOCATION_CODES.district), null);
+  assert.equal(findLocationByName([ankara, istanbul], " ankara "), ankara);
 });

@@ -47,6 +47,38 @@ def test_admin_dashboard_and_favorites(client, marketplace):
     assert favorites.json()["data"]["total"] == 1
 
 
+def test_favorite_provider_includes_first_approved_portfolio_image(
+    client, db_session, marketplace
+):
+    provider_id = marketplace["provider_profile"]["id"]
+    db_session.add_all(
+        [
+            models.ProviderPortfolio(
+                provider_profile_id=provider_id,
+                title="Pending work",
+                image_url="/media/pending.jpg",
+                media_type="image",
+                verification_status="pending",
+            ),
+            models.ProviderPortfolio(
+                provider_profile_id=provider_id,
+                title="Approved work",
+                image_url="/media/approved.jpg",
+                media_type="image",
+                verification_status="approved",
+            ),
+        ]
+    )
+    db_session.commit()
+    headers = marketplace["customer"]["headers"]
+    added = client.post(f"/customer/favorites/{provider_id}", headers=headers)
+    assert added.status_code == 200, added.text
+    assert added.json()["data"]["favorite"]["provider"]["first_portfolio_image_url"] == "/media/approved.jpg"
+    favorites = client.get("/customer/favorites", headers=headers)
+    assert favorites.status_code == 200, favorites.text
+    assert favorites.json()["data"]["items"][0]["provider"]["first_portfolio_image_url"] == "/media/approved.jpg"
+
+
 def test_customer_provider_detail_exposes_open_and_favorite_state(
     client, db_session, marketplace, monkeypatch
 ):

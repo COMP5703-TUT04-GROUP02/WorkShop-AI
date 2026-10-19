@@ -18,7 +18,10 @@ from backend.utils.service_locations import (
     normalize_location_name,
     resolve_location_context,
 )
-from backend.utils.provider import format_provider_profile_with_rating
+from backend.utils.provider import (
+    format_provider_profile_with_rating,
+    get_first_provider_portfolio_image_url,
+)
 from backend.core.clock import utc_now
 
 DEFAULT_HISTORY_PROVIDER_TAG = "cleaning"
@@ -94,21 +97,6 @@ def get_customer_recommendation_location(customer_profile):
         return customer_profile.latitude, customer_profile.longitude
 
     return None, None
-
-
-def get_first_provider_portfolio_image_url(provider_profile_id: int, db: Session):
-    portfolio = (
-        db.query(models.ProviderPortfolio)
-        .filter(
-            models.ProviderPortfolio.provider_profile_id == provider_profile_id,
-            models.ProviderPortfolio.media_type == "image",
-            models.ProviderPortfolio.verification_status == "approved",
-        )
-        .order_by(models.ProviderPortfolio.created_at.asc())
-        .first()
-    )
-
-    return portfolio.image_url if portfolio else None
 
 
 def format_home_provider_item(

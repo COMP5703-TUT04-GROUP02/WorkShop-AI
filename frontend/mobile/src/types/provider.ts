@@ -28,6 +28,7 @@ export type ProviderProfile = {
   average_rating?: number | null;
   review_count?: number;
   distance_km?: number | null;
+  first_portfolio_image_url?: string | null;
 };
 
 export type ProviderCertificateFile = {

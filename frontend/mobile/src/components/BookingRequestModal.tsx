@@ -4,6 +4,11 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getProviderTagLabel } from "../constants/providerTags";
+import {
+  isBookingTimeRangeValid,
+  isProviderUnavailableMessage,
+  syncEndTimeAfterStartChange,
+} from "../features/bookings/request-time";
 import { colors, spacing } from "../theme/theme";
 import type { BookingPayload, BookingUploadFile } from "../types/booking";
 import type { SelectedLocation } from "../types/location";
@@ -39,6 +44,7 @@ type BookingRequestModalProps = {
   isLoading: boolean;
   serviceCategories: string[];
   onClose: () => void;
+  onScheduleChange?: () => void;
   onSubmit: () => void;
   setBookingForm: (value: BookingRequestFormState) => void;
 };
@@ -50,11 +56,38 @@ export function BookingRequestModal({
   isLoading,
   serviceCategories,
   onClose,
+  onScheduleChange,
   onSubmit,
   setBookingForm,
 }: BookingRequestModalProps) {
   const [fileError, setFileError] = useState("");
   const [isLocationPickerVisible, setIsLocationPickerVisible] = useState(false);
+  const hasInvalidTimeRange =
+    Boolean(bookingForm.scheduledStartTime && bookingForm.scheduledEndTime) &&
+    !isBookingTimeRangeValid(
+      bookingForm.scheduledStartTime,
+      bookingForm.scheduledEndTime,
+    );
+  const availabilityError = isProviderUnavailableMessage(errorMessage)
+    ? errorMessage
+    : "";
+
+  function updateStartTime(value: string) {
+    setBookingForm({
+      ...bookingForm,
+      scheduledStartTime: value,
+      scheduledEndTime: syncEndTimeAfterStartChange(
+        value,
+        bookingForm.scheduledEndTime,
+      ),
+    });
+    onScheduleChange?.();
+  }
+
+  function updateEndTime(value: string) {
+    updateFormField("scheduledEndTime", value);
+    onScheduleChange?.();
+  }
 
   function updateFormField<K extends keyof BookingRequestFormState>(
     field: K,
@@ -135,7 +168,7 @@ export function BookingRequestModal({
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Request booking</Text>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            {errorMessage ? (
+            {errorMessage && !availabilityError ? (
               <Text style={styles.modalErrorText}>{errorMessage}</Text>
             ) : null}
             <TextField
@@ -196,14 +229,20 @@ export function BookingRequestModal({
             </View>
             <DateTimeField
               label="Start time"
-              onChange={(value) => updateFormField("scheduledStartTime", value)}
+              onChange={updateStartTime}
               value={bookingForm.scheduledStartTime}
             />
             <DateTimeField
               label="End time"
-              onChange={(value) => updateFormField("scheduledEndTime", value)}
+              onChange={updateEndTime}
               value={bookingForm.scheduledEndTime}
             />
+            {hasInvalidTimeRange ? (
+              <Text style={styles.modalErrorText}>End time must be later than start time.</Text>
+            ) : null}
+            {availabilityError ? (
+              <Text style={styles.modalErrorText}>{availabilityError}</Text>
+            ) : null}
             <View style={styles.attachmentBox}>
               <Text style={styles.attachmentTitle}>Attachments (optional)</Text>
               <Text style={styles.hint}>Up to 5 images (2 MB each) and 2 videos (10 MB each).</Text>
@@ -230,7 +269,7 @@ export function BookingRequestModal({
           <View style={styles.modalActions}>
             <SecondaryButton disabled={isLoading} label="Cancel" onPress={closeModal} />
             <PrimaryButton
-              disabled={isLoading}
+              disabled={isLoading || hasInvalidTimeRange}
               isLoading={isLoading}
               label="Send request"
               onPress={onSubmit}

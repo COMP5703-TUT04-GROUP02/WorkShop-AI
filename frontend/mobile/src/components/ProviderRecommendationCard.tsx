@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getProviderTagLabel } from "../constants/providerTags";
@@ -7,22 +8,33 @@ import {
   getProviderCardStatus,
 } from "../features/provider-search/provider-card-display";
 import { colors, radius, spacing } from "../theme/theme";
-import type { ProviderRecommendation } from "../types/provider";
+import type { ProviderProfile } from "../types/provider";
 import { resolveMediaUrl } from "../utils/media";
 
-type ProviderRecommendationCardProps = {
-  provider: ProviderRecommendation;
-  onPress: (provider: ProviderRecommendation) => void;
-  cardWidth?: number;
-  variant?: "recommendation" | "searchResult";
+type ProviderCardItem = ProviderProfile & {
+  avatar_url?: string | null;
+  first_portfolio_image_url?: string | null;
 };
 
-export function ProviderRecommendationCard({
+type ProviderRecommendationCardProps<T extends ProviderCardItem> = {
+  provider: T;
+  onPress: (provider: T) => void;
+  cardWidth?: number;
+  variant?: "recommendation" | "searchResult";
+  showStatus?: boolean;
+  footer?: ReactNode;
+  disabled?: boolean;
+};
+
+export function ProviderRecommendationCard<T extends ProviderCardItem>({
   provider,
   onPress,
   cardWidth,
   variant = "recommendation",
-}: ProviderRecommendationCardProps) {
+  showStatus = true,
+  footer,
+  disabled = false,
+}: ProviderRecommendationCardProps<T>) {
   const isSearchResult = variant === "searchResult";
   const imageUrl = resolveMediaUrl(
     isSearchResult
@@ -30,7 +42,7 @@ export function ProviderRecommendationCard({
           avatarUrl: provider.avatar_url,
           portfolioImageUrl: provider.first_portfolio_image_url,
         })
-      : provider.first_portfolio_image_url,
+      : provider.first_portfolio_image_url ?? null,
   );
   const status = isSearchResult
     ? getProviderCardStatus({
@@ -45,42 +57,43 @@ export function ProviderRecommendationCard({
   const category = getProviderTagLabel(provider.tags[0] ?? "other");
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => onPress(provider)}
-      style={[styles.card, cardWidth ? { width: cardWidth } : null]}
-    >
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imagePlaceholderText}>No image</Text>
-        </View>
-      )}
+    <View style={[styles.card, cardWidth ? { width: cardWidth } : null]}>
+      <Pressable accessibilityRole="button" disabled={disabled} onPress={() => onPress(provider)}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.image} />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.imagePlaceholderText}>No image</Text>
+          </View>
+        )}
 
-      <View style={styles.body}>
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.statusDot,
-              status.tone === "active"
-                ? styles.statusDotActive
-                : styles.statusDotInactive,
-            ]}
-          />
-          <Text style={styles.statusText}>{status.label}</Text>
+        <View style={styles.body}>
+          {showStatus ? (
+            <View style={styles.statusRow}>
+              <View
+                style={[
+                  styles.statusDot,
+                  status.tone === "active"
+                    ? styles.statusDotActive
+                    : styles.statusDotInactive,
+                ]}
+              />
+              <Text style={styles.statusText}>{status.label}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.name} numberOfLines={2}>
+            {provider.business_name}
+          </Text>
+          <Text style={styles.category} numberOfLines={1}>
+            {isSearchResult ? category : provider.tags.join(" · ")}
+          </Text>
+          {isSearchResult && distance ? (
+            <Text style={styles.distance}>{distance}</Text>
+          ) : null}
         </View>
-        <Text style={styles.name} numberOfLines={2}>
-          {provider.business_name}
-        </Text>
-        <Text style={styles.category} numberOfLines={1}>
-          {isSearchResult ? category : provider.tags.join(" · ")}
-        </Text>
-        {isSearchResult && distance ? (
-          <Text style={styles.distance}>{distance}</Text>
-        ) : null}
-      </View>
-    </Pressable>
+      </Pressable>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </View>
   );
 }
 
@@ -114,6 +127,10 @@ const styles = StyleSheet.create({
   body: {
     gap: spacing.xs,
     padding: spacing.sm,
+  },
+  footer: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   statusRow: {
     flexDirection: "row",

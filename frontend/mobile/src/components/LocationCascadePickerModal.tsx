@@ -1,5 +1,5 @@
-import { Check, MapPin, X } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronDown, MapPin, X } from "lucide-react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -18,8 +18,12 @@ import {
   chooseCity,
   chooseDistrict,
   chooseProvince,
+  CUSTOMER_DEFAULT_LOCATION_CODES,
   EMPTY_LOCATION_CASCADE,
+  findLocationByCode,
+  findLocationByName,
   getCompletedLocation,
+  sortServiceLocations,
   type LocationCascadeState,
 } from "../features/locations/location-cascade-state";
 import { colors, radius, spacing } from "../theme/theme";
@@ -34,6 +38,7 @@ type LocationCascadePickerModalProps = {
   onClose: () => void;
   onSelect: (selection: ServiceAreaSelection) => void;
   allowAnyLevel?: boolean;
+  fallbackProvinceName?: string;
 };
 
 export function LocationCascadePickerModal({
@@ -42,6 +47,7 @@ export function LocationCascadePickerModal({
   onClose,
   onSelect,
   allowAnyLevel = false,
+  fallbackProvinceName,
 }: LocationCascadePickerModalProps) {
   const [cascade, setCascade] = useState<LocationCascadeState>(
     EMPTY_LOCATION_CASCADE,
@@ -52,6 +58,8 @@ export function LocationCascadePickerModal({
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [expandedLevel, setExpandedLevel] = useState<ServiceLocation["level"] | null>(null);
+  const requestVersion = useRef(0);
   const completedLocation = useMemo(
     () => getCompletedLocation(cascade, allowAnyLevel),
     [allowAnyLevel, cascade],
@@ -63,6 +71,8 @@ export function LocationCascadePickerModal({
     }
 
     let isActive = true;
+    const version = ++requestVersion.current;
+    setExpandedLevel(null);
 
     async function initialise() {
       setIsLoading(true);
@@ -70,18 +80,46 @@ export function LocationCascadePickerModal({
 
       try {
         const nextProvinces = await getServiceLocations();
-        if (!isActive) {
+        if (!isActive || version !== requestVersion.current) {
           return;
         }
         if (nextProvinces.length === 0) {
           throw new Error("No service areas were returned.");
         }
-        setProvinces(nextProvinces);
+        setProvinces(sortServiceLocations(
+          nextProvinces,
+          allowAnyLevel ? undefined : CUSTOMER_DEFAULT_LOCATION_CODES.province,
+        ));
 
         if (!value?.serviceLocationId) {
-          setCascade(EMPTY_LOCATION_CASCADE);
-          setCities([]);
-          setDistricts([]);
+          if (allowAnyLevel) {
+            setCascade(EMPTY_LOCATION_CASCADE);
+            setCities([]);
+            setDistricts([]);
+            return;
+          }
+
+          const province = (
+            fallbackProvinceName
+              ? findLocationByName(nextProvinces, fallbackProvinceName)
+              : null
+          ) ?? findLocationByCode(nextProvinces, CUSTOMER_DEFAULT_LOCATION_CODES.province);
+          if (!province) {
+            setCascade(EMPTY_LOCATION_CASCADE);
+            setCities([]);
+            setDistricts([]);
+            return;
+          }
+          const nextCities = await getServiceLocations(province.id);
+          const city = findLocationByCode(nextCities, CUSTOMER_DEFAULT_LOCATION_CODES.city)
+            ?? (nextCities.length === 1 ? nextCities[0] : null);
+          const nextDistricts = city ? await getServiceLocations(city.id) : [];
+          const district = findLocationByCode(nextDistricts, CUSTOMER_DEFAULT_LOCATION_CODES.district)
+            ?? (nextDistricts.length === 1 ? nextDistricts[0] : null);
+          if (!isActive || version !== requestVersion.current) return;
+          setCascade({ province, city, district });
+          setCities(sortServiceLocations(nextCities, CUSTOMER_DEFAULT_LOCATION_CODES.city));
+          setDistricts(sortServiceLocations(nextDistricts, CUSTOMER_DEFAULT_LOCATION_CODES.district));
           return;
         }
 
@@ -90,18 +128,18 @@ export function LocationCascadePickerModal({
         const nextDistricts = path.city
           ? await getServiceLocations(path.city.id)
           : [];
-        if (!isActive) {
+        if (!isActive || version !== requestVersion.current) {
           return;
         }
         setCascade(path);
-        setCities(nextCities);
-        setDistricts(nextDistricts);
+        setCities(sortServiceLocations(nextCities, allowAnyLevel ? undefined : CUSTOMER_DEFAULT_LOCATION_CODES.city));
+        setDistricts(sortServiceLocations(nextDistricts, allowAnyLevel ? undefined : CUSTOMER_DEFAULT_LOCATION_CODES.district));
       } catch {
-        if (isActive) {
+        if (isActive && version === requestVersion.current) {
           setMessage("Couldn't load service areas. Try again.");
         }
       } finally {
-        if (isActive) {
+        if (isActive && version === requestVersion.current) {
           setIsLoading(false);
         }
       }
@@ -111,37 +149,69 @@ export function LocationCascadePickerModal({
 
     return () => {
       isActive = false;
+      requestVersion.current += 1;
     };
-  }, [reloadKey, value?.serviceLocationId, visible]);
+  }, [allowAnyLevel, fallbackProvinceName, reloadKey, value?.serviceLocationId, visible]);
 
   async function handleProvince(province: ServiceLocation) {
+    const version = ++requestVersion.current;
     setCascade((current) => chooseProvince(current, province));
     setCities([]);
     setDistricts([]);
     setMessage("");
+    setExpandedLevel(null);
 
     try {
-      setCities(await getServiceLocations(province.id));
+      const nextCities = sortServiceLocations(
+        await getServiceLocations(province.id),
+        allowAnyLevel ? undefined : CUSTOMER_DEFAULT_LOCATION_CODES.city,
+      );
+      if (version !== requestVersion.current) return;
+      setCities(nextCities);
+      if (!allowAnyLevel && nextCities.length === 1) {
+        const city = nextCities[0];
+        setCascade({ province, city, district: null });
+        const nextDistricts = sortServiceLocations(
+          await getServiceLocations(city.id),
+          CUSTOMER_DEFAULT_LOCATION_CODES.district,
+        );
+        if (version !== requestVersion.current) return;
+        setDistricts(nextDistricts);
+        if (nextDistricts.length === 1) {
+          setCascade({ province, city, district: nextDistricts[0] });
+        }
+      }
     } catch {
-      setMessage("Couldn't load cities. Try again.");
+      if (version === requestVersion.current) setMessage("Couldn't load service areas. Try again.");
     }
   }
 
   async function handleCity(city: ServiceLocation) {
+    const version = ++requestVersion.current;
     setCascade((current) => chooseCity(current, city));
     setDistricts([]);
     setMessage("");
+    setExpandedLevel(null);
 
     try {
-      setDistricts(await getServiceLocations(city.id));
+      const nextDistricts = sortServiceLocations(
+        await getServiceLocations(city.id),
+        allowAnyLevel ? undefined : CUSTOMER_DEFAULT_LOCATION_CODES.district,
+      );
+      if (version !== requestVersion.current) return;
+      setDistricts(nextDistricts);
+      if (!allowAnyLevel && nextDistricts.length === 1) {
+        setCascade((current) => chooseDistrict(current, nextDistricts[0]));
+      }
     } catch {
-      setMessage("Couldn't load districts. Try again.");
+      if (version === requestVersion.current) setMessage("Couldn't load districts. Try again.");
     }
   }
 
   function handleDistrict(district: ServiceLocation) {
     setCascade((current) => chooseDistrict(current, district));
     setMessage("");
+    setExpandedLevel(null);
   }
 
   return (
@@ -174,23 +244,32 @@ export function LocationCascadePickerModal({
           ) : (
             <ScrollView contentContainerStyle={styles.content}>
               <LocationLevel
+                expanded={expandedLevel === "province"}
                 label="Province"
+                level="province"
                 locations={provinces}
                 onSelect={(location) => void handleProvince(location)}
+                onToggle={() => setExpandedLevel((current) => current === "province" ? null : "province")}
                 selectedId={cascade.province?.id ?? null}
               />
               <LocationLevel
-                emptyText="Select a province first"
+                disabled={!cascade.province}
+                expanded={expandedLevel === "city"}
                 label="City"
+                level="city"
                 locations={cities}
                 onSelect={(location) => void handleCity(location)}
+                onToggle={() => setExpandedLevel((current) => current === "city" ? null : "city")}
                 selectedId={cascade.city?.id ?? null}
               />
               <LocationLevel
-                emptyText="Select a city first"
+                disabled={!cascade.city}
+                expanded={expandedLevel === "district"}
                 label="District"
+                level="district"
                 locations={districts}
                 onSelect={handleDistrict}
+                onToggle={() => setExpandedLevel((current) => current === "district" ? null : "district")}
                 selectedId={cascade.district?.id ?? null}
               />
             </ScrollView>
@@ -233,26 +312,48 @@ export function LocationCascadePickerModal({
 }
 
 function LocationLevel({
+  disabled = false,
+  expanded,
   label,
+  level,
   locations,
   selectedId,
   onSelect,
-  emptyText = "No options available",
+  onToggle,
 }: {
+  disabled?: boolean;
+  expanded: boolean;
   label: string;
+  level: ServiceLocation["level"];
   locations: ServiceLocation[];
   selectedId: number | null;
   onSelect: (location: ServiceLocation) => void;
-  emptyText?: string;
+  onToggle: () => void;
 }) {
+  const selected = locations.find((location) => location.id === selectedId);
+  const placeholder = disabled
+    ? level === "city" ? "Select a province first" : "Select a city first"
+    : locations.length === 0 ? "No options available" : `Select ${label.toLowerCase()}`;
+
   return (
     <View style={styles.level}>
       <Text style={styles.levelLabel}>{label}</Text>
-      {locations.length > 0 ? (
-        <View style={styles.optionGrid}>
+      <Pressable
+        accessibilityLabel={`${label}: ${selected?.name ?? placeholder}`}
+        accessibilityRole="button"
+        disabled={disabled || locations.length === 0}
+        onPress={onToggle}
+        style={[styles.dropdown, disabled ? styles.dropdownDisabled : null]}
+      >
+        <Text style={selected ? styles.selectedText : styles.placeholderText}>
+          {selected?.name ?? placeholder}
+        </Text>
+        <ChevronDown color={colors.mutedText} size={18} />
+      </Pressable>
+      {expanded ? (
+        <ScrollView nestedScrollEnabled style={styles.optionsList}>
           {locations.map((location) => {
             const isSelected = location.id === selectedId;
-
             return (
               <Pressable
                 accessibilityRole="button"
@@ -260,22 +361,15 @@ function LocationLevel({
                 onPress={() => onSelect(location)}
                 style={[styles.option, isSelected ? styles.optionSelected : null]}
               >
-                <Text
-                  style={[
-                    styles.optionText,
-                    isSelected ? styles.optionTextSelected : null,
-                  ]}
-                >
+                <Text style={[styles.optionText, isSelected ? styles.optionTextSelected : null]}>
                   {location.name}
                 </Text>
                 {isSelected ? <Check color={colors.primary} size={16} /> : null}
               </Pressable>
             );
           })}
-        </View>
-      ) : (
-        <Text style={styles.emptyText}>{emptyText}</Text>
-      )}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -344,24 +438,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  optionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  option: {
-    minHeight: 40,
+  dropdown: {
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    justifyContent: "space-between",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
   },
+  dropdownDisabled: {
+    opacity: 0.55,
+  },
+  selectedText: {
+    color: colors.text,
+    fontSize: 15,
+  },
+  placeholderText: {
+    color: colors.mutedText,
+    fontSize: 15,
+  },
+  optionsList: {
+    maxHeight: 210,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  option: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+  },
   optionSelected: {
-    borderColor: colors.primary,
     backgroundColor: "#E9F7F3",
   },
   optionText: {
@@ -371,10 +485,6 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     color: colors.primary,
-  },
-  emptyText: {
-    color: colors.mutedText,
-    fontSize: 14,
   },
   errorText: {
     color: colors.danger,
