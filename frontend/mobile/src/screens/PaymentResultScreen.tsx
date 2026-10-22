@@ -77,6 +77,7 @@ export function PaymentResultScreen({
 
   const isPaid = payment?.status === "paid";
   const isAuthorized = payment?.status === "authorized";
+  const isProcessing = payment?.status === "processing";
   const isRefunded =
     payment?.status === "refunded" || payment?.status === "partially_refunded";
   const isFailed =
@@ -115,13 +116,15 @@ export function PaymentResultScreen({
               ? "Payment successful"
               : isAuthorized
                 ? "Payment authorized"
-                : isRefunded
-                  ? "Payment refunded"
-                  : isVoided
-                    ? "Authorization released"
-                    : isFailed
-                      ? "Payment failed"
-              : "Payment not completed"}
+                : isProcessing
+                  ? "Payment processing"
+                  : isRefunded
+                    ? "Payment refunded"
+                    : isVoided
+                      ? "Authorization released"
+                      : isFailed
+                        ? "Payment failed"
+                        : "Payment not completed"}
         </Text>
 
         {isLoading ? (
@@ -132,18 +135,20 @@ export function PaymentResultScreen({
           <>
             <Text style={styles.body}>
               {isPaid
-                ? "Your booking has been completed and the payment was captured."
+                ? "Your payment was successful. Check the booking status below for the next step."
                 : isAuthorized
                   ? "Your payment method was authorized. The final charge will be captured after service completion."
-                  : isRefunded
-                    ? payment?.status === "partially_refunded"
-                      ? "Part of this payment was refunded."
-                      : "This payment was refunded."
-                    : isVoided
-                      ? "The payment authorization was released and no charge was captured."
-                      : isFailed
-                        ? "The payment was not completed. You can try checkout again from the booking page."
-                        : "The booking is still awaiting payment. You can try checkout again from the booking page."}
+                  : isProcessing
+                    ? "Your payment is still being processed. Do not start another checkout until the result is confirmed."
+                    : isRefunded
+                      ? payment?.status === "partially_refunded"
+                        ? "Part of this payment was refunded."
+                        : "This payment was refunded."
+                      : isVoided
+                        ? "The payment authorization was released and no charge was captured."
+                        : isFailed
+                          ? "The payment was not completed. You can try checkout again from the booking page."
+                          : "The booking is still awaiting payment. You can try checkout again from the booking page."}
             </Text>
             <DetailRow label="Booking" value={`#${bookingId}`} />
             <DetailRow
@@ -160,7 +165,7 @@ export function PaymentResultScreen({
             {payment?.failure_message ? (
               <Text style={styles.errorText}>{payment.failure_message}</Text>
             ) : null}
-            {!isPaid && !isAuthorized && !isRefunded && !isVoided ? (
+            {!isPaid && !isAuthorized && !isProcessing && !isRefunded && !isVoided ? (
               <HelpLink faqId="CUST-PAY-007" label="Payment not going through?" />
             ) : null}
           </>

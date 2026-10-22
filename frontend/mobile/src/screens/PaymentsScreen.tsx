@@ -1,5 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getCustomerPayments } from "../api/customer";
@@ -15,8 +15,11 @@ import {
 } from "../constants/labels";
 import { formatDateTime } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
+import { createLatestRequestGuard } from "../utils/latestRequest";
 import { formatMoney } from "../utils/money";
 import { getPaymentStatusTone } from "../utils/payment";
+
+const PAGE_SIZE = 20;
 
 /**
  * WS-110. History only: what was charged, for which booking, and when.
@@ -27,37 +30,65 @@ import { getPaymentStatusTone } from "../utils/payment";
 export function PaymentsScreen() {
   const { user } = useAuth();
   const [payments, setPayments] = useState<PaymentHistoryEntry[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const requestGuard = useRef(createLatestRequestGuard());
 
   const isProvider = user?.role === "provider";
+  const accountKey = user ? `${user.id}:${user.role}` : null;
+
+  useEffect(() => {
+    requestGuard.current.invalidate();
+    setPayments([]);
+    setPage(1);
+    setTotalPages(1);
+    setMessage("");
+  }, [accountKey]);
 
   const loadPayments = useCallback(async () => {
+    const request = requestGuard.current.begin();
     if (!user || user.role === "admin") {
       setPayments([]);
+      setTotalPages(1);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
     setMessage("");
+    let isMovingToLastPage = false;
     try {
       const result = isProvider
-        ? await getProviderPayments(1, 100)
-        : await getCustomerPayments(1, 100);
+        ? await getProviderPayments(page, PAGE_SIZE)
+        : await getCustomerPayments(page, PAGE_SIZE);
 
+      if (!requestGuard.current.isLatest(request)) return;
+      const availablePages = Math.max(1, result?.total_pages ?? 1);
+      setTotalPages(availablePages);
+      if (page > availablePages) {
+        isMovingToLastPage = true;
+        setPage(availablePages);
+        return;
+      }
       setPayments(result?.items ?? []);
     } catch (error) {
-      setPayments([]);
-      setMessage(getErrorMessage(error));
+      if (requestGuard.current.isLatest(request)) {
+        setPayments([]);
+        setMessage(getErrorMessage(error));
+      }
     } finally {
-      setIsLoading(false);
+      if (requestGuard.current.isLatest(request) && !isMovingToLastPage) {
+        setIsLoading(false);
+      }
     }
-  }, [isProvider, user]);
+  }, [isProvider, page, user]);
 
   useFocusEffect(
     useCallback(() => {
       void loadPayments();
+      return () => requestGuard.current.invalidate();
     }, [loadPayments]),
   );
 
@@ -94,6 +125,24 @@ export function PaymentsScreen() {
               ? "Payments appear here once a customer pays for a booking."
               : "Once you pay for a booking it shows up here."}
           </Text>
+        </View>
+      ) : null}
+
+      {payments.length > 0 || totalPages > 1 ? (
+        <View style={styles.pagination}>
+          <SecondaryButton
+            disabled={isLoading || page <= 1}
+            label="Previous"
+            onPress={() => setPage((current) => Math.max(1, current - 1))}
+            style={styles.pageButton}
+          />
+          <Text style={styles.pageLabel}>Page {page} of {totalPages}</Text>
+          <SecondaryButton
+            disabled={isLoading || page >= totalPages}
+            label="Next"
+            onPress={() => setPage((current) => Math.min(totalPages, current + 1))}
+            style={styles.pageButton}
+          />
         </View>
       ) : null}
     </ScrollView>
@@ -279,5 +328,19 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontSize: 14,
     lineHeight: 21,
+  },
+  pagination: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  pageButton: {
+    minWidth: 100,
+  },
+  pageLabel: {
+    color: colors.mutedText,
+    fontSize: 14,
   },
 });
