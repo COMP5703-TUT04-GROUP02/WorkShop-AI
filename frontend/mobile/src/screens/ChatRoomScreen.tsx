@@ -66,6 +66,7 @@ import {
   createDefaultBookingRequestForm,
   type BookingRequestFormState,
 } from "../components/BookingRequestModal";
+import { isBookingTimeRangeValid } from "../features/bookings/request-time";
 import { CompletionProofGallery } from "../components/CompletionProofGallery";
 import { BookingPriceBreakdown } from "../components/BookingPriceBreakdown";
 import { BookingCoreDetails } from "../components/BookingCoreDetails";
@@ -1296,6 +1297,14 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       return;
     }
 
+    if (!isBookingTimeRangeValid(
+      createBookingForm.scheduledStartTime,
+      createBookingForm.scheduledEndTime,
+    )) {
+      setCreateBookingError("End time must be later than start time.");
+      return;
+    }
+
     const payload = buildBookingRequestPayload({
       provider: bookingProvider,
       providerProfileId: route.params.providerProfileId,
@@ -1567,6 +1576,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         errorMessage={createBookingError}
         isLoading={isCreatingBooking}
         onClose={() => setIsCreateBookingModalVisible(false)}
+        onScheduleChange={() => setCreateBookingError("")}
         onSubmit={() => void handleCreateBookingFromChat()}
         serviceCategories={bookingProvider?.tags ?? []}
         setBookingForm={setCreateBookingForm}

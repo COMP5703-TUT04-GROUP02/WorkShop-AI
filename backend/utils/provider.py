@@ -18,6 +18,21 @@ def format_provider_profile_with_rating(profile, db: Session):
     return result
 
 
+def get_first_provider_portfolio_image_url(provider_profile_id: int, db: Session):
+    portfolio = (
+        db.query(models.ProviderPortfolio)
+        .filter(
+            models.ProviderPortfolio.provider_profile_id == provider_profile_id,
+            models.ProviderPortfolio.media_type == "image",
+            models.ProviderPortfolio.verification_status == "approved",
+        )
+        .order_by(models.ProviderPortfolio.created_at.asc())
+        .first()
+    )
+
+    return portfolio.image_url if portfolio else None
+
+
 def format_favorite_provider_response(favorite, db: Session):
     provider_profile = (
         db.query(models.ProviderProfile)
@@ -25,16 +40,22 @@ def format_favorite_provider_response(favorite, db: Session):
         .first()
     )
 
+    provider_data = (
+        format_provider_profile_with_rating(provider_profile, db)
+        if provider_profile
+        else None
+    )
+    if provider_data is not None:
+        provider_data["first_portfolio_image_url"] = (
+            get_first_provider_portfolio_image_url(provider_profile.id, db)
+        )
+
     return {
         "id": favorite.id,
         "customer_id": favorite.customer_id,
         "provider_profile_id": favorite.provider_profile_id,
         "created_at": favorite.created_at,
-        "provider": (
-            format_provider_profile_with_rating(provider_profile, db)
-            if provider_profile
-            else None
-        ),
+        "provider": provider_data,
     }
 
 

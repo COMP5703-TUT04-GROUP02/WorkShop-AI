@@ -17,6 +17,7 @@ import {
   removeCustomerFavourite,
 } from "../../api/customer";
 import { PlaceholderPanel } from "../../components/PlaceholderPanel";
+import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { useAuth } from "../../context/AuthContext";
@@ -27,7 +28,7 @@ import {
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
-import type { FavoriteProvider, ProviderProfile } from "../../types/provider";
+import type { FavoriteProvider } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
 
 type CustomerFavouritesScreenProps = NativeStackScreenProps<
@@ -256,80 +257,50 @@ function FavouriteProviderCard({
 }) {
   const provider = favourite.provider;
 
-  return (
-    <View style={[styles.card, { width: cardWidth }]}>
-      <View style={styles.cardBody}>
-        <Text numberOfLines={1} style={styles.cardTitle}>
-          {provider?.business_name ?? "Provider unavailable"}
-        </Text>
-        {provider ? (
-          <ProviderSummary provider={provider} />
-        ) : (
-          <Text style={styles.subtitle}>
-            This provider profile is no longer available.
-          </Text>
-        )}
-      </View>
+  const removeButton = (
+    <Pressable
+      accessibilityLabel={`Remove ${provider?.business_name ?? "provider"} from favourites`}
+      accessibilityRole="button"
+      disabled={isRemoving}
+      onPress={onRemove}
+      style={({ pressed }) => [
+        styles.removeButton,
+        pressed && !isRemoving ? styles.removeButtonPressed : null,
+        isRemoving ? styles.buttonDisabled : null,
+      ]}
+    >
+      {isRemoving ? (
+        <ActivityIndicator color={colors.danger} size="small" />
+      ) : (
+        <Text style={styles.removeButtonText}>Remove</Text>
+      )}
+    </Pressable>
+  );
 
-      <View style={styles.cardActions}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!provider || isRemoving}
-          onPress={onOpen}
-          style={({ pressed }) => [
-            styles.cardButton,
-            pressed && provider && !isRemoving ? styles.cardButtonPressed : null,
-            !provider || isRemoving ? styles.cardButtonDisabled : null,
-          ]}
-        >
-          <Text style={styles.cardButtonText}>View profile</Text>
-        </Pressable>
-        <Pressable
-          accessibilityLabel={`Remove ${provider?.business_name ?? "provider"} from favourites`}
-          accessibilityRole="button"
-          disabled={isRemoving}
-          onPress={onRemove}
-          style={({ pressed }) => [
-            styles.cardButton,
-            styles.removeButton,
-            pressed && !isRemoving ? styles.removeButtonPressed : null,
-            isRemoving ? styles.cardButtonDisabled : null,
-          ]}
-        >
-          {isRemoving ? (
-            <ActivityIndicator color={colors.danger} size="small" />
-          ) : (
-            <Text style={styles.removeButtonText}>Remove</Text>
-          )}
-        </Pressable>
-      </View>
+  if (provider) {
+    return (
+      <ProviderRecommendationCard
+        cardWidth={cardWidth}
+        disabled={isRemoving}
+        footer={removeButton}
+        onPress={onOpen}
+        provider={provider}
+        showStatus={false}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.unavailableCard, { width: cardWidth }]}>
+      <Text style={styles.unavailableTitle}>Provider unavailable</Text>
+      <Text style={styles.subtitle}>This provider profile is no longer available.</Text>
+      {removeButton}
     </View>
   );
 }
 
-function ProviderSummary({ provider }: { provider: ProviderProfile }) {
-  return (
-    <>
-      <Text numberOfLines={1} style={styles.cardMeta}>
-        {provider.service_province} · {formatRating(provider)}
-      </Text>
-      <Text numberOfLines={1} style={styles.cardMeta}>
-        {provider.tags.slice(0, 2).join(" · ") || "General services"}
-      </Text>
-    </>
-  );
-}
-
-function formatRating(provider: ProviderProfile) {
-  if (provider.average_rating == null || !provider.review_count) {
-    return "No rating yet";
-  }
-
-  return `${provider.average_rating.toFixed(1)} stars`;
-}
-
 function getFavouriteCardWidth(windowWidth: number) {
-  const columns = windowWidth >= 768 ? 4 : 2;
+  const columns = windowWidth >= 1100 ? 5 : windowWidth >= 720 ? 4 : 2;
   const gapTotal = spacing.md * (columns - 1);
   const fallbackWidth = columns === 4 ? 180 : 150;
 
@@ -382,7 +353,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     gap: spacing.md,
   },
-  card: {
+  unavailableCard: {
     minWidth: 0,
     justifyContent: "space-between",
     gap: spacing.md,
@@ -392,45 +363,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.md,
   },
-  cardBody: {
-    gap: spacing.sm,
-  },
-  cardTitle: {
+  unavailableTitle: {
     color: colors.text,
     fontSize: 16,
     fontWeight: "700",
   },
-  cardMeta: {
-    color: colors.mutedText,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cardActions: {
-    gap: spacing.sm,
-  },
-  cardButton: {
+  removeButton: {
     minHeight: 42,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.danger,
     borderRadius: radius.md,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.sm,
   },
-  cardButtonPressed: {
-    backgroundColor: colors.surface,
-  },
-  cardButtonDisabled: {
+  buttonDisabled: {
     opacity: 0.55,
-  },
-  cardButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  removeButton: {
-    borderColor: colors.danger,
   },
   removeButtonPressed: {
     backgroundColor: colors.surface,

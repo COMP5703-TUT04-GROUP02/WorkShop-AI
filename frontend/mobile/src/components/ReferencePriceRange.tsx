@@ -19,7 +19,7 @@ export function ReferencePriceRange({
   }
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, audience === "customer" ? styles.customerCard : null]}>
       <Text style={styles.label}>{presentation.label}</Text>
       {presentation.value ? (
         <Text style={styles.value}>{presentation.value}</Text>
@@ -34,6 +34,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     gap: spacing.xs,
     padding: spacing.md,
+  },
+  customerCard: {
+    backgroundColor: "transparent",
+    padding: 0,
   },
   label: {
     color: colors.mutedText,

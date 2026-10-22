@@ -48,6 +48,7 @@
     "test:payment": "tsc --ignoreConfig src/utils/payment.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/payment.test.cjs",
     "test:booking-actions": "tsc --ignoreConfig src/utils/bookingActions.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingActions.test.cjs",
     "test:booking-service": "tsc --ignoreConfig src/utils/bookingService.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingService.test.cjs",
+    "test:booking-request": "tsc --ignoreConfig src/features/bookings/request-time.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/features/bookings/__tests__/request-time.test.cjs",
     "test:reference-price": "tsc --ignoreConfig src/utils/referencePrice.ts src/utils/latestRequest.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/referencePrice.test.cjs src/utils/__tests__/latestRequest.test.cjs",
     "test:iban": "tsc --ignoreConfig src/utils/iban.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/iban.test.cjs",
     "test:booking-help": "tsc --ignoreConfig src/utils/bookingHelp.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingHelp.test.cjs",

@@ -284,6 +284,7 @@ export function CustomerHomeScreen() {
       </View>
 
       <LocationCascadePickerModal
+        fallbackProvinceName={selectedProvince}
         onClose={() => setIsProvinceModalVisible(false)}
         onSelect={(selection) => void handleSelectServiceArea(selection)}
         value={
