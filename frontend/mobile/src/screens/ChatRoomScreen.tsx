@@ -93,7 +93,7 @@ import type {
 import type { ChatMessage } from "../types/chat";
 import type { ProviderProfile } from "../types/provider";
 import { getErrorMessage } from "../utils/errors";
-import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
+import { formatShortDateTime, formatTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
 import { useConfirmation } from "../utils/useConfirmation";
 import { resolveBookingReferenceDetail } from "../utils/referencePrice";
@@ -1670,7 +1670,7 @@ function MessageBubble({
             {formatMessageContent(message)}
           </Text>
           <Text style={[styles.messageTime, isMine ? styles.messageTimeMine : null]}>
-            {formatMessageTime(message.created_at)}
+            {formatTime(message.created_at)}
           </Text>
         </View>
       )}
@@ -1705,7 +1705,7 @@ function BookingStatusUpdate({
     >
       <Text style={styles.bookingUpdateTitle}>{title}</Text>
       {detail ? <Text style={styles.bookingUpdateDetail}>{detail}</Text> : null}
-      <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>
+      <Text style={styles.messageTime}>{formatTime(message.created_at)}</Text>
     </View>
   );
 }
@@ -1879,7 +1879,7 @@ function BookingMessageCard({
           )}
         </Pressable>
       ) : null}
-      <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>
+      <Text style={styles.messageTime}>{formatTime(message.created_at)}</Text>
     </Pressable>
   );
 }
@@ -2204,18 +2204,6 @@ function isBookingVisibleInActiveBookingsForDetail(
   return isBookingVisibleInActiveBookings(String(booking.status), userRole);
 }
 
-function formatMessageTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const styles = StyleSheet.create({
   container: {

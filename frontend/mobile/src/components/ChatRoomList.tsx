@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { useRealtime } from "../context/RealtimeContext";
+import { formatDayAndMonth, formatTime } from "../utils/datetime";
 import { colors, radius, spacing } from "../theme/theme";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import type { ChatMessage, ChatRoom } from "../types/chat";
@@ -264,20 +265,16 @@ function formatChatTime(value: string | null) {
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
   if (isToday) {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatTime(date);
   }
 
   if (isYesterday) {
     return "Yesterday";
   }
 
-  return date.toLocaleDateString([], {
-    month: "2-digit",
-    day: "2-digit",
-  });
+  // "10/24" is the other ambiguous one: the month and the day swap places
+  // across locales, and a chat list is exactly where you scan for a date.
+  return formatDayAndMonth(date);
 }
 
 function isIncomingChatMessage(value: unknown): value is ChatMessage {

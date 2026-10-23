@@ -6,6 +6,38 @@
  */
 const DATE_LOCALE = "en-GB";
 
+export function formatDayAndMonth(value: string | Date | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : parseDateTime(value);
+  if (!date || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString(DATE_LOCALE, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+export function formatTime(value: string | Date | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : parseDateTime(value);
+  if (!date || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleTimeString(DATE_LOCALE, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatDate(value: string | Date | null | undefined) {
   if (!value) {
     return "—";
