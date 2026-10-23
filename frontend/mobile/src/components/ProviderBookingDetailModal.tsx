@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   detailBox: { backgroundColor: colors.surface, borderRadius: radius.lg, gap: spacing.sm, padding: spacing.md },
   row: { gap: spacing.xs },
   detailLabel: { color: colors.mutedText, fontSize: 13, fontWeight: "700" },
-  detailValue: { color: colors.text, fontSize: 15, lineHeight: 21 },
+  detailValue: { color: colors.text, fontSize: 14, lineHeight: 21 },
   proofBox: { backgroundColor: colors.surface, borderRadius: radius.lg, gap: spacing.sm, padding: spacing.md },
   proofText: { color: colors.mutedText, fontSize: 13 },
   fileList: { gap: spacing.xs },

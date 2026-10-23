@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   dialogMessage: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
     marginTop: 10,
   },
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   dialogButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
 });

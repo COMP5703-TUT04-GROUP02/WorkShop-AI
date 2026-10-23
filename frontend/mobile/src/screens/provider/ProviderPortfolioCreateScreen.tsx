@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   videoText: {

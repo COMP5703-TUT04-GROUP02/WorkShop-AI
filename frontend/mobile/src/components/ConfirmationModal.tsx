@@ -72,12 +72,12 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
   },
   message: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   actions: {

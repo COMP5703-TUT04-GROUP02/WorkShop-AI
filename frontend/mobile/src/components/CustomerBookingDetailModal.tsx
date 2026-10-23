@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   detailBox: { backgroundColor: colors.surface, borderRadius: radius.lg, gap: spacing.sm, padding: spacing.md },
   row: { gap: spacing.xs },
   label: { color: colors.mutedText, fontSize: 13, fontWeight: "700" },
-  value: { color: colors.text, fontSize: 15, lineHeight: 21 },
+  value: { color: colors.text, fontSize: 14, lineHeight: 21 },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "flex-end", paddingTop: spacing.md },
   hint: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
   noAction: { color: colors.mutedText, fontSize: 14, textAlign: "center" },

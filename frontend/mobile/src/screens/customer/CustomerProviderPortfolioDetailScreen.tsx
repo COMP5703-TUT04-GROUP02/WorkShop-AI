@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 23,
   },
   mutedText: {

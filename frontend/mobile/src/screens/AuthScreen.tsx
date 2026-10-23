@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   heroPointText: {
     flex: 1,
     color: "rgba(255,255,255,0.92)",
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   scrollDesktop: {
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   },
   switchText: {
     color: colors.primary,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
   legalRow: {

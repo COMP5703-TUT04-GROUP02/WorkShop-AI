@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
   },
   bioText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   metaText: {
@@ -764,7 +764,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
   },
   portfolioGap: {
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
   },
   reviewComment: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   emptyText: {

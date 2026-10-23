@@ -67,10 +67,16 @@ export const type = {
   display: 28,
   /** A heading inside a screen, and modal titles. */
   title: 22,
-  /** A section inside a card, and card titles. */
+  /** A section inside a card. */
   section: 18,
   /** What a card is called. */
   cardTitle: 16,
+  /**
+   * Anything a finger presses and anything typed into. Same number as
+   * cardTitle, different job. Not below 16: iOS Safari zooms the page when it
+   * focuses an input whose text is smaller, and this runs on the web.
+   */
+  control: 16,
   /**
    * Running text and anything a finger presses. 14 because `adminTypography`
    * already settled on 14 for the one area that was given a scale on purpose,

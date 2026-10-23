@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   provinceButtonText: {
     flexShrink: 1,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   searchBox: {
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
   },
   tagTextActive: {

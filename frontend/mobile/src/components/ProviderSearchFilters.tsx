@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   applyButtonPressed: { backgroundColor: colors.primaryPressed },
-  applyText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  applyText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   errorText: { color: colors.danger, fontSize: 13, lineHeight: 18 },
   helperText: { color: colors.mutedText, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: 0.55 },

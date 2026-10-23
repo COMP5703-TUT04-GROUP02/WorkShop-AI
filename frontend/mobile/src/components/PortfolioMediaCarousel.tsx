@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   videoHint: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
   },
   arrowButton: {

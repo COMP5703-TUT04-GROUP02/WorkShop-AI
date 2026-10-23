@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   cardLine: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
   },
   stateRow: {
     flexDirection: "row",

@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     paddingVertical: spacing.sm,
   },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     marginTop: spacing.sm,
   },

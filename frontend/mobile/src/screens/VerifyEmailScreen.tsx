@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 21,
   },
   hint: {

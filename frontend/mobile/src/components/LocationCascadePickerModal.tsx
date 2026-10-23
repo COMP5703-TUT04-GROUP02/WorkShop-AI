@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
   },
   subtitle: {
@@ -454,11 +454,11 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
   },
   placeholderText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
   },
   optionsList: {
     maxHeight: 210,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
   },

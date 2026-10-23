@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   detailLink: {

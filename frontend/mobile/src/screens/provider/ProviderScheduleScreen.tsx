@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   segmentTextActive: {

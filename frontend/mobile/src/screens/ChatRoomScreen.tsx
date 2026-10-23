@@ -2296,7 +2296,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
   },
   messageRow: {
     flexDirection: "row",
@@ -2368,12 +2368,12 @@ const styles = StyleSheet.create({
   bookingTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   bookingDescription: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   bookingQuoteText: {
@@ -2472,7 +2472,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -2535,7 +2535,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   stageBox: {

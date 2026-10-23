@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
   },
   subtitle: {
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.sm,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },

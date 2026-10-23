@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   itemLabel: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
   itemLabelActive: {

@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
   },
   providerName: {
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     padding: spacing.sm,
   },
   errorText: {

@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   metaText: {
@@ -1059,7 +1059,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
   },
   refundText: {
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   detailLink: {

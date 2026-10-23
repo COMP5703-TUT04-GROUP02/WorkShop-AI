@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   welcomeText: {
     maxWidth: 420,
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
     textAlign: "center",
   },
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   userMessageText: {
@@ -1277,7 +1277,7 @@ const styles = StyleSheet.create({
   },
   providerName: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   providerMeta: {
@@ -1355,7 +1355,7 @@ const styles = StyleSheet.create({
   },
   confirmationTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   confirmationText: {
@@ -1442,7 +1442,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

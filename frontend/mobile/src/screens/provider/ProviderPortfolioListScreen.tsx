@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   addText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
   },
   loader: {
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
   },
   footerLoader: {
     paddingVertical: spacing.lg,

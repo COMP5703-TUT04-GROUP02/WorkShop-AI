@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   body: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
   },
   detailRow: {

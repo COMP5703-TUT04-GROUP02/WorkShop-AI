@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   typeRow: { gap: spacing.sm },
   typeOption: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.background },
   typeOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  typeLabel: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  typeLabel: { color: colors.text, fontSize: 14, fontWeight: "600" },
   typeLabelSelected: { color: colors.primary, fontWeight: "800" },
   hint: { color: colors.mutedText, fontSize: 13 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20 },

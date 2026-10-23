@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   itemLabel: {
     flex: 1,
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
   itemLabelActive: {
