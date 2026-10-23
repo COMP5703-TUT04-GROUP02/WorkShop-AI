@@ -100,6 +100,7 @@ export function AuthScreen() {
   const isRegisterMode = mode === "register";
   const hero = isRegisterMode ? HERO.register : HERO.login;
   const isWebDesktop = useIsWebDesktop();
+  const linkOnPhoto = isWebDesktop ? null : styles.legalLinkOnPhoto;
   // This screen has no header, so keep the form clear of the status bar,
   // notch and home indicator. Insets are zero on web.
   const insets = useSafeAreaInsets();
@@ -322,6 +323,18 @@ export function AuthScreen() {
         </ImageBackground>
       ) : null}
 
+      {isWebDesktop ? null : (
+        <ImageBackground
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="The Istanbul skyline"
+          imageStyle={styles.phoneBackdropPhoto}
+          source={{ uri: resolveMediaUrl(hero.image) ?? undefined }}
+          style={styles.phoneBackdrop}
+        >
+          <View style={styles.phoneBackdropScrim} />
+        </ImageBackground>
+      )}
+
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -333,16 +346,25 @@ export function AuthScreen() {
         <View style={styles.header}>
           {isWebDesktop ? null : (
             <View style={styles.phoneBrand}>
-              <BrandMark size={26} />
+              <BrandMark
+                color="#FFFFFF"
+                letterColor={colors.primary}
+                size={26}
+              />
               <Text style={styles.phoneBrandName}>
                 Workshop <Text style={styles.phoneBrandSuffix}>AI</Text>
               </Text>
             </View>
           )}
-          <Text style={styles.title}>
+          <Text style={[styles.title, isWebDesktop ? null : styles.titleOnPhoto]}>
             {isRegisterMode ? "Create an account" : "Welcome back"}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text
+            style={[
+              styles.subtitle,
+              isWebDesktop ? null : styles.subtitleOnPhoto,
+            ]}
+          >
             {isRegisterMode
               ? "Select a role to continue."
               : "Sign in to manage chats, bookings, and requests."}
@@ -495,31 +517,18 @@ export function AuthScreen() {
             hitSlop={6}
             onPress={() => navigation.navigate("Legal", { document: "privacy" })}
           >
-            <Text style={styles.legalLink}>Privacy Policy</Text>
+            <Text style={[styles.legalLink, linkOnPhoto]}>Privacy Policy</Text>
           </Pressable>
-          <Text style={styles.legalDot}>·</Text>
+          <Text style={[styles.legalDot, linkOnPhoto]}>·</Text>
           <Pressable
             accessibilityRole="link"
             hitSlop={6}
             onPress={() => navigation.navigate("Legal", { document: "terms" })}
           >
-            <Text style={styles.legalLink}>Terms of Use</Text>
+            <Text style={[styles.legalLink, linkOnPhoto]}>Terms of Use</Text>
           </Pressable>
         </View>
 
-        {isWebDesktop ? null : (
-          <ImageBackground
-            accessibilityIgnoresInvertColors
-            accessibilityLabel="The Istanbul skyline"
-            imageStyle={styles.phoneBannerPhoto}
-            source={{ uri: resolveMediaUrl(hero.image) ?? undefined }}
-            style={styles.phoneBanner}
-          >
-            <View style={styles.phoneBannerScrim} />
-            <Text style={styles.phoneBannerTitle}>{hero.title}</Text>
-            <Text style={styles.phoneBannerCaption}>Across Türkiye</Text>
-          </ImageBackground>
-        )}
       </ScrollView>
 
       {pendingSocial ? (
@@ -553,52 +562,37 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   phoneBrandName: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "800",
   },
   phoneBrandSuffix: {
-    color: colors.primaryText,
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.6,
   },
-  // Flush to the three edges it touches: the page padding is cancelled so the
-  // photograph runs the full width and sits on the bottom of the screen.
-  phoneBanner: {
-    height: 220,
-    justifyContent: "flex-end",
-    gap: spacing.xs,
-    marginTop: spacing.xl,
-    marginHorizontal: -spacing.lg,
-    marginBottom: -spacing.lg,
-    overflow: "hidden",
-    padding: spacing.lg,
-  },
-  phoneBannerPhoto: {
-    resizeMode: "cover",
-  },
-  phoneBannerScrim: {
+  // The photograph fills the screen behind everything; the scrim is what makes
+  // white text and a white card both readable on it.
+  phoneBackdrop: {
     position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: "rgba(14, 28, 42, 0.44)",
   },
-  phoneBannerCaption: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.6,
-    opacity: 0.9,
-    textTransform: "uppercase",
+  phoneBackdropPhoto: {
+    resizeMode: "cover",
   },
-  phoneBannerTitle: {
+  phoneBackdropScrim: {
+    flex: 1,
+    backgroundColor: "rgba(14, 28, 42, 0.52)",
+  },
+  titleOnPhoto: {
     color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 28,
+  },
+  subtitleOnPhoto: {
+    color: "rgba(255, 255, 255, 0.88)",
   },
   hero: {
     flex: 1.05,
@@ -794,5 +788,8 @@ const styles = StyleSheet.create({
   legalDot: {
     color: colors.mutedText,
     fontSize: 13,
+  },
+  legalLinkOnPhoto: {
+    color: "rgba(255, 255, 255, 0.92)",
   },
 });
