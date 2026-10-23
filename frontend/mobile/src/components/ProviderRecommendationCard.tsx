@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   image: {
@@ -138,12 +138,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: radius.pill,
   },
   statusDotActive: {
-    backgroundColor: colors.primary,
+    // Open for business is a state, not an action: green, not the action blue.
+    backgroundColor: colors.success,
   },
   statusDotInactive: {
     backgroundColor: colors.placeholder,

@@ -11,20 +11,22 @@ that providers sharing a category do not show the same picture.
 | Files | Source | Licence |
 | --- | --- | --- |
 | `*_1.jpg` | Generated for this project | Owned by the team |
-| `*_2.jpg`, `*_3.jpg` | [Pexels](https://www.pexels.com/license/) | Pexels Licence — free to use, modification allowed, attribution not required |
+| `*_2.jpg`, `*_3.jpg` (most) | [Pexels](https://www.pexels.com/license/) | Pexels Licence — free to use, modification allowed, attribution not required |
+| `plumbing_2.jpg`, `plumbing_3.jpg` | [Unsplash](https://unsplash.com/license) | Unsplash Licence — free to use, commercial use allowed, attribution not required |
 
 Photographers, from the original Pexels filenames: Artem Podrez, Bulat
 Khamitov, Jsme MILA, Mizuno K, Ono Kosuki, Pavel Danilyuk, Ranjeet, RDNE Stock
 Project, Anthony Shkraba, Sky Studio, Tima Miroshnichenko, Muhammed Diler, My
-Car Key Hero.
+Car Key Hero. The two plumbing frames are by Bhagya Laxmi and Timur
+Shakerzianov on Unsplash.
 
 All files are 1448 × 1086 JPEG, quality 82. Keep them that way: the originals
 were 2 MB PNGs, which is twenty times the weight for no visible gain at the
 size a card renders them.
 
-`plumbing` currently has only `plumbing_1.jpg`. The snapshot builder handles
-a short category by reusing what is there, so adding `plumbing_2.jpg` and
-`plumbing_3.jpg` later needs nothing but the files and a rebuild.
+Every category now has three. `PHOTOS_PER_CATEGORY` in the snapshot builder
+records the real count, and it wraps around a category that has fewer, so a
+missing file degrades to repetition rather than a broken image.
 
 ## Provider portfolios in the product
 

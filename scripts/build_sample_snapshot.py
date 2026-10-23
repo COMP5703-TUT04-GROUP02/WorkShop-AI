@@ -18,13 +18,14 @@ from backend.location_data import iter_location_seeds
 OUTPUT = ROOT / "migrations" / "data" / "0018_workshop_samples.json"
 # How many photos exist per category in backend/sample_media/service_categories.
 # Providers sharing a category are handed different ones, so three cards in a
-# row never show the same picture. A category with one photo still works.
+# row never show the same picture. A category with fewer photos still works:
+# the builder wraps around whatever is there.
 PHOTOS_PER_CATEGORY = {
     "cleaning": 3,
     "childcare": 3,
     "elderly_care": 3,
     "electrician": 3,
-    "plumbing": 1,
+    "plumbing": 3,
     "painter": 3,
     "locksmith": 3,
     "technician": 3,

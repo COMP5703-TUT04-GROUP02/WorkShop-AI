@@ -189,13 +189,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     textAlign: "right",
+    fontVariant: ["tabular-nums"],
   },
   emphasized: {
+    fontSize: 14,
     fontWeight: "800",
   },
   separator: {
     borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     marginTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
 });
