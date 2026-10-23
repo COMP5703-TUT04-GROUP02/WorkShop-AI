@@ -69,10 +69,10 @@ export function RoleTabs() {
           fontWeight: "700",
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedText,
+        tabBarInactiveTintColor: colors.placeholder,
         tabBarBadgeStyle: {
-          backgroundColor: colors.primary,
-          color: "#FFFFFF",
+          backgroundColor: colors.warning,
+          color: colors.text,
           fontSize: 11,
           fontWeight: "800",
         },

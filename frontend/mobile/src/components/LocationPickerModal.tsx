@@ -210,7 +210,7 @@ export function LocationPickerModal({
               autoCorrect={false}
               onChangeText={handleQueryChange}
               placeholder="Start typing an address"
-              placeholderTextColor={colors.mutedText}
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={query}
             />

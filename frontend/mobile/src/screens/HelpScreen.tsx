@@ -150,7 +150,7 @@ function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
               clearButtonMode="while-editing"
               onChangeText={setQuery}
               placeholder="Search help articles"
-              placeholderTextColor={colors.mutedText}
+              placeholderTextColor={colors.placeholder}
               style={styles.searchInput}
               value={query}
             />

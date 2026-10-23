@@ -52,7 +52,7 @@ export function TextField({
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
-        placeholderTextColor={colors.mutedText}
+        placeholderTextColor={colors.placeholder}
         secureTextEntry={secureTextEntry}
         multiline={multiline}
         numberOfLines={numberOfLines}
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    minHeight: 48,
+    minHeight: 50,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   multilineInput: {
-    minHeight: 104,
+    minHeight: 108,
     paddingTop: spacing.md,
   },
   inputDisabled: {

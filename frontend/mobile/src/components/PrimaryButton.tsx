@@ -39,7 +39,7 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
+    minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.md,
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

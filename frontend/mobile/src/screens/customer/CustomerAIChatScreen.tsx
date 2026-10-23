@@ -404,7 +404,7 @@ export function CustomerAIChatScreen() {
             }
           }}
           placeholder="Recommend providers, answer FAQs, book, or compare reviews"
-          placeholderTextColor={colors.mutedText}
+          placeholderTextColor={colors.placeholder}
           style={styles.input}
           value={inputText}
         />

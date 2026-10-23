@@ -101,7 +101,7 @@ export function CustomerReviewModal({
               setFormError("");
             }}
             placeholder="Write a review"
-            placeholderTextColor={colors.mutedText}
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             textAlignVertical="top"
             value={comment}

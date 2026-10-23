@@ -164,7 +164,7 @@ export function ProviderSearchFilters({
                 inputMode="numeric"
                 onChangeText={(text) => update("minPrice", text)}
                 placeholder="Minimum"
-                placeholderTextColor={colors.mutedText}
+                placeholderTextColor={colors.placeholder}
                 style={styles.priceInput}
                 value={value.minPrice}
               />
@@ -174,7 +174,7 @@ export function ProviderSearchFilters({
                 inputMode="numeric"
                 onChangeText={(text) => update("maxPrice", text)}
                 placeholder="Maximum"
-                placeholderTextColor={colors.mutedText}
+                placeholderTextColor={colors.placeholder}
                 style={styles.priceInput}
                 value={value.maxPrice}
               />

@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   optionActive: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.primaryTint,
   },
   label: {
     color: colors.mutedText,
@@ -67,6 +67,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   labelActive: {
-    color: colors.text,
+    color: colors.primaryText,
   },
 });

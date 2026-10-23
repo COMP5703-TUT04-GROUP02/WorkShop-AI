@@ -34,7 +34,7 @@ export function SecondaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 46,
+    minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

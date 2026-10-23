@@ -1430,7 +1430,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           multiline
           onChangeText={setInputText}
           placeholder="Message"
-          placeholderTextColor={colors.mutedText}
+          placeholderTextColor={colors.placeholder}
           style={styles.input}
           value={inputText}
         />

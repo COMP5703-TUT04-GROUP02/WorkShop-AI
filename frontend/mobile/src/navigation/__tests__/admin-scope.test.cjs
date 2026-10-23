@@ -48,6 +48,7 @@ function sidebar(role) {
     "../context/AuthContext": { useAuth: () => ({ user: { role } }) },
     "../context/ProviderProfileGateContext": { useProviderProfileGate: () => ({ isProviderProfileRequired: false }) },
     "../context/RealtimeContext": { useRealtime: () => ({ chatUnreadCount: 0, notificationUnreadCount: 0 }) },
+    "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
     "./AdminMenu": { AdminMenu: () => React.createElement("nav", null, "Admin menu") },
     "./tabIcons": { tabIcons: Object.fromEntries(["home", "schedule", "bookings", "chats", "aiChat", "account"].map(name => [name, Icon])) },
   });

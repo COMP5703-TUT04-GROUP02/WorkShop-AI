@@ -190,7 +190,7 @@ export function CustomerHomeScreen() {
             onChangeText={setKeyword}
             onSubmitEditing={handleSearchSubmit}
             placeholder="Search services or businesses"
-            placeholderTextColor={colors.mutedText}
+            placeholderTextColor={colors.placeholder}
             returnKeyType="search"
             style={styles.searchInput}
             value={keyword}
