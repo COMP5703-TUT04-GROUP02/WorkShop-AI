@@ -1,10 +1,8 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronDown, MapPin, Search } from "lucide-react-native";
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ScrollView,
   ActivityIndicator,
   Pressable,
   StyleSheet,
@@ -40,6 +38,7 @@ export function CustomerHomeScreen() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { subscribe } = useRealtime();
   const isWebDesktop = useIsWebDesktop();
+  const [showAllTags, setShowAllTags] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedProvince, setSelectedProvince] = useState("Istanbul");
@@ -75,6 +74,17 @@ export function CustomerHomeScreen() {
       isMounted = false;
     };
   }, []);
+
+  const COLLAPSED_TAG_COUNT = 4;
+  const visibleTags =
+    isWebDesktop || showAllTags
+      ? [...PROVIDER_TAGS]
+      : (() => {
+          const shown = PROVIDER_TAGS.slice(0, COLLAPSED_TAG_COUNT);
+          return selectedTag && !shown.includes(selectedTag as never)
+            ? [...shown.slice(0, COLLAPSED_TAG_COUNT - 1), selectedTag as never]
+            : shown;
+        })();
 
   const loadRecommendations = useCallback(async () => {
     setIsLoadingRecommendations(true);
@@ -216,9 +226,22 @@ export function CustomerHomeScreen() {
       </View>
 
       <View style={styles.tagSection}>
-        <Text style={styles.sectionTitle}>Popular services</Text>
-        <TagRail isWebDesktop={isWebDesktop}>
-          {PROVIDER_TAGS.map((tag) => {
+        <View style={styles.tagHeader}>
+          <Text style={styles.sectionTitle}>Popular services</Text>
+          {isWebDesktop ? null : (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setShowAllTags((shown) => !shown)}
+            >
+              <Text style={styles.tagToggle}>
+                {showAllTags ? "Show less" : `Show all ${PROVIDER_TAGS.length}`}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        <View style={styles.tagGrid}>
+          {visibleTags.map((tag) => {
             const isActive = selectedTag === tag;
 
             return (
@@ -243,7 +266,7 @@ export function CustomerHomeScreen() {
               </Pressable>
             );
           })}
-        </TagRail>
+        </View>
       </View>
 
       <View
@@ -307,33 +330,6 @@ export function CustomerHomeScreen() {
         visible={isProvinceModalVisible}
       />
     </ScreenContainer>
-  );
-}
-
-/**
- * Ten trades is more height than a phone can spare above the listings, so there
- * they are one swipeable row. A wide screen has the room and keeps the grid.
- */
-function TagRail({
-  children,
-  isWebDesktop,
-}: {
-  children: ReactNode;
-  isWebDesktop: boolean;
-}) {
-  if (isWebDesktop) {
-    return <View style={styles.tagGrid}>{children}</View>;
-  }
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.tagRailContent}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.tagRail}
-    >
-      {children}
-    </ScrollView>
   );
 }
 
@@ -411,6 +407,17 @@ const styles = StyleSheet.create({
   tagSection: {
     gap: spacing.md,
   },
+  tagHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  tagToggle: {
+    color: colors.primaryText,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   sectionTitle: {
     color: colors.text,
     fontSize: 18,
@@ -438,14 +445,6 @@ const styles = StyleSheet.create({
     flexBasis: "18%",
   },
   tagChipNarrow: {
-    paddingHorizontal: spacing.lg,
-  },
-  tagRail: {
-    marginHorizontal: -spacing.lg,
-  },
-  tagRailContent: {
-    flexDirection: "row",
-    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   tagChip: {
