@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   sheet: { height: "92%", padding: spacing.lg, gap: spacing.md, backgroundColor: colors.background, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   title: { ...type.modalTitle, color: colors.text },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  close: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   content: { gap: spacing.md, paddingBottom: spacing.lg },
   card: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   sectionTitle: { ...type.sectionTitle, color: colors.text },

@@ -205,7 +205,7 @@ export function CustomerFavouritesScreen({
       ) : favourites.length === 0 && !message ? (
         <PlaceholderPanel
           title="No favourites yet"
-          description="Providers you save from their profile will appear here."
+          description="Saving a provider keeps them one tap away and puts them first in search when they cover your area."
         />
       ) : (
         <View
