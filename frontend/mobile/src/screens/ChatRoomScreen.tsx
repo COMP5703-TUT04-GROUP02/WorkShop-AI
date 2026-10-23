@@ -2450,7 +2450,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   statusPill: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,

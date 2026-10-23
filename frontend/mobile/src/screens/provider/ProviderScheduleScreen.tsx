@@ -1218,7 +1218,7 @@ const styles = StyleSheet.create({
   },
   jobStatusBadge: {
     overflow: "hidden",
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.primaryTint,
     color: colors.primary,
     fontSize: 12,

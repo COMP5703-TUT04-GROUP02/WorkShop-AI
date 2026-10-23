@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
   },
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tagPill: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
     paddingVertical: 5,

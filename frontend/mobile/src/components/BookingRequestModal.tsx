@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   serviceOption: {
     borderColor: colors.border,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

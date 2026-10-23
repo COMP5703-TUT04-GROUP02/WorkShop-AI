@@ -14,6 +14,7 @@ import { useRealtime } from "../context/RealtimeContext";
 import { colors, radius, spacing } from "../theme/theme";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import type { ChatMessage, ChatRoom } from "../types/chat";
+import { SecondaryButton } from "./SecondaryButton";
 
 type ChatRoomListProps = {
   loadRooms: () => Promise<{ items: ChatRoom[] } | null>;
@@ -119,8 +120,18 @@ export function ChatRoomList({ loadRooms, viewerRole }: ChatRoomListProps) {
           {message || "No chats yet"}
         </Text>
         <Text style={styles.centerText}>
-          {message ? "Try again." : "Start a conversation from a provider profile."}
+          {message
+            ? "Try again."
+            : viewerRole === "provider"
+              ? "A chat opens as soon as a customer books you, and the quote you send lands in it."
+              : "A chat opens from a provider's profile, and stays with the booking it belongs to."}
         </Text>
+        {!message && viewerRole !== "provider" ? (
+          <SecondaryButton
+            label="Find a service"
+            onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
+          />
+        ) : null}
       </View>
     );
   }

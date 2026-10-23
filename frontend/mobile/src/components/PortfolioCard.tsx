@@ -51,8 +51,26 @@ export function PortfolioCard({
       </View>
 
       {portfolio.verification_status !== "approved" ? (
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{portfolio.verification_status}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            portfolio.verification_status === "rejected"
+              ? styles.statusBadgeRejected
+              : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              portfolio.verification_status === "rejected"
+                ? styles.statusTextRejected
+                : null,
+            ]}
+          >
+            {portfolio.verification_status === "rejected"
+              ? "Not published"
+              : "Waiting on review"}
+          </Text>
         </View>
       ) : null}
 
@@ -118,16 +136,21 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: spacing.sm,
     marginHorizontal: spacing.sm,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.warningTint,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
+  },
+  statusBadgeRejected: {
+    backgroundColor: colors.dangerTint,
   },
   statusText: {
     color: colors.warningText,
     fontSize: 11,
     fontWeight: "800",
-    textTransform: "capitalize",
+  },
+  statusTextRejected: {
+    color: colors.dangerText,
   },
   title: {
     minHeight: 44,
