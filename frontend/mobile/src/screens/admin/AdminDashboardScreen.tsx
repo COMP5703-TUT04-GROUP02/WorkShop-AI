@@ -610,7 +610,7 @@ function MarketplaceSection({
       {view === "payments" && payments.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No matching marketplace payments</Text>
-          <Text style={styles.emptyText}>Payment splits and settlement status will appear here.</Text>
+          <Text style={styles.emptyText}>Nothing matches the filters above. Clearing them shows every payment, each with the split between the provider and the platform and where iyzico has got to with the payout.</Text>
         </View>
       ) : view === "payments" ? (
         <View style={styles.list}>
