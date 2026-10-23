@@ -1,16 +1,18 @@
 /**
  * Design tokens, v6 "clear" palette.
  *
- * Three levels of brightness carry the layout: white cards, a near-white page
+ * Three levels of brightness carry the layout: white cards, a neutral grey page
  * ground, and a pale blue used only for the selected state and for information.
- * Solid `primary` is reserved for the single main action on a screen, and
- * `warning` only ever marks money or something waiting on the user.
+ * The ground is grey rather than tinted so that blue stays a signal: it appears
+ * where something is selected or actionable, nowhere else. Solid `primary` is
+ * reserved for the single main action on a screen, and `warning` only ever
+ * marks money or something waiting on the user.
  */
 export const colors = {
   // Surfaces
   background: "#FFFFFF",
-  surface: "#F8FBFE",
-  border: "#E4EDF4",
+  surface: "#F2F2F7",
+  border: "#E3E3E9",
 
   // Text
   text: "#142536",

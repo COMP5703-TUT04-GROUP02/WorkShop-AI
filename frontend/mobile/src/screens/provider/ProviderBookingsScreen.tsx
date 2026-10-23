@@ -710,7 +710,7 @@ function filterActiveBookings(bookings: BookingDetail[]) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.md,
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   emptyActions: {

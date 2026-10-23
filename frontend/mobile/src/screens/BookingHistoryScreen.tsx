@@ -1,3 +1,4 @@
+import { CalendarClock, MapPin } from "lucide-react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -324,21 +325,37 @@ function HistoryBookingCard({
         </Text>
       </View>
 
-      <Text numberOfLines={2} style={styles.description}>
-        {booking.service_description}
-      </Text>
-      <Text numberOfLines={1} style={styles.metaText}>
-        {formatDateTime(booking.scheduled_start_time)} -{" "}
-        {formatDateTime(booking.scheduled_end_time)}
-      </Text>
-      <Text numberOfLines={1} style={styles.metaText}>
-        {booking.service_address}
-      </Text>
-      <Text style={styles.amountText}>
-        {booking.visit_fee_amount == null
-          ? "—"
-          : `Visit fee: ${formatMoney(booking.visit_fee_amount)}`}
-      </Text>
+      <View style={styles.cardDivider} />
+
+      <View style={styles.cardDetails}>
+        <Text numberOfLines={2} style={styles.description}>
+          {booking.service_description}
+        </Text>
+        <View style={styles.metaRow}>
+          <CalendarClock color={colors.mutedText} size={14} />
+          <Text numberOfLines={1} style={styles.metaText}>
+            {formatDateTime(booking.scheduled_start_time)} -{" "}
+            {formatDateTime(booking.scheduled_end_time)}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <MapPin color={colors.mutedText} size={14} />
+          <Text numberOfLines={1} style={styles.metaText}>
+            {booking.service_address}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.cardDivider} />
+
+      <View style={styles.amountRow}>
+        <Text style={styles.amountLabel}>Visit fee</Text>
+        <Text style={styles.amountText}>
+          {booking.visit_fee_amount == null
+            ? "—"
+            : formatMoney(booking.visit_fee_amount)}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -411,7 +428,7 @@ function getStatusBadgeStyle(status: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.md,
@@ -438,7 +455,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   emptyTitle: {
@@ -462,15 +479,38 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   list: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   card: {
-    gap: spacing.sm,
+    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
-    padding: spacing.md,
+    padding: spacing.lg,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  cardDetails: {
+    gap: spacing.sm,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  amountLabel: {
+    color: colors.mutedText,
+    fontSize: 13,
+    fontWeight: "600",
   },
   cardPressed: {
     backgroundColor: colors.surface,
@@ -487,7 +527,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "800",
   },
   targetName: {
@@ -504,7 +544,7 @@ const styles = StyleSheet.create({
   },
   statusSuccess: {
     backgroundColor: colors.successTint,
-    color: colors.primary,
+    color: colors.success,
   },
   statusMuted: {
     backgroundColor: colors.surface,
@@ -512,8 +552,8 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
   },
   metaText: {
     color: colors.mutedText,
@@ -521,8 +561,8 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
   },
   modalOverlay: {
     flex: 1,

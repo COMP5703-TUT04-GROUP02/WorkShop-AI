@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   },
   desktopRow: {
     flexDirection: "column",
-    gap: spacing.lg,
+    gap: spacing.xl,
   },
   profileHeader: {
     alignItems: "center",
@@ -321,6 +321,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.lg,
+    minHeight: 148,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
@@ -340,7 +341,7 @@ const styles = StyleSheet.create({
   menuGrid: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: spacing.lg,
+    gap: spacing.xl,
   },
   nameRow: {
     flexDirection: "row",
@@ -374,12 +375,12 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   menuColumn: {
-    gap: spacing.md,
+    gap: spacing.xl,
   },
   menuGridColumn: {
     flex: 1,
     minWidth: 0,
-    gap: spacing.md,
+    gap: spacing.xl,
   },
   avatarButton: {
     width: 84,
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   menuItem: {
-    minHeight: 58,
+    minHeight: 68,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
