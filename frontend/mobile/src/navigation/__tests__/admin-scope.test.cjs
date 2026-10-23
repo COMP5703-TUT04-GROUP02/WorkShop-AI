@@ -49,6 +49,11 @@ function sidebar(role) {
     "../context/ProviderProfileGateContext": { useProviderProfileGate: () => ({ isProviderProfileRequired: false }) },
     "../context/RealtimeContext": { useRealtime: () => ({ chatUnreadCount: 0, notificationUnreadCount: 0 }) },
     "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
+    "../api/customer": { getCustomerBookings: async () => ({ items: [] }) },
+    "../features/current-job/current-job": {
+      pickCurrentJob: () => ({ id: 1, title: "Ceiling light install", statusLabel: "Visit fee due", amountDue: 150, needsCustomer: true }),
+    },
+    "../utils/money": { formatMoney: value => `${value} TRY` },
     "./AdminMenu": { AdminMenu: () => React.createElement("nav", null, "Admin menu") },
     "./tabIcons": { tabIcons: Object.fromEntries(["home", "schedule", "bookings", "chats", "aiChat", "account"].map(name => [name, Icon])) },
   });

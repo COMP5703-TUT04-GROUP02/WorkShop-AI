@@ -1,12 +1,16 @@
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ComponentType, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BrandMark } from "../components/BrandMark";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
+import { getCustomerBookings } from "../api/customer";
+import { pickCurrentJob, type CurrentJob } from "../features/current-job/current-job";
+import { formatMoney } from "../utils/money";
 import { colors, layout, radius, spacing } from "../theme/theme";
 import { AdminMenu, type AdminArea } from "./AdminMenu";
 import { tabIcons } from "./tabIcons";
@@ -125,7 +129,58 @@ export function DesktopSidebar() {
           );
         })}
       </SidebarNavigation>
+      {user?.role === "customer" ? (
+        <CurrentJobCard
+          onPress={() => navigation.navigate("Main", { screen: "CustomerBookings" })}
+        />
+      ) : null}
     </View>
+  );
+}
+
+/**
+ * A read-only pin for whatever booking is waiting on the customer. It never
+ * blocks the sidebar: while it is loading, or if the request fails, the
+ * sidebar renders exactly as it did before.
+ */
+function CurrentJobCard({ onPress }: { onPress: () => void }) {
+  const [job, setJob] = useState<CurrentJob | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCustomerBookings(undefined, 1, 20)
+      .then((data) => {
+        if (!cancelled) setJob(pickCurrentJob(data?.items ?? []));
+      })
+      .catch(() => {
+        if (!cancelled) setJob(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!job) return null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={styles.currentJob}
+    >
+      <Text style={styles.currentJobEyebrow}>Current job</Text>
+      <Text numberOfLines={1} style={styles.currentJobTitle}>
+        {job.title}
+      </Text>
+      <Text numberOfLines={1} style={styles.currentJobStatus}>
+        <Text style={job.needsCustomer ? styles.currentJobDue : undefined}>
+          {job.statusLabel}
+        </Text>
+        {job.amountDue != null ? (
+          <Text style={styles.currentJobDue}> · {formatMoney(job.amountDue)}</Text>
+        ) : null}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -239,6 +294,7 @@ function getSidebarItems(
 const styles = StyleSheet.create({
   sidebar: {
     width: layout.webSidebarWidth,
+    flexDirection: "column",
     borderRightWidth: 1,
     borderRightColor: colors.border,
     backgroundColor: colors.background,
@@ -325,6 +381,36 @@ const styles = StyleSheet.create({
   },
   itemLabelActive: {
     color: colors.primary,
+  },
+  currentJob: {
+    marginTop: "auto",
+    marginBottom: spacing.md,
+    gap: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.sm + 2,
+  },
+  currentJobEyebrow: {
+    color: colors.mutedText,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  currentJobTitle: {
+    color: colors.text,
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+  currentJobStatus: {
+    color: colors.mutedText,
+    fontSize: 11.5,
+  },
+  currentJobDue: {
+    color: colors.warningText,
+    fontWeight: "700",
   },
   badgeText: {
     color: colors.mutedText,
