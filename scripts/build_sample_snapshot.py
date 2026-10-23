@@ -16,6 +16,21 @@ from backend.location_data import iter_location_seeds
 
 
 OUTPUT = ROOT / "migrations" / "data" / "0018_workshop_samples.json"
+# How many photos exist per category in backend/sample_media/service_categories.
+# Providers sharing a category are handed different ones, so three cards in a
+# row never show the same picture. A category with one photo still works.
+PHOTOS_PER_CATEGORY = {
+    "cleaning": 3,
+    "childcare": 3,
+    "elderly_care": 3,
+    "electrician": 3,
+    "plumbing": 1,
+    "painter": 3,
+    "locksmith": 3,
+    "technician": 3,
+    "moving": 3,
+    "other": 3,
+}
 PASSWORD_HASH = "$2b$12$7BRnl3Pt1eg7OOqWfwDgb.NXMyr4KtXPxwZ4EXK//JDwXUoyDoHdm"
 PASSWORD = "Demo1234"
 PAYOUT_IBAN = "TR180006200119000006672315"
@@ -313,7 +328,7 @@ def build() -> dict:
                     is_available=weekday <= 6,
                 )
             )
-        for tag in provider_tags[index]:
+        for slot, tag in enumerate(provider_tags[index]):
             approved_services.append(
                 row(
                     f"approved_service:{index}:{tag}",
@@ -322,7 +337,12 @@ def build() -> dict:
                     is_enabled=True,
                 )
             )
-            image_url = f"/sample-media/service_categories/{tag}.png?v=1"
+            variant = (index - 1) // len(TAGS) + slot
+            variant = variant % PHOTOS_PER_CATEGORY[tag] + 1
+            image_url = (
+                f"/sample-media/service_categories/{tag}_{variant}.jpg?v=2"
+            )
+            image_name = f"{tag}_{variant}.jpg"
             portfolio_key = f"portfolio:{index}:{tag}"
             portfolios.append(
                 row(
@@ -333,8 +353,8 @@ def build() -> dict:
                         f"Completed {tag.replace('_', ' ')} work in Istanbul."
                     ),
                     image_url=image_url,
-                    original_file_name=f"{tag}.png",
-                    content_type="image/png",
+                    original_file_name=image_name,
+                    content_type="image/jpeg",
                     media_type="image",
                     verification_status="approved",
                     verification_note="Approved fixed sample portfolio.",
@@ -346,8 +366,8 @@ def build() -> dict:
                     f"portfolio_media:{index}:{tag}",
                     portfolio_id=ref(portfolio_key),
                     file_url=image_url,
-                    original_file_name=f"{tag}.png",
-                    content_type="image/png",
+                    original_file_name=image_name,
+                    content_type="image/jpeg",
                     media_type="image",
                     sort_order=0,
                     created_at=(created + timedelta(days=index)).isoformat(),
