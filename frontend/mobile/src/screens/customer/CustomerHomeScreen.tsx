@@ -445,7 +445,8 @@ const styles = StyleSheet.create({
     flexBasis: "18%",
   },
   tagChipNarrow: {
-    paddingHorizontal: spacing.lg,
+    flexGrow: 1,
+    flexBasis: "46%",
   },
   tagChip: {
     minHeight: 44,
