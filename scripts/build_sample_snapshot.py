@@ -24,14 +24,14 @@ OUTPUT = ROOT / "migrations" / "data" / "0018_workshop_samples.json"
 # photographs is the point at which none repeats. Where a trade has fewer, the
 # ones it has are spread as evenly as they go.
 PHOTOS_PER_CATEGORY = {
-    "cleaning": 4,
+    "cleaning": 6,
     "childcare": 6,
     "elderly_care": 5,
     "electrician": 6,
     "plumbing": 6,
-    "painter": 5,
+    "painter": 6,
     "locksmith": 5,
-    "technician": 4,
+    "technician": 5,
     "moving": 6,
     "other": 6,
 }

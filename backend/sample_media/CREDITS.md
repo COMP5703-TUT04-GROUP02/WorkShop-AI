@@ -17,26 +17,36 @@ number to match, so six photographs is the point at which none repeats:
 | Trade | Photographs | Portfolios | Repeats |
 | --- | --- | --- | --- |
 | childcare | 6 | 6 | none |
+| cleaning | 6 | 6 | none |
 | electrician | 6 | 6 | none |
 | moving | 6 | 6 | none |
 | other | 6 | 6 | none |
+| painter | 6 | 6 | none |
 | plumbing | 6 | 6 | none |
-| cleaning | 4 | 6 | two photographs twice |
 | elderly_care | 5 | 6 | one photograph twice |
 | locksmith | 5 | 6 | one photograph twice |
-| painter | 5 | 6 | one photograph twice |
-| technician | 4 | 6 | two photographs twice |
+| technician | 5 | 6 | one photograph twice |
 
-Twelve frames across the three source kits were not usable, and the reasons
-are worth keeping. Four show workers in another company's branded hi-vis —
-ELITE POWER GROUP on three electricians, ТЕХНОБЫТСЕРВИС on a technician — and
-a demo provider card must not appear to be a real business. Three are black
-and white. The rest are the second frame of a shoot already in use (the
-Pexels ids give this away: 27928761 beside 27928762 is the same man at the
-same panel), too dark to read at card size, or a subject that does not read
-as the trade.
+Nineteen frames across the four source kits were not usable, and the reasons
+are worth keeping, because every kit has offered the same kinds again.
 
-Electrician needed a third kit to reach six for exactly that reason.
+Six show workers in another company's branding — ELITE POWER GROUP on three
+electricians, and ТЕХНОБЫТСЕРВИС twice plus ИК ИНОСЕРВИС once on technicians.
+A demo provider card must not appear to be a real business. Read the garment,
+not the thumbnail: the ИК ИНОСЕРВИС polo needed a 4x enlargement of the chest
+before the embroidery was legible.
+
+Three are black and white, which reads as a bug in a grid of colour ones. One
+more wore a shirt reading VOLUNTEER, which on a marketplace that charges for
+the work implies something untrue about who the providers are.
+
+The rest are the second frame of a shoot already in use — adjacent Pexels ids
+are the tell, 27928761 beside the 27928762 we use is the same man at the same
+panel — or too dark to read at card size, or a subject that does not read as
+the trade. Two of the top-up links were photographs already in the product.
+
+Elderly care, locksmith and technician are the three still at five. Locksmith
+has nothing left to try: both links offered for it were already in use.
 
 Check that last one by measure, not by eye: a thumbnail of a low-chroma scene
 looks like a black and white photograph, and a black and white photograph in a
@@ -53,6 +63,8 @@ what a card renders.
 | cleaning | 7641543 | Vacuum cleaning bedroom | https://www.pexels.com/photo/7641543/ |
 | cleaning | 4792773 | Vacuum cleaning wooden floor | https://www.pexels.com/photo/4792773/ |
 | cleaning | 7641496 | Mopping a living room | https://www.pexels.com/photo/7641496/ |
+| cleaning | 9462734 | Window cleaning | https://www.pexels.com/photo/9462734/ |
+| cleaning | 4107278 | Carpet vacuuming | https://www.pexels.com/photo/4107278/ |
 | childcare | 8535599 | Kids doing artwork | https://www.pexels.com/photo/8535599/ |
 | childcare | 8363733 | Children playing with teacher | https://www.pexels.com/photo/8363733/ |
 | childcare | 8613119 | Teaching children | https://www.pexels.com/photo/8613119/ |
@@ -92,6 +104,7 @@ what a card renders.
 | painter | 5482143 | Interior wall painting | https://www.pexels.com/photo/5482143/ |
 | painter | 6764282 | Paint roller on textured wall | https://www.pexels.com/photo/6764282/ |
 | painter | 6764265 | Woman painting interior wall | https://www.pexels.com/photo/6764265/ |
+| painter | 31608473 | Exterior wall from a ladder | https://www.pexels.com/photo/31608473/ |
 | plumbing | 16509869 | Pipe spanner repair | https://www.pexels.com/photo/16509869/ |
 | plumbing | 39885416 | Working copper pipe | https://www.pexels.com/photo/39885416/ |
 | plumbing | 6419128 | Plumber installing pipe fittings | https://www.pexels.com/photo/6419128/ |
@@ -102,6 +115,7 @@ what a card renders.
 | technician | 5463575 | AC inspection | https://www.pexels.com/photo/5463575/ |
 | technician | 5463581 | Drilling AC unit casing | https://www.pexels.com/photo/5463581/ |
 | technician | 7347538 | Aircon exterior repairs | https://www.pexels.com/photo/7347538/ |
+| technician | 442154 | Server hardware repair | https://www.pexels.com/photo/442154/ |
 
 ## avatars
 
