@@ -40,8 +40,11 @@ Canpolat.
 
 ## brand
 
-`istanbul.jpg` — the sign-in panel. 1500 x 1000 JPEG, by Senanur Ceylan on
-Pexels.
+`istanbul.jpg` — the sign-in panel, by Senanur Ceylan.
+`istanbul-signup.jpg` — the create-account panel, by Erdem Akil.
+
+Both 1200 x 1600 JPEG from Pexels, cropped 3:4 because the panel is roughly
+1:2 and a landscape crop loses its sides to `cover`.
 
 ## Provider portfolios in the product
 

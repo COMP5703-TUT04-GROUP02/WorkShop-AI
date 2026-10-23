@@ -37,12 +37,36 @@ import { getErrorMessage } from "../utils/errors";
 
 type AuthMode = "login" | "register";
 
-/** The three promises the hero spells out, in the product's own words. */
-const HERO_POINTS = [
-  "Every provider clears an identity, licence and bank account check.",
-  "You pay the visit fee up front; the service fee waits for your approval.",
-  "Reviews only come from bookings that were actually paid for.",
-];
+/**
+ * The panel answers the question the visitor arrived with. Someone signing in
+ * wants to get back to a job; someone signing up wants to know why they should
+ * trust this with one. Different photograph too, so you can tell at a glance
+ * which side of the door you are on.
+ */
+const HERO = {
+  login: {
+    image: "/sample-media/brand/istanbul.jpg",
+    title: "Find local service providers",
+    subtitle:
+      "Search listings, request quotes, book appointments, and leave reviews.",
+    points: [
+      "Every provider clears an identity, licence and bank account check.",
+      "You pay the visit fee up front; the service fee waits for your approval.",
+      "Reviews only come from bookings that were actually paid for.",
+    ],
+  },
+  register: {
+    image: "/sample-media/brand/istanbul-signup.jpg",
+    title: "Istanbul, one booking at a time",
+    subtitle:
+      "Thirty trades across the city, from a dripping tap to a whole move.",
+    points: [
+      "Booking takes a minute. Only the visit fee is charged up front.",
+      "Working here? Three checks and you can take your first job.",
+      "No subscription, no listing fee — the platform takes its cut from the job.",
+    ],
+  },
+} as const;
 
 export function AuthScreen() {
   const { signIn, signUp, signInWithSocial } = useAuth();
@@ -74,6 +98,7 @@ export function AuthScreen() {
   const [isCreatingSocial, setIsCreatingSocial] = useState(false);
 
   const isRegisterMode = mode === "register";
+  const hero = isRegisterMode ? HERO.register : HERO.login;
   const isWebDesktop = useIsWebDesktop();
   // This screen has no header, so keep the form clear of the status bar,
   // notch and home indicator. Insets are zero on web.
@@ -270,9 +295,7 @@ export function AuthScreen() {
           accessibilityIgnoresInvertColors
           accessibilityLabel="The Istanbul skyline"
           imageStyle={styles.heroPhoto}
-          source={{
-            uri: resolveMediaUrl("/sample-media/brand/istanbul.jpg") ?? undefined,
-          }}
+          source={{ uri: resolveMediaUrl(hero.image) ?? undefined }}
           style={styles.hero}
         >
           {/* The photograph averages 80/255, so a scrim is what makes the
@@ -285,12 +308,10 @@ export function AuthScreen() {
               Workshop <Text style={styles.heroBrandSuffix}>AI</Text>
             </Text>
           </View>
-          <Text style={styles.heroTitle}>Find local service providers</Text>
-          <Text style={styles.heroSubtitle}>
-            Search listings, request quotes, book appointments, and leave reviews.
-          </Text>
+          <Text style={styles.heroTitle}>{hero.title}</Text>
+          <Text style={styles.heroSubtitle}>{hero.subtitle}</Text>
           <View style={styles.heroPoints}>
-            {HERO_POINTS.map((point) => (
+            {hero.points.map((point) => (
               <View key={point} style={styles.heroPoint}>
                 <View style={styles.heroPointDot} />
                 <Text style={styles.heroPointText}>{point}</Text>
