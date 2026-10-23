@@ -27,7 +27,7 @@ PHOTOS_PER_CATEGORY = {
     "cleaning": 4,
     "childcare": 6,
     "elderly_care": 5,
-    "electrician": 3,
+    "electrician": 6,
     "plumbing": 6,
     "painter": 5,
     "locksmith": 5,

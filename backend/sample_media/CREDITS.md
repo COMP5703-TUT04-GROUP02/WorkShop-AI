@@ -17,6 +17,7 @@ number to match, so six photographs is the point at which none repeats:
 | Trade | Photographs | Portfolios | Repeats |
 | --- | --- | --- | --- |
 | childcare | 6 | 6 | none |
+| electrician | 6 | 6 | none |
 | moving | 6 | 6 | none |
 | other | 6 | 6 | none |
 | plumbing | 6 | 6 | none |
@@ -25,15 +26,17 @@ number to match, so six photographs is the point at which none repeats:
 | locksmith | 5 | 6 | one photograph twice |
 | painter | 5 | 6 | one photograph twice |
 | technician | 4 | 6 | two photographs twice |
-| electrician | 3 | 6 | every photograph twice |
 
-Electrician is the one still short, and the reason is worth keeping: of the
-seven frames the source kits offered, three show workers in another company's
-branded hi-vis and one is too dark to read. Those cannot be used — a demo
-provider card must not appear to be a real business. The same rule removed a
-uniform reading ТЕХНОБЫТСЕРВИС from technician, three black and white frames
-(two in cleaning, one in locksmith), and the second frame of a shoot already
-in use from painter, moving and technician.
+Twelve frames across the three source kits were not usable, and the reasons
+are worth keeping. Four show workers in another company's branded hi-vis —
+ELITE POWER GROUP on three electricians, ТЕХНОБЫТСЕРВИС on a technician — and
+a demo provider card must not appear to be a real business. Three are black
+and white. The rest are the second frame of a shoot already in use (the
+Pexels ids give this away: 27928761 beside 27928762 is the same man at the
+same panel), too dark to read at card size, or a subject that does not read
+as the trade.
+
+Electrician needed a third kit to reach six for exactly that reason.
 
 Check that last one by measure, not by eye: a thumbnail of a low-chroma scene
 looks like a black and white photograph, and a black and white photograph in a
@@ -41,7 +44,7 @@ grid of colour ones looks like a bug. Mean HSV saturation under about 10 is
 greyscale; a grey primer wall or a metal condenser sits near 17 and is fine.
 
 4:3 JPEG at quality 82, cropped from the centre at the source's own
-resolution — no upscaling, so between 1047 and 1200 pixels wide. That is twice
+resolution — no upscaling, so between 1047 and 1400 pixels wide. That is twice
 what a card renders.
 
 | Trade | Pexels ID | Subject | Page |
@@ -64,6 +67,9 @@ what a card renders.
 | electrician | 27928762 | Electrical panel work | https://www.pexels.com/photo/27928762/ |
 | electrician | 38760190 | Power lines repair | https://www.pexels.com/photo/38760190/ |
 | electrician | 21357685 | Power lines repairs | https://www.pexels.com/photo/21357685/ |
+| electrician | 5691590 | Outlet wiring with pliers | https://www.pexels.com/photo/5691590/ |
+| electrician | 4981803 | Electrical switch installation | https://www.pexels.com/photo/4981803/ |
+| electrician | 257736 | Opened switchboard | https://www.pexels.com/photo/257736/ |
 | locksmith | 17124739 | Automotive lock work | https://www.pexels.com/photo/17124739/ |
 | locksmith | 35287856 | Key cutting with locksmith tools | https://www.pexels.com/photo/35287856/ |
 | locksmith | 35578808 | Locksmith crafting a key in shop | https://www.pexels.com/photo/35578808/ |
