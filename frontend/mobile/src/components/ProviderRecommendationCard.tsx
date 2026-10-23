@@ -85,7 +85,9 @@ export function ProviderRecommendationCard<T extends ProviderCardItem>({
             {provider.business_name}
           </Text>
           <Text style={styles.category} numberOfLines={1}>
-            {isSearchResult ? category : provider.tags.join(" · ")}
+            {isSearchResult
+              ? category
+              : provider.tags.map(getProviderTagLabel).join(" · ")}
           </Text>
           {isSearchResult && distance ? (
             <Text style={styles.distance}>{distance}</Text>

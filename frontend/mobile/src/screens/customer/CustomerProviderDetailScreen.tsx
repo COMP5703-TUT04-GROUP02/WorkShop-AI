@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { getProviderTagLabel } from "../../constants/providerTags";
 import { formatDate } from "../../utils/datetime";
 import { Heart, MessageCircle, Send } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -350,7 +351,7 @@ export function CustomerProviderDetailScreen({
                     <View style={styles.tagWrap}>
                       {provider.tags.map((tag) => (
                         <View key={tag} style={styles.tagPill}>
-                          <Text style={styles.tagText}>{tag}</Text>
+                          <Text style={styles.tagText}>{getProviderTagLabel(tag)}</Text>
                         </View>
                       ))}
                     </View>

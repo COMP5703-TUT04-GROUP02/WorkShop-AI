@@ -39,6 +39,10 @@ import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownC
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
+import {
+  getProviderTagLabel,
+  getVerificationStatusLabel,
+} from "../../constants/providerTags";
 import { colors, radius, spacing } from "../../theme/theme";
 import { adminTypography as type } from "../../theme/adminTypography";
 import type { PaymentHistoryEntry, RefundRequestSummary } from "../../types/booking";
@@ -755,7 +759,8 @@ function ProfileReviewCard({
         {profile.bio || "No bio"}
       </Text>
       <Text style={styles.cardMeta}>
-        Provider #{profile.id} · {profile.service_province} · {profile.tags.join(", ")}
+        Provider #{profile.id} · {profile.service_province} ·{" "}
+        {profile.tags.map(getProviderTagLabel).join(", ")}
       </Text>
     </Pressable>
   );
@@ -843,7 +848,10 @@ function ProfileReviewModal({
               <Text style={styles.detailTitle}>Provider profile</Text>
               <ProfileDetailRow label="Business name" value={profile.business_name} />
               <ProfileDetailRow label="Service province" value={profile.service_province} />
-              <ProfileDetailRow label="Service tags" value={profile.tags.join(", ")} />
+              <ProfileDetailRow
+                label="Service tags"
+                value={profile.tags.map(getProviderTagLabel).join(", ")}
+              />
               <ProfileDetailRow label="Hourly rate" value={String(profile.hourly_rate)} />
               <ProfileDetailRow label="Phone number" value={profile.phone_number} />
               <ProfileDetailRow label="Address" value={profile.address} />
@@ -872,7 +880,10 @@ function ProfileReviewModal({
                   value={`${certificate.original_file_name} · ${certificate.file_url}`}
                 />
               ))}
-              <ProfileDetailRow label="Current status" value={profile.verification_status} />
+              <ProfileDetailRow
+                label="Current status"
+                value={getVerificationStatusLabel(profile.verification_status)}
+              />
             </View>
 
             <TextField
@@ -1122,7 +1133,7 @@ function PortfolioReviewModal({
                 Uploaded: {formatDateTime(portfolio.created_at)}
               </Text>
               <Text style={styles.detailMeta}>
-                Status: {portfolio.verification_status}
+                Status: {getVerificationStatusLabel(portfolio.verification_status)}
               </Text>
             </View>
 
