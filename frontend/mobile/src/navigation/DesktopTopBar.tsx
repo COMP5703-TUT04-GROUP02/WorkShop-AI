@@ -44,6 +44,8 @@ export function DesktopTopBar() {
           ))}
         </View>
 
+        <View style={styles.rightRule} />
+
         <View style={styles.right}>
           {user?.role === "customer" ? (
             <CurrentJobPill
@@ -67,7 +69,7 @@ export function DesktopTopBar() {
               <PersonAvatar
                 avatarUrl={user?.avatar_url}
                 name={user?.name ?? user?.email}
-                size={30}
+                size={32}
               />
               <View style={styles.accountCopy}>
                 <Text numberOfLines={1} style={styles.accountName}>
@@ -222,6 +224,12 @@ const styles = StyleSheet.create({
     height: 3,
     backgroundColor: colors.primary,
   },
+  rightRule: {
+    width: 1,
+    alignSelf: "center",
+    height: 28,
+    backgroundColor: colors.border,
+  },
   right: {
     flexDirection: "row",
     alignItems: "center",
@@ -245,15 +253,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   account: {
-    maxWidth: 220,
+    maxWidth: 230,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radius.pill,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.surface,
+    paddingVertical: 5,
+    paddingLeft: 5,
+    paddingRight: spacing.md,
   },
   accountActive: {
+    borderColor: colors.primaryTintBorder,
     backgroundColor: colors.primaryTint,
   },
   accountCopy: {

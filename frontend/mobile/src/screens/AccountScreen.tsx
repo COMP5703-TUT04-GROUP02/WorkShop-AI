@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   menuColumn: {
-    gap: spacing.xl,
+    gap: spacing.lg,
   },
   menuGridColumn: {
     flex: 1,
