@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
   avatarText: {
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xs,
   },

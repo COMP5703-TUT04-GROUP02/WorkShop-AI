@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: "82%",
     gap: spacing.sm,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },

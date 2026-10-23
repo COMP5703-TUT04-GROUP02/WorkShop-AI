@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: colors.background, borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md, gap: spacing.md, maxHeight: "88%", padding: spacing.lg },
   modalTitle: { color: colors.text, fontSize: 21, fontWeight: "800", marginBottom: spacing.md },
   content: { gap: spacing.md, paddingBottom: spacing.md },
-  detailBox: { backgroundColor: colors.surface, borderRadius: 12, gap: spacing.sm, padding: spacing.md },
+  detailBox: { backgroundColor: colors.surface, borderRadius: radius.lg, gap: spacing.sm, padding: spacing.md },
   row: { gap: spacing.xs },
   label: { color: colors.mutedText, fontSize: 13, fontWeight: "700" },
   value: { color: colors.text, fontSize: 15, lineHeight: 21 },

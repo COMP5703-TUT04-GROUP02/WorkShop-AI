@@ -1,5 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,6 +33,7 @@ import { BookingCoreDetails } from "../../components/BookingCoreDetails";
 import { BookingContextInformation } from "../../components/BookingContextInformation";
 import { ActionReasonModal } from "../../components/ActionReasonModal";
 import { SecondaryButton } from "../../components/SecondaryButton";
+import type { RootStackParamList } from "../../navigation/types";
 import { TextField } from "../../components/TextField";
 import { colors, radius, spacing } from "../../theme/theme";
 import type {
@@ -62,8 +64,13 @@ const HIDDEN_ORDER_STATUSES = [
 type ProviderReasonAction = "reject_booking" | "reject_refund";
 
 export function ProviderBookingsScreen() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  // Finished jobs live on the history screen; counting them here keeps an
+  // empty list from reading as "you have never had a booking".
+  const [finishedCount, setFinishedCount] = useState(0);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
     Record<number, PaymentHistoryEntry>
   >({});
@@ -94,7 +101,11 @@ export function ProviderBookingsScreen() {
         getProviderBookings(undefined, 1, 100),
         getProviderPayments(1, 100),
       ]);
-      setBookings(filterActiveBookings(bookingResult?.items ?? []));
+      {
+        const items = bookingResult?.items ?? [];
+        setBookings(filterActiveBookings(items));
+        setFinishedCount(items.length - filterActiveBookings(items).length);
+      }
       setPaymentsByBookingId(indexLatestPayments(paymentResult?.items ?? []));
     } catch (error) {
       setMessage(getErrorMessage(error));
@@ -112,7 +123,11 @@ export function ProviderBookingsScreen() {
           getProviderPayments(1, 100),
         ]);
         if (isActive) {
-          setBookings(filterActiveBookings(bookingResult?.items ?? []));
+          {
+            const items = bookingResult?.items ?? [];
+            setBookings(filterActiveBookings(items));
+            setFinishedCount(items.length - filterActiveBookings(items).length);
+          }
           setPaymentsByBookingId(indexLatestPayments(paymentResult?.items ?? []));
         }
       } catch (error) {
@@ -471,8 +486,22 @@ export function ProviderBookingsScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
-          <Text style={styles.emptyText}>Active bookings appear here.</Text>
+          <Text style={styles.emptyTitle}>
+            {finishedCount > 0 ? "Nothing in progress" : "No bookings yet"}
+          </Text>
+          <Text style={styles.emptyText}>
+            {finishedCount > 0
+              ? `A job stays here from the moment a customer books until it is finished. ${finishedCount === 1 ? "Your one finished job is" : `All ${finishedCount} of your finished jobs are`} in your history.`
+              : "A job stays here from the moment a customer books until it is finished."}
+          </Text>
+          {finishedCount > 0 ? (
+            <View style={styles.emptyActions}>
+              <SecondaryButton
+                label="View booking history"
+                onPress={() => navigation.navigate("BookingHistory")}
+              />
+            </View>
+          ) : null}
         </View>
       ) : (
         <View style={styles.list}>
@@ -710,6 +739,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     padding: spacing.lg,
+  },
+  emptyActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   emptyTitle: {
     color: colors.text,

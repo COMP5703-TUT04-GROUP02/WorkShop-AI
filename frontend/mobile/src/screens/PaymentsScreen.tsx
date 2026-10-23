@@ -122,8 +122,8 @@ export function PaymentsScreen() {
           <Text style={styles.emptyTitle}>No payments yet</Text>
           <Text style={styles.emptyBody}>
             {isProvider
-              ? "Payments appear here once a customer pays for a booking."
-              : "Once you pay for a booking it shows up here."}
+              ? "Every booking a customer pays for lands here, with the platform and processing fees broken out, so you can check a payout against it."
+              : "Every visit fee and service fee you pay lands here, with the booking it belongs to, so you have a record without digging through email."}
           </Text>
         </View>
       ) : null}

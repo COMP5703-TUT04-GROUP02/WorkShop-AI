@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
   },
   favouriteActionButton: {

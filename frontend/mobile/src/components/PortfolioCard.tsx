@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: "rgba(0, 0, 0, 0.58)",
   },
   statusBadge: {

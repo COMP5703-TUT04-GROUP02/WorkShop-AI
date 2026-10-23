@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-import { colors, spacing } from "../theme/theme";
+import { colors, radius, spacing } from "../theme/theme";
 import type { ProviderPortfolio, ProviderPortfolioMedia } from "../types/provider";
 import { resolveMediaUrl } from "../utils/media";
 
@@ -177,7 +177,7 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
                   style: {
                     width: "100%",
                     maxHeight: "82vh",
-                    borderRadius: 12,
+                    borderRadius: radius.lg,
                     backgroundColor: "#000000",
                   },
                 })
@@ -217,10 +217,10 @@ function getPortfolioMediaItems(
 const styles = StyleSheet.create({
   carouselFrame: {
     overflow: "hidden",
-    borderRadius: 18,
+    borderRadius: radius.lg,
   },
   scroller: {
-    borderRadius: 18,
+    borderRadius: radius.lg,
   },
   media: {
     width: "100%",
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1.2,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   emptyText: {

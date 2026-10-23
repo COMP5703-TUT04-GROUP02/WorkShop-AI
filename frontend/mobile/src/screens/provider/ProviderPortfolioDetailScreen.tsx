@@ -7,7 +7,7 @@ import { getProviderPortfolioItem } from "../../api/provider";
 import { PortfolioMediaCarousel } from "../../components/PortfolioMediaCarousel";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, spacing } from "../../theme/theme";
+import { colors, radius, spacing } from "../../theme/theme";
 import type { ProviderPortfolio } from "../../types/provider";
 
 type DetailRoute = RouteProp<RootStackParamList, "ProviderPortfolioDetail">;
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.lg,
   },

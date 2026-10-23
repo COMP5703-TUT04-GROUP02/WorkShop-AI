@@ -9,7 +9,7 @@ import {
   isProviderUnavailableMessage,
   syncEndTimeAfterStartChange,
 } from "../features/bookings/request-time";
-import { colors, spacing } from "../theme/theme";
+import { colors, radius, spacing } from "../theme/theme";
 import type { BookingPayload, BookingUploadFile } from "../types/booking";
 import type { SelectedLocation } from "../types/location";
 import type { ProviderProfile } from "../types/provider";
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     borderWidth: 1,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
