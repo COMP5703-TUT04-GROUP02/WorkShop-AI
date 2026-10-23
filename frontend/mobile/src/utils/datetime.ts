@@ -1,3 +1,28 @@
+/**
+ * Dates are written the unambiguous way: 5 Jul 2026, never 7/5/2026, which
+ * reads as two different days either side of the Atlantic. The locale is
+ * pinned rather than taken from the browser so every visitor sees the same
+ * thing — the product is English, whoever is looking at it.
+ */
+const DATE_LOCALE = "en-GB";
+
+export function formatDate(value: string | Date | null | undefined) {
+  if (!value) {
+    return "—";
+  }
+
+  const date = value instanceof Date ? value : parseDateTime(value);
+  if (!date || Number.isNaN(date.getTime())) {
+    return typeof value === "string" ? value.slice(0, 10) : "—";
+  }
+
+  return date.toLocaleDateString(DATE_LOCALE, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "—";
@@ -8,7 +33,7 @@ export function formatDateTime(value: string | null | undefined) {
     return value;
   }
 
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(DATE_LOCALE, {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -24,7 +49,7 @@ export function formatShortDateTime(value: string | null | undefined) {
     return value.replace("T", " ").slice(0, 16);
   }
 
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(DATE_LOCALE, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

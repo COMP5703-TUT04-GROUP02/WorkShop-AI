@@ -1,4 +1,5 @@
 import { RouteProp, useRoute } from "@react-navigation/native";
+import { formatDate } from "../../utils/datetime";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -66,15 +67,6 @@ export function CustomerProviderPortfolioDetailScreen() {
   );
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleDateString();
-}
 
 const styles = StyleSheet.create({
   content: {

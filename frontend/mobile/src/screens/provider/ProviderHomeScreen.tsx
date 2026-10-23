@@ -1,4 +1,5 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { formatDate } from "../../utils/datetime";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
 import { Check, ChevronRight, FileText, MapPin, Trash2 } from "lucide-react-native";
@@ -379,17 +380,11 @@ function ReviewRow({ review }: { review: Review }) {
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
         <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
-        <Text style={styles.reviewDate}>{formatReviewDate(review.created_at)}</Text>
+        <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
       </View>
       <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
     </View>
   );
-}
-
-function formatReviewDate(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
 function ProgressCard({

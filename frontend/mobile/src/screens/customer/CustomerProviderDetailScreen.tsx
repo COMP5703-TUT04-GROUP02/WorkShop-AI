@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { formatDate } from "../../utils/datetime";
 import { Heart, MessageCircle, Send } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -26,11 +27,12 @@ import {
   createDefaultBookingRequestForm,
   type BookingRequestFormState,
 } from "../../components/BookingRequestModal";
+import { StarRating } from "../../components/StarRating";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { useRealtime } from "../../context/RealtimeContext";
 import { setProviderFavouriteState } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, spacing } from "../../theme/theme";
+import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type {
   CustomerProviderDetail,
@@ -443,14 +445,31 @@ function formatServiceAreas(areas: ProviderServiceArea[] | undefined) {
 }
 
 function ReviewRow({ review }: { review: Review }) {
+  const name = review.customer?.name?.trim() || "Verified customer";
+
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
-        <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
-        <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
+        <View style={styles.reviewAvatar}>
+          <Text style={styles.reviewAvatarLetter}>
+            {name.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.reviewWho}>
+          <Text numberOfLines={1} style={styles.reviewName}>
+            {name}
+          </Text>
+          <View style={styles.reviewMeta}>
+            <StarRating rating={review.rating} size={13} />
+            <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
+          </View>
+        </View>
       </View>
       <Text style={styles.reviewComment}>
         {review.comment || "No written review"}
+      </Text>
+      <Text style={styles.reviewVerified}>
+        From a completed, paid booking
       </Text>
     </View>
   );
@@ -484,18 +503,6 @@ function TradingStatusBadge({
   );
 }
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleDateString();
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -650,24 +657,50 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.md,
   },
   reviewTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  ratingText: {
-    color: colors.text,
-    fontSize: 15,
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryTint,
+  },
+  reviewAvatarLetter: {
+    color: colors.primaryText,
+    fontSize: 14,
     fontWeight: "800",
+  },
+  reviewWho: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  reviewName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  reviewMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   reviewDate: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 12.5,
+  },
+  reviewVerified: {
+    color: colors.mutedText,
+    fontSize: 12,
   },
   reviewComment: {
     color: colors.text,
