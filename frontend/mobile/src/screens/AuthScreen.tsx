@@ -57,9 +57,9 @@ const HERO = {
   },
   register: {
     image: "/sample-media/brand/istanbul-signup.jpg",
-    title: "Istanbul, one booking at a time",
+    title: "Every trade, every province",
     subtitle:
-      "Thirty trades across the city, from a dripping tap to a whole move.",
+      "Ten trades across all 81 provinces of Türkiye, from a dripping tap to a whole move.",
     points: [
       "Booking takes a minute. Only the visit fee is charged up front.",
       "Working here? Three checks and you can take your first job.",
@@ -318,7 +318,7 @@ export function AuthScreen() {
               </View>
             ))}
           </View>
-          <Text style={styles.heroCaption}>Serving Istanbul</Text>
+          <Text style={styles.heroCaption}>Across Türkiye</Text>
         </ImageBackground>
       ) : null}
 

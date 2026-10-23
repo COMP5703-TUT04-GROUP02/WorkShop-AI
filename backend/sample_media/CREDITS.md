@@ -46,6 +46,10 @@ Canpolat.
 Both 1200 x 1600 JPEG from Pexels, cropped 3:4 because the panel is roughly
 1:2 and a landscape crop loses its sides to `cover`.
 
+Both photographs are of Istanbul, but the platform covers all 81 provinces of
+Türkiye — the copy beside them says so, and should not be narrowed to one city
+to match the pictures.
+
 ## Provider portfolios in the product
 
 Separate matter. Real providers upload their own photographs, and the admin
