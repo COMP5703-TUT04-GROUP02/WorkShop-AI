@@ -88,6 +88,9 @@ export function CustomerBookingsScreen() {
   const { confirmationModal, requestConfirmation } = useConfirmation();
   const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  // Finished bookings live on the history screen. Counting them here is what
+  // turns an empty list from a dead end into a signpost.
+  const [finishedCount, setFinishedCount] = useState(0);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
     Record<number, PaymentSummary>
   >({});
@@ -120,7 +123,9 @@ export function CustomerBookingsScreen() {
           delete paymentIdempotencyKeysRef.current[payment.booking_id];
         }
       });
-      setBookings(filterActiveBookings(result?.items ?? []));
+      const items = result?.items ?? [];
+      setBookings(filterActiveBookings(items));
+      setFinishedCount(items.length - filterActiveBookings(items).length);
       setPaymentsByBookingId(indexLatestPayments(payments));
     } catch (error) {
       setMessage(getErrorMessage(error));
@@ -144,7 +149,9 @@ export function CustomerBookingsScreen() {
               delete paymentIdempotencyKeysRef.current[payment.booking_id];
             }
           });
-          setBookings(filterActiveBookings(result?.items ?? []));
+          const items = result?.items ?? [];
+          setBookings(filterActiveBookings(items));
+          setFinishedCount(items.length - filterActiveBookings(items).length);
           setPaymentsByBookingId(indexLatestPayments(payments));
         }
       } catch (error) {
@@ -564,8 +571,26 @@ export function CustomerBookingsScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
-          <Text style={styles.emptyText}>Active bookings appear here.</Text>
+          <Text style={styles.emptyTitle}>
+            {finishedCount > 0 ? "Nothing in progress" : "No bookings yet"}
+          </Text>
+          <Text style={styles.emptyText}>
+            {finishedCount > 0
+              ? `A booking shows up here from the moment you make it until the job is done. ${finishedCount === 1 ? "Your one finished booking is" : `All ${finishedCount} of your finished bookings are`} in your history.`
+              : "A booking shows up here from the moment you make it until the job is done."}
+          </Text>
+          <View style={styles.emptyActions}>
+            {finishedCount > 0 ? (
+              <SecondaryButton
+                label="View booking history"
+                onPress={() => navigation.navigate("BookingHistory")}
+              />
+            ) : null}
+            <SecondaryButton
+              label="Find a service"
+              onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
+            />
+          </View>
         </View>
       ) : (
         <View style={styles.list}>
@@ -925,6 +950,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 18,
     fontWeight: "700",
+  },
+  emptyActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   emptyText: {
     color: colors.mutedText,

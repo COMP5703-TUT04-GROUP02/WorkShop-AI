@@ -293,8 +293,10 @@ export function CustomerProviderDetailScreen({
                       </Text>
                     </View>
                     <View style={styles.statusRow}>
-                      <OpenStatusBadge isOpen={provider.is_open} />
-                      <OnlineStatusBadge isOnline={provider.is_online} />
+                      <TradingStatusBadge
+                        isOnline={provider.is_online}
+                        isOpen={provider.is_open}
+                      />
                     </View>
                     {favouriteMessage ? (
                       <Text style={styles.favouriteErrorText}>
@@ -454,21 +456,18 @@ function ReviewRow({ review }: { review: Review }) {
   );
 }
 
-function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
-  return (
-    <View style={styles.onlineBadge}>
-      <View
-        style={[
-          styles.onlineDot,
-          isOnline ? styles.onlineDotActive : styles.onlineDotInactive,
-        ]}
-      />
-      <Text style={styles.onlineText}>{isOnline ? "Online" : "Offline"}</Text>
-    </View>
-  );
-}
-
-function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
+/**
+ * Whether the business is open, and only then whether someone is actually at
+ * the keyboard. Presence on its own tells a customer nothing useful, and shown
+ * as a second identical dot it reads as a contradiction.
+ */
+function TradingStatusBadge({
+  isOnline,
+  isOpen,
+}: {
+  isOnline: boolean;
+  isOpen: boolean;
+}) {
   return (
     <View style={styles.onlineBadge}>
       <View
@@ -478,6 +477,9 @@ function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
         ]}
       />
       <Text style={styles.onlineText}>{isOpen ? "Open" : "Closed"}</Text>
+      {isOpen && isOnline ? (
+        <Text style={styles.onlineHint}>· replying now</Text>
+      ) : null}
     </View>
   );
 }
@@ -558,15 +560,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   onlineDotActive: {
-    backgroundColor: colors.primary,
+    // Open for business is a state, not an action.
+    backgroundColor: colors.success,
   },
   onlineDotInactive: {
     backgroundColor: colors.placeholder,
   },
   onlineText: {
-    color: colors.mutedText,
+    color: colors.text,
     fontSize: 12,
     fontWeight: "800",
+  },
+  onlineHint: {
+    color: colors.mutedText,
+    fontSize: 12,
   },
   bioText: {
     color: colors.text,
