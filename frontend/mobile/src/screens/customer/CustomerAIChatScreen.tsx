@@ -65,6 +65,13 @@ type AIChatMessageItem = {
 
 const WELCOME_MESSAGE = "How can I help you today?";
 
+/** What this assistant can be asked, in its own words. Text, not controls. */
+const WELCOME_EXAMPLES = [
+  "Find me a plumber in Kadikoy who can come on Saturday",
+  "What happens to the visit fee if I cancel?",
+  "Compare the reviews for these two painters",
+];
+
 export function CustomerAIChatScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -367,6 +374,9 @@ export function CustomerAIChatScreen() {
       </Pressable>
 
       <FlatList
+        ListFooterComponent={
+          messages.length <= 1 ? <AIWelcomePanel /> : null
+        }
         contentContainerStyle={styles.messageList}
         data={invertedMessages}
         inverted
@@ -474,6 +484,28 @@ function consumeLatestBookingFormMessage(
       },
     };
   });
+}
+
+function AIWelcomePanel() {
+  return (
+    <View style={styles.welcomePanel}>
+      <View style={styles.welcomeMark}>
+        <Bot color={colors.primary} size={28} />
+      </View>
+      <Text style={styles.welcomeTitle}>Ask about anything here</Text>
+      <Text style={styles.welcomeText}>
+        It knows the providers, their reviews and how booking works, and it can
+        start a booking for you.
+      </Text>
+      <View style={styles.welcomeExamples}>
+        {WELCOME_EXAMPLES.map((example) => (
+          <Text key={example} style={styles.welcomeExample}>
+            {example}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 function AIMessageBubble({
@@ -1078,6 +1110,56 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontSize: 14,
   },
+  // The panel sits clear of the clear-history button, which floats over the
+  // top right of the list.
+  welcomePanel: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  welcomeMark: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.primaryTintBorder,
+    borderRadius: 28,
+    backgroundColor: colors.primaryTint,
+    marginBottom: spacing.xs,
+  },
+  welcomeTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  welcomeText: {
+    maxWidth: 420,
+    color: colors.mutedText,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  welcomeExamples: {
+    alignSelf: "stretch",
+    maxWidth: 480,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginHorizontal: "auto",
+  },
+  welcomeExample: {
+    color: colors.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   messageList: {
     flexGrow: 1,
     gap: spacing.md,
@@ -1374,6 +1456,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   sendButtonDisabled: {
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
   },
 });
