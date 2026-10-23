@@ -144,7 +144,7 @@ export function NotificationsScreen() {
       ) : notifications.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptyText}>Bookings, complaints, and review results appear here.</Text>
+          <Text style={styles.emptyText}>This is where a booking tells you it needs something: a fee to pay, a quote to approve, a pro on the way. Nothing is waiting on you.</Text>
         </View>
       ) : (
         <View style={styles.list}>

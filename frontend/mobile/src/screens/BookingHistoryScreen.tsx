@@ -250,7 +250,7 @@ export function BookingHistoryScreen() {
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No booking history</Text>
-          <Text style={styles.emptyText}>Completed and cancelled bookings appear here.</Text>
+          <Text style={styles.emptyText}>A booking moves here once it is finished or cancelled, with what was charged, so you have the record without digging through email.</Text>
         </View>
       ) : (
         <View style={styles.list}>

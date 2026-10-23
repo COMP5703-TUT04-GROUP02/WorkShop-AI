@@ -355,7 +355,7 @@ function ProviderHomeContent() {
               showsHorizontalScrollIndicator={false}
             />
           ) : (
-            <Text style={styles.emptyText}>No portfolios uploaded yet</Text>
+            <Text style={styles.emptyText}>Customers decide on the work. Adding a few pieces is the fastest thing you can do for your profile.</Text>
           )}
 
           <Text style={styles.sectionTitle}>Reviews</Text>

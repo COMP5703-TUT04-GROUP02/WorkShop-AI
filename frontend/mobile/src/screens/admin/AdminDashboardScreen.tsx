@@ -517,7 +517,7 @@ function MarketplaceSection({
       {view === "payouts" && submerchants.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No matching payout accounts</Text>
-          <Text style={styles.emptyText}>Provider payout account status will appear here.</Text>
+          <Text style={styles.emptyText}>No provider has submitted a payout account yet. Each one needs an IBAN in the name on the trade licence before iyzico will settle to it.</Text>
         </View>
       ) : view === "payouts" ? (
         <View style={styles.list}>

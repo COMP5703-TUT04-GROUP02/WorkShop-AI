@@ -98,7 +98,7 @@ export function ProviderPortfolioListScreen() {
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : (
         <FlatList
-          ListEmptyComponent={<Text style={styles.emptyText}>No portfolios uploaded yet</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>Past work shown on your profile. An admin checks each piece is your own photograph before it goes live.</Text>}
           ListFooterComponent={
             isLoadingMore ? (
               <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
