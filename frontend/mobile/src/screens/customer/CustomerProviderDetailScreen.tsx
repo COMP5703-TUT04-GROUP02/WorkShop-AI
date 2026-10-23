@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -28,6 +29,8 @@ import {
   type BookingRequestFormState,
 } from "../../components/BookingRequestModal";
 import { StarRating } from "../../components/StarRating";
+import { resolveMediaUrl } from "../../utils/media";
+import { formatMoney } from "../../utils/money";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import { useRealtime } from "../../context/RealtimeContext";
 import { setProviderFavouriteState } from "../../features/favourites/favourite-state";
@@ -57,6 +60,10 @@ export function CustomerProviderDetailScreen({
   const { subscribe } = useRealtime();
   const [detail, setDetail] = useState<CustomerProviderDetail | null>(null);
   const [portfolios, setPortfolios] = useState<ProviderPortfolio[]>([]);
+  // The work sells the provider, so the first piece of it opens the page.
+  const coverImageUrl = resolveMediaUrl(
+    portfolios[0]?.media_items?.[0]?.file_url ?? portfolios[0]?.image_url ?? null,
+  );
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewPaging, setReviewPaging] = useState<PaginatedData<Review> | null>(
@@ -287,6 +294,13 @@ export function CustomerProviderDetailScreen({
               </View>
             ) : provider ? (
               <>
+                {coverImageUrl ? (
+                  <Image
+                    accessibilityIgnoresInvertColors
+                    source={{ uri: coverImageUrl }}
+                    style={styles.cover}
+                  />
+                ) : null}
                 <View style={styles.profileCard}>
                   <View style={styles.profileTextBox}>
                     <View style={styles.businessTitleRow}>
@@ -312,9 +326,26 @@ export function CustomerProviderDetailScreen({
                     <Text style={styles.metaText}>
                       Service areas: {formatServiceAreas(provider.service_areas)}
                     </Text>
-                    <Text style={styles.metaText}>
-                      {formatRating(provider)} · {provider.hourly_rate} / hr
-                    </Text>
+                    <View style={styles.ratingRow}>
+                      {provider.average_rating != null && provider.review_count ? (
+                        <>
+                          <StarRating rating={provider.average_rating} size={15} />
+                          <Text style={styles.ratingValue}>
+                            {provider.average_rating.toFixed(1)}
+                          </Text>
+                          <Text style={styles.metaText}>
+                            {provider.review_count}{" "}
+                            {provider.review_count === 1 ? "review" : "reviews"}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.metaText}>No rating yet</Text>
+                      )}
+                      <Text style={styles.metaDot}>·</Text>
+                      <Text style={styles.rateText}>
+                        from {formatMoney(provider.hourly_rate)} / hr
+                      </Text>
+                    </View>
                     <View style={styles.tagWrap}>
                       {provider.tags.map((tag) => (
                         <View key={tag} style={styles.tagPill}>
@@ -521,12 +552,42 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xl,
   },
+  cover: {
+    width: "100%",
+    height: 220,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  ratingValue: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
+  metaDot: {
+    color: colors.placeholder,
+    fontSize: 13,
+  },
+  rateText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   profileCard: {
     flexDirection: "row",
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.md,
   },
