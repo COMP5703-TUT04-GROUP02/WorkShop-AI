@@ -1,8 +1,10 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronDown, MapPin, Search } from "lucide-react-native";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ScrollView,
   ActivityIndicator,
   Pressable,
   StyleSheet,
@@ -209,13 +211,13 @@ export function CustomerHomeScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Home</Text>
         <Text style={styles.subtitle}>
-          Search listings, read reviews, and book services.
+          Search listings, read reviews, book.
         </Text>
       </View>
 
       <View style={styles.tagSection}>
         <Text style={styles.sectionTitle}>Popular services</Text>
-        <View style={styles.tagGrid}>
+        <TagRail isWebDesktop={isWebDesktop}>
           {PROVIDER_TAGS.map((tag) => {
             const isActive = selectedTag === tag;
 
@@ -241,7 +243,7 @@ export function CustomerHomeScreen() {
               </Pressable>
             );
           })}
-        </View>
+        </TagRail>
       </View>
 
       <View
@@ -305,6 +307,33 @@ export function CustomerHomeScreen() {
         visible={isProvinceModalVisible}
       />
     </ScreenContainer>
+  );
+}
+
+/**
+ * Ten trades is more height than a phone can spare above the listings, so there
+ * they are one swipeable row. A wide screen has the room and keeps the grid.
+ */
+function TagRail({
+  children,
+  isWebDesktop,
+}: {
+  children: ReactNode;
+  isWebDesktop: boolean;
+}) {
+  if (isWebDesktop) {
+    return <View style={styles.tagGrid}>{children}</View>;
+  }
+
+  return (
+    <ScrollView
+      contentContainerStyle={styles.tagRailContent}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.tagRail}
+    >
+      {children}
+    </ScrollView>
   );
 }
 
@@ -409,8 +438,15 @@ const styles = StyleSheet.create({
     flexBasis: "18%",
   },
   tagChipNarrow: {
-    flexGrow: 1,
-    flexBasis: "46%",
+    paddingHorizontal: spacing.lg,
+  },
+  tagRail: {
+    marginHorizontal: -spacing.lg,
+  },
+  tagRailContent: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   tagChip: {
     minHeight: 44,
