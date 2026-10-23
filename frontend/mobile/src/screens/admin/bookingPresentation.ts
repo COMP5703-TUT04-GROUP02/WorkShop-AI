@@ -5,7 +5,7 @@ import { parseDateTime } from "../../utils/datetime";
 
 // Retain system success/warning/neutral tones; avoid saturated indigo blocks.
 const TONES = {
-  success: { backgroundColor: colors.successTint, color: colors.primary },
+  success: { backgroundColor: colors.successTint, color: colors.success },
   warning: { backgroundColor: colors.warningTint, color: colors.warningText },
   neutral: { backgroundColor: colors.surface, color: colors.mutedText },
   refund: { backgroundColor: colors.warningTint, color: colors.warningText },

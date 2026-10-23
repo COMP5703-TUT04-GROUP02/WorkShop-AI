@@ -71,8 +71,13 @@ export const type = {
   section: 18,
   /** What a card is called. */
   cardTitle: 16,
-  /** Running text and anything a finger presses. */
-  body: 15,
+  /**
+   * Running text and anything a finger presses. 14 because `adminTypography`
+   * already settled on 14 for the one area that was given a scale on purpose,
+   * and the product should not hold two answers. 59 call sites are still at
+   * 15 and have to come down one at a time, with eyes on them.
+   */
+  body: 14,
   /** Secondary text: metadata, labels, helper lines. */
   caption: 13,
   /** Badges and counts. Never a whole sentence, and never below this. */
