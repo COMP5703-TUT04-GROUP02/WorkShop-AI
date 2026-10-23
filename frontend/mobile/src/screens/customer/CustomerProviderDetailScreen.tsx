@@ -34,6 +34,7 @@ import { StarRating } from "../../components/StarRating";
 import { resolveMediaUrl } from "../../utils/media";
 import { formatMoney } from "../../utils/money";
 import { PortfolioCard } from "../../components/PortfolioCard";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import { useRealtime } from "../../context/RealtimeContext";
 import { setProviderFavouriteState } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
@@ -60,6 +61,7 @@ export function CustomerProviderDetailScreen({
   route,
 }: CustomerProviderDetailScreenProps) {
   const { subscribe } = useRealtime();
+  const isWebDesktop = useIsWebDesktop();
   const [detail, setDetail] = useState<CustomerProviderDetail | null>(null);
   const [portfolios, setPortfolios] = useState<ProviderPortfolio[]>([]);
   // The work sells the provider, so the first piece of it opens the page.
@@ -304,13 +306,40 @@ export function CustomerProviderDetailScreen({
                     style={styles.cover}
                   />
                 ) : null}
-                <View style={styles.profileCard}>
+                <View
+                  style={[
+                    styles.profileCard,
+                    isWebDesktop ? styles.profileCardDesktop : null,
+                  ]}
+                >
                   <View style={styles.profileTextBox}>
                     <View style={styles.businessTitleRow}>
                       <Text numberOfLines={1} style={styles.businessName}>
                         {provider.business_name}
                       </Text>
                     </View>
+                    {/* What decides a booking, in the order it decides it:
+                        who they are, whether they are any good, what they
+                        charge. Trading hours, area and the rest follow. */}
+                    <View style={styles.ratingRow}>
+                      {provider.average_rating != null && provider.review_count ? (
+                        <>
+                          <StarRating rating={provider.average_rating} size={16} />
+                          <Text style={styles.ratingValue}>
+                            {provider.average_rating.toFixed(1)}
+                          </Text>
+                          <Text style={styles.metaText}>
+                            {provider.review_count}{" "}
+                            {provider.review_count === 1 ? "review" : "reviews"}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.metaText}>No rating yet</Text>
+                      )}
+                    </View>
+                    <Text style={styles.rateText}>
+                      from {formatMoney(provider.hourly_rate)} / hr
+                    </Text>
                     <View style={styles.statusRow}>
                       <TradingStatusBadge isOpen={provider.is_open} />
                       <ChatPresenceBadge isOnline={provider.is_online} />
@@ -327,26 +356,6 @@ export function CustomerProviderDetailScreen({
                     <Text style={styles.metaText}>
                       Service areas: {formatServiceAreas(provider.service_areas)}
                     </Text>
-                    <View style={styles.ratingRow}>
-                      {provider.average_rating != null && provider.review_count ? (
-                        <>
-                          <StarRating rating={provider.average_rating} size={15} />
-                          <Text style={styles.ratingValue}>
-                            {provider.average_rating.toFixed(1)}
-                          </Text>
-                          <Text style={styles.metaText}>
-                            {provider.review_count}{" "}
-                            {provider.review_count === 1 ? "review" : "reviews"}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text style={styles.metaText}>No rating yet</Text>
-                      )}
-                      <Text style={styles.metaDot}>·</Text>
-                      <Text style={styles.rateText}>
-                        from {formatMoney(provider.hourly_rate)} / hr
-                      </Text>
-                    </View>
                     <View style={styles.tagWrap}>
                       {provider.tags.map((tag) => (
                         <View key={tag} style={styles.tagPill}>
@@ -355,7 +364,11 @@ export function CustomerProviderDetailScreen({
                       ))}
                     </View>
                   </View>
-                  <View style={styles.actionColumn}>
+                  <View
+                    style={
+                      isWebDesktop ? styles.actionColumn : styles.actionRow
+                    }
+                  >
                     <Pressable
                       accessibilityLabel={
                         provider.is_favorited
@@ -370,7 +383,8 @@ export function CustomerProviderDetailScreen({
                       disabled={isUpdatingFavourite}
                       onPress={() => void handleToggleFavourite()}
                       style={({ pressed }) => [
-                        styles.iconActionButton,
+                        styles.actionButton,
+                        isWebDesktop ? null : styles.actionButtonWide,
                         styles.favouriteActionButton,
                         pressed && !isUpdatingFavourite
                           ? styles.favouriteActionButtonPressed
@@ -391,18 +405,26 @@ export function CustomerProviderDetailScreen({
                       accessibilityRole="button"
                       disabled={isOpeningChat}
                       onPress={() => void handleOpenChat()}
-                      style={styles.iconActionButton}
+                      style={[
+                        styles.actionButton,
+                        isWebDesktop ? null : styles.actionButtonWide,
+                        styles.secondaryActionButton,
+                      ]}
                     >
-                      <MessageCircle color="#FFFFFF" size={20} />
-                      <Text style={styles.iconActionText}>Chat</Text>
+                      <MessageCircle color={colors.primaryText} size={20} />
+                      <Text style={styles.secondaryActionText}>Chat</Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
                       onPress={openBookingModal}
-                      style={styles.iconActionButton}
+                      style={[
+                        styles.actionButton,
+                        isWebDesktop ? null : styles.actionButtonWide,
+                        styles.primaryActionButton,
+                      ]}
                     >
                       <Send color="#FFFFFF" size={20} />
-                      <Text style={styles.iconActionText}>Book</Text>
+                      <Text style={styles.primaryActionText}>Book</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -581,17 +603,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
   },
-  metaDot: {
-    color: colors.placeholder,
-    fontSize: 13,
-  },
   rateText: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  profileCardDesktop: {
+    flexDirection: "row",
   },
   profileCard: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -677,20 +698,42 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   actionColumn: {
-    width: 72,
+    width: 84,
     gap: spacing.sm,
   },
-  iconActionButton: {
-    minHeight: 68,
+  // Across the foot of the card on a phone, so the description keeps the full
+  // width of the card and the three actions keep their own.
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+  },
+  actionButton: {
+    minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
+  },
+  actionButtonWide: {
+    flex: 1,
+  },
+  // Book is what the page is for, Chat is the question before it, Save is a
+  // note to self: solid, tinted, and quiet, in that order.
+  primaryActionButton: {
     backgroundColor: colors.primary,
+  },
+  secondaryActionButton: {
+    borderWidth: 1,
+    borderColor: colors.primaryTintBorder,
+    backgroundColor: colors.primaryTint,
   },
   favouriteActionButton: {
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
     backgroundColor: colors.background,
   },
   favouriteActionButtonPressed: {
@@ -699,15 +742,20 @@ const styles = StyleSheet.create({
   actionButtonDisabled: {
     opacity: 0.55,
   },
-  iconActionText: {
+  primaryActionText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
   },
+  secondaryActionText: {
+    color: colors.primaryText,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   favouriteActionText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
+    color: colors.primaryText,
+    fontSize: 13,
+    fontWeight: "700",
   },
   favouriteErrorText: {
     color: colors.danger,
