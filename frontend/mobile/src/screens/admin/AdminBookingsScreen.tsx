@@ -160,13 +160,13 @@ export function AdminBookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.surface },
   content: { padding: spacing.lg, gap: spacing.md },
   title: { ...type.pageTitle, color: colors.text },
-  search: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  search: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
   field: { flexBasis: 200, flexGrow: 1, maxWidth: 320 },
-  card: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  card: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   heading: { ...type.cardTitle, color: colors.text },
   body: { ...type.body, color: colors.text },
   meta: { ...type.caption, color: colors.mutedText },

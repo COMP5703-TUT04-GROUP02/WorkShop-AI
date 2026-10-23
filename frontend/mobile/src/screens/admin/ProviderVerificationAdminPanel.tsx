@@ -191,7 +191,7 @@ function VerificationFiles({ files }: { files: VerificationUploadFile[] }) {
 function Row({ label, value }: { label: string; value: string }) { return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value || "-"}</Text></View>; }
 
 const styles = StyleSheet.create({
-  applicant: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, gap: spacing.md },
+  applicant: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, gap: spacing.md },
   application: { gap: spacing.sm },
   section: { gap: spacing.md },
   header: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: spacing.md },

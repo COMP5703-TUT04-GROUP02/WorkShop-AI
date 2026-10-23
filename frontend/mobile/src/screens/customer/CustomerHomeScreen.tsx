@@ -22,6 +22,7 @@ import { LocationCascadePickerModal } from "../../components/LocationCascadePick
 import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
 import { useRealtime } from "../../context/RealtimeContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { ProviderRecommendation } from "../../types/provider";
@@ -36,6 +37,7 @@ export function CustomerHomeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { subscribe } = useRealtime();
+  const isWebDesktop = useIsWebDesktop();
   const [keyword, setKeyword] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedProvince, setSelectedProvince] = useState("Istanbul");
@@ -198,11 +200,11 @@ export function CustomerHomeScreen() {
         </View>
       </View>
 
-      <Text style={styles.provinceStatusText} numberOfLines={2}>
-        {isSavingProvince
-          ? "Saving area..."
-          : provinceMessage || selectedAreaLabel}
-      </Text>
+      {isSavingProvince || provinceMessage ? (
+        <Text style={styles.provinceStatusText} numberOfLines={2}>
+          {isSavingProvince ? "Saving area..." : provinceMessage}
+        </Text>
+      ) : null}
 
       <View style={styles.header}>
         <Text style={styles.title}>Home</Text>
@@ -225,7 +227,11 @@ export function CustomerHomeScreen() {
                   setSelectedTag(isActive ? "" : tag);
                   setProvinceMessage("");
                 }}
-                style={[styles.tagChip, isActive ? styles.tagChipActive : null]}
+                style={[
+                  styles.tagChip,
+                  isWebDesktop ? styles.tagChipWide : styles.tagChipNarrow,
+                  isActive ? styles.tagChipActive : null,
+                ]}
               >
                 <Text
                   style={[styles.tagText, isActive ? styles.tagTextActive : null]}
@@ -374,11 +380,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   tagSection: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
   },
   sectionHeaderRow: {
@@ -398,8 +404,16 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  tagChipWide: {
+    flexGrow: 1,
+    flexBasis: "18%",
+  },
+  tagChipNarrow: {
+    paddingHorizontal: spacing.lg,
+  },
   tagChip: {
-    minHeight: 38,
+    minHeight: 46,
+    alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
@@ -413,7 +427,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
   },
   tagTextActive: {

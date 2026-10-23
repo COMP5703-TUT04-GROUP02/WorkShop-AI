@@ -1181,10 +1181,10 @@ function getRefundStatusLabel(status: string) {
 
 const styles = StyleSheet.create({
   paymentTotal: { ...type.cardTitle, color: colors.text },
-  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.sm },
+  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.sm },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.lg,
@@ -1220,7 +1220,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   hubCardTitle: {
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   emptyTitle: {
@@ -1270,7 +1270,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.md,
   },
   filterTitle: {
@@ -1406,7 +1406,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.md,
   },
   detailTitle: {

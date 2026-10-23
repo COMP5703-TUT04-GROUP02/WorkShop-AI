@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   title: { ...type.modalTitle, color: colors.text },
   close: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   content: { gap: spacing.md, paddingBottom: spacing.lg },
-  card: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  card: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   sectionTitle: { ...type.sectionTitle, color: colors.text },
   recordTitle: { ...type.cardTitle, color: colors.text },
   record: { gap: spacing.sm, paddingVertical: spacing.md, borderTopWidth: 1, borderColor: colors.border },
