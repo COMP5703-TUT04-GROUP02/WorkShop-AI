@@ -132,14 +132,14 @@ function ReviewSweepPanel({ copy, revision = 0, onChanged = () => {} }: { copy: 
     {isChecking ? <ActivityIndicator /> : null}
     {checkedAmount === null ? <Text style={styles.meta}>Click Check before selecting reviews.</Text> : <>
       <Text style={styles.countText}>{total} matched · {selected.length} selected{reviews.length < total ? ` · showing first ${reviews.length}` : ""}</Text>
-      <View style={styles.controls}><SecondaryButton label="Select all shown" disabled={busy || !reviews.length} onPress={() => setSelected(reviews.map((item) => item.id))} /><SecondaryButton label="Clear selection" disabled={busy || !selected.length} onPress={() => setSelected([])} /></View>
+      {total > 0 ? <View style={styles.controls}><SecondaryButton label="Select all shown" disabled={busy || !reviews.length} onPress={() => setSelected(reviews.map((item) => item.id))} /><SecondaryButton label="Clear selection" disabled={busy || !selected.length} onPress={() => setSelected([])} /></View> : null}
       {total === 0 ? <Text style={styles.emptyText}>{copy.emptyText}</Text> : null}
       {reviews.map((review) => <Pressable key={review.id} accessibilityRole="checkbox" accessibilityLabel={`Select review #${review.id}`} accessibilityState={{ checked: selected.includes(review.id), disabled: busy }} disabled={busy} onPress={() => setSelected((current) => current.includes(review.id) ? current.filter((id) => id !== review.id) : [...current, review.id])} style={styles.row}>
         <View style={styles.rowTop}><Text style={styles.amount}>{selected.includes(review.id) ? "☑" : "☐"} {review.booking_total_amount === null ? "No amount" : formatMoney(review.booking_total_amount)}</Text><Text style={styles.meta}>{review.rating} stars{review.created_at ? " · " + formatDateTime(review.created_at) : ""}</Text></View>
         <Text style={styles.provider}>{review.provider_business_name || `Provider #${review.provider_profile_id}`}</Text><Text style={styles.comment}>{review.comment || "No comment provided."}</Text>
       </Pressable>)}
-      <PrimaryButton label={copy.actionLabel(selected.length)} disabled={busy || selected.length === 0} isLoading={isApplying} onPress={() => void apply()} />
-      <Text style={styles.footnote}>{copy.footnote}</Text>
+      {total > 0 ? <PrimaryButton label={copy.actionLabel(selected.length)} disabled={busy || selected.length === 0} isLoading={isApplying} onPress={() => void apply()} /> : null}
+      {total > 0 ? <Text style={styles.footnote}>{copy.footnote}</Text> : null}
     </>}
   </View>;
 }
