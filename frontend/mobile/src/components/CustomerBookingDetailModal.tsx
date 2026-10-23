@@ -233,7 +233,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   modalOverlay: { backgroundColor: "rgba(0,0,0,0.28)", flex: 1, justifyContent: "flex-end" },
   modalCard: { backgroundColor: colors.background, borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md, gap: spacing.md, maxHeight: "88%", padding: spacing.lg },
-  modalTitle: { color: colors.text, fontSize: 21, fontWeight: "800", marginBottom: spacing.md },
+  modalTitle: { color: colors.text, fontSize: 22, fontWeight: "800", marginBottom: spacing.md },
   content: { gap: spacing.md, paddingBottom: spacing.md },
   detailBox: { backgroundColor: colors.surface, borderRadius: radius.lg, gap: spacing.sm, padding: spacing.md },
   row: { gap: spacing.xs },

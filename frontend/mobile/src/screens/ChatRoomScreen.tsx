@@ -2245,7 +2245,7 @@ const styles = StyleSheet.create({
   chatHeaderName: {
     maxWidth: 132,
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   chatHeaderStatus: {
@@ -2331,7 +2331,7 @@ const styles = StyleSheet.create({
   messageTime: {
     alignSelf: "flex-end",
     color: colors.mutedText,
-    fontSize: 11,
+    fontSize: 12,
   },
   messageTimeMine: {
     color: "rgba(255, 255, 255, 0.75)",
@@ -2445,7 +2445,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: colors.primary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
   },
   errorText: {

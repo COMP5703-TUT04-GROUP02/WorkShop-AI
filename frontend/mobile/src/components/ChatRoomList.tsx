@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: colors.text,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "700",
   },
   roomMain: {
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   roomTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   timeText: {

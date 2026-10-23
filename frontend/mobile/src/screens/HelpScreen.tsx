@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   cardBody: {

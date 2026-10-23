@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   emptyText: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   notificationTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   unreadDot: {

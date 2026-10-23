@@ -47,9 +47,36 @@ export const colors = {
 export const spacing = {
   xs: 4,
   sm: 8,
+  /** Between a thing and the thing it belongs to: a photo and its name. */
+  snug: 12,
   md: 16,
   lg: 24,
   xl: 32,
+  /** Between one section of a page and the next. */
+  xxl: 48,
+};
+
+/**
+ * The type scale. Sizes were chosen per screen before this existed, which left
+ * twenty-five of them in use, four at half a pixel and several a pixel apart
+ * for no reason anyone could state. Seven steps carry the whole product: if a
+ * new size seems necessary, the hierarchy is wrong somewhere else.
+ */
+export const type = {
+  /** One per screen, at the top. */
+  display: 28,
+  /** A heading inside a screen, and modal titles. */
+  title: 22,
+  /** A section inside a card, and card titles. */
+  section: 18,
+  /** What a card is called. */
+  cardTitle: 16,
+  /** Running text and anything a finger presses. */
+  body: 15,
+  /** Secondary text: metadata, labels, helper lines. */
+  caption: 13,
+  /** Badges and counts. Never a whole sentence, and never below this. */
+  micro: 12,
 };
 
 export const radius = {

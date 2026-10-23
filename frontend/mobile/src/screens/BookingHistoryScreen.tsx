@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "800",
   },
   targetName: {
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   modalOverlay: {

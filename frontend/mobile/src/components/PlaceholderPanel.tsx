@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   description: {

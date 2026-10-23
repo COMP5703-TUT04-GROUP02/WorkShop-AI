@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     color: colors.mutedText,
-    fontSize: 12.5,
+    fontSize: 13,
   },
   reviewVerified: {
     color: colors.mutedText,

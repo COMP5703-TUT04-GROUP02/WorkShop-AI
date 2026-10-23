@@ -171,12 +171,12 @@ const styles = StyleSheet.create({
   },
   identityName: {
     color: colors.text,
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: "700",
   },
   identityRole: {
     color: colors.mutedText,
-    fontSize: 11.5,
+    fontSize: 12,
   },
   nav: {
     gap: spacing.xs,
@@ -216,19 +216,19 @@ const styles = StyleSheet.create({
   },
   currentJobEyebrow: {
     color: colors.mutedText,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   currentJobTitle: {
     color: colors.text,
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: "700",
   },
   currentJobStatus: {
     color: colors.mutedText,
-    fontSize: 11.5,
+    fontSize: 12,
   },
   currentJobDue: {
     color: colors.warningText,

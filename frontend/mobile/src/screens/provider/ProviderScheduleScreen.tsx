@@ -1115,7 +1115,7 @@ const styles = StyleSheet.create({
   },
   dayTimeText: {
     color: colors.mutedText,
-    fontSize: 10,
+    fontSize: 12,
   },
   dayTextPast: {
     color: colors.placeholder,

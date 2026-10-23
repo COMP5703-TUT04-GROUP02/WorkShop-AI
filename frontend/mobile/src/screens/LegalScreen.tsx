@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   body: {

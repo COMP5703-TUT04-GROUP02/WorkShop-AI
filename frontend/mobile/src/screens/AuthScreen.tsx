@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   },
   phoneBrandName: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   phoneBrandSuffix: {
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     color: "rgba(255,255,255,0.86)",
-    fontSize: 17,
+    fontSize: 16,
     lineHeight: 26,
     maxWidth: 420,
   },
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   },
   heroCaption: {
     color: "rgba(255,255,255,0.72)",
-    fontSize: 12.5,
+    fontSize: 13,
     marginTop: spacing.sm,
   },
   heroPoint: {
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   heroPointText: {
     flex: 1,
     color: "rgba(255,255,255,0.92)",
-    fontSize: 14.5,
+    fontSize: 15,
     lineHeight: 22,
   },
   scrollDesktop: {

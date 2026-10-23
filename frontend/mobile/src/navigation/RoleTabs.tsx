@@ -72,7 +72,7 @@ export function RoleTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.placeholder,
         tabBarLabelStyle: {
-          fontSize: 11.5,
+          fontSize: 12,
           fontWeight: "600",
           marginTop: 2,
         },
@@ -90,7 +90,7 @@ export function RoleTabs() {
         tabBarBadgeStyle: {
           backgroundColor: colors.warning,
           color: colors.text,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: "800",
         },
         // The desktop top bar is the chrome for these roles; a second row that

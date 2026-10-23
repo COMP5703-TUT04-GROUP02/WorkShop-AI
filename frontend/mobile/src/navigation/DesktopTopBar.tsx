@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   currentJobText: {
     color: colors.mutedText,
-    fontSize: 12.5,
+    fontSize: 13,
   },
   currentJobDue: {
     color: colors.warningText,
@@ -275,12 +275,12 @@ const styles = StyleSheet.create({
   },
   accountName: {
     color: colors.text,
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: "700",
   },
   accountRole: {
     color: colors.mutedText,
-    fontSize: 11.5,
+    fontSize: 12,
   },
   accountBadge: {
     minWidth: 20,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   accountBadgeText: {
     color: "#FFFFFF",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
   },
