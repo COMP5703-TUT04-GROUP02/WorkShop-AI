@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   UserRound,
 } from "lucide-react-native";
-import { ReactNode, useState } from "react";
+import { Children, ReactNode, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -122,110 +122,151 @@ export function AccountScreen() {
             ) : null}
           </Pressable>
 
-          <Text style={styles.userName} numberOfLines={1}>
-            {user?.name ?? "Workshop AI"}
-          </Text>
-          <Text style={styles.userMeta} numberOfLines={1}>
-            {user?.email}
-          </Text>
-          {message ? <Text style={styles.messageText}>{message}</Text> : null}
+          <View style={isWebDesktop ? styles.identityText : styles.identityTextStacked}>
+            <View style={styles.nameRow}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {user?.name ?? "Workshop AI"}
+              </Text>
+              <Text style={styles.rolePill}>
+                {user?.role === "provider"
+                  ? "Provider"
+                  : user?.role === "admin"
+                    ? "Platform"
+                    : "Customer"}
+              </Text>
+            </View>
+            <Text style={styles.userMeta} numberOfLines={1}>
+              {user?.email}
+            </Text>
+            {message ? <Text style={styles.messageText}>{message}</Text> : null}
+          </View>
         </View>
 
-        <View style={styles.menuColumn}>
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon={<Pencil color={colors.text} size={24} />}
-              label="Edit profile"
-              onPress={() =>
-                navigation.navigate("AccountEdit")
-              }
-            />
-            {isProvider ? (
+        <View style={isWebDesktop ? styles.menuGrid : styles.menuColumn}>
+          <View style={isWebDesktop ? styles.menuGridColumn : styles.menuColumn}>
+            <MenuGroup label="Profile">
               <MenuItem
-                icon={<BadgeCheck color={colors.text} size={24} />}
-                label="Verification"
-                onPress={() => navigation.navigate("ProviderVerification")}
-              />
-            ) : null}
-            {isProvider ? (
-              <MenuItem
-                icon={
-                  hasProviderProfile === true ? (
-                    <SlidersHorizontal color={colors.text} size={24} />
-                  ) : (
-                    <LockKeyhole color={colors.mutedText} size={24} />
-                  )
-                }
-                label="Operating settings"
-                onPress={() => {
-                  if (hasProviderProfile === true) {
-                    navigation.navigate("ProviderOperatingSettings");
-                  } else {
-                    showProviderProfileRequiredMessage();
-                  }
-                }}
-              />
-            ) : null}
-          </View>
-
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon={<Shield color={colors.text} size={24} />}
-              label="Account and Security"
-              onPress={() =>
-                navigation.navigate("AccountSecurity")
-              }
-            />
-            <MenuItem
-              icon={<History color={colors.text} size={24} />}
-              label="Booking history"
-              onPress={() =>
-                navigation.navigate("BookingHistory")
-              }
-            />
-            {isCustomer ? (
-              <MenuItem
-                icon={<Heart color={colors.text} size={24} />}
-                label="Favourites"
+                icon={<Pencil color={colors.text} size={22} />}
+                label="Edit profile"
                 onPress={() =>
-                  navigation.navigate("CustomerFavourites")
+                  navigation.navigate("AccountEdit")
                 }
               />
-            ) : null}
-            <MenuItem
-              icon={<CreditCard color={colors.text} size={24} />}
-              label="Payments"
-              onPress={() =>
-                navigation.navigate("Payments")
-              }
-            />
-            <MenuItem
-              icon={<BellRing color={colors.text} size={24} />}
-              label="Notification settings"
-              onPress={() =>
-                navigation.navigate("NotificationSettings")
-              }
-            />
-            <MenuItem
-              icon={<CircleHelp color={colors.text} size={24} />}
-              label="Help and Support"
-              onPress={() =>
-                navigation.navigate("Help")
-              }
-            />
+              {isProvider ? (
+                <MenuItem
+                  icon={<BadgeCheck color={colors.text} size={22} />}
+                  label="Verification"
+                  onPress={() => navigation.navigate("ProviderVerification")}
+                />
+              ) : null}
+              {isProvider ? (
+                <MenuItem
+                  icon={
+                    hasProviderProfile === true ? (
+                      <SlidersHorizontal color={colors.text} size={22} />
+                    ) : (
+                      <LockKeyhole color={colors.mutedText} size={22} />
+                    )
+                  }
+                  label="Operating settings"
+                  onPress={() => {
+                    if (hasProviderProfile === true) {
+                      navigation.navigate("ProviderOperatingSettings");
+                    } else {
+                      showProviderProfileRequiredMessage();
+                    }
+                  }}
+                />
+              ) : null}
+            </MenuGroup>
+
+            <MenuGroup label="Your bookings">
+              <MenuItem
+                icon={<History color={colors.text} size={22} />}
+                label="Booking history"
+                onPress={() =>
+                  navigation.navigate("BookingHistory")
+                }
+              />
+              {isCustomer ? (
+                <MenuItem
+                  icon={<Heart color={colors.text} size={22} />}
+                  label="Favourites"
+                  onPress={() =>
+                    navigation.navigate("CustomerFavourites")
+                  }
+                />
+              ) : null}
+            </MenuGroup>
           </View>
 
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon={<LogOut color={colors.danger} size={24} />}
-              isDanger
-              label="Sign out"
-              onPress={() => void signOut()}
-            />
+          <View style={isWebDesktop ? styles.menuGridColumn : styles.menuColumn}>
+            <MenuGroup label="Account">
+              <MenuItem
+                icon={<Shield color={colors.text} size={22} />}
+                label="Account and Security"
+                onPress={() =>
+                  navigation.navigate("AccountSecurity")
+                }
+              />
+              <MenuItem
+                icon={<CreditCard color={colors.text} size={22} />}
+                label="Payments"
+                onPress={() =>
+                  navigation.navigate("Payments")
+                }
+              />
+              <MenuItem
+                icon={<BellRing color={colors.text} size={22} />}
+                label="Notification settings"
+                onPress={() =>
+                  navigation.navigate("NotificationSettings")
+                }
+              />
+            </MenuGroup>
+
+            <MenuGroup label="Support">
+              <MenuItem
+                icon={<CircleHelp color={colors.text} size={22} />}
+                label="Help and Support"
+                onPress={() =>
+                  navigation.navigate("Help")
+                }
+              />
+            </MenuGroup>
+
+            <MenuGroup>
+              <MenuItem
+                icon={<LogOut color={colors.danger} size={22} />}
+                isDanger
+                label="Sign out"
+                onPress={() => void signOut()}
+              />
+            </MenuGroup>
           </View>
         </View>
       </View>
     </ScreenContainer>
+  );
+}
+
+function MenuGroup({ children, label }: { children: ReactNode; label?: string }) {
+  const rows = Children.toArray(children).filter(Boolean);
+
+  return (
+    <View style={styles.menuGroup}>
+      {label ? <Text style={styles.menuGroupLabel}>{label}</Text> : null}
+      <View style={styles.menuCard}>
+        {rows.map((row, index) => (
+          <View
+            key={index}
+            style={index === rows.length - 1 ? styles.menuRowLast : undefined}
+          >
+            {row}
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -267,8 +308,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   desktopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: "column",
     gap: spacing.lg,
   },
   profileHeader: {
@@ -278,26 +318,77 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   profileHeaderDesktop: {
-    width: 280,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: spacing.lg,
+    padding: spacing.lg,
+  },
+  identityText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  identityTextStacked: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    gap: 4,
+  },
+  menuGrid: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.lg,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  rolePill: {
+    overflow: "hidden",
+    color: colors.primaryText,
+    fontSize: 12,
+    fontWeight: "700",
+    borderWidth: 1,
+    borderColor: colors.primaryTintBorder,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  menuGroup: {
+    gap: spacing.sm,
+  },
+  menuGroupLabel: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    paddingLeft: spacing.xs,
+  },
+  menuRowLast: {
+    marginBottom: -1,
   },
   menuColumn: {
+    gap: spacing.md,
+  },
+  menuGridColumn: {
     flex: 1,
     minWidth: 0,
     gap: spacing.md,
   },
   avatarButton: {
-    width: 104,
-    height: 104,
+    width: 84,
+    height: 84,
   },
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 24,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
   avatarPlaceholder: {
@@ -305,8 +396,8 @@ const styles = StyleSheet.create({
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryTint,
   },
   avatarAddBadge: {
     position: "absolute",
@@ -322,13 +413,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   userName: {
-    maxWidth: "86%",
     color: colors.text,
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: "800",
   },
   userMeta: {
-    maxWidth: "86%",
     color: colors.mutedText,
     fontSize: 14,
   },
@@ -344,7 +433,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   menuItem: {
-    minHeight: 64,
+    minHeight: 58,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
@@ -362,7 +451,7 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
     color: colors.text,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   menuBadge: {
