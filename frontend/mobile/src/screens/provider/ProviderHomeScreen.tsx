@@ -47,7 +47,9 @@ import type {
 } from "../../types/provider";
 import type { ProviderSubmerchant } from "../../types/marketplace";
 import type { Review } from "../../types/review";
+import { StarRating } from "../../components/StarRating";
 import { getErrorMessage } from "../../utils/errors";
+import { formatMoney } from "../../utils/money";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -277,8 +279,10 @@ function ProviderHomeContent() {
                 <Text style={styles.serviceVerifiedBadge}>Service verified</Text>
               </View>
               <View style={styles.statusRow}>
-                <OpenStatusBadge isOpen={Boolean(profile?.is_open)} />
-                <OnlineStatusBadge isOnline={Boolean(profile?.is_online)} />
+                <TradingStatusBadge
+                  isOnline={Boolean(profile?.is_online)}
+                  isOpen={Boolean(profile?.is_open)}
+                />
               </View>
               <Text style={styles.bioText}>{profile?.bio || "No business description yet."}</Text>
               <Text style={styles.metaText}>
@@ -287,9 +291,28 @@ function ProviderHomeContent() {
               <Text style={styles.metaText}>
                 Service areas: {formatServiceAreas(serviceAreas)}
               </Text>
-              <Text style={styles.metaText}>
-                {formatRating(profile)} · {profile?.hourly_rate ?? "-"} / hr
-              </Text>
+              <View style={styles.ratingRow}>
+                {profile?.average_rating != null && profile.review_count ? (
+                  <>
+                    <StarRating rating={profile.average_rating} size={15} />
+                    <Text style={styles.ratingValue}>
+                      {profile.average_rating.toFixed(1)}
+                    </Text>
+                    <Text style={styles.metaText}>
+                      {profile.review_count}{" "}
+                      {profile.review_count === 1 ? "review" : "reviews"}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.metaText}>No rating yet</Text>
+                )}
+                <Text style={styles.metaText}>·</Text>
+                <Text style={styles.rateText}>
+                  {profile?.hourly_rate != null
+                    ? `${formatMoney(profile.hourly_rate)} / hr`
+                    : "Rate not set"}
+                </Text>
+              </View>
               <View style={styles.tagWrap}>
                 {(profile?.tags ?? []).map((tag) => (
                   <View key={tag} style={styles.serviceTag}>
@@ -348,20 +371,21 @@ function ProviderHomeContent() {
   );
 }
 
-function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
+/** One badge, matching what a customer sees on the public profile. */
+function TradingStatusBadge({
+  isOnline,
+  isOpen,
+}: {
+  isOnline: boolean;
+  isOpen: boolean;
+}) {
   return (
     <View style={styles.statusBadge}>
       <View style={[styles.statusDot, isOpen ? styles.statusDotActive : styles.statusDotInactive]} />
       <Text style={styles.statusBadgeText}>{isOpen ? "Open" : "Closed"}</Text>
-    </View>
-  );
-}
-
-function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
-  return (
-    <View style={styles.statusBadge}>
-      <View style={[styles.statusDot, isOnline ? styles.statusDotActive : styles.statusDotInactive]} />
-      <Text style={styles.statusBadgeText}>{isOnline ? "Online" : "Offline"}</Text>
+      {isOpen && isOnline ? (
+        <Text style={styles.statusBadgeHint}>· replying now</Text>
+      ) : null}
     </View>
   );
 }
@@ -370,18 +394,16 @@ function formatServiceAreas(areas: ProviderServiceArea[]) {
   return areas.length > 0 ? areas.map((area) => area.label || area.name).join(", ") : "Not set";
 }
 
-function formatRating(profile: ProviderProfile | null) {
-  if (profile?.average_rating == null || !profile.review_count) return "No rating yet";
-  return `${profile.average_rating.toFixed(1)} stars · ${profile.review_count} reviews`;
-}
-
 function ReviewRow({ review }: { review: Review }) {
+  const name = review.customer?.name?.trim() || "Verified customer";
+
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
-        <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
+        <Text style={styles.reviewName}>{name}</Text>
         <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
       </View>
+      <StarRating rating={review.rating} size={13} />
       <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
     </View>
   );
@@ -696,7 +718,11 @@ const styles = StyleSheet.create({
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusDotActive: { backgroundColor: colors.primary },
   statusDotInactive: { backgroundColor: colors.placeholder },
-  statusBadgeText: { color: colors.mutedText, fontSize: 12, fontWeight: "800" },
+  statusBadgeText: { color: colors.text, fontSize: 12, fontWeight: "800" },
+  statusBadgeHint: { color: colors.mutedText, fontSize: 12 },
+  ratingRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.xs },
+  ratingValue: { color: colors.text, fontSize: 14, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  rateText: { color: colors.text, fontSize: 14, fontWeight: "700" },
   bioText: { color: colors.text, fontSize: 15, lineHeight: 22 },
   metaText: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
   tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
@@ -711,7 +737,7 @@ const styles = StyleSheet.create({
   portfolioGap: { width: spacing.md },
   reviewCard: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.background, padding: spacing.md },
   reviewTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
-  ratingText: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  reviewName: { color: colors.text, fontSize: 14, fontWeight: "700" },
   reviewDate: { color: colors.mutedText, fontSize: 13 },
   reviewComment: { color: colors.text, fontSize: 15, lineHeight: 22 },
   emptyText: { color: colors.mutedText, fontSize: 14, lineHeight: 21 },
