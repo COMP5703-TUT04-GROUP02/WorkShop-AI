@@ -19,6 +19,7 @@ import { useRealtime } from "../context/RealtimeContext";
 import { colors, radius, spacing } from "../theme/theme";
 import type { PaginatedData } from "../types/chat";
 import type { Notification } from "../types/notification";
+import { formatDateTime } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 
 const PAGE_SIZE = 30;
@@ -195,20 +196,10 @@ function NotificationCard({
       </View>
       <Text style={styles.notificationContent}>{notification.content}</Text>
       <Text style={styles.notificationMeta}>
-        {formatDate(notification.created_at)}
+        {formatDateTime(notification.created_at)}
       </Text>
     </Pressable>
   );
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleString();
 }
 
 const styles = StyleSheet.create({

@@ -32,6 +32,7 @@ import type {
   ProviderAvailability,
   ProviderAvailabilityOverride,
 } from "../../types/provider";
+import { formatShortDateTime } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 
 type ScheduleTab = "availability" | "jobs";
@@ -871,20 +872,6 @@ function bookingOverlapsDate(booking: BookingDetail, dateKey: string) {
   return bookingStart < dayEnd && bookingEnd > dayStart;
 }
 
-function formatShortDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${month}-${day} ${hour}:${minute}`;
-}
-
 function getBookingStatusLabel(status: string) {
   const labels: Record<string, string> = {
     accepted: "In progress",
@@ -921,7 +908,8 @@ function formatMonthKey(date: Date) {
 }
 
 function formatMonthTitle(date: Date) {
-  return `${date.getFullYear()} ${date.getMonth() + 1}`;
+  // "2026 10" is a key, not a heading. A month gets its name.
+  return date.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
 function formatDateKey(date: Date) {

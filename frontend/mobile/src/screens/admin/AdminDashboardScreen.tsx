@@ -987,11 +987,11 @@ function RefundAppealModal({
                   <ProfileDetailRow label="Service address" value={booking.service_address} />
                   <ProfileDetailRow
                     label="Start time"
-                    value={booking.scheduled_start_time ? formatDate(booking.scheduled_start_time) : "-"}
+                    value={booking.scheduled_start_time ? formatDateTime(booking.scheduled_start_time) : "-"}
                   />
                   <ProfileDetailRow
                     label="End time"
-                    value={booking.scheduled_end_time ? formatDate(booking.scheduled_end_time) : "-"}
+                    value={booking.scheduled_end_time ? formatDateTime(booking.scheduled_end_time) : "-"}
                   />
                 </>
               ) : null}
@@ -1119,7 +1119,7 @@ function PortfolioReviewModal({
                 {portfolio.description || "No description"}
               </Text>
               <Text style={styles.detailMeta}>
-                Uploaded: {formatDate(portfolio.created_at)}
+                Uploaded: {formatDateTime(portfolio.created_at)}
               </Text>
               <Text style={styles.detailMeta}>
                 Status: {portfolio.verification_status}
@@ -1151,16 +1151,6 @@ function PortfolioReviewModal({
       </View>
     </Modal>
   );
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleString();
 }
 
 function getRefundStatusLabel(status: string) {
