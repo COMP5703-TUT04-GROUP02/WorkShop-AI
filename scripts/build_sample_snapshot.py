@@ -20,18 +20,22 @@ OUTPUT = ROOT / "migrations" / "data" / "0018_workshop_samples.json"
 # Providers sharing a category are handed different ones, so three cards in a
 # row never show the same picture. A category with fewer photos still works:
 # the builder wraps around whatever is there.
+# Six portfolios carry each trade (30 providers, two trades each), so six
+# photographs is the point at which none repeats. Where a trade has fewer, the
+# ones it has are spread as evenly as they go.
 PHOTOS_PER_CATEGORY = {
-    "cleaning": 3,
-    "childcare": 3,
-    "elderly_care": 3,
+    "cleaning": 4,
+    "childcare": 6,
+    "elderly_care": 5,
     "electrician": 3,
-    "plumbing": 3,
-    "painter": 3,
-    "locksmith": 3,
-    "technician": 3,
-    "moving": 3,
-    "other": 3,
+    "plumbing": 6,
+    "painter": 5,
+    "locksmith": 5,
+    "technician": 4,
+    "moving": 6,
+    "other": 6,
 }
+PORTFOLIOS_PER_CATEGORY = 6
 PASSWORD_HASH = "$2b$12$7BRnl3Pt1eg7OOqWfwDgb.NXMyr4KtXPxwZ4EXK//JDwXUoyDoHdm"
 PASSWORD = "Demo1234"
 PAYOUT_IBAN = "TR180006200119000006672315"
@@ -341,10 +345,10 @@ def build() -> dict:
                     is_enabled=True,
                 )
             )
-            variant = (index - 1) // len(TAGS) + slot
-            variant = variant % PHOTOS_PER_CATEGORY[tag] + 1
+            rank = slot * (PORTFOLIOS_PER_CATEGORY // 2) + (index - 1) // len(TAGS)
+            variant = rank % PHOTOS_PER_CATEGORY[tag] + 1
             image_url = (
-                f"/sample-media/service_categories/{tag}_{variant}.jpg?v=2"
+                f"/sample-media/service_categories/{tag}_{variant}.jpg?v=3"
             )
             image_name = f"{tag}_{variant}.jpg"
             portfolio_key = f"portfolio:{index}:{tag}"
