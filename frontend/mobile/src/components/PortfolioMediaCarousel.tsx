@@ -83,14 +83,19 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
           showsHorizontalScrollIndicator={false}
           style={styles.scroller}
         >
-          {mediaItems.map((media) => {
+          {mediaItems.map((media, index) => {
             const mediaUrl = resolveMediaUrl(media.file_url);
             const isVideo = media.media_type === "video";
 
             return (
               <View key={`${media.id}-${media.file_url}`} style={{ width: mediaWidth }}>
                 {mediaUrl && !isVideo ? (
-                  <Image source={{ uri: mediaUrl }} style={styles.media} />
+                  <Image
+                    accessibilityIgnoresInvertColors
+                    accessibilityLabel={`Photo ${index + 1} of ${mediaItems.length}`}
+                    source={{ uri: mediaUrl }}
+                    style={styles.media}
+                  />
                 ) : (
                   <Pressable
                     accessibilityRole="button"

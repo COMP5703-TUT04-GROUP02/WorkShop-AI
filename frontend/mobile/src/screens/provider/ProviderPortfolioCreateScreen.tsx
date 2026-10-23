@@ -91,7 +91,12 @@ export function ProviderPortfolioCreateScreen() {
         style={styles.mediaPicker}
       >
         {previewAsset && !isVideo ? (
-          <Image source={{ uri: previewAsset.uri }} style={styles.previewImage} />
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="The photo you selected"
+            source={{ uri: previewAsset.uri }}
+            style={styles.previewImage}
+          />
         ) : (
           <View style={[styles.placeholder, isVideo ? styles.videoPlaceholder : null]}>
             {isVideo ? (

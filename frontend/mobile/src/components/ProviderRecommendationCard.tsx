@@ -60,7 +60,12 @@ export function ProviderRecommendationCard<T extends ProviderCardItem>({
     <View style={[styles.card, cardWidth ? { width: cardWidth } : null]}>
       <Pressable accessibilityRole="button" disabled={disabled} onPress={() => onPress(provider)}>
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.image} />
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel={`Work by ${provider.business_name}`}
+            source={{ uri: imageUrl }}
+            style={styles.image}
+          />
         ) : (
           <View style={styles.imagePlaceholder}>
             <Text style={styles.imagePlaceholderText}>No image</Text>

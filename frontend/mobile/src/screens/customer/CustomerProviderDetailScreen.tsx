@@ -299,6 +299,7 @@ export function CustomerProviderDetailScreen({
                 {coverImageUrl ? (
                   <Image
                     accessibilityIgnoresInvertColors
+                    accessibilityLabel={`Work by ${provider.business_name}`}
                     source={{ uri: coverImageUrl }}
                     style={styles.cover}
                   />

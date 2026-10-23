@@ -103,6 +103,8 @@ export function AccountScreen() {
           >
             {avatarUri ? (
               <Image
+                accessibilityIgnoresInvertColors
+                accessibilityLabel="Your profile photo"
                 resizeMode="cover"
                 source={{ uri: avatarUri }}
                 style={styles.avatarImage}

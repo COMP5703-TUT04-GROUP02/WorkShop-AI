@@ -184,7 +184,7 @@ function VerificationFiles({ files }: { files: VerificationUploadFile[] }) {
   return <View style={styles.files}><Text style={styles.rowLabel}>Files</Text>{files.map((file) => {
     const previewUrl = previewUrls[file.file_url];
     const previewError = previewErrors[file.file_url];
-    return <Pressable key={`${file.file_url}-${file.original_file_name}`} onPress={() => openFile(file)} style={styles.fileCard}>{file.content_type.startsWith("image/") && previewUrl ? <Image resizeMode="contain" source={{ uri: previewUrl }} style={styles.preview} /> : file.content_type.startsWith("image/") && !previewError ? <ActivityIndicator color={colors.primary} style={styles.preview} /> : null}<Text style={styles.link}>{file.original_file_name}</Text><Text style={previewError ? styles.error : styles.subtitle}>{previewError || `${file.content_type} · tap to open`}</Text></Pressable>;
+    return <Pressable key={`${file.file_url}-${file.original_file_name}`} onPress={() => openFile(file)} style={styles.fileCard}>{file.content_type.startsWith("image/") && previewUrl ? <Image accessibilityLabel={`Preview of ${file.original_file_name ?? "the uploaded document"}`} resizeMode="contain" source={{ uri: previewUrl }} style={styles.preview} /> : file.content_type.startsWith("image/") && !previewError ? <ActivityIndicator color={colors.primary} style={styles.preview} /> : null}<Text style={styles.link}>{file.original_file_name}</Text><Text style={previewError ? styles.error : styles.subtitle}>{previewError || `${file.content_type} · tap to open`}</Text></Pressable>;
   })}</View>;
 }
 

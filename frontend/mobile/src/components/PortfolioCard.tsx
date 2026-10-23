@@ -32,7 +32,12 @@ export function PortfolioCard({
     >
       <View style={styles.mediaBox}>
         {mediaUrl && !isVideo ? (
-          <Image source={{ uri: mediaUrl }} style={styles.image} />
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel={portfolio.title}
+            source={{ uri: mediaUrl }}
+            style={styles.image}
+          />
         ) : isVideo ? (
           <View style={styles.videoPlaceholder}>
             <Play color="#FFFFFF" fill="#FFFFFF" size={compact ? 24 : 30} />

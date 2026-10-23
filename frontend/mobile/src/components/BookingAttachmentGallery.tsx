@@ -55,7 +55,13 @@ function AttachmentItem({
       style={({ pressed }) => [styles.item, pressed ? styles.itemPressed : null]}
     >
       {mediaUrl && isImage ? (
-        <Image resizeMode="cover" source={{ uri: mediaUrl }} style={styles.preview} />
+        <Image
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="Photo attached to this booking"
+          resizeMode="cover"
+          source={{ uri: mediaUrl }}
+          style={styles.preview}
+        />
       ) : (
         <View style={styles.videoPreview}>
           {isVideo ? (
