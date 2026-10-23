@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   badge: { ...type.badge, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, overflow: "hidden" },
   filterLabel: { ...type.label, color: colors.text },
   statusOption: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minHeight: 44, justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.background },
-  statusSelected: { backgroundColor: "#E9F7F3", borderColor: colors.primary },
+  statusSelected: { backgroundColor: colors.primaryTint, borderColor: colors.primary },
   optionLabel: { ...type.label, color: colors.mutedText },
   optionSelected: { color: colors.primary },
   link: { ...type.label, color: colors.primary },

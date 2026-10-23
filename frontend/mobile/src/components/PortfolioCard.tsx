@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#202123",
+    backgroundColor: colors.text,
   },
   emptyPlaceholder: {
     flex: 1,
@@ -119,12 +119,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginHorizontal: spacing.sm,
     borderRadius: 999,
-    backgroundColor: "#FFF7E6",
+    backgroundColor: colors.warningTint,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
   },
   statusText: {
-    color: "#9A5B00",
+    color: colors.warningText,
     fontSize: 11,
     fontWeight: "800",
     textTransform: "capitalize",

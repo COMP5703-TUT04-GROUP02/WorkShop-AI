@@ -1180,7 +1180,7 @@ function getRefundStatusLabel(status: string) {
 
 const styles = StyleSheet.create({
   paymentTotal: { ...type.cardTitle, color: colors.text },
-  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: "#F0F2F5", padding: spacing.lg, gap: spacing.sm },
+  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.sm },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1295,7 +1295,7 @@ const styles = StyleSheet.create({
   },
   filterChipActive: {
     borderColor: colors.primary,
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
   },
   filterChipText: {
     ...type.label,
@@ -1340,8 +1340,8 @@ const styles = StyleSheet.create({
     ...type.badge,
     overflow: "hidden",
     borderRadius: radius.sm,
-    backgroundColor: "#FFF7ED",
-    color: "#C2410C",
+    backgroundColor: colors.warningTint,
+    color: colors.warningText,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },

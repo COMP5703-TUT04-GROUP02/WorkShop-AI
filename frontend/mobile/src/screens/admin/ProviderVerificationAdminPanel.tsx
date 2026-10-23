@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   reviewCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.md, gap: spacing.xs },
   activeCard: { borderColor: colors.primary },
   cardTitle: { ...type.cardTitle, flex: 1, color: colors.text },
-  pending: { ...type.badge, color: "#8A5A00" },
+  pending: { ...type.badge, color: colors.warningText },
   detail: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md },
   detailTitle: { ...type.cardTitle, color: colors.text },
   link: { ...type.label, color: colors.primary },

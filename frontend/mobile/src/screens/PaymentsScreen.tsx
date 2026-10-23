@@ -294,16 +294,16 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   pillPaid: {
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
   },
   pillRefunded: {
-    backgroundColor: "#FDEEEE",
+    backgroundColor: colors.dangerTint,
   },
   pillPending: {
     backgroundColor: colors.border,
   },
   pillFailed: {
-    backgroundColor: "#FDEEEE",
+    backgroundColor: colors.dangerTint,
   },
   pillText: {
     color: colors.text,

@@ -617,7 +617,7 @@ function DayAvailabilityModal({
             <Switch
               onValueChange={setDayUnavailable}
               thumbColor={dayUnavailable ? colors.primary : "#FFFFFF"}
-              trackColor={{ false: colors.border, true: "#B7E4D5" }}
+              trackColor={{ false: colors.border, true: colors.primaryTintBorder }}
               value={dayUnavailable}
             />
           </View>
@@ -1014,7 +1014,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   defaultTextBox: {
     flex: 1,
@@ -1097,8 +1097,8 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   dayCellAvailable: {
-    borderColor: "#B7E4D5",
-    backgroundColor: "#F0FBF7",
+    borderColor: colors.primaryTintBorder,
+    backgroundColor: colors.primaryTint,
   },
   dayCellUnavailable: {
     borderColor: colors.border,
@@ -1109,16 +1109,16 @@ const styles = StyleSheet.create({
   },
   dayCellPast: {
     borderColor: colors.border,
-    backgroundColor: "#F4F4F5",
+    backgroundColor: colors.surface,
     opacity: 0.58,
   },
   jobDayCellActive: {
-    borderColor: "#B7E4D5",
-    backgroundColor: "#F0FBF7",
+    borderColor: colors.primaryTintBorder,
+    backgroundColor: colors.primaryTint,
   },
   jobDayCellInactive: {
     borderColor: colors.border,
-    backgroundColor: "#F4F4F5",
+    backgroundColor: colors.surface,
   },
   dayNumber: {
     color: colors.text,
@@ -1130,7 +1130,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   dayTextPast: {
-    color: "#A0A4AE",
+    color: colors.placeholder,
   },
   modalOverlay: {
     flex: 1,
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   weekdayChipSelected: {
     borderColor: colors.primary,
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   weekdayChipText: {
     color: colors.text,
@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
   jobStatusBadge: {
     overflow: "hidden",
     borderRadius: 999,
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
     color: colors.primary,
     fontSize: 12,
     fontWeight: "800",

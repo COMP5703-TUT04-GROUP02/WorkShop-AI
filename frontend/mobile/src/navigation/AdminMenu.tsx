@@ -109,6 +109,6 @@ const styles = StyleSheet.create({
   },
   text: { flex: 1, minWidth: 0, color: colors.mutedText, fontSize: 15, fontWeight: "600" },
   chevron: { width: 18, height: 20, flexShrink: 0, alignItems: "center", justifyContent: "center" },
-  selected: { backgroundColor: "#E9F7F3" },
+  selected: { backgroundColor: colors.primaryTint },
   active: { color: colors.primary },
 });

@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
   },
-  tagActive: { borderColor: colors.primary, backgroundColor: "#E9F7F3" },
+  tagActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   tagText: { color: colors.text, fontWeight: "600" },
   tagTextActive: { color: colors.primary },
   link: { color: colors.primary, fontWeight: "700" },

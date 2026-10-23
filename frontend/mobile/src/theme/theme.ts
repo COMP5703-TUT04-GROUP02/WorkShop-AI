@@ -1,12 +1,45 @@
+/**
+ * Design tokens, v6 "clear" palette.
+ *
+ * Three levels of brightness carry the layout: white cards, a near-white page
+ * ground, and a pale blue used only for the selected state and for information.
+ * Solid `primary` is reserved for the single main action on a screen, and
+ * `warning` only ever marks money or something waiting on the user.
+ */
 export const colors = {
+  // Surfaces
   background: "#FFFFFF",
-  surface: "#F7F7F8",
-  border: "#E5E5E5",
-  text: "#202123",
-  mutedText: "#6E6E80",
-  primary: "#10A37F",
-  primaryPressed: "#0E8F70",
-  danger: "#D92D20",
+  surface: "#F8FBFE",
+  border: "#E4EDF4",
+
+  // Text
+  text: "#142536",
+  mutedText: "#52677A",
+  placeholder: "#6B7C8D",
+
+  // Primary — one solid button per screen
+  primary: "#1976C9",
+  primaryPressed: "#15639F",
+  primaryText: "#15639F",
+  primaryTint: "#EAF5FD",
+  primaryTintBorder: "#C9E4F7",
+  accent: "#8BC8ED",
+
+  // Waiting on the user: money, todos
+  warning: "#E9A52F",
+  warningText: "#845000",
+  warningTint: "#FCF1DF",
+  warningBorder: "#EBD3A8",
+
+  // Done, verified, open for business
+  success: "#0E7A4D",
+  successTint: "#E9F6EF",
+
+  // Destructive
+  danger: "#C33B2E",
+  dangerText: "#C33B2E",
+  dangerTint: "#FBEEEC",
+  dangerBorder: "#E8BDB8",
 };
 
 export const spacing = {
@@ -18,8 +51,14 @@ export const spacing = {
 };
 
 export const radius = {
+  /** Tags and small badges. */
   sm: 6,
-  md: 8,
+  /** Buttons and inputs. */
+  md: 10,
+  /** Cards and panels. */
+  lg: 12,
+  /** Fully rounded: pills, avatars, dots. */
+  pill: 999,
 };
 
 export const layout = {

@@ -2274,7 +2274,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   chatHeaderStatusDotOffline: {
-    backgroundColor: "#A0A4AE",
+    backgroundColor: colors.placeholder,
   },
   chatHeaderStatusText: {
     color: colors.mutedText,
@@ -2359,17 +2359,14 @@ const styles = StyleSheet.create({
   },
   bookingCardPinned: {
     width: "100%",
-    shadowColor: "#000000",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowOpacity: 0,
     shadowRadius: 18,
   },
   bookingCardMine: {
-    backgroundColor: "#E8F7F2",
-    borderColor: "#B7E4D5",
+    backgroundColor: colors.primaryTint,
+    borderColor: colors.primaryTintBorder,
   },
   bookingCardPressed: {
     opacity: 0.76,
@@ -2424,7 +2421,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   bookingUpdateMine: {
-    backgroundColor: "#E8F7F2",
+    backgroundColor: colors.primaryTint,
   },
   bookingUpdateOther: {
     backgroundColor: colors.surface,
@@ -2571,7 +2568,7 @@ const styles = StyleSheet.create({
   },
   stageButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: "#ECFDF3",
+    backgroundColor: colors.successTint,
   },
   stageButtonText: {
     color: colors.text,

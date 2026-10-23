@@ -1093,9 +1093,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#BFE8D7",
+    borderColor: colors.primaryTintBorder,
     borderRadius: 19,
-    backgroundColor: "#F2FBF7",
+    backgroundColor: colors.primaryTint,
   },
   clearButtonDisabled: {
     opacity: 0.55,
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
   },
   markdownTableHeaderRow: {
     borderTopWidth: 0,
-    backgroundColor: "#F4F6F8",
+    backgroundColor: colors.surface,
   },
   markdownTableCell: {
     minWidth: 72,

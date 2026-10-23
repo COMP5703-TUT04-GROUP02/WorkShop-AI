@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   statusSuccess: {
-    backgroundColor: "#ECFDF3",
+    backgroundColor: colors.successTint,
     color: colors.primary,
   },
   statusMuted: {

@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: "#E7F6F2" },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   priceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },

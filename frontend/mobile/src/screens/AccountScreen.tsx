@@ -261,7 +261,7 @@ function MenuItem({
 
 const styles = StyleSheet.create({
   content: {
-    backgroundColor: "#F7F7F8",
+    backgroundColor: colors.surface,
     paddingTop: spacing.xl,
   },
   desktopRow: {

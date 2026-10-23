@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: "#E7F6F2" },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   category: {
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   },
   linkedCard: {
     borderColor: colors.primary,
-    backgroundColor: "#E7F6F2",
+    backgroundColor: colors.primaryTint,
   },
   linkedLabel: {
     color: colors.primary,

@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   optionSelected: {
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   optionText: {
     color: colors.text,

@@ -768,15 +768,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   statusNeutral: {
-    backgroundColor: "#EEF2FF",
-    color: "#3730A3",
+    backgroundColor: colors.primaryTint,
+    color: colors.primaryText,
   },
   statusWarning: {
-    backgroundColor: "#FFF7ED",
-    color: "#C2410C",
+    backgroundColor: colors.warningTint,
+    color: colors.warningText,
   },
   statusSuccess: {
-    backgroundColor: "#ECFDF3",
+    backgroundColor: colors.successTint,
     color: colors.primary,
   },
   statusMuted: {

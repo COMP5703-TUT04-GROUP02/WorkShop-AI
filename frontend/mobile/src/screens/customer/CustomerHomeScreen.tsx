@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   },
   tagChipActive: {
     borderColor: colors.primary,
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   tagText: {
     color: colors.text,

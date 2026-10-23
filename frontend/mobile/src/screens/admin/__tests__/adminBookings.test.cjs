@@ -232,9 +232,9 @@ test("six groups partition all 22 workflow statuses while cards use broad labels
   assert.deepEqual([...statuses].sort(), Object.keys(original).sort());
   assert.equal(bookingStatusStyle("completed").color, theme.colors.primary);
   assert.equal(bookingStatusStyle("cancelled").color, theme.colors.mutedText);
-  assert.equal(bookingStatusStyle("pending").color, "#C2410C");
-  assert.equal(bookingStatusStyle("accepted").color, "#526779");
-  assert.equal(bookingStatusStyle("accepted").backgroundColor, "#F0F3F5");
+  assert.equal(bookingStatusStyle("pending").color, theme.colors.warningText);
+  assert.equal(bookingStatusStyle("accepted").color, theme.colors.mutedText);
+  assert.equal(bookingStatusStyle("accepted").backgroundColor, theme.colors.surface);
   assert.equal(bookingGroupLabel("quoted"), "Pending");
   assert.equal(bookingGroupLabel("awaiting_confirmation"), "In progress");
   assert.equal(bookingGroupLabel("partially_refunded"), "Refund related");

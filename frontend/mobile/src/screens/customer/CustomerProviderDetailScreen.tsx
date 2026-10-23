@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   onlineDotInactive: {
-    backgroundColor: "#A0A4AE",
+    backgroundColor: colors.placeholder,
   },
   onlineText: {
     color: colors.mutedText,

@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   itemActive: {
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   itemLabel: {
     flex: 1,

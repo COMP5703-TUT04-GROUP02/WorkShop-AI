@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   statusDotInactive: {
-    backgroundColor: "#A0A4AE",
+    backgroundColor: colors.placeholder,
   },
   statusText: {
     color: colors.mutedText,

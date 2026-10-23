@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pillVerified: {
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
   },
   pillText: {
     color: colors.text,
