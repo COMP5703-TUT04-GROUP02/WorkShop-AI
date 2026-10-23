@@ -4,7 +4,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -266,9 +266,21 @@ export function AuthScreen() {
       ]}
     >
       {isWebDesktop ? (
-        <View style={styles.hero}>
+        <ImageBackground
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="The Istanbul skyline"
+          imageStyle={styles.heroPhoto}
+          source={{
+            uri: resolveMediaUrl("/sample-media/brand/istanbul.jpg") ?? undefined,
+          }}
+          style={styles.hero}
+        >
+          {/* The photograph averages 80/255, so a scrim is what makes the
+              contrast a decision rather than a gamble on which part of the
+              frame a line of text lands over. */}
+          <View style={styles.heroScrim} />
           <View style={styles.heroBrand}>
-            <BrandMark size={30} />
+            <BrandMark color="#FFFFFF" letterColor={colors.primary} size={30} />
             <Text style={styles.heroBrandName}>
               Workshop <Text style={styles.heroBrandSuffix}>AI</Text>
             </Text>
@@ -285,16 +297,8 @@ export function AuthScreen() {
               </View>
             ))}
           </View>
-          <Image
-            accessibilityIgnoresInvertColors
-            accessibilityLabel="The Istanbul skyline"
-            source={{
-              uri: resolveMediaUrl("/sample-media/brand/istanbul.jpg") ?? undefined,
-            }}
-            style={styles.heroImage}
-          />
           <Text style={styles.heroCaption}>Serving Istanbul</Text>
-        </View>
+        </ImageBackground>
       ) : null}
 
       <ScrollView
@@ -503,10 +507,21 @@ const styles = StyleSheet.create({
   hero: {
     flex: 1.05,
     justifyContent: "center",
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.text,
     paddingHorizontal: 64,
     paddingVertical: 48,
     gap: spacing.md,
+  },
+  heroPhoto: {
+    resizeMode: "cover",
+  },
+  heroScrim: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(14, 28, 42, 0.44)",
   },
   heroBrand: {
     flexDirection: "row",
@@ -514,25 +529,25 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   heroBrandName: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "800",
   },
   heroBrandSuffix: {
-    color: colors.primaryText,
+    color: colors.accent,
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.6,
   },
   heroTitle: {
-    color: colors.text,
+    color: "#FFFFFF",
     fontSize: 40,
     fontWeight: "700",
     lineHeight: 48,
     maxWidth: 460,
   },
   heroSubtitle: {
-    color: colors.mutedText,
+    color: "rgba(255,255,255,0.86)",
     fontSize: 17,
     lineHeight: 26,
     maxWidth: 420,
@@ -541,18 +556,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  heroImage: {
-    width: "100%",
-    maxWidth: 420,
-    // 3:2, the shape the photograph was cropped to.
-    aspectRatio: 1.5,
-    borderRadius: radius.lg,
-    marginTop: spacing.md,
-    backgroundColor: colors.surface,
-  },
   heroCaption: {
-    color: colors.mutedText,
+    color: "rgba(255,255,255,0.72)",
     fontSize: 12.5,
+    marginTop: spacing.sm,
   },
   heroPoint: {
     flexDirection: "row",
@@ -565,11 +572,11 @@ const styles = StyleSheet.create({
     height: 6,
     marginTop: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   heroPointText: {
     flex: 1,
-    color: colors.text,
+    color: "rgba(255,255,255,0.92)",
     fontSize: 14.5,
     lineHeight: 22,
   },
