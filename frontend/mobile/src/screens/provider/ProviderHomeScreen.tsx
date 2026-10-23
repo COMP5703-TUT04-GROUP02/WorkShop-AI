@@ -47,6 +47,7 @@ import type {
 } from "../../types/provider";
 import type { ProviderSubmerchant } from "../../types/marketplace";
 import type { Review } from "../../types/review";
+import { PersonAvatar } from "../../components/PersonAvatar";
 import { StarRating } from "../../components/StarRating";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
@@ -400,10 +401,17 @@ function ReviewRow({ review }: { review: Review }) {
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
-        <Text style={styles.reviewName}>{name}</Text>
+        <PersonAvatar
+          avatarUrl={review.customer?.avatar_url}
+          name={name}
+          size={32}
+        />
+        <View style={styles.reviewWho}>
+          <Text style={styles.reviewName}>{name}</Text>
+          <StarRating rating={review.rating} size={13} />
+        </View>
         <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
       </View>
-      <StarRating rating={review.rating} size={13} />
       <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
     </View>
   );
@@ -738,6 +746,7 @@ const styles = StyleSheet.create({
   reviewCard: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.background, padding: spacing.md },
   reviewTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
   reviewName: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  reviewWho: { flex: 1, minWidth: 0, gap: 3 },
   reviewDate: { color: colors.mutedText, fontSize: 13 },
   reviewComment: { color: colors.text, fontSize: 15, lineHeight: 22 },
   emptyText: { color: colors.mutedText, fontSize: 14, lineHeight: 21 },

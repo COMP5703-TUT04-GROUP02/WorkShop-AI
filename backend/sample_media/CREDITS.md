@@ -28,6 +28,21 @@ Every category now has three. `PHOTOS_PER_CATEGORY` in the snapshot builder
 records the real count, and it wraps around a category that has fewer, so a
 missing file degrades to repetition rather than a broken image.
 
+## avatars
+
+The five demo customers. Providers are deliberately left without one: the
+search card prefers an avatar over the portfolio image, and the work is what
+sells a provider.
+
+512 x 512 JPEG, from [Pexels](https://www.pexels.com/license/). Photographers:
+Gabby K, Ferhat Ten, Khabbab Abdelmaqsoud, Tima Miroshnichenko, Faruk
+Canpolat.
+
+## brand
+
+`istanbul.jpg` — the sign-in panel. 1500 x 1000 JPEG, by Senanur Ceylan on
+Pexels.
+
 ## Provider portfolios in the product
 
 Separate matter. Real providers upload their own photographs, and the admin

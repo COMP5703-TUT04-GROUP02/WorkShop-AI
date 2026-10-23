@@ -49,6 +49,7 @@ function sidebar(role) {
     "../context/ProviderProfileGateContext": { useProviderProfileGate: () => ({ isProviderProfileRequired: false }) },
     "../context/RealtimeContext": { useRealtime: () => ({ chatUnreadCount: 0, notificationUnreadCount: 0 }) },
     "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
+    "../components/PersonAvatar": { PersonAvatar: () => React.createElement("img", null) },
     "../api/customer": { getCustomerBookings: async () => ({ items: [] }) },
     "../features/current-job/current-job": {
       pickCurrentJob: () => ({ id: 1, title: "Ceiling light install", statusLabel: "Visit fee due", amountDue: 150, needsCustomer: true }),

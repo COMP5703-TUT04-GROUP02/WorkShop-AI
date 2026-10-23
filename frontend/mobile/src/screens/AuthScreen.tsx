@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import {
 
 import { sendRegisterEmailCode } from "../api/auth";
 import { BrandMark } from "../components/BrandMark";
+import { resolveMediaUrl } from "../utils/media";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RoleSegmentedControl } from "../components/RoleSegmentedControl";
 import { SecondaryButton } from "../components/SecondaryButton";
@@ -283,6 +285,15 @@ export function AuthScreen() {
               </View>
             ))}
           </View>
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="The Istanbul skyline"
+            source={{
+              uri: resolveMediaUrl("/sample-media/brand/istanbul.jpg") ?? undefined,
+            }}
+            style={styles.heroImage}
+          />
+          <Text style={styles.heroCaption}>Serving Istanbul</Text>
         </View>
       ) : null}
 
@@ -529,6 +540,19 @@ const styles = StyleSheet.create({
   heroPoints: {
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  heroImage: {
+    width: "100%",
+    maxWidth: 420,
+    // 3:2, the shape the photograph was cropped to.
+    aspectRatio: 1.5,
+    borderRadius: radius.lg,
+    marginTop: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  heroCaption: {
+    color: colors.mutedText,
+    fontSize: 12.5,
   },
   heroPoint: {
     flexDirection: "row",

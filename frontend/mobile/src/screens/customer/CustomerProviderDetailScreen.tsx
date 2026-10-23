@@ -28,6 +28,7 @@ import {
   createDefaultBookingRequestForm,
   type BookingRequestFormState,
 } from "../../components/BookingRequestModal";
+import { PersonAvatar } from "../../components/PersonAvatar";
 import { StarRating } from "../../components/StarRating";
 import { resolveMediaUrl } from "../../utils/media";
 import { formatMoney } from "../../utils/money";
@@ -481,11 +482,11 @@ function ReviewRow({ review }: { review: Review }) {
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
-        <View style={styles.reviewAvatar}>
-          <Text style={styles.reviewAvatarLetter}>
-            {name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        <PersonAvatar
+          avatarUrl={review.customer?.avatar_url}
+          name={name}
+          size={36}
+        />
         <View style={styles.reviewWho}>
           <Text numberOfLines={1} style={styles.reviewName}>
             {name}

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BrandMark } from "../components/BrandMark";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
@@ -55,11 +56,11 @@ export function DesktopSidebar() {
       </View>
       <View style={styles.rule} />
       <View style={styles.identity}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarLetter}>
-            {(user?.name ?? user?.email ?? "?").trim().charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        <PersonAvatar
+          avatarUrl={user?.avatar_url}
+          name={user?.name ?? user?.email}
+          size={34}
+        />
         <View style={styles.identityCopy}>
           <Text numberOfLines={1} style={styles.identityName}>
             {user?.name ?? user?.email ?? ""}

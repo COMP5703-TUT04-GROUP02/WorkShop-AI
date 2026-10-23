@@ -185,7 +185,10 @@ def build() -> dict:
                 tos_accepted_at=created.isoformat(),
                 email=f"demo_customer_{index}@workshop.ai",
                 role="customer",
-                avatar_url=None,
+                # Providers are deliberately left without one: the search card
+                # prefers an avatar over the portfolio image, and the work is
+                # what sells a provider.
+                avatar_url=f"/sample-media/avatars/customer_{index}.jpg?v=1",
                 is_active=True,
                 is_banned=False,
                 last_login_at=None,
