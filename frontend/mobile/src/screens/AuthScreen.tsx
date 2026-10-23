@@ -325,13 +325,20 @@ export function AuthScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isWebDesktop ? styles.scrollContentDesktop : null,
+          isWebDesktop ? styles.scrollContentDesktop : styles.scrollContentPhone,
         ]}
         keyboardShouldPersistTaps="handled"
         style={isWebDesktop ? styles.scrollDesktop : undefined}
       >
         <View style={styles.header}>
-          {isWebDesktop ? null : <Text style={styles.brand}>Workshop AI</Text>}
+          {isWebDesktop ? null : (
+            <View style={styles.phoneBrand}>
+              <BrandMark size={26} />
+              <Text style={styles.phoneBrandName}>
+                Workshop <Text style={styles.phoneBrandSuffix}>AI</Text>
+              </Text>
+            </View>
+          )}
           <Text style={styles.title}>
             {isRegisterMode ? "Create an account" : "Welcome back"}
           </Text>
@@ -499,6 +506,20 @@ export function AuthScreen() {
             <Text style={styles.legalLink}>Terms of Use</Text>
           </Pressable>
         </View>
+
+        {isWebDesktop ? null : (
+          <ImageBackground
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="The Istanbul skyline"
+            imageStyle={styles.phoneBannerPhoto}
+            source={{ uri: resolveMediaUrl(hero.image) ?? undefined }}
+            style={styles.phoneBanner}
+          >
+            <View style={styles.phoneBannerScrim} />
+            <Text style={styles.phoneBannerTitle}>{hero.title}</Text>
+            <Text style={styles.phoneBannerCaption}>Across Türkiye</Text>
+          </ImageBackground>
+        )}
       </ScrollView>
 
       {pendingSocial ? (
@@ -524,6 +545,60 @@ const styles = StyleSheet.create({
   keyboardViewDesktop: {
     flexDirection: "row",
     backgroundColor: colors.surface,
+  },
+  phoneBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  phoneBrandName: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  phoneBrandSuffix: {
+    color: colors.primaryText,
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  // Flush to the three edges it touches: the page padding is cancelled so the
+  // photograph runs the full width and sits on the bottom of the screen.
+  phoneBanner: {
+    height: 220,
+    justifyContent: "flex-end",
+    gap: spacing.xs,
+    marginTop: spacing.xl,
+    marginHorizontal: -spacing.lg,
+    marginBottom: -spacing.lg,
+    overflow: "hidden",
+    padding: spacing.lg,
+  },
+  phoneBannerPhoto: {
+    resizeMode: "cover",
+  },
+  phoneBannerScrim: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(14, 28, 42, 0.44)",
+  },
+  phoneBannerCaption: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    opacity: 0.9,
+    textTransform: "uppercase",
+  },
+  phoneBannerTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 28,
   },
   hero: {
     flex: 1.05,
@@ -609,6 +684,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.lg,
   },
+  scrollContentPhone: {
+    justifyContent: "flex-start",
+    paddingTop: spacing.xl,
+  },
   scrollContentDesktop: {
     paddingHorizontal: 56,
     paddingVertical: 48,
@@ -619,11 +698,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     gap: spacing.sm,
     marginBottom: spacing.xl,
-  },
-  brand: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: "700",
   },
   title: {
     color: colors.text,

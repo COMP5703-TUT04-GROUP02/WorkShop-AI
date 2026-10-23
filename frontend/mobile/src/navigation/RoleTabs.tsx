@@ -7,6 +7,7 @@ import type { ComponentType } from "react";
 import { useEffect } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { BrandMark } from "../components/BrandMark";
 import { NotificationsButton } from "../components/NotificationsButton";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { useAuth } from "../context/AuthContext";
@@ -70,6 +71,22 @@ export function RoleTabs() {
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.placeholder,
+        tabBarLabelStyle: {
+          fontSize: 11.5,
+          fontWeight: "600",
+          marginTop: 2,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
+        },
+        // Every tab screen carries the mark, so the app says its own name on a
+        // phone the way the top bar does on a wide screen.
+        headerLeft: () => (
+          <View style={guardStyles.headerLeft}>
+            <BrandMark size={24} />
+          </View>
+        ),
+        headerTitleAlign: "left" as const,
         tabBarBadgeStyle: {
           backgroundColor: colors.warning,
           color: colors.text,
@@ -88,8 +105,11 @@ export function RoleTabs() {
             }
           : {
               tabBarStyle: {
+                height: 88,
                 borderTopColor: colors.border,
                 backgroundColor: colors.background,
+                paddingTop: spacing.sm,
+                paddingBottom: spacing.lg,
               },
             }),
       }}
@@ -310,6 +330,10 @@ function withRequiredProviderProfile<P extends object>(
 }
 
 const guardStyles = StyleSheet.create({
+  headerLeft: {
+    marginLeft: spacing.md,
+    marginRight: spacing.sm,
+  },
   headerRight: {
     marginRight: spacing.md,
   },

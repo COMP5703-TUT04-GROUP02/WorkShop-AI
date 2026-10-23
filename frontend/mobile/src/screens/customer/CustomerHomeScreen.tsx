@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
   },
   searchInput: {
@@ -409,10 +409,11 @@ const styles = StyleSheet.create({
     flexBasis: "18%",
   },
   tagChipNarrow: {
-    paddingHorizontal: spacing.lg,
+    flexGrow: 1,
+    flexBasis: "46%",
   },
   tagChip: {
-    minHeight: 46,
+    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

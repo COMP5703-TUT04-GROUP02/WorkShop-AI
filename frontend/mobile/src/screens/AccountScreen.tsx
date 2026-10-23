@@ -111,13 +111,13 @@ export function AccountScreen() {
               />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <UserRound color={colors.mutedText} size={44} />
+                <UserRound color={colors.mutedText} size={40} />
               </View>
             )}
 
             {!avatarUri ? (
               <View style={styles.avatarAddBadge}>
-                <Plus color="#FFFFFF" size={22} />
+                <Plus color="#FFFFFF" size={18} />
               </View>
             ) : null}
           </Pressable>
@@ -302,6 +302,8 @@ function MenuItem({
   );
 }
 
+const AVATAR_SIZE = 88;
+
 const styles = StyleSheet.create({
   content: {
     backgroundColor: colors.surface,
@@ -313,9 +315,8 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: "center",
-    gap: spacing.sm,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+    gap: 12,
+    paddingBottom: spacing.md,
   },
   profileHeaderDesktop: {
     flexDirection: "row",
@@ -383,13 +384,13 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   avatarButton: {
-    width: 84,
-    height: 84,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
   },
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: radius.lg,
+    borderRadius: AVATAR_SIZE / 2,
     backgroundColor: colors.surface,
   },
   avatarPlaceholder: {
@@ -397,20 +398,20 @@ const styles = StyleSheet.create({
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.lg,
+    borderRadius: AVATAR_SIZE / 2,
     backgroundColor: colors.primaryTint,
   },
   avatarAddBadge: {
     position: "absolute",
-    right: -5,
-    bottom: -5,
-    width: 36,
-    height: 36,
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
     borderColor: "#FFFFFF",
-    borderRadius: radius.lg,
+    borderRadius: 15,
     backgroundColor: colors.primary,
   },
   userName: {

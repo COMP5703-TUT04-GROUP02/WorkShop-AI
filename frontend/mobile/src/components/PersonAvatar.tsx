@@ -1,6 +1,6 @@
 import { Image, StyleSheet, Text, View } from "react-native";
 
-import { colors, radius } from "../theme/theme";
+import { colors } from "../theme/theme";
 import { resolveMediaUrl } from "../utils/media";
 
 type PersonAvatarProps = {
@@ -20,7 +20,7 @@ export function PersonAvatar({ name, avatarUrl, size = 36 }: PersonAvatarProps) 
   const box = {
     width: size,
     height: size,
-    borderRadius: size <= 28 ? radius.sm : radius.md,
+    borderRadius: size / 2,
   };
 
   if (uri) {

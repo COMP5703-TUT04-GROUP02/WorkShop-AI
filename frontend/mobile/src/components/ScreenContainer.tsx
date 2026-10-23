@@ -19,7 +19,7 @@ export function ScreenContainer({ children, contentStyle }: ScreenContainerProps
         isWebDesktop ? styles.contentDesktop : null,
         contentStyle,
       ]}
-      style={[styles.container, isWebDesktop ? styles.containerDesktop : null]}
+      style={styles.container}
     >
       {children}
     </ScrollView>
@@ -29,9 +29,6 @@ export function ScreenContainer({ children, contentStyle }: ScreenContainerProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDesktop: {
     backgroundColor: colors.surface,
   },
   content: {
