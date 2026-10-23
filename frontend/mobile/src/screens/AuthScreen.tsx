@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { sendRegisterEmailCode } from "../api/auth";
+import { BrandMark } from "../components/BrandMark";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RoleSegmentedControl } from "../components/RoleSegmentedControl";
 import { SecondaryButton } from "../components/SecondaryButton";
@@ -33,6 +34,13 @@ import type { RegisterRequest } from "../types/auth";
 import { getErrorMessage } from "../utils/errors";
 
 type AuthMode = "login" | "register";
+
+/** The three promises the hero spells out, in the product's own words. */
+const HERO_POINTS = [
+  "Every provider clears an identity, licence and bank account check.",
+  "You pay the visit fee up front; the service fee waits for your approval.",
+  "Reviews only come from bookings that were actually paid for.",
+];
 
 export function AuthScreen() {
   const { signIn, signUp, signInWithSocial } = useAuth();
@@ -257,11 +265,24 @@ export function AuthScreen() {
     >
       {isWebDesktop ? (
         <View style={styles.hero}>
-          <Text style={styles.heroBrand}>Workshop AI</Text>
+          <View style={styles.heroBrand}>
+            <BrandMark size={30} />
+            <Text style={styles.heroBrandName}>
+              Workshop <Text style={styles.heroBrandSuffix}>AI</Text>
+            </Text>
+          </View>
           <Text style={styles.heroTitle}>Find local service providers</Text>
           <Text style={styles.heroSubtitle}>
             Search listings, request quotes, book appointments, and leave reviews.
           </Text>
+          <View style={styles.heroPoints}>
+            {HERO_POINTS.map((point) => (
+              <View key={point} style={styles.heroPoint}>
+                <View style={styles.heroPointDot} />
+                <Text style={styles.heroPointText}>{point}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -471,29 +492,62 @@ const styles = StyleSheet.create({
   hero: {
     flex: 1.05,
     justifyContent: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryTint,
     paddingHorizontal: 64,
     paddingVertical: 48,
     gap: spacing.md,
   },
   heroBrand: {
-    color: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  heroBrandName: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  heroBrandSuffix: {
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
   },
   heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 42,
+    color: colors.text,
+    fontSize: 40,
     fontWeight: "700",
-    lineHeight: 50,
+    lineHeight: 48,
     maxWidth: 460,
   },
   heroSubtitle: {
-    color: "rgba(255,255,255,0.88)",
-    fontSize: 18,
+    color: colors.mutedText,
+    fontSize: 17,
     lineHeight: 26,
     maxWidth: 420,
+  },
+  heroPoints: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  heroPoint: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    maxWidth: 440,
+  },
+  heroPointDot: {
+    width: 6,
+    height: 6,
+    marginTop: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  heroPointText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14.5,
+    lineHeight: 22,
   },
   scrollDesktop: {
     flex: 1,
