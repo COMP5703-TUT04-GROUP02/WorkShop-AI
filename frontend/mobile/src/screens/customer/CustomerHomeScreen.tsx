@@ -184,7 +184,12 @@ export function CustomerHomeScreen() {
 
   return (
     <ScreenContainer>
-      <View style={styles.searchRow}>
+      <View
+        style={[
+          styles.searchRow,
+          isWebDesktop ? null : styles.searchRowPhone,
+        ]}
+      >
         <Pressable
           accessibilityLabel="Service area"
           accessibilityRole="button"
@@ -219,7 +224,7 @@ export function CustomerHomeScreen() {
       ) : null}
 
       <View style={styles.header}>
-        <Text style={styles.title}>Home</Text>
+        {isWebDesktop ? <Text style={styles.title}>Home</Text> : null}
         <Text style={styles.subtitle}>
           Search listings, read reviews, book.
         </Text>
@@ -361,7 +366,7 @@ const styles = StyleSheet.create({
   },
   provinceButton: {
     maxWidth: 132,
-    minHeight: 48,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
@@ -379,7 +384,7 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -394,6 +399,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     color: colors.text,
     fontSize: 16,
+  },
+  searchRowPhone: {
+    marginBottom: spacing.xs,
   },
   provinceStatusText: {
     color: colors.mutedText,
