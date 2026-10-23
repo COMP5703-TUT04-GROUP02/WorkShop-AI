@@ -312,10 +312,8 @@ export function CustomerProviderDetailScreen({
                       </Text>
                     </View>
                     <View style={styles.statusRow}>
-                      <TradingStatusBadge
-                        isOnline={provider.is_online}
-                        isOpen={provider.is_open}
-                      />
+                      <TradingStatusBadge isOpen={provider.is_open} />
+                      <ChatPresenceBadge isOnline={provider.is_online} />
                     </View>
                     {favouriteMessage ? (
                       <Text style={styles.favouriteErrorText}>
@@ -509,18 +507,8 @@ function ReviewRow({ review }: { review: Review }) {
   );
 }
 
-/**
- * Whether the business is open, and only then whether someone is actually at
- * the keyboard. Presence on its own tells a customer nothing useful, and shown
- * as a second identical dot it reads as a contradiction.
- */
-function TradingStatusBadge({
-  isOnline,
-  isOpen,
-}: {
-  isOnline: boolean;
-  isOpen: boolean;
-}) {
+/** Whether the business is inside its working hours. */
+function TradingStatusBadge({ isOpen }: { isOpen: boolean }) {
   return (
     <View style={styles.onlineBadge}>
       <View
@@ -530,9 +518,26 @@ function TradingStatusBadge({
         ]}
       />
       <Text style={styles.onlineText}>{isOpen ? "Open" : "Closed"}</Text>
-      {isOpen && isOnline ? (
-        <Text style={styles.onlineHint}>· replying now</Text>
-      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Whether they have the app open right now, which is what decides how fast a
+ * message gets read. It carries a chat glyph rather than a second dot: two
+ * identical dots reading "Open" and "Offline" look like a contradiction, when
+ * they are answers to different questions.
+ */
+function ChatPresenceBadge({ isOnline }: { isOnline: boolean }) {
+  return (
+    <View style={styles.onlineBadge}>
+      <MessageCircle
+        color={isOnline ? colors.success : colors.placeholder}
+        size={13}
+      />
+      <Text style={isOnline ? styles.onlineText : styles.onlineHint}>
+        {isOnline ? "Online now" : "Offline"}
+      </Text>
     </View>
   );
 }

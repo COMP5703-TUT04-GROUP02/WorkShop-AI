@@ -2,7 +2,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { formatDate } from "../../utils/datetime";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
-import { Check, ChevronRight, FileText, MapPin, Trash2 } from "lucide-react-native";
+import { Check, ChevronRight, FileText, MapPin, MessageCircle, Trash2 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -280,10 +280,8 @@ function ProviderHomeContent() {
                 <Text style={styles.serviceVerifiedBadge}>Service verified</Text>
               </View>
               <View style={styles.statusRow}>
-                <TradingStatusBadge
-                  isOnline={Boolean(profile?.is_online)}
-                  isOpen={Boolean(profile?.is_open)}
-                />
+                <TradingStatusBadge isOpen={Boolean(profile?.is_open)} />
+                <ChatPresenceBadge isOnline={Boolean(profile?.is_online)} />
               </View>
               <Text style={styles.bioText}>{profile?.bio || "No business description yet."}</Text>
               <Text style={styles.metaText}>
@@ -372,21 +370,24 @@ function ProviderHomeContent() {
   );
 }
 
-/** One badge, matching what a customer sees on the public profile. */
-function TradingStatusBadge({
-  isOnline,
-  isOpen,
-}: {
-  isOnline: boolean;
-  isOpen: boolean;
-}) {
+/** Working hours, matching what a customer sees on the public profile. */
+function TradingStatusBadge({ isOpen }: { isOpen: boolean }) {
   return (
     <View style={styles.statusBadge}>
       <View style={[styles.statusDot, isOpen ? styles.statusDotActive : styles.statusDotInactive]} />
       <Text style={styles.statusBadgeText}>{isOpen ? "Open" : "Closed"}</Text>
-      {isOpen && isOnline ? (
-        <Text style={styles.statusBadgeHint}>· replying now</Text>
-      ) : null}
+    </View>
+  );
+}
+
+/** Live chat presence — a different kind of fact, so a different glyph. */
+function ChatPresenceBadge({ isOnline }: { isOnline: boolean }) {
+  return (
+    <View style={styles.statusBadge}>
+      <MessageCircle color={isOnline ? colors.success : colors.placeholder} size={13} />
+      <Text style={isOnline ? styles.statusBadgeText : styles.statusBadgeHint}>
+        {isOnline ? "Online now" : "Offline"}
+      </Text>
     </View>
   );
 }
