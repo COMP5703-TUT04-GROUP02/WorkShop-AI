@@ -1,50 +1,15 @@
-import { useNavigation, useNavigationState } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { ComponentType, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BrandMark } from "../components/BrandMark";
 import { PersonAvatar } from "../components/PersonAvatar";
-import { useAuth } from "../context/AuthContext";
-import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
-import { useRealtime } from "../context/RealtimeContext";
-import { getCustomerBookings } from "../api/customer";
-import { pickCurrentJob, type CurrentJob } from "../features/current-job/current-job";
 import { formatMoney } from "../utils/money";
 import { colors, layout, radius, spacing } from "../theme/theme";
-import { AdminMenu, type AdminArea } from "./AdminMenu";
-import { tabIcons } from "./tabIcons";
-import type { MainTabParamList, RootStackParamList } from "./types";
-
-type SidebarItem = {
-  tab: keyof MainTabParamList;
-  label: string;
-  icon: ComponentType<{ color: string; size: number }>;
-  badge?: number;
-  route?: keyof RootStackParamList;
-  stackRoutes?: Array<keyof RootStackParamList>;
-};
+import { AdminMenu } from "./AdminMenu";
+import { useCurrentJob, useDesktopNav } from "./desktopNav";
 
 export function DesktopSidebar() {
-  const { user } = useAuth();
-  const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
-    useProviderProfileGate();
-  const { chatUnreadCount, notificationUnreadCount } = useRealtime();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const defaultTab =
-    user?.role === "admin"
-      ? "AdminDashboard"
-      : user?.role === "provider"
-        ? "ProviderHome"
-        : "CustomerHome";
-  const active = useActiveDesktopRoute(defaultTab);
-  const items = getSidebarItems(
-    user?.role,
-    chatUnreadCount,
-    notificationUnreadCount,
-  );
+  const { active, isActive, items, navigation, open, user } = useDesktopNav();
 
   return (
     <View style={styles.sidebar}>
@@ -77,58 +42,32 @@ export function DesktopSidebar() {
       <View style={styles.rule} />
       <SidebarNavigation isAdmin={user?.role === "admin"}>
         {user?.role === "admin" ? <AdminMenu active={active.tab === "AdminDashboard" ? active.area ?? "ai" : undefined} onSelect={(area) => navigation.navigate("Main", { screen: "AdminDashboard", params: { area } })} /> : null}
-        {items.map((item) => {
-          const isActive = item.route
-            ? active.stack === item.route
-            : active.tab === item.tab ||
-              (active.stack !== "Main" &&
-                item.stackRoutes?.includes(
-                  active.stack as keyof RootStackParamList,
-                ));
-
-          return (
-            <Pressable
-              accessibilityRole="button"
-              key={item.route ?? item.tab}
-              onPress={() => {
-                if (
-                  user?.role === "provider" &&
-                  isProviderProfileRequired &&
-                  item.tab !== "ProviderHome" &&
-                  item.tab !== "Account"
-                ) {
-                  showProviderProfileRequiredMessage();
-                  return;
-                }
-
-                if (item.route) {
-                  navigation.navigate(item.route as never);
-                } else {
-                  navigation.navigate("Main", { screen: item.tab });
-                }
-              }}
-              style={[styles.item, isActive ? styles.itemActive : null]}
+        {items.map((item) => (
+          <Pressable
+            accessibilityRole="button"
+            key={item.route ?? item.tab}
+            onPress={() => open(item)}
+            style={[styles.item, isActive(item) ? styles.itemActive : null]}
+          >
+            <item.icon
+              color={isActive(item) ? colors.primary : colors.mutedText}
+              size={20}
+            />
+            <Text
+              style={[
+                styles.itemLabel,
+                isActive(item) ? styles.itemLabelActive : null,
+              ]}
             >
-              <item.icon
-                color={isActive ? colors.primary : colors.mutedText}
-                size={20}
-              />
-              <Text
-                style={[
-                  styles.itemLabel,
-                  isActive ? styles.itemLabelActive : null,
-                ]}
-              >
-                {item.label}
+              {item.label}
+            </Text>
+            {item.badge ? (
+              <Text style={styles.badgeText}>
+                {item.badge > 99 ? "99+" : item.badge}
               </Text>
-              {item.badge ? (
-                <Text style={styles.badgeText}>
-                  {item.badge > 99 ? "99+" : item.badge}
-                </Text>
-              ) : null}
-            </Pressable>
-          );
-        })}
+            ) : null}
+          </Pressable>
+        ))}
       </SidebarNavigation>
       {user?.role === "customer" ? (
         <CurrentJobCard
@@ -139,27 +78,9 @@ export function DesktopSidebar() {
   );
 }
 
-/**
- * A read-only pin for whatever booking is waiting on the customer. It never
- * blocks the sidebar: while it is loading, or if the request fails, the
- * sidebar renders exactly as it did before.
- */
+/** A read-only pin for whatever booking is waiting on the customer. */
 function CurrentJobCard({ onPress }: { onPress: () => void }) {
-  const [job, setJob] = useState<CurrentJob | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCustomerBookings(undefined, 1, 20)
-      .then((data) => {
-        if (!cancelled) setJob(pickCurrentJob(data?.items ?? []));
-      })
-      .catch(() => {
-        if (!cancelled) setJob(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const job = useCurrentJob();
 
   if (!job) return null;
 
@@ -190,106 +111,6 @@ function SidebarNavigation({ isAdmin, children }: { isAdmin: boolean; children: 
   return isAdmin
     ? <ScrollView contentContainerStyle={styles.nav}>{children}</ScrollView>
     : <View style={styles.nav}>{children}</View>;
-}
-
-function useActiveDesktopRoute(defaultTab: keyof MainTabParamList) {
-  return useNavigationState((state) => {
-    const route = state.routes[state.index];
-    if (route.name === "Main") {
-      const tabState = route.state;
-      const tabIndex =
-        tabState && "index" in tabState ? (tabState.index ?? 0) : 0;
-      const tabRoute = tabState?.routes?.[tabIndex];
-      return {
-        stack: "Main",
-        tab: (tabRoute?.name ?? defaultTab) as keyof MainTabParamList,
-        area: (tabRoute?.params as { area?: AdminArea } | undefined)?.area,
-      };
-    }
-
-    return {
-      stack: route.name,
-      area: undefined as AdminArea | undefined,
-      tab: undefined as keyof MainTabParamList | undefined,
-    };
-  });
-}
-
-function getSidebarItems(
-  role: string | undefined,
-  chatUnreadCount: number,
-  notificationUnreadCount: number,
-): SidebarItem[] {
-  const accountItem: SidebarItem = {
-    tab: "Account",
-    label: "Account",
-    icon: tabIcons.account,
-    badge: notificationUnreadCount,
-    stackRoutes: [
-      "AccountEdit",
-      "ProviderVerification",
-      "ProviderPayoutAccount",
-      "ProviderOperatingSettings",
-      "AccountSecurity",
-      "Help",
-      "Legal",
-      "BookingHistory",
-      "Notifications",
-      "NotificationSettings",
-      "Payments",
-      "CustomerFavourites",
-    ],
-  };
-
-  if (role === "provider") {
-    return [
-      {
-        tab: "ProviderHome",
-        label: "Home",
-        icon: tabIcons.home,
-        stackRoutes: [
-          "ProviderPortfolioList",
-          "ProviderPortfolioCreate",
-          "ProviderPortfolioDetail",
-        ],
-      },
-      { tab: "ProviderSchedule", label: "Schedule", icon: tabIcons.schedule },
-      { tab: "ProviderBookings", label: "Bookings", icon: tabIcons.bookings },
-      {
-        tab: "ProviderChats",
-        label: "Chats",
-        icon: tabIcons.chats,
-        badge: chatUnreadCount,
-        stackRoutes: ["ChatRoom"],
-      },
-      accountItem,
-    ];
-  }
-
-  if (role === "admin") return [accountItem];
-
-  return [
-    {
-      tab: "CustomerHome",
-      label: "Home",
-      icon: tabIcons.home,
-      stackRoutes: [
-        "CustomerProviderDetail",
-        "CustomerProviderSearchResults",
-        "CustomerProviderPortfolioDetail",
-      ],
-    },
-    {
-      tab: "CustomerChats",
-      label: "Chats",
-      icon: tabIcons.chats,
-      badge: chatUnreadCount,
-      stackRoutes: ["ChatRoom"],
-    },
-    { tab: "CustomerAIChat", label: "AI Chat", icon: tabIcons.aiChat },
-    { tab: "CustomerBookings", label: "Bookings", icon: tabIcons.bookings },
-    accountItem,
-  ];
 }
 
 const styles = StyleSheet.create({

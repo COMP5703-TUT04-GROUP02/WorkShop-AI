@@ -37,10 +37,11 @@ function load(relative, mocks = {}) {
   }, { filename });
   return module.exports;
 }
-function sidebar(role) {
+/** The real nav module, so the destinations the shells show are the real ones. */
+function navModule(role) {
   const tab = role === "admin" ? "AdminDashboard" : role === "provider" ? "ProviderHome" : "CustomerHome";
   const Icon = () => null;
-  const { DesktopSidebar } = load("navigation/DesktopSidebar.tsx", {
+  return load("navigation/desktopNav.tsx", {
     "@react-navigation/native": {
       useNavigation: () => ({ navigate() {} }),
       useNavigationState: callback => callback({ index: 0, routes: [{ name: "Main", state: { index: 0, routes: [{ name: tab }] } }] }),
@@ -48,17 +49,28 @@ function sidebar(role) {
     "../context/AuthContext": { useAuth: () => ({ user: { role } }) },
     "../context/ProviderProfileGateContext": { useProviderProfileGate: () => ({ isProviderProfileRequired: false }) },
     "../context/RealtimeContext": { useRealtime: () => ({ chatUnreadCount: 0, notificationUnreadCount: 0 }) },
-    "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
-    "../components/PersonAvatar": { PersonAvatar: () => React.createElement("img", null) },
     "../api/customer": { getCustomerBookings: async () => ({ items: [] }) },
     "../features/current-job/current-job": {
       pickCurrentJob: () => ({ id: 1, title: "Ceiling light install", statusLabel: "Visit fee due", amountDue: 150, needsCustomer: true }),
     },
-    "../utils/money": { formatMoney: value => `${value} TRY` },
-    "./AdminMenu": { AdminMenu: () => React.createElement("nav", null, "Admin menu") },
     "./tabIcons": { tabIcons: Object.fromEntries(["home", "schedule", "bookings", "chats", "aiChat", "account"].map(name => [name, Icon])) },
   });
+}
+const shellMocks = role => ({
+  "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
+  "../components/PersonAvatar": { PersonAvatar: () => React.createElement("img", null) },
+  "../utils/money": { formatMoney: value => `${value} TRY` },
+  "../components/NotificationsButton": { NotificationsButton: () => React.createElement("button", null, "Notifications") },
+  "./AdminMenu": { AdminMenu: () => React.createElement("nav", null, "Admin menu") },
+  "./desktopNav": navModule(role),
+});
+function sidebar(role) {
+  const { DesktopSidebar } = load("navigation/DesktopSidebar.tsx", shellMocks(role));
   return renderToStaticMarkup(React.createElement(DesktopSidebar));
+}
+function topBar(role) {
+  const { DesktopTopBar } = load("navigation/DesktopTopBar.tsx", shellMocks(role));
+  return renderToStaticMarkup(React.createElement(DesktopTopBar));
 }
 for (const [role, labels] of [
   ["customer", ["Home", "Chats", "AI Chat", "Bookings", "Account"]],
@@ -70,6 +82,17 @@ for (const [role, labels] of [
     labels.forEach(label => assert.ok(html.includes(`>${label}<`), label));
   });
 }
+test("the top bar carries the same destinations, with Account as the avatar", () => {
+  for (const [role, labels] of [
+    ["customer", ["Home", "Chats", "AI Chat", "Bookings"]],
+    ["provider", ["Home", "Schedule", "Bookings", "Chats"]],
+  ]) {
+    const html = topBar(role);
+    assert.doesNotMatch(html, /Admin menu/);
+    labels.forEach(label => assert.ok(html.includes(`>${label}<`), `${role}: ${label}`));
+    assert.doesNotMatch(html, />Account</, `${role}: Account is the avatar, not a nav row`);
+  }
+});
 test("only Admin gets the scrollable menu", () => {
   const html = sidebar("admin");
   assert.match(html, /data-native="ScrollView"/);

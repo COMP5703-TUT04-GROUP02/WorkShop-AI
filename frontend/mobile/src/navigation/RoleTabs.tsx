@@ -3,11 +3,11 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Bell } from "lucide-react-native";
 import type { ComponentType } from "react";
 import { useEffect } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { NotificationsButton } from "../components/NotificationsButton";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
@@ -22,7 +22,7 @@ import { ProviderBookingsScreen } from "../screens/provider/ProviderBookingsScre
 import { ProviderChatsScreen } from "../screens/provider/ProviderChatsScreen";
 import { ProviderHomeScreen } from "../screens/provider/ProviderHomeScreen";
 import { ProviderScheduleScreen } from "../screens/provider/ProviderScheduleScreen";
-import { colors } from "../theme/theme";
+import { colors, spacing } from "../theme/theme";
 import { tabIcons } from "./tabIcons";
 import type { MainTabParamList, RootStackParamList } from "./types";
 
@@ -76,6 +76,9 @@ export function RoleTabs() {
           fontSize: 11,
           fontWeight: "800",
         },
+        // The desktop top bar is the chrome for these roles; a second row that
+        // only repeats the page's own heading is noise.
+        ...(isWebDesktop && user?.role !== "admin" ? { headerShown: false } : {}),
         ...(isWebDesktop
           ? {
               tabBarStyle: {
@@ -224,7 +227,9 @@ export function RoleTabs() {
           tabBarIcon: tabIcons.account,
           tabBarBadge: formatUnreadBadge(notificationUnreadCount),
           headerRight: () => (
-            <NotificationsHeaderButton unreadCount={notificationUnreadCount} />
+            <View style={guardStyles.headerRight}>
+              <NotificationsButton unreadCount={notificationUnreadCount} />
+            </View>
           ),
         }}
       />
@@ -240,68 +245,6 @@ function formatUnreadBadge(count: number) {
   return count > 99 ? "99+" : count;
 }
 
-/**
- * WS-108 moved the notification inbox out of the Account menu. Without an entry
- * point it would be unreachable, so it lives in the Account header instead —
- * still one tap away, but no longer a settings row.
- */
-function NotificationsHeaderButton({ unreadCount }: { unreadCount: number }) {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  return (
-    <Pressable
-      accessibilityLabel={
-        unreadCount > 0
-          ? `Notifications, ${unreadCount} unread`
-          : "Notifications"
-      }
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => navigation.navigate("Notifications")}
-      style={({ pressed }) => [
-        headerStyles.button,
-        pressed ? headerStyles.buttonPressed : null,
-      ]}
-    >
-      <Bell color={colors.text} size={22} />
-      {unreadCount > 0 ? (
-        <View style={headerStyles.badge}>
-          <Text style={headerStyles.badgeText}>
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
-const headerStyles = StyleSheet.create({
-  button: {
-    marginRight: 16,
-    padding: 4,
-  },
-  buttonPressed: {
-    opacity: 0.6,
-  },
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "800",
-  },
-});
 
 function buildProviderBlockedTabButton(
   showProviderProfileRequiredMessage: () => void,
@@ -367,6 +310,9 @@ function withRequiredProviderProfile<P extends object>(
 }
 
 const guardStyles = StyleSheet.create({
+  headerRight: {
+    marginRight: spacing.md,
+  },
   loader: {
     flex: 1,
     alignItems: "center",
