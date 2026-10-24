@@ -192,7 +192,7 @@ def build() -> dict:
                 # Providers are deliberately left without one: the search card
                 # prefers an avatar over the portfolio image, and the work is
                 # what sells a provider.
-                avatar_url=f"/sample-media/avatars/customer_{index}.jpg?v=6",
+                avatar_url=f"/sample-media/avatars/customer_{index}.jpg?v=7",
                 is_active=True,
                 is_banned=False,
                 last_login_at=None,
