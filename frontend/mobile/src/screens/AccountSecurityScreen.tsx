@@ -21,7 +21,7 @@ import {
   VerifyCodeModal,
 } from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius, spacing } from "../theme/theme";
+import { colors, radius, spacing, type } from "../theme/theme";
 import { getErrorMessage } from "../utils/errors";
 
 /**
@@ -194,12 +194,12 @@ export function AccountSecurityScreen() {
   return (
     <ScreenContainer>
       <View style={styles.card}>
-        <View style={styles.row}>
-          <View style={styles.rowText}>
+        <View style={styles.field}>
+          <View style={styles.row}>
             <Text style={styles.label}>Sign-in email</Text>
-            <Text style={styles.value}>{user?.email ?? "—"}</Text>
+            <StatusPill verified={Boolean(user?.email_verified)} />
           </View>
-          <StatusPill verified={Boolean(user?.email_verified)} />
+          <Text style={styles.value}>{user?.email ?? "—"}</Text>
         </View>
         <SecondaryButton
           disabled={isSendingVerifyCode}
@@ -215,14 +215,14 @@ export function AccountSecurityScreen() {
 
         <View style={styles.divider} />
 
-        <View style={styles.row}>
-          <View style={styles.rowText}>
+        <View style={styles.field}>
+          <View style={styles.row}>
             <Text style={styles.label}>Phone</Text>
-            <Text style={styles.hint}>
-              Verifies the number saved on your profile.
-            </Text>
+            <StatusPill verified={Boolean(user?.phone_verified)} />
           </View>
-          <StatusPill verified={Boolean(user?.phone_verified)} />
+          <Text style={styles.hint}>
+            Verifies the number saved on your profile.
+          </Text>
         </View>
         <SecondaryButton
           label={user?.phone_verified ? "Verify phone again" : "Verify phone"}
@@ -341,11 +341,6 @@ function StatusPill({ verified }: { verified: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "700",
-  },
   card: {
     gap: spacing.sm,
     borderWidth: 1,
@@ -356,8 +351,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: type.section,
     fontWeight: "700",
+  },
+  // The pill sits on the label's line, not the value's: an email is long
+  // enough that sharing a line with the pill broke it mid-word.
+  field: {
+    gap: 2,
   },
   row: {
     flexDirection: "row",
@@ -376,27 +376,27 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: type.secondary,
     fontWeight: "600",
   },
   value: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: type.body,
     fontWeight: "600",
   },
   hint: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: type.secondary,
     lineHeight: 19,
   },
   error: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: type.secondary,
     lineHeight: 20,
   },
   success: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: type.secondary,
     lineHeight: 20,
   },
   pill: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     color: colors.text,
-    fontSize: 12,
+    fontSize: type.micro,
     fontWeight: "800",
     letterSpacing: 0.5,
   },

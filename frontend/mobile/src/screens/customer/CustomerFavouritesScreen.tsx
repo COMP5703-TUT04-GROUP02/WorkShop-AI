@@ -26,7 +26,7 @@ import {
   removeFavouriteByProviderId,
 } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, radius, spacing } from "../../theme/theme";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { FavoriteProvider } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: type.title,
     fontWeight: "700",
   },
   subtitle: {

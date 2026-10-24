@@ -8,7 +8,7 @@ import { MarketplaceBreakdownCard } from "../components/MarketplaceBreakdownCard
 import { PlaceholderPanel } from "../components/PlaceholderPanel";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius, spacing } from "../theme/theme";
+import { colors, radius, spacing, type } from "../theme/theme";
 import type { PaymentHistoryEntry } from "../types/booking";
 import {
   getBookingStatusLabel,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: type.title,
     fontWeight: "800",
   },
   cardLine: {

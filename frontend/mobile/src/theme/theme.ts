@@ -65,6 +65,17 @@ export const spacing = {
  * tables, and `adminTypography` keeps it for exactly that. A consumer screen
  * is read, not scanned, so running text gets the size it is read at.
  */
+/**
+ * Every piece of text in the app takes its size from here, by the role it
+ * plays rather than by how big it should look.
+ *
+ * Three things sit outside it, on purpose. The sign-in hero is a landing page
+ * rather than a screen of the app, and sets its own two sizes. A character
+ * drawn to fill a shape - an initial in a circle, a day in a calendar cell, a
+ * close cross - is sized to that shape, not to this scale. Admin tables have
+ * their own denser scale in adminTypography.ts, because a table of thirty
+ * rows is not read the way a screen is.
+ */
 export const type = {
   /** One per screen, at the top. */
   display: 28,

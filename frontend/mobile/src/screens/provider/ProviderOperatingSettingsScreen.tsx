@@ -291,7 +291,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  title: { color: colors.text, fontSize: 24, fontWeight: "800" },
   label: { color: colors.text, fontSize: 14, fontWeight: "700" },
   hint: { color: colors.mutedText, fontSize: 14, lineHeight: 19 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20 },

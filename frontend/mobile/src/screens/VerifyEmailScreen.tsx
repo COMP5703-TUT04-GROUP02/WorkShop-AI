@@ -10,7 +10,7 @@ import { SecondaryButton } from "../components/SecondaryButton";
 import { TextField } from "../components/TextField";
 import { EMAIL_CODE_HINT } from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius, spacing } from "../theme/theme";
+import { colors, radius, spacing, type } from "../theme/theme";
 import { getErrorMessage } from "../utils/errors";
 
 const SIX_DIGITS = /^\d{6}$/;
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: type.title,
     fontWeight: "700",
   },
   description: {

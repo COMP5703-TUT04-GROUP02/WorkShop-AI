@@ -34,7 +34,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
 import type { RootStackParamList } from "../../navigation/types";
 import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
-import { colors, radius, spacing } from "../../theme/theme";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { SelectedLocation, ServiceAreaSelection } from "../../types/location";
 import type {
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface }, content: { width: "100%", maxWidth: 820, alignSelf: "center", padding: spacing.lg, gap: spacing.md }, loader: { flex: 1 },
   approvedContent: { gap: spacing.md, padding: spacing.lg },
   headerContent: { gap: spacing.lg },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: 24, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: type.title, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
   stepper: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg }, stepItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, position: "relative" }, stepDot: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, stepDotApproved: { borderColor: colors.primary, backgroundColor: colors.primaryTint }, stepNumber: { color: colors.mutedText, fontWeight: "800" }, stepNumberApproved: { color: colors.primary }, stepCopy: { flex: 1, alignItems: "flex-start", gap: spacing.xs }, stepConnector: { position: "absolute", right: -spacing.lg, width: spacing.lg, height: 1, backgroundColor: colors.border }, progressLabel: { color: colors.text, fontWeight: "700" },
   lead: { color: colors.mutedText, fontSize: 16, lineHeight: 24 },
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   profileSummaryCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: spacing.lg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.background, padding: spacing.lg },
   profileSummaryMain: { flex: 1, minWidth: 260, gap: spacing.sm },
   businessTitleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
-  businessName: { color: colors.text, fontSize: 24, fontWeight: "800" },
+  businessName: { color: colors.text, fontSize: type.title, fontWeight: "800" },
   serviceVerifiedBadge: { overflow: "hidden", borderRadius: radius.pill, backgroundColor: colors.primaryTint, color: colors.primary, paddingHorizontal: spacing.sm, paddingVertical: 5, fontSize: 12, fontWeight: "800" },
   statusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   statusBadge: { minHeight: 26, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.sm },

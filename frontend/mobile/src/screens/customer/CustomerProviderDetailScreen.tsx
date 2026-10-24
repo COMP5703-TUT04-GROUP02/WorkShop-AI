@@ -39,7 +39,7 @@ import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import { useRealtime } from "../../context/RealtimeContext";
 import { setProviderFavouriteState } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, radius, spacing } from "../../theme/theme";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type {
   CustomerProviderDetail,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   businessName: {
     flex: 1,
     color: colors.text,
-    fontSize: 24,
+    fontSize: type.title,
     fontWeight: "800",
   },
   businessTitleRow: {

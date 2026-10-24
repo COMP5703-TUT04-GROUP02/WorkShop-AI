@@ -136,11 +136,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "800",
-  },
   addButton: {
     minHeight: 36,
     marginRight: spacing.md,

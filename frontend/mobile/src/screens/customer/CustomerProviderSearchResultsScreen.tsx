@@ -27,7 +27,7 @@ import {
   type ProviderSearchFilters as ProviderSearchFilterValues,
 } from "../../features/provider-search/search-filter-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, radius, spacing } from "../../theme/theme";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type {
   CustomerProviderSearchItem,
   ProviderRecommendation,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: type.title,
     fontWeight: "700",
   },
   subtitle: {
