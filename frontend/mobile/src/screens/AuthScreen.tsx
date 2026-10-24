@@ -46,7 +46,7 @@ type AuthMode = "login" | "register";
 const HERO = {
   login: {
     image: "/sample-media/brand/istanbul.jpg",
-    title: "Find local service providers",
+    title: "A verified pro near you",
     subtitle:
       "Search listings, request quotes, book appointments, and leave reviews.",
     points: [
@@ -641,16 +641,16 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: "700",
-    lineHeight: 48,
-    maxWidth: 460,
+    lineHeight: 44,
+    maxWidth: 600,
   },
   heroSubtitle: {
     color: "rgba(255,255,255,0.86)",
     fontSize: 16,
     lineHeight: 26,
-    maxWidth: 420,
+    maxWidth: 600,
   },
   heroPoints: {
     gap: spacing.sm,
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.sm,
-    maxWidth: 440,
+    maxWidth: 600,
   },
   heroPointDot: {
     width: 6,

@@ -49,7 +49,7 @@ export function CustomerProviderPortfolioDetailScreen() {
   return (
     <ScreenContainer contentStyle={[styles.content, isWebDesktop ? styles.readingColumn : null]}>
       {portfolio ? (
-        <>
+        <View style={styles.workCard}>
           <PortfolioMediaCarousel portfolio={portfolio} />
 
           <View style={styles.infoCard}>
@@ -61,7 +61,7 @@ export function CustomerProviderPortfolioDetailScreen() {
             )}
             <Text style={styles.mutedText}>{formatDate(portfolio.created_at)}</Text>
           </View>
-        </>
+        </View>
       ) : (
         <Text style={styles.mutedText}>{message || "Loading..."}</Text>
       )}
@@ -81,12 +81,15 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     alignSelf: "center",
   },
-  infoCard: {
-    gap: spacing.sm,
+  workCard: {
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     backgroundColor: colors.background,
+  },
+  infoCard: {
+    gap: spacing.sm,
     padding: spacing.lg,
   },
   title: {

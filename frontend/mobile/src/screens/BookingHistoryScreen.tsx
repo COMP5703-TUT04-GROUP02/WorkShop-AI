@@ -1,6 +1,6 @@
 import { CalendarClock, MapPin } from "lucide-react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
@@ -231,16 +231,22 @@ export function BookingHistoryScreen() {
     }
   }
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerAction}>
+          <SecondaryButton
+            disabled={isLoading}
+            label="Refresh"
+            onPress={() => void loadBookings()}
+          />
+        </View>
+      ),
+    });
+  }, [isLoading, loadBookings, navigation]);
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <SecondaryButton
-          disabled={isLoading}
-          label="Refresh"
-          onPress={() => void loadBookings()}
-        />
-      </View>
-
       {message ? <Text style={styles.errorText}>{message}</Text> : null}
 
       {isLoading ? (
@@ -433,11 +439,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: spacing.md,
+  headerAction: {
+    marginRight: spacing.md,
   },
   title: {
     color: colors.text,

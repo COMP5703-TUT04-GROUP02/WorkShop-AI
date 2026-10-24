@@ -242,7 +242,6 @@ const styles = StyleSheet.create({
   carouselFrame: {
     alignSelf: "center",
     overflow: "hidden",
-    borderRadius: radius.lg,
   },
   scroller: {
     borderRadius: radius.lg,

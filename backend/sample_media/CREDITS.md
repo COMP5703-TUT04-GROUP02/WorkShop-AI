@@ -123,14 +123,14 @@ The five demo customers. Providers are deliberately left without one: the
 search card prefers an avatar over the portfolio image, and the work is what
 sells a provider.
 
-512 x 512 JPEG, from [Pexels](https://www.pexels.com/license/). Photographers:
-Gabby K, Ferhat Ten, Khabbab Abdelmaqsoud, Tima Miroshnichenko, Faruk
-Canpolat.
+512 x 512 JPEG. The first is a headshot supplied by the team; the other four
+are from [Pexels](https://www.pexels.com/license/), by Ferhat Ten, Khabbab
+Abdelmaqsoud, Tima Miroshnichenko and Faruk Canpolat.
 
-Keep the photographer's framing. An earlier pass cropped the first one closer
-so the face would fill the circle, and cut the top of the head and the chin
-with it; the headroom and the shoulders are what make it read as a portrait
-rather than a mistake. These render inside a circle at 30 to 88 points.
+Crop around the face, not the centre of the frame: the supplied headshot has
+its subject left of centre, so a centre square put him against the edge. Keep
+the headroom and the shoulders - a face pressed against the frame reads as a
+mistake. These render inside a circle at 30 to 88 points.
 
 ## brand
 

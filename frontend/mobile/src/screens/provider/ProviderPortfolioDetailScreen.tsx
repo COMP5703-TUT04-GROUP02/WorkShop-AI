@@ -46,11 +46,16 @@ export function ProviderPortfolioDetailScreen() {
   return (
     <ScreenContainer contentStyle={[styles.content, isWebDesktop ? styles.readingColumn : null]}>
       {portfolio ? (
-        <>
+        <View style={styles.workCard}>
           <PortfolioMediaCarousel portfolio={portfolio} />
 
           <View style={styles.infoCard}>
-            <Text style={styles.title}>{portfolio.title}</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{portfolio.title}</Text>
+              <Text style={[styles.statusBadge, statusTone(portfolio.verification_status)]}>
+                {getPortfolioStatusLabel(portfolio.verification_status)}
+              </Text>
+            </View>
             {portfolio.description ? (
               <Text style={styles.description}>{portfolio.description}</Text>
             ) : (
@@ -58,7 +63,7 @@ export function ProviderPortfolioDetailScreen() {
             )}
             <Text style={styles.mutedText}>{formatDate(portfolio.created_at)}</Text>
           </View>
-        </>
+        </View>
       ) : (
         <Text style={styles.mutedText}>{message || "Loading..."}</Text>
       )}
@@ -66,6 +71,19 @@ export function ProviderPortfolioDetailScreen() {
   );
 }
 
+
+/** Whether this piece is live on the profile yet. */
+function getPortfolioStatusLabel(status: string) {
+  if (status === "approved") return "Live";
+  if (status === "rejected") return "Not accepted";
+  return "In review";
+}
+
+function statusTone(status: string) {
+  if (status === "approved") return styles.statusApproved;
+  if (status === "rejected") return styles.statusRejected;
+  return styles.statusPending;
+}
 
 const styles = StyleSheet.create({
   content: {
@@ -78,18 +96,47 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     alignSelf: "center",
   },
-  infoCard: {
-    gap: spacing.sm,
+  workCard: {
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     backgroundColor: colors.background,
+  },
+  infoCard: {
+    gap: spacing.sm,
     padding: spacing.lg,
   },
   title: {
     color: colors.text,
     fontSize: 22,
     fontWeight: "800",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  statusBadge: {
+    overflow: "hidden",
+    borderRadius: radius.sm,
+    fontSize: 12,
+    fontWeight: "700",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  statusApproved: {
+    backgroundColor: colors.successTint,
+    color: colors.success,
+  },
+  statusPending: {
+    backgroundColor: colors.warningTint,
+    color: colors.warningText,
+  },
+  statusRejected: {
+    backgroundColor: colors.dangerTint,
+    color: colors.danger,
   },
   description: {
     color: colors.text,

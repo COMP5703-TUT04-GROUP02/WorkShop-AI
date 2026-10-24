@@ -1,5 +1,5 @@
-import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getCustomerPayments } from "../api/customer";
@@ -29,6 +29,7 @@ const PAGE_SIZE = 20;
  * vault, so offering to "manage cards" would be a control that cannot work.
  */
 export function PaymentsScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [payments, setPayments] = useState<PaymentHistoryEntry[]>([]);
   const [page, setPage] = useState(1);
@@ -93,16 +94,22 @@ export function PaymentsScreen() {
     }, [loadPayments]),
   );
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerAction}>
+          <SecondaryButton
+            disabled={isLoading}
+            label="Refresh"
+            onPress={() => void loadPayments()}
+          />
+        </View>
+      ),
+    });
+  }, [isLoading, loadPayments, navigation]);
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <SecondaryButton
-          disabled={isLoading}
-          label="Refresh"
-          onPress={() => void loadPayments()}
-        />
-      </View>
-
       <Text style={styles.subtitle}>
         {isProvider
           ? "Payments customers have made for your bookings."
@@ -226,11 +233,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: spacing.md,
+  headerAction: {
+    marginRight: spacing.md,
   },
   title: {
     color: colors.text,
