@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { BrandMark } from "../components/BrandMark";
 import { NotificationsButton } from "../components/NotificationsButton";
@@ -13,83 +13,102 @@ import { useCurrentJob, useDesktopNav, type DesktopNavItem } from "./desktopNav"
  * Admin keeps the sidebar, where its nested sections have room to open.
  */
 export function DesktopTopBar() {
+  const { width } = useWindowDimensions();
+  const compact = width < layout.webContentMaxWidth;
   const { isActive, items, navigation, notificationUnreadCount, open, user } =
     useDesktopNav();
   const account = items.find((item) => item.tab === "Account");
   const destinations = items.filter((item) => item.tab !== "Account");
 
+  const brand = (
+    <Pressable
+      accessibilityLabel="Workshop AI home"
+      accessibilityRole="button"
+      onPress={() => destinations[0] && open(destinations[0])}
+      style={styles.brand}
+    >
+      <BrandMark size={26} />
+      <Text style={styles.brandName}>
+        Workshop <Text style={styles.brandSuffix}>AI</Text>
+      </Text>
+    </Pressable>
+  );
+  const nav = (
+    <View style={styles.nav}>
+      {destinations.map((item) => (
+        <NavItem
+          item={item}
+          isActive={Boolean(isActive(item))}
+          key={item.route ?? item.tab}
+          onPress={() => open(item)}
+        />
+      ))}
+    </View>
+  );
+  const right = (
+    <View style={styles.right}>
+      {user?.role === "customer" ? (
+        <CurrentJobPill
+          onPress={() =>
+            navigation.navigate("Main", { screen: "CustomerBookings" })
+          }
+        />
+      ) : null}
+
+      <NotificationsButton unreadCount={notificationUnreadCount} />
+
+      {account ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => open(account)}
+          style={[
+            styles.account,
+            isActive(account) ? styles.accountActive : null,
+          ]}
+        >
+          <PersonAvatar
+            avatarUrl={user?.avatar_url}
+            name={user?.name ?? user?.email}
+            size={32}
+          />
+          <View style={styles.accountCopy}>
+            <Text numberOfLines={1} style={styles.accountName}>
+              {user?.name ?? user?.email ?? ""}
+            </Text>
+            <Text numberOfLines={1} style={styles.accountRole}>
+              {user?.role === "provider" ? "Provider" : "Customer"}
+            </Text>
+          </View>
+          {account.badge ? (
+            <View style={styles.accountBadge}>
+              <Text style={styles.accountBadgeText}>
+                {account.badge > 99 ? "99+" : account.badge}
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
   return (
     <View style={styles.bar}>
-      <View style={styles.inner}>
-        <Pressable
-          accessibilityLabel="Workshop AI home"
-          accessibilityRole="button"
-          onPress={() => destinations[0] && open(destinations[0])}
-          style={styles.brand}
-        >
-          <BrandMark size={26} />
-          <Text style={styles.brandName}>
-            Workshop <Text style={styles.brandSuffix}>AI</Text>
-          </Text>
-        </Pressable>
-
-        <View style={styles.nav}>
-          {destinations.map((item) => (
-            <NavItem
-              item={item}
-              isActive={Boolean(isActive(item))}
-              key={item.route ?? item.tab}
-              onPress={() => open(item)}
-            />
-          ))}
+      {compact ? (
+        <>
+          <View style={[styles.inner, styles.compactHeader]}>
+            {brand}
+            {right}
+          </View>
+          <View style={[styles.inner, styles.compactNav]}>{nav}</View>
+        </>
+      ) : (
+        <View style={styles.inner}>
+          {brand}
+          {nav}
+          <View style={styles.rightRule} />
+          {right}
         </View>
-
-        <View style={styles.rightRule} />
-
-        <View style={styles.right}>
-          {user?.role === "customer" ? (
-            <CurrentJobPill
-              onPress={() =>
-                navigation.navigate("Main", { screen: "CustomerBookings" })
-              }
-            />
-          ) : null}
-
-          <NotificationsButton unreadCount={notificationUnreadCount} />
-
-          {account ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => open(account)}
-              style={[
-                styles.account,
-                isActive(account) ? styles.accountActive : null,
-              ]}
-            >
-              <PersonAvatar
-                avatarUrl={user?.avatar_url}
-                name={user?.name ?? user?.email}
-                size={32}
-              />
-              <View style={styles.accountCopy}>
-                <Text numberOfLines={1} style={styles.accountName}>
-                  {user?.name ?? user?.email ?? ""}
-                </Text>
-                <Text numberOfLines={1} style={styles.accountRole}>
-                  {user?.role === "provider" ? "Provider" : "Customer"}
-                </Text>
-              </View>
-              {account.badge ? (
-                <View style={styles.accountBadge}>
-                  <Text style={styles.accountBadgeText}>
-                    {account.badge > 99 ? "99+" : account.badge}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -168,6 +187,14 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     gap: spacing.xl,
     paddingHorizontal: spacing.xl,
+  },
+  compactHeader: {
+    justifyContent: "space-between",
+  },
+  compactNav: {
+    minHeight: 52,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   brand: {
     flexDirection: "row",

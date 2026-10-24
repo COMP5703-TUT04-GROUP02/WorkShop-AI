@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { pickCurrentJob } = require("../../../../.test-build/features/current-job/current-job.js");
+const { findCurrentJob, pickCurrentJob } = require("../../../../.test-build/features/current-job/current-job.js");
 
 const booking = (id, status, extra = {}) => ({
   id,
@@ -25,6 +25,25 @@ test("a booking waiting on the customer beats one waiting on the provider", () =
 test("the most urgent customer action wins", () => {
   const job = pickCurrentJob([booking(1, "quoted"), booking(2, "awaiting_visit_payment")]);
   assert.equal(job.id, 2);
+});
+
+test("awaiting payment is an actionable current job", () => {
+  const job = pickCurrentJob([booking(1, "awaiting_payment")]);
+  assert.equal(job.id, 1);
+  assert.equal(job.statusLabel, "Awaiting payment");
+  assert.equal(job.needsCustomer, true);
+});
+
+test("an actionable booking after the first page is still found", async () => {
+  const calls = [];
+  const job = await findCurrentJob(async (page, pageSize) => {
+    calls.push([page, pageSize]);
+    return page === 1
+      ? { items: Array.from({ length: 100 }, (_, index) => booking(index + 1, "completed")), has_next: true }
+      : { items: [booking(101, "awaiting_visit_payment")], has_next: false };
+  });
+  assert.equal(job.id, 101);
+  assert.deepEqual(calls, [[1, 100], [2, 100]]);
 });
 
 test("a running booking still shows when nothing needs the customer", () => {

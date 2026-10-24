@@ -8,6 +8,7 @@ import type { BookingDetail } from "../../types/booking";
  */
 export const CUSTOMER_ACTION_STATUSES = [
   "awaiting_visit_payment",
+  "awaiting_payment",
   "awaiting_service_payment",
   "final_quote_sent",
   "quoted",
@@ -38,6 +39,27 @@ type JobInput = Pick<
   BookingDetail,
   "id" | "title" | "status" | "total_amount" | "visit_fee_amount"
 >;
+
+type BookingPage = {
+  items: JobInput[];
+  has_next: boolean;
+};
+
+/** Check every page so an older live booking is not hidden by recent history. */
+export async function findCurrentJob(
+  loadPage: (page: number, pageSize: number) => Promise<BookingPage | null>,
+): Promise<CurrentJob | null> {
+  const bookings: JobInput[] = [];
+
+  for (let page = 1; ; page += 1) {
+    const result = await loadPage(page, 100);
+    if (!result) return pickCurrentJob(bookings);
+    bookings.push(...result.items);
+    if (!result.has_next || result.items.length === 0) {
+      return pickCurrentJob(bookings);
+    }
+  }
+}
 
 function rank(status: string) {
   const action = CUSTOMER_ACTION_STATUSES.indexOf(
