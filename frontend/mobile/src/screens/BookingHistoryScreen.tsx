@@ -35,7 +35,7 @@ import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 import type { BookingDetail, PaymentSummary } from "../types/booking";
 import { getRefundStatusLabel } from "../constants/labels";
-import { formatDateTime } from "../utils/datetime";
+import { formatDateTime, formatDateTimeRange } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 import { formatMoney } from "../utils/money";
 import { useConfirmation } from "../utils/useConfirmation";
@@ -339,8 +339,7 @@ function HistoryBookingCard({
         <View style={styles.metaRow}>
           <CalendarClock color={colors.mutedText} size={14} />
           <Text numberOfLines={1} style={styles.metaText}>
-            {formatDateTime(booking.scheduled_start_time)} -{" "}
-            {formatDateTime(booking.scheduled_end_time)}
+            {formatDateTimeRange(booking.scheduled_start_time, booking.scheduled_end_time)}
           </Text>
         </View>
         <View style={styles.metaRow}>

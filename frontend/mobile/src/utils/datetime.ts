@@ -71,6 +71,35 @@ export function formatDateTime(value: string | null | undefined) {
   });
 }
 
+/**
+ * A booking's start and end. Written out twice it repeats the date for what is
+ * almost always a job inside one day - "26 May 2026, 17:00 - 26 May 2026,
+ * 19:00" - which is both longer than a phone has room for and not how anyone
+ * says it. When the two ends share a day, the date is said once.
+ */
+export function formatDateTimeRange(
+  start: string | null | undefined,
+  end: string | null | undefined,
+) {
+  if (!start) {
+    return formatDateTime(end);
+  }
+  if (!end) {
+    return formatDateTime(start);
+  }
+
+  const from = parseDateTime(start);
+  const to = parseDateTime(end);
+  if (!from || !to) {
+    return `${formatDateTime(start)} - ${formatDateTime(end)}`;
+  }
+
+  const sameDay = from.toDateString() === to.toDateString();
+  return sameDay
+    ? `${formatDateTime(start)} - ${formatTime(end)}`
+    : `${formatDateTime(start)} - ${formatDateTime(end)}`;
+}
+
 export function formatShortDateTime(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -131,4 +160,23 @@ export function parseDateTime(value: string) {
   }
 
   return date;
+}
+
+/** The same rule, for the compact form the schedule uses. */
+export function formatShortDateTimeRange(
+  start: string | null | undefined,
+  end: string | null | undefined,
+) {
+  if (!start) return formatShortDateTime(end);
+  if (!end) return formatShortDateTime(start);
+
+  const from = parseDateTime(start);
+  const to = parseDateTime(end);
+  if (!from || !to) {
+    return `${formatShortDateTime(start)} - ${formatShortDateTime(end)}`;
+  }
+
+  return from.toDateString() === to.toDateString()
+    ? `${formatShortDateTime(start)} - ${formatTime(end)}`
+    : `${formatShortDateTime(start)} - ${formatShortDateTime(end)}`;
 }

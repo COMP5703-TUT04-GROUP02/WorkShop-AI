@@ -32,7 +32,7 @@ import type {
   ProviderAvailability,
   ProviderAvailabilityOverride,
 } from "../../types/provider";
-import { formatShortDateTime } from "../../utils/datetime";
+import { formatShortDateTime, formatShortDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 
 type ScheduleTab = "availability" | "jobs";
@@ -756,8 +756,10 @@ function JobListModal({
                   <View pointerEvents="none" style={styles.descriptionFade} />
                 </View>
                 <Text style={styles.cardText}>
-                  {formatShortDateTime(booking.scheduled_start_time)} -{" "}
-                  {formatShortDateTime(booking.scheduled_end_time)}
+                  {formatShortDateTimeRange(
+                    booking.scheduled_start_time,
+                    booking.scheduled_end_time,
+                  )}
                 </Text>
               </Pressable>
             ))}

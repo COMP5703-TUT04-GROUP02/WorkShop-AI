@@ -43,7 +43,7 @@ import type {
   BookingUploadFile,
   PaymentHistoryEntry,
 } from "../../types/booking";
-import { formatDateTime } from "../../utils/datetime";
+import { formatDateTime, formatDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney } from "../../utils/money";
 import { indexLatestPayments } from "../../utils/payment";
@@ -623,8 +623,7 @@ function ProviderBookingCard({
         {booking.service_description}
       </Text>
       <Text numberOfLines={1} style={styles.metaText}>
-        {formatDateTime(booking.scheduled_start_time)} -{" "}
-        {formatDateTime(booking.scheduled_end_time)}
+        {formatDateTimeRange(booking.scheduled_start_time, booking.scheduled_end_time)}
       </Text>
       <Text numberOfLines={1} style={styles.metaText}>
         {booking.service_address}

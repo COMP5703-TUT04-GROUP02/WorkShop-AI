@@ -53,7 +53,7 @@ import type {
   PaymentSummary,
 } from "../../types/booking";
 import { getPaymentStatusLabel } from "../../constants/labels";
-import { formatDateTime } from "../../utils/datetime";
+import { formatDateTime, formatDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney, formatPayLabel } from "../../utils/money";
 import {
@@ -748,8 +748,7 @@ function BookingCard({
         {booking.service_description}
       </Text>
       <Text numberOfLines={1} style={styles.metaText}>
-        {formatDateTime(booking.scheduled_start_time)} -{" "}
-        {formatDateTime(booking.scheduled_end_time)}
+        {formatDateTimeRange(booking.scheduled_start_time, booking.scheduled_end_time)}
       </Text>
       <Text numberOfLines={1} style={styles.metaText}>
         {booking.service_address}
