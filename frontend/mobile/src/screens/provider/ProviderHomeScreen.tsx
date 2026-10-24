@@ -3,7 +3,7 @@ import { formatDate } from "../../utils/datetime";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
 import { Check, ChevronRight, FileText, MapPin, MessageCircle, Trash2 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -81,6 +81,7 @@ export function ProviderVerificationScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setMessage("");
@@ -96,19 +97,25 @@ export function ProviderVerificationScreen() {
     }
   }, [refreshProviderProfileStatus]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerAction}>
+          <SecondaryButton label="Refresh" onPress={() => void load()} />
+        </View>
+      ),
+    });
+  }, [load, navigation]);
+
   useFocusEffect(useCallback(() => void load(), [load]));
 
   if (isLoading) return <ActivityIndicator color={colors.primary} style={styles.loader} />;
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.flex}>
-          <Text style={styles.title}>Provider verification</Text>
-          <Text style={styles.subtitle}>Complete the three independent steps before accepting new orders.</Text>
-        </View>
-        <SecondaryButton label="Refresh" onPress={() => void load()} />
-      </View>
+      <Text style={styles.lead}>
+        Complete the three independent steps before accepting new orders.
+      </Text>
       <ProgressCard status={status} payoutStatus={payoutAccount?.status ?? "draft"} />
       {message ? <Text style={styles.error}>{message}</Text> : null}
       <VerificationEntryCard
@@ -719,6 +726,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: 24, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
   stepper: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg }, stepItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, position: "relative" }, stepDot: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, stepDotApproved: { borderColor: colors.primary, backgroundColor: colors.primaryTint }, stepNumber: { color: colors.mutedText, fontWeight: "800" }, stepNumberApproved: { color: colors.primary }, stepCopy: { flex: 1, alignItems: "flex-start", gap: spacing.xs }, stepConnector: { position: "absolute", right: -spacing.lg, width: spacing.lg, height: 1, backgroundColor: colors.border }, progressLabel: { color: colors.text, fontWeight: "700" },
+  lead: { color: colors.mutedText, fontSize: 16, lineHeight: 24 },
+  headerAction: { marginRight: spacing.md },
   stepperStacked: { flexDirection: "column", gap: spacing.md },
   stepItemStacked: { alignItems: "center", gap: spacing.snug },
   badge: { overflow: "hidden", borderRadius: radius.pill, backgroundColor: colors.warningTint, color: colors.warningText, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, fontSize: 12, fontWeight: "700", textTransform: "capitalize" }, badgeApproved: { backgroundColor: colors.primaryTint, color: colors.primary }, badgeRejected: { backgroundColor: colors.dangerTint, color: colors.danger },
