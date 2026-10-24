@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  chipText: { color: colors.text, fontSize: 14, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   priceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   priceInput: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   applyButtonPressed: { backgroundColor: colors.primaryPressed },
   applyText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  errorText: { color: colors.danger, fontSize: 13, lineHeight: 18 },
+  errorText: { color: colors.danger, fontSize: 14, lineHeight: 18 },
   helperText: { color: colors.mutedText, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: 0.55 },
 });

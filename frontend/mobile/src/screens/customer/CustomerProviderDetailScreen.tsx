@@ -674,12 +674,12 @@ const styles = StyleSheet.create({
   },
   bioText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   metaText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   tagWrap: {
     flexDirection: "row",
@@ -744,22 +744,22 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   secondaryActionText: {
     color: colors.primaryText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   favouriteActionText: {
     color: colors.primaryText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   favouriteErrorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   sectionTitle: {
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   reviewVerified: {
     color: colors.mutedText,
@@ -821,12 +821,12 @@ const styles = StyleSheet.create({
   },
   reviewComment: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   footerLoader: {

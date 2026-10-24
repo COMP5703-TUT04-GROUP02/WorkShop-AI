@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   heroPointText: {
     flex: 1,
     color: "rgba(255,255,255,0.92)",
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   scrollDesktop: {
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
   },
   legalLink: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     textDecorationLine: "underline",
   },
   legalDot: {

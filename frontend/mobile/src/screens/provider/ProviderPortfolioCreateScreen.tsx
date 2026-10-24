@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   selectedCountText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   card: {
@@ -198,6 +198,6 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 16,
   },
 });

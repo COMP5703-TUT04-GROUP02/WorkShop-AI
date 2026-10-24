@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   provinceStatusText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   header: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   historyText: {
     flexShrink: 1,
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
   },
   tagGrid: {
     flexDirection: "row",

@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
     textAlign: "center",
   },

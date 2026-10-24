@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   ratingHint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     textAlign: "center",
   },
   input: {
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
   actions: {
     flexDirection: "row",

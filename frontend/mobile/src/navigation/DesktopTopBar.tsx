@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   currentJobText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   currentJobDue: {
     color: colors.warningText,

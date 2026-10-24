@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   list: {
     gap: spacing.md,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   notificationMeta: {

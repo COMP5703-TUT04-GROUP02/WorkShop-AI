@@ -161,12 +161,12 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   hint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   error: {

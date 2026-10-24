@@ -363,11 +363,11 @@ const styles = StyleSheet.create({
   },
   centerText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
   roomItem: {
     minHeight: 74,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   },
   previewText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 19,
   },
   unreadBadge: {

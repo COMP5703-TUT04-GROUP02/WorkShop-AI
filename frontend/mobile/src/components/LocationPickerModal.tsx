@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 2,
   },
   iconButton: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   },
   previewText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     textAlign: "center",
   },
   form: {
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   },
   searchingText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   suggestionList: {
     borderWidth: 1,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   suggestionText: {
     color: colors.text,
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
   },
   errorText: {
     color: colors.danger,

@@ -180,27 +180,6 @@ export function AccountScreen() {
               ) : null}
             </MenuGroup>
 
-            <MenuGroup label="Your bookings">
-              <MenuItem
-                icon={<History color={colors.text} size={22} />}
-                label="Booking history"
-                onPress={() =>
-                  navigation.navigate("BookingHistory")
-                }
-              />
-              {isCustomer ? (
-                <MenuItem
-                  icon={<Heart color={colors.text} size={22} />}
-                  label="Favourites"
-                  onPress={() =>
-                    navigation.navigate("CustomerFavourites")
-                  }
-                />
-              ) : null}
-            </MenuGroup>
-          </View>
-
-          <View style={isWebDesktop ? styles.menuGridColumn : styles.menuColumn}>
             <MenuGroup label="Account">
               <MenuItem
                 icon={<Shield color={colors.text} size={22} />}
@@ -224,7 +203,27 @@ export function AccountScreen() {
                 }
               />
             </MenuGroup>
+          </View>
 
+          <View style={isWebDesktop ? styles.menuGridColumn : styles.menuColumn}>
+            <MenuGroup label="Your bookings">
+              <MenuItem
+                icon={<History color={colors.text} size={22} />}
+                label="Booking history"
+                onPress={() =>
+                  navigation.navigate("BookingHistory")
+                }
+              />
+              {isCustomer ? (
+                <MenuItem
+                  icon={<Heart color={colors.text} size={22} />}
+                  label="Favourites"
+                  onPress={() =>
+                    navigation.navigate("CustomerFavourites")
+                  }
+                />
+              ) : null}
+            </MenuGroup>
             <MenuGroup label="Support">
               <MenuItem
                 icon={<CircleHelp color={colors.text} size={22} />}
@@ -365,11 +364,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   menuGroupLabel: {
-    color: colors.mutedText,
-    fontSize: 12,
+    color: colors.text,
+    fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
     paddingLeft: spacing.xs,
   },
   menuRowLast: {
@@ -425,7 +422,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 16,
   },
   menuCard: {
     overflow: "hidden",

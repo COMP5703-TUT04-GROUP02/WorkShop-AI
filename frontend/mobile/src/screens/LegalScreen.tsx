@@ -99,14 +99,14 @@ const styles = StyleSheet.create({
   },
   noticeTitle: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   noticeBody: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   section: {
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   body: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 23,
   },
 });

@@ -127,6 +127,11 @@ sells a provider.
 Gabby K, Ferhat Ten, Khabbab Abdelmaqsoud, Tima Miroshnichenko, Faruk
 Canpolat.
 
+Keep the photographer's framing. An earlier pass cropped the first one closer
+so the face would fill the circle, and cut the top of the head and the chin
+with it; the headroom and the shoulders are what make it read as a portrait
+rather than a mistake. These render inside a circle at 30 to 88 points.
+
 ## brand
 
 `istanbul.jpg` — the sign-in panel, by Senanur Ceylan.

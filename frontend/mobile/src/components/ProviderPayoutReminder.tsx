@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   },
   message: {
     color: colors.dangerText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
 });

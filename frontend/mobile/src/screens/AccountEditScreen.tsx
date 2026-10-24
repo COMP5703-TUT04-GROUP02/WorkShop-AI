@@ -446,11 +446,11 @@ const styles = StyleSheet.create({
   },
   hintText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   messageText: {
-    fontSize: 13,
+    fontSize: 16,
   },
   successMessageText: {
     color: colors.primary,

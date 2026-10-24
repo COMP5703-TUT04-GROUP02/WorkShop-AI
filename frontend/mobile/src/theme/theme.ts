@@ -59,32 +59,32 @@ export const spacing = {
 /**
  * The type scale. Sizes were chosen per screen before this existed, which left
  * twenty-five of them in use, four at half a pixel and several a pixel apart
- * for no reason anyone could state. Seven steps carry the whole product: if a
- * new size seems necessary, the hierarchy is wrong somewhere else.
+ * for no reason anyone could state.
+ *
+ * Body is 16. iOS sets body at 17 and Material at 16; 14 is a density for
+ * tables, and `adminTypography` keeps it for exactly that. A consumer screen
+ * is read, not scanned, so running text gets the size it is read at.
  */
 export const type = {
   /** One per screen, at the top. */
   display: 28,
   /** A heading inside a screen, and modal titles. */
   title: 22,
-  /** A section inside a card. */
+  /** A section inside a screen. */
   section: 18,
   /** What a card is called. */
   cardTitle: 16,
+  /** Running text: anything that is a sentence. */
+  body: 16,
   /**
-   * Anything a finger presses and anything typed into. Same number as
-   * cardTitle, different job. Not below 16: iOS Safari zooms the page when it
-   * focuses an input whose text is smaller, and this runs on the web.
+   * Anything a finger presses and anything typed into. Same number as body,
+   * different job. Not below 16: iOS Safari zooms the page when it focuses an
+   * input whose text is smaller, and this runs on the web.
    */
   control: 16,
-  /**
-   * Running text and anything a finger presses. 14 because `adminTypography`
-   * already settled on 14 for the one area that was given a scale on purpose,
-   * and the product should not hold two answers. 59 call sites are still at
-   * 15 and have to come down one at a time, with eyes on them.
-   */
-  body: 14,
-  /** Secondary text: metadata, labels, helper lines. */
+  /** Beside or under something: metadata, labels, helper lines. */
+  secondary: 14,
+  /** Dense metadata only, where a column of them has to fit. */
   caption: 13,
   /** Badges and counts. Never a whole sentence, and never below this. */
   micro: 12,

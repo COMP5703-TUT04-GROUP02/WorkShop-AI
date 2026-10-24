@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   dots: {
     flexDirection: "row",

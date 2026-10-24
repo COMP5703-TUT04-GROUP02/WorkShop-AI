@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   iconButton: {
     width: 36,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger,
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
   },
   retryRow: {
     flexDirection: "row",
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   confirmButton: {

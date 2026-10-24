@@ -54,7 +54,7 @@ export function QuoteAttachmentPicker({ files, onChange, disabled, error = "" }:
 
 const styles = StyleSheet.create({
   section: { gap: spacing.sm },
-  label: { color: colors.mutedText, fontSize: 13, fontWeight: "700" },
+  label: { color: colors.mutedText, fontSize: 14, fontWeight: "700" },
   row: { alignItems: "center", flexDirection: "row", gap: spacing.sm },
   name: { color: colors.text, flex: 1, fontSize: 13 },
   remove: { color: colors.mutedText, fontSize: 13 },

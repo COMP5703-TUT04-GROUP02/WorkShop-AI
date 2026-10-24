@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 16,
   },
   loadingBox: {
     minHeight: 140,

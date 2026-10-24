@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
   },
   cardText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 19,
   },
   linkText: {
@@ -1281,7 +1281,7 @@ const styles = StyleSheet.create({
   },
   jobDescription: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   detailContent: {
@@ -1301,7 +1301,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   modalActions: {
@@ -1310,7 +1310,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
 });

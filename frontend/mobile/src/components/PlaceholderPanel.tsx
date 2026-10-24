@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
 });

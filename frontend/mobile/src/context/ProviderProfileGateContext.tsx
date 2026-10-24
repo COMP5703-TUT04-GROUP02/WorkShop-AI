@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   dialogMessage: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
     marginTop: 10,
   },

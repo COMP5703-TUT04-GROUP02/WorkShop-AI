@@ -404,6 +404,6 @@ const styles = StyleSheet.create({
   statusTitleValid: { color: colors.primary },
   statusTitleError: { color: colors.danger },
   statusBadge: { color: colors.mutedText, fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
-  statusBody: { color: colors.text, fontSize: 14, lineHeight: 21 },
+  statusBody: { color: colors.text, fontSize: 16, lineHeight: 21 },
   statusCode: { color: colors.mutedText, fontSize: 13 },
 });

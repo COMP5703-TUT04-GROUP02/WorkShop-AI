@@ -1108,7 +1108,7 @@ const styles = StyleSheet.create({
   },
   centerText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   // The panel sits clear of the clear-history button, which floats over the
   // top right of the list.
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   welcomeText: {
     maxWidth: 420,
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
     textAlign: "center",
   },
@@ -1151,7 +1151,7 @@ const styles = StyleSheet.create({
   },
   welcomeExample: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   userMessageText: {
@@ -1328,7 +1328,7 @@ const styles = StyleSheet.create({
   },
   infoCardText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   openBookingButton: {
@@ -1360,7 +1360,7 @@ const styles = StyleSheet.create({
   },
   confirmationText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   fieldRow: {
@@ -1373,7 +1373,7 @@ const styles = StyleSheet.create({
   },
   fieldValue: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   warningText: {
@@ -1405,12 +1405,12 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   confirmButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   typingRow: {
@@ -1422,7 +1422,7 @@ const styles = StyleSheet.create({
   },
   typingText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   inputBar: {
     flexDirection: "row",

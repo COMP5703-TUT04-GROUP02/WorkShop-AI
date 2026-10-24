@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   row: {
@@ -170,19 +170,19 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   value: {
     color: colors.text,
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "700",
     textAlign: "right",
     fontVariant: ["tabular-nums"],
   },
   emphasized: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "800",
   },
   note: {
@@ -191,6 +191,6 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
 });

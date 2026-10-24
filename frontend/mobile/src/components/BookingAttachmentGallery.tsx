@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   grid: {

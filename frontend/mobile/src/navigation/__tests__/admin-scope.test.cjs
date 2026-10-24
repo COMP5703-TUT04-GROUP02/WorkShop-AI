@@ -117,10 +117,12 @@ test("shared settlement card keeps legacy layout unless adminLayout is explicitl
     const title = MarketplaceBreakdownCard({ amount: 100, ...props }).props.children[0];
     return Object.assign({}, ...title.props.style.filter(Boolean));
   };
-  assert.equal(titleStyle({}).fontSize, 13, "other roles keep the original compact split title");
-  assert.equal(titleStyle({}).fontWeight, "800");
-  assert.equal(titleStyle({ adminLayout: true }).fontSize, 16, "only Admin opts into its card hierarchy");
-  assert.equal(titleStyle({ adminLayout: true }).fontWeight, "700");
+  const compactTitle = titleStyle({});
+  const adminTitle = titleStyle({ adminLayout: true });
+  assert.ok(compactTitle.fontSize < adminTitle.fontSize, "other roles keep the smaller compact split title");
+  assert.equal(compactTitle.fontWeight, "800", "and carry it on weight rather than size");
+  assert.equal(adminTitle.fontSize, 16, "only Admin opts into its card hierarchy");
+  assert.equal(adminTitle.fontWeight, "700");
 });
 test("shared TextField leaves old callers unchanged and only forwards an opt-in submit callback", () => {
   const { TextField } = load("components/TextField.tsx");

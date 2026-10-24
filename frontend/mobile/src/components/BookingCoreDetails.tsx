@@ -85,12 +85,12 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   value: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   link: {

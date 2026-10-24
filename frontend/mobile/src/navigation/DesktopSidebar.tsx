@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   },
   currentJobTitle: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   currentJobStatus: {

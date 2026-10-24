@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   errorText: {
@@ -820,12 +820,12 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   metaText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   amountText: {
     color: colors.text,
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
   },
   refundText: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
   },
   cardActions: {
@@ -871,12 +871,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   detailValue: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   proofBox: {
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
   },
   proofText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   proofFileList: {
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
   },
   proofFileText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   modalActions: {

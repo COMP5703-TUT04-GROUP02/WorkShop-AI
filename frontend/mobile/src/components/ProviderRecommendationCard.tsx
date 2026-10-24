@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   },
   imagePlaceholderText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   body: {
     gap: spacing.xs,

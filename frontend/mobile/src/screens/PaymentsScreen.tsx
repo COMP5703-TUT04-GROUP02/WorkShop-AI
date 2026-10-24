@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   message: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: 16,
   },
   card: {
     gap: spacing.xs,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   cardLine: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
   },
   stateRow: {
     flexDirection: "row",
@@ -275,18 +275,18 @@ const styles = StyleSheet.create({
   },
   stateLabel: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   stateValue: {
     color: colors.text,
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     textAlign: "right",
   },
   cardMeta: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   pill: {
     borderRadius: radius.sm,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   },
   emptyBody: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   pagination: {

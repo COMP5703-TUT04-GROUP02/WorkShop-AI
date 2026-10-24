@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
   },
   playBadge: {
@@ -158,11 +158,12 @@ const styles = StyleSheet.create({
     color: colors.dangerText,
   },
   title: {
-    minHeight: 44,
+    minHeight: 52,
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 20,
-    padding: spacing.sm,
+    lineHeight: 22,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.snug,
   },
 });

@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   modalErrorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   modalScrollContent: {
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
   serviceOptionText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   serviceOptionTextSelected: {

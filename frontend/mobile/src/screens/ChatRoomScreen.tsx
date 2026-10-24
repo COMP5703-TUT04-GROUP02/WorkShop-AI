@@ -2222,7 +2222,7 @@ const styles = StyleSheet.create({
   },
   headerOrderButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   centerBox: {
@@ -2234,7 +2234,7 @@ const styles = StyleSheet.create({
   },
   centerText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   chatHeaderTitle: {
     maxWidth: 220,
@@ -2296,7 +2296,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   messageRow: {
     flexDirection: "row",
@@ -2373,12 +2373,12 @@ const styles = StyleSheet.create({
   },
   bookingDescription: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   bookingQuoteText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "800",
   },
   bookingQuoteMessage: {
@@ -2416,7 +2416,7 @@ const styles = StyleSheet.create({
   },
   bookingUpdateTitle: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   bookingUpdateDetail: {
@@ -2450,7 +2450,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
   },
@@ -2508,12 +2508,12 @@ const styles = StyleSheet.create({
   },
   modalErrorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   payHint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   modalScrollContent: {
@@ -2535,7 +2535,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   stageBox: {
@@ -2576,7 +2576,7 @@ const styles = StyleSheet.create({
   },
   proofText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   proofFileList: {
@@ -2584,12 +2584,12 @@ const styles = StyleSheet.create({
   },
   proofFileText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   noActionText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   modalActions: {

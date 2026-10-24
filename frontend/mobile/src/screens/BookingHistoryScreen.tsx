@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   errorText: {
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   },
   refundNotice: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 19,
   },
   list: {
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   cardPressed: {
@@ -552,12 +552,12 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   metaText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   amountText: {
     color: colors.text,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 22,
   },
   detailLink: {

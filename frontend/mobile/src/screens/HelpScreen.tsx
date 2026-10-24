@@ -280,11 +280,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    color: colors.mutedText,
-    fontSize: 13,
+    color: colors.text,
+    fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
   },
   card: {
     gap: spacing.xs,
@@ -319,9 +317,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: spacing.sm,
   },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.sm },
   chip: {
-    minHeight: 34,
+    minHeight: 40,
+    flexGrow: 1,
+    alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
@@ -330,16 +330,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  chipText: { color: colors.text, fontSize: 14, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   category: {
     gap: spacing.sm,
   },
   categoryTitle: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: spacing.sm,
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: spacing.md,
   },
   question: {
     flexDirection: "row",
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
 });
