@@ -194,8 +194,6 @@ export function AccountSecurityScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Account and Security</Text>
-
       <View style={styles.card}>
         <View style={styles.row}>
           <View style={styles.rowText}>

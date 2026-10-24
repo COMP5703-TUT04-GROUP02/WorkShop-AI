@@ -164,7 +164,6 @@ export function ProviderPayoutAccountScreen() {
     <ScreenContainer contentStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Payout account</Text>
           <Text style={styles.subtitle}>
             Add your payout details. We validate them locally and synchronize with iyzico Sandbox.
           </Text>

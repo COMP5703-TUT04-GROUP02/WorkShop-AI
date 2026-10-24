@@ -120,7 +120,6 @@ export function NotificationsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Notifications</Text>
         <View style={styles.headerActions}>
           <SecondaryButton
             disabled={
@@ -214,7 +213,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     gap: spacing.md,
   },
   headerActions: {

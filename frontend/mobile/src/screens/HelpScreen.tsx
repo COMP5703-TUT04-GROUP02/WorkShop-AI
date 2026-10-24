@@ -48,8 +48,6 @@ export function HelpScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Help and Support</Text>
-
       {showFaq ? <FaqSection initialFaqId={route.params?.faqId} /> : null}
       <Section title="Contact us" items={CONTACT} />
 

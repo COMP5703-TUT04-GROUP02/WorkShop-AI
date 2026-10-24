@@ -234,7 +234,6 @@ export function BookingHistoryScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Booking history</Text>
         <SecondaryButton
           disabled={isLoading}
           label="Refresh"
@@ -437,7 +436,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     gap: spacing.md,
   },
   title: {

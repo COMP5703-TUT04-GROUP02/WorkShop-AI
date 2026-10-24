@@ -168,7 +168,6 @@ function OperatingSettingsForm({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Operating settings</Text>
       <Text style={styles.hint}>
         Manage day-to-day business information after service verification.
         These changes do not alter the approved application record.

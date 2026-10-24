@@ -14,7 +14,7 @@ import {
 import { getProviderPortfolios } from "../../api/provider";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, spacing } from "../../theme/theme";
+import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { ProviderPortfolio } from "../../types/provider";
 
@@ -83,7 +83,6 @@ export function ProviderPortfolioListScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Text style={styles.title}>Portfolios</Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => navigation.navigate("ProviderPortfolioCreate")}
@@ -135,7 +134,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     padding: spacing.lg,
     paddingBottom: spacing.sm,
   },
@@ -148,8 +147,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    borderRadius: 20,
+    gap: 6,
+    borderRadius: radius.md,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.md,
   },
