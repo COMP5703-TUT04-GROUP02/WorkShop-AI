@@ -580,16 +580,16 @@ export function CustomerBookingsScreen() {
               : "A booking shows up here from the moment you make it until the job is done."}
           </Text>
           <View style={styles.emptyActions}>
+            <PrimaryButton
+              label="Find a service"
+              onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
+            />
             {finishedCount > 0 ? (
               <SecondaryButton
                 label="View booking history"
                 onPress={() => navigation.navigate("BookingHistory")}
               />
             ) : null}
-            <SecondaryButton
-              label="Find a service"
-              onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
-            />
           </View>
         </View>
       ) : (

@@ -27,7 +27,10 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
   const scrollViewRef = useRef<ScrollView | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
-  const mediaWidth = Math.max(260, Math.min(width - spacing.lg * 2, 780));
+  const [frameWidth, setFrameWidth] = useState(0);
+  // The window width is only the fallback for the first frame, before the
+  // container has been measured.
+  const mediaWidth = Math.max(260, frameWidth || width - spacing.lg * 2);
   const mediaItems = getPortfolioMediaItems(portfolio);
 
   useEffect(() => {
@@ -74,7 +77,10 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
 
   return (
     <View style={{ width: mediaWidth }}>
-      <View style={styles.carouselFrame}>
+      <View
+      onLayout={(event) => setFrameWidth(event.nativeEvent.layout.width)}
+      style={styles.carouselFrame}
+    >
         <ScrollView
           horizontal
           onMomentumScrollEnd={handleScrollEnd}

@@ -343,7 +343,9 @@ export function AuthScreen() {
         keyboardShouldPersistTaps="handled"
         style={isWebDesktop ? styles.scrollDesktop : undefined}
       >
-        <View style={styles.header}>
+        <View
+          style={[styles.header, isWebDesktop ? styles.headerDesktop : null]}
+        >
           {isWebDesktop ? null : (
             <View style={styles.phoneBrand}>
               <BrandMark
@@ -500,7 +502,13 @@ export function AuthScreen() {
             onError={setErrorMessage}
           />
 
-          <Pressable onPress={toggleMode} style={styles.switchButton}>
+          <Pressable
+            onPress={toggleMode}
+            style={[
+              styles.switchButton,
+              isWebDesktop ? styles.switchButtonDesktop : null,
+            ]}
+          >
             <Text style={styles.switchText}>
               {isRegisterMode
                 ? "Already have an account? Sign in"
@@ -511,7 +519,9 @@ export function AuthScreen() {
 
         {/* WS-90. Signed-out entry to the legal pages. WS-92 adds the register
             checkbox that links to the same routes. */}
-        <View style={styles.legalRow}>
+        <View
+          style={[styles.legalRow, isWebDesktop ? styles.legalRowDesktop : null]}
+        >
           <Pressable
             accessibilityRole="link"
             hitSlop={6}
@@ -553,7 +563,7 @@ const styles = StyleSheet.create({
   },
   keyboardViewDesktop: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   phoneBrand: {
     flexDirection: "row",
@@ -693,6 +703,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.xl,
   },
+  headerDesktop: {
+    maxWidth: 400,
+    marginBottom: spacing.xxl,
+  },
   title: {
     color: colors.text,
     fontSize: 32,
@@ -715,7 +729,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   formDesktop: {
-    maxWidth: 440,
+    maxWidth: 400,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    padding: 0,
+    gap: spacing.lg,
   },
   roleBlock: {
     gap: spacing.sm,
@@ -768,6 +786,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacing.sm,
   },
+  switchButtonDesktop: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    alignItems: "flex-start",
+  },
   switchText: {
     color: colors.primary,
     fontSize: 16,
@@ -779,6 +803,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     marginTop: spacing.lg,
+  },
+  legalRowDesktop: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    justifyContent: "flex-start",
+    marginTop: spacing.xl,
   },
   legalLink: {
     color: colors.mutedText,
