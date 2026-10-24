@@ -429,7 +429,10 @@ def build() -> dict:
     base_service_time = datetime(2026, 7, 31, 8, 0, tzinfo=timezone.utc)
     for index in range(1, 301):
         provider = ((index - 1) % 30) + 1
-        customer = ((index - 1) % 5) + 1
+        # Five divides thirty, so cycling both on index alone would give every
+        # provider the same customer for all ten of its bookings - and so for
+        # all ten of its reviews. The round breaks the lock.
+        customer = ((index - 1) + (index - 1) // 30) % 5 + 1
         category = provider_tags[provider][((index - 1) // 30) % 2]
         latitude, longitude = COORDINATES[(customer - 1) % len(COORDINATES)]
         scheduled_start = base_service_time - timedelta(days=index, hours=index % 5)

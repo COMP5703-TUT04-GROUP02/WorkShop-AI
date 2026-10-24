@@ -30,6 +30,7 @@ import {
   type BookingRequestFormState,
 } from "../../components/BookingRequestModal";
 import { PersonAvatar } from "../../components/PersonAvatar";
+import { ReviewCard } from "../../components/ReviewCard";
 import { StarRating } from "../../components/StarRating";
 import { resolveMediaUrl } from "../../utils/media";
 import { formatMoney } from "../../utils/money";
@@ -466,7 +467,7 @@ export function CustomerProviderDetailScreen({
         keyExtractor={(item) => String(item.id)}
         onEndReached={() => void loadMoreReviews()}
         onEndReachedThreshold={0.4}
-        renderItem={({ item }) => <ReviewRow review={item} />}
+        renderItem={({ item }) => <ReviewCard review={item} />}
         style={styles.container}
       />
 
@@ -496,37 +497,6 @@ function formatServiceAreas(areas: ProviderServiceArea[] | undefined) {
   return areas?.length
     ? areas.map((area) => area.label || area.name).join(", ")
     : "Not set";
-}
-
-function ReviewRow({ review }: { review: Review }) {
-  const name = review.customer?.name?.trim() || "Verified customer";
-
-  return (
-    <View style={styles.reviewCard}>
-      <View style={styles.reviewTopRow}>
-        <PersonAvatar
-          avatarUrl={review.customer?.avatar_url}
-          name={name}
-          size={36}
-        />
-        <View style={styles.reviewWho}>
-          <Text numberOfLines={1} style={styles.reviewName}>
-            {name}
-          </Text>
-          <View style={styles.reviewMeta}>
-            <StarRating rating={review.rating} size={13} />
-            <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
-          </View>
-        </View>
-      </View>
-      <Text style={styles.reviewComment}>
-        {review.comment || "No written review"}
-      </Text>
-      <Text style={styles.reviewVerified}>
-        From a completed, paid booking
-      </Text>
-    </View>
-  );
 }
 
 /** Whether the business is inside its working hours. */
@@ -770,19 +740,6 @@ const styles = StyleSheet.create({
   portfolioGap: {
     width: spacing.md,
   },
-  reviewCard: {
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-    padding: spacing.md,
-  },
-  reviewTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
   reviewAvatar: {
     width: 36,
     height: 36,
@@ -795,34 +752,6 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     fontSize: 14,
     fontWeight: "800",
-  },
-  reviewWho: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  reviewName: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  reviewMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  reviewDate: {
-    color: colors.mutedText,
-    fontSize: 14,
-  },
-  reviewVerified: {
-    color: colors.mutedText,
-    fontSize: 12,
-  },
-  reviewComment: {
-    color: colors.text,
-    fontSize: 16,
-    lineHeight: 22,
   },
   emptyText: {
     color: colors.mutedText,
