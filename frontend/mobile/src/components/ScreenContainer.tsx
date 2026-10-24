@@ -1,12 +1,13 @@
 import { ReactNode } from "react";
-import { ScrollView, StyleSheet, ViewStyle } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { colors, layout, spacing } from "../theme/theme";
 
 type ScreenContainerProps = {
   children: ReactNode;
-  contentStyle?: ViewStyle;
+  contentStyle?: StyleProp<ViewStyle>;
 };
 
 export function ScreenContainer({ children, contentStyle }: ScreenContainerProps) {

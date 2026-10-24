@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { getProviderPortfolioItem } from "../../api/provider";
 import { PortfolioMediaCarousel } from "../../components/PortfolioMediaCarousel";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
@@ -13,6 +14,7 @@ import type { ProviderPortfolio } from "../../types/provider";
 type DetailRoute = RouteProp<RootStackParamList, "ProviderPortfolioDetail">;
 
 export function ProviderPortfolioDetailScreen() {
+  const isWebDesktop = useIsWebDesktop();
   const route = useRoute<DetailRoute>();
   const [portfolio, setPortfolio] = useState<ProviderPortfolio | null>(null);
   const [message, setMessage] = useState("");
@@ -42,7 +44,7 @@ export function ProviderPortfolioDetailScreen() {
   }, [route.params.portfolioId]);
 
   return (
-    <ScreenContainer contentStyle={styles.content}>
+    <ScreenContainer contentStyle={[styles.content, isWebDesktop ? styles.readingColumn : null]}>
       {portfolio ? (
         <>
           <PortfolioMediaCarousel portfolio={portfolio} />
@@ -69,6 +71,12 @@ const styles = StyleSheet.create({
   content: {
     backgroundColor: colors.surface,
     paddingTop: spacing.lg,
+  },
+  // One piece of work, so the column is the width of a photograph and its
+  // caption rather than the width of the window.
+  readingColumn: {
+    maxWidth: 640,
+    alignSelf: "center",
   },
   infoCard: {
     gap: spacing.sm,

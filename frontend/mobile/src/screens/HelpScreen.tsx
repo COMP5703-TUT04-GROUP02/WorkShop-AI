@@ -289,7 +289,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.background,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.snug,
   },
   linkCard: {
     flexDirection: "row",
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: spacing.sm,
   },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.sm },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.sm, marginBottom: spacing.xs },
   chip: {
     minHeight: 40,
     flexGrow: 1,
@@ -327,12 +328,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   chipText: { color: colors.text, fontSize: 14, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   category: {
-    gap: spacing.sm,
+    gap: spacing.snug,
   },
   categoryTitle: {
     color: colors.text,

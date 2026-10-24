@@ -22,6 +22,10 @@ type PortfolioMediaCarouselProps = {
   portfolio: ProviderPortfolio;
 };
 
+const MEDIA_ASPECT = 1.2;
+/** Tall enough to show the work, short enough to leave the caption in view. */
+const MAX_MEDIA_HEIGHT = 520;
+
 export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProps) {
   const { width } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView | null>(null);
@@ -30,7 +34,13 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
   const [frameWidth, setFrameWidth] = useState(0);
   // The window width is only the fallback for the first frame, before the
   // container has been measured.
-  const mediaWidth = Math.max(260, frameWidth || width - spacing.lg * 2);
+  // Capped by height as well: on a wide column an aspect of 1.2 would make the
+  // picture 880 tall and push its title and date off the first screen.
+  const available = frameWidth || width - spacing.lg * 2;
+  const mediaWidth = Math.max(
+    260,
+    Math.min(available, MAX_MEDIA_HEIGHT * MEDIA_ASPECT),
+  );
   const mediaItems = getPortfolioMediaItems(portfolio);
 
   useEffect(() => {
@@ -76,11 +86,11 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
   }
 
   return (
-    <View style={{ width: mediaWidth }}>
-      <View
+    <View
       onLayout={(event) => setFrameWidth(event.nativeEvent.layout.width)}
-      style={styles.carouselFrame}
+      style={styles.measuredWidth}
     >
+      <View style={[styles.carouselFrame, { width: mediaWidth }]}>
         <ScrollView
           horizontal
           onMomentumScrollEnd={handleScrollEnd}
@@ -226,7 +236,11 @@ function getPortfolioMediaItems(
 }
 
 const styles = StyleSheet.create({
+  measuredWidth: {
+    width: "100%",
+  },
   carouselFrame: {
+    alignSelf: "center",
     overflow: "hidden",
     borderRadius: radius.lg,
   },

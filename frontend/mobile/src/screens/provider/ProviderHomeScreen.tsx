@@ -33,6 +33,7 @@ import { getProviderTagLabel, PROVIDER_TAGS } from "../../constants/providerTags
 import { useAuth } from "../../context/AuthContext";
 import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
 import type { RootStackParamList } from "../../navigation/types";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { SelectedLocation, ServiceAreaSelection } from "../../types/location";
@@ -425,6 +426,7 @@ function ProgressCard({
   status: ProviderVerificationStatus | null;
   payoutStatus: string;
 }) {
+  const isWebDesktop = useIsWebDesktop();
   const steps = [
     {
       label: "1. ID verification",
@@ -443,9 +445,12 @@ function ProgressCard({
     },
   ];
   return (
-    <View style={styles.stepper}>
+    <View style={[styles.stepper, isWebDesktop ? null : styles.stepperStacked]}>
       {steps.map(({ label, value, complete }, index) => (
-        <View key={label} style={styles.stepItem}>
+        <View
+          key={label}
+          style={[styles.stepItem, isWebDesktop ? null : styles.stepItemStacked]}
+        >
           <View style={[styles.stepDot, complete ? styles.stepDotApproved : null]}>
             <Text style={[styles.stepNumber, complete ? styles.stepNumberApproved : null]}>
               {complete ? "✓" : index + 1}
@@ -455,7 +460,9 @@ function ProgressCard({
             <Text style={styles.progressLabel}>{label}</Text>
             {index < 2 ? <StatusBadge status={value as VerificationStatus} /> : <PayoutStatusBadge status={value} />}
           </View>
-          {index < steps.length - 1 ? <View style={styles.stepConnector} /> : null}
+          {isWebDesktop && index < steps.length - 1 ? (
+            <View style={styles.stepConnector} />
+          ) : null}
         </View>
       ))}
     </View>
@@ -712,6 +719,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: 24, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
   stepper: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg }, stepItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, position: "relative" }, stepDot: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, stepDotApproved: { borderColor: colors.primary, backgroundColor: colors.primaryTint }, stepNumber: { color: colors.mutedText, fontWeight: "800" }, stepNumberApproved: { color: colors.primary }, stepCopy: { flex: 1, alignItems: "flex-start", gap: spacing.xs }, stepConnector: { position: "absolute", right: -spacing.lg, width: spacing.lg, height: 1, backgroundColor: colors.border }, progressLabel: { color: colors.text, fontWeight: "700" },
+  stepperStacked: { flexDirection: "column", gap: spacing.md },
+  stepItemStacked: { alignItems: "center", gap: spacing.snug },
   badge: { overflow: "hidden", borderRadius: radius.pill, backgroundColor: colors.warningTint, color: colors.warningText, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, fontSize: 12, fontWeight: "700", textTransform: "capitalize" }, badgeApproved: { backgroundColor: colors.primaryTint, color: colors.primary }, badgeRejected: { backgroundColor: colors.dangerTint, color: colors.danger },
   form: { gap: spacing.md }, fieldLabel: { color: colors.text, fontSize: 14, fontWeight: "600" }, hint: { color: colors.mutedText, fontSize: 13, lineHeight: 19 }, error: { color: colors.danger, fontSize: 14, lineHeight: 20 }, rejection: { borderRadius: radius.sm, backgroundColor: colors.dangerTint, color: colors.danger, padding: spacing.md },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }, tag: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md }, tagActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint }, tagText: { color: colors.text, fontWeight: "600" }, tagTextActive: { color: colors.primary },
