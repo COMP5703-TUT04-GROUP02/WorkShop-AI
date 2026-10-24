@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { getCustomerPayments } from "../api/customer";
 import { getProviderPayments } from "../api/provider";
 import { MarketplaceBreakdownCard } from "../components/MarketplaceBreakdownCard";
+import { PlaceholderPanel } from "../components/PlaceholderPanel";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../theme/theme";
@@ -117,14 +118,14 @@ export function PaymentsScreen() {
           <PaymentRow key={payment.id} isProvider={isProvider} payment={payment} />
         ))
       ) : !message ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No payments yet</Text>
-          <Text style={styles.emptyBody}>
-            {isProvider
+        <PlaceholderPanel
+          description={
+            isProvider
               ? "Every booking a customer pays for lands here, with the platform and processing fees broken out, so you can check a payout against it."
-              : "Every visit fee and service fee you pay lands here, with the booking it belongs to, so you have a record without digging through email."}
-          </Text>
-        </View>
+              : "Every visit fee and service fee you pay lands here, with the booking it belongs to, so you have a record without digging through email."
+          }
+          title="No payments yet"
+        />
       ) : null}
 
       {payments.length > 0 || totalPages > 1 ? (
@@ -309,24 +310,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,
-  },
-  emptyCard: {
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  emptyBody: {
-    color: colors.mutedText,
-    fontSize: 16,
-    lineHeight: 21,
   },
   pagination: {
     alignItems: "center",

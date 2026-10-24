@@ -360,6 +360,7 @@ export function CustomerAIChatScreen() {
       style={styles.container}
     >
       <Pressable
+          hitSlop={4}
         accessibilityLabel="Clear chat history"
         accessibilityRole="button"
         disabled={isClearing}
@@ -834,6 +835,7 @@ function ConfirmationCard({
       ) : null}
       <View style={styles.actionRow}>
         <Pressable
+          hitSlop={4}
           accessibilityRole="button"
           disabled={isLoading}
           onPress={onCancel}
@@ -845,6 +847,7 @@ function ConfirmationCard({
           </Text>
         </Pressable>
         <Pressable
+          hitSlop={4}
           accessibilityRole="button"
           disabled={isLoading}
           onPress={onConfirm}

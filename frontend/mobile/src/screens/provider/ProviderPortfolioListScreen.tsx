@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Plus } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -30,6 +30,22 @@ export function ProviderPortfolioListScreen() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          accessibilityLabel="Add a portfolio"
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("ProviderPortfolioCreate")}
+          style={styles.addButton}
+        >
+          <Plus color="#FFFFFF" size={18} />
+          <Text style={styles.addText}>Add</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,17 +98,6 @@ export function ProviderPortfolioListScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate("ProviderPortfolioCreate")}
-          style={styles.addButton}
-        >
-          <Plus color="#FFFFFF" size={20} />
-          <Text style={styles.addText}>Add</Text>
-        </Pressable>
-      </View>
-
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : (
@@ -131,20 +136,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    padding: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
   title: {
     color: colors.text,
     fontSize: 24,
     fontWeight: "800",
   },
   addButton: {
-    minHeight: 40,
+    minHeight: 36,
+    marginRight: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -154,7 +153,7 @@ const styles = StyleSheet.create({
   },
   addText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "800",
   },
   loader: {

@@ -833,6 +833,7 @@ function ProfileReviewModal({
               <Text style={styles.modalSubtitle}>Profile #{profile.id}</Text>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -959,6 +960,7 @@ function RefundAppealModal({
               <Text style={styles.modalSubtitle}>Booking #{appeal.booking_id}</Text>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -1111,6 +1113,7 @@ function PortfolioReviewModal({
               <Text style={styles.modalSubtitle}>Provider #{portfolio.provider_profile_id}</Text>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}

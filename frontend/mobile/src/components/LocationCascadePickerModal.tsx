@@ -227,6 +227,7 @@ export function LocationCascadePickerModal({
               </View>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close service area picker"
               accessibilityRole="button"
               onPress={onClose}

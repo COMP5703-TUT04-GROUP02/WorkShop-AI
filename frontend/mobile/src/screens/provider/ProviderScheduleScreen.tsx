@@ -472,6 +472,7 @@ function SegmentButton({
 }) {
   return (
     <Pressable
+          hitSlop={4}
       accessibilityRole="button"
       onPress={onPress}
       style={[styles.segmentButton, isActive ? styles.segmentButtonActive : null]}

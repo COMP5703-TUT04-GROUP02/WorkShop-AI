@@ -263,6 +263,7 @@ function FilterChip({
 }) {
   return (
     <Pressable
+          hitSlop={4}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected: active }}
       disabled={disabled}

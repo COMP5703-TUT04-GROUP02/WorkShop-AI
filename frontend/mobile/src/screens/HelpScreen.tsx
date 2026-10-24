@@ -236,6 +236,7 @@ function CategoryChip({
 }) {
   return (
     <Pressable
+          hitSlop={4}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}

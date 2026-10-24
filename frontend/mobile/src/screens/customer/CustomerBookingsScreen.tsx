@@ -40,6 +40,8 @@ import { BookingPriceBreakdown } from "../../components/BookingPriceBreakdown";
 import { BookingCoreDetails } from "../../components/BookingCoreDetails";
 import { BookingContextInformation } from "../../components/BookingContextInformation";
 import { ActionReasonModal } from "../../components/ActionReasonModal";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
+import { PlaceholderPanel } from "../../components/PlaceholderPanel";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
@@ -82,6 +84,7 @@ const HIDDEN_ORDER_STATUSES = [
 ];
 type ReasonAction = "decline_quote" | "decline_final_quote" | "refund";
 export function CustomerBookingsScreen() {
+  const isWebDesktop = useIsWebDesktop();
   const navigation = useNavigation<
     NativeStackNavigationProp<RootStackParamList>
   >();
@@ -554,8 +557,10 @@ export function CustomerBookingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
+      <View
+        style={[styles.header, isWebDesktop ? null : styles.headerPhone]}
+      >
+        {isWebDesktop ? <Text style={styles.title}>Bookings</Text> : null}
         <SecondaryButton
           disabled={isLoading || isActing}
           label="Refresh"
@@ -570,28 +575,28 @@ export function CustomerBookingsScreen() {
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : bookings.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>
-            {finishedCount > 0 ? "Nothing in progress" : "No bookings yet"}
-          </Text>
-          <Text style={styles.emptyText}>
-            {finishedCount > 0
-              ? `A booking shows up here from the moment you make it until the job is done. ${finishedCount === 1 ? "Your one finished booking is" : `All ${finishedCount} of your finished bookings are`} in your history.`
-              : "A booking shows up here from the moment you make it until the job is done."}
-          </Text>
-          <View style={styles.emptyActions}>
-            <PrimaryButton
-              label="Find a service"
-              onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
-            />
-            {finishedCount > 0 ? (
-              <SecondaryButton
-                label="View booking history"
-                onPress={() => navigation.navigate("BookingHistory")}
+        <PlaceholderPanel
+          actions={
+            <>
+              <PrimaryButton
+                label="Find a service"
+                onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
               />
-            ) : null}
-          </View>
-        </View>
+              {finishedCount > 0 ? (
+                <SecondaryButton
+                  label="View booking history"
+                  onPress={() => navigation.navigate("BookingHistory")}
+                />
+              ) : null}
+            </>
+          }
+          description={
+            finishedCount > 0
+              ? `A booking shows up here from the moment you make it until the job is done. ${finishedCount === 1 ? "Your one finished booking is" : `All ${finishedCount} of your finished bookings are`} in your history.`
+              : "A booking shows up here from the moment you make it until the job is done."
+          }
+          title={finishedCount > 0 ? "Nothing in progress" : "No bookings yet"}
+        />
       ) : (
         <View style={styles.list}>
           {bookings.map((booking) => (
@@ -928,6 +933,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
+  headerPhone: {
+    justifyContent: "flex-end",
+  },
   title: {
     color: colors.text,
     fontSize: 28,
@@ -937,30 +945,6 @@ const styles = StyleSheet.create({
     minHeight: 180,
     alignItems: "center",
     justifyContent: "center",
-  },
-  emptyCard: {
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  emptyActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  emptyText: {
-    color: colors.mutedText,
-    fontSize: 16,
-    lineHeight: 20,
   },
   errorText: {
     color: colors.danger,
