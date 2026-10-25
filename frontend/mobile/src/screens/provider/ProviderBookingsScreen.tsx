@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { getBookingStatusLabel } from "../../constants/labels";
-import { useRealtime } from "../../context/RealtimeContext";
+import { getBookingEventId, useRealtime } from "../../context/RealtimeContext";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -67,9 +67,6 @@ const HIDDEN_ORDER_STATUSES = [
 ];
 type ProviderReasonAction = "reject_booking" | "reject_refund";
 
-/** The list reloads itself this often while it is on screen. */
-const BOOKINGS_REFRESH_MS = 1000;
-
 export function ProviderBookingsScreen() {
   const isWebDesktop = useIsWebDesktop();
   const navigation =
@@ -102,9 +99,7 @@ export function ProviderBookingsScreen() {
   const [finalQuoteAmount, setFinalQuoteAmount] = useState("");
   const [finalQuoteMessage, setFinalQuoteMessage] = useState("");
 
-  const { markBookingUpdatesSeen } = useRealtime();
-  const selectedBookingRef = useRef<BookingDetail | null>(null);
-  selectedBookingRef.current = selectedBooking;
+  const { isConnected, markBookingUpdatesSeen, subscribe } = useRealtime();
 
   const loadBookings = useCallback(async () => {
     setMessage("");
@@ -166,20 +161,25 @@ export function ProviderBookingsScreen() {
     }, [loadBookings]),
   );
 
-  // Bookings move because of someone else - the provider quotes, the payment
-  // settles - so the list refreshes itself while it is on screen. The socket
-  // already carries those events, so the poll is only a safety net for a
-  // dropped connection.
+  // Bookings move because of the other party - the provider quotes, the
+  // customer pays - and the server already pushes each of those as a system
+  // message on the booking's chat room. Listening to that beats asking again
+  // on a timer: it lands as soon as it happens, and costs nothing in between.
   useFocusEffect(
     useCallback(() => {
       markBookingUpdatesSeen();
-      const timer = setInterval(() => {
-        if (selectedBookingRef.current) return;
+      return subscribe((event) => {
+        if (getBookingEventId(event) == null) return;
+        markBookingUpdatesSeen();
         void loadBookings();
-      }, BOOKINGS_REFRESH_MS);
-      return () => clearInterval(timer);
-    }, [loadBookings, markBookingUpdatesSeen]),
+      });
+    }, [loadBookings, markBookingUpdatesSeen, subscribe]),
   );
+
+  // A socket that dropped and came back may have missed an update.
+  useEffect(() => {
+    if (isConnected) void loadBookings();
+  }, [isConnected, loadBookings]);
 
   useEffect(
     () => () => openBookingRequestGuard.invalidate(),
