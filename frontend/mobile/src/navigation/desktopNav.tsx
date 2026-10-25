@@ -2,11 +2,13 @@ import { useNavigation, useNavigationState } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 
 import { getCustomerBookings } from "../api/customer";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
+import { findCurrentJob, type CurrentJob } from "../features/current-job/current-job";
 import type { AdminArea } from "./AdminMenu";
 import { tabIcons } from "./tabIcons";
 import type { MainTabParamList, RootStackParamList } from "./types";
@@ -89,6 +91,40 @@ export function useDesktopNav() {
  * blocks them: while it is loading, or if the request fails, it is null and the
  * shell renders exactly as it did before.
  */
+export function useCurrentJob() {
+  const [job, setJob] = useState<CurrentJob | null>(null);
+  const active = useActiveDesktopRoute("CustomerHome");
+
+  useEffect(() => {
+    let cancelled = false;
+    let requestId = 0;
+    function refresh() {
+      const currentRequest = ++requestId;
+      void findCurrentJob((page, pageSize) =>
+        getCustomerBookings(undefined, page, pageSize),
+      )
+        .then((currentJob) => {
+          if (!cancelled && currentRequest === requestId) setJob(currentJob);
+        })
+        .catch(() => {
+          if (!cancelled && currentRequest === requestId) setJob(null);
+        });
+    }
+
+    refresh();
+    const timer = setInterval(refresh, 60000);
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh();
+    });
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      appState.remove();
+    };
+  }, [active.stack, active.tab]);
+
+  return job;
+}
 
 export function useActiveDesktopRoute(defaultTab: keyof MainTabParamList) {
   return useNavigationState((state) => {

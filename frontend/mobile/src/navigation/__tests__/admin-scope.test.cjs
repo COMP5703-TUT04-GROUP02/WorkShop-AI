@@ -13,10 +13,11 @@ const native = Object.fromEntries(["View", "Text", "ScrollView", "Pressable", "T
   ({ children }) => React.createElement("div", { "data-native": name }, children),
 ]));
 native.StyleSheet = { create: value => value, hairlineWidth: 1 };
+native.useWindowDimensions = () => ({ width: 1280, height: 720 });
 const theme = {
   colors: { primary: "green", mutedText: "gray", border: "gray", background: "white", text: "black" },
   spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radius: { sm: 6, md: 8 },
-  layout: { webSidebarWidth: 248 },
+  layout: { webContentMaxWidth: 1120, webSidebarWidth: 248 },
 };
 function load(relative, mocks = {}) {
   const filename = path.resolve(__dirname, "../..", relative);
@@ -50,6 +51,9 @@ function navModule(role) {
     "../context/ProviderProfileGateContext": { useProviderProfileGate: () => ({ isProviderProfileRequired: false }) },
     "../context/RealtimeContext": { useRealtime: () => ({ chatUnreadCount: 0, notificationUnreadCount: 0 }) },
     "../api/customer": { getCustomerBookings: async () => ({ items: [] }) },
+    "../features/current-job/current-job": {
+      pickCurrentJob: () => ({ id: 1, title: "Ceiling light install", statusLabel: "Visit fee due", amountDue: 150, needsCustomer: true }),
+    },
     "./tabIcons": { tabIcons: Object.fromEntries(["home", "schedule", "bookings", "chats", "aiChat", "account"].map(name => [name, Icon])) },
   });
 }

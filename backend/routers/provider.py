@@ -808,8 +808,16 @@ def get_provider_schedule_bookings(
         db.query(models.Booking)
         .filter(
             models.Booking.provider_profile_id == provider_profile.id,
+            # Visit fee paid through to customer confirmation. `accepted` is where
+            # a customer's rejected completion still lands.
             models.Booking.status.in_(
                 [
+                    BookingStatus.visit_paid.value,
+                    BookingStatus.provider_arrived.value,
+                    BookingStatus.awaiting_final_quote.value,
+                    BookingStatus.final_quote_sent.value,
+                    BookingStatus.awaiting_service_payment.value,
+                    BookingStatus.service_paid.value,
                     BookingStatus.accepted.value,
                     BookingStatus.awaiting_confirmation.value,
                 ]
