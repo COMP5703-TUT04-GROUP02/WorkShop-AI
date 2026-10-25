@@ -34,7 +34,7 @@ export function SecondaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 46,
+    minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
 });

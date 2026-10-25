@@ -40,6 +40,8 @@ import { BookingPriceBreakdown } from "../../components/BookingPriceBreakdown";
 import { BookingCoreDetails } from "../../components/BookingCoreDetails";
 import { BookingContextInformation } from "../../components/BookingContextInformation";
 import { ActionReasonModal } from "../../components/ActionReasonModal";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
+import { PlaceholderPanel } from "../../components/PlaceholderPanel";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
@@ -51,7 +53,7 @@ import type {
   PaymentSummary,
 } from "../../types/booking";
 import { getPaymentStatusLabel } from "../../constants/labels";
-import { formatDateTime } from "../../utils/datetime";
+import { formatDateTime, formatDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney, formatPayLabel } from "../../utils/money";
 import {
@@ -82,12 +84,16 @@ const HIDDEN_ORDER_STATUSES = [
 ];
 type ReasonAction = "decline_quote" | "decline_final_quote" | "refund";
 export function CustomerBookingsScreen() {
+  const isWebDesktop = useIsWebDesktop();
   const navigation = useNavigation<
     NativeStackNavigationProp<RootStackParamList>
   >();
   const { confirmationModal, requestConfirmation } = useConfirmation();
   const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  // Finished bookings live on the history screen. Counting them here is what
+  // turns an empty list from a dead end into a signpost.
+  const [finishedCount, setFinishedCount] = useState(0);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
     Record<number, PaymentSummary>
   >({});
@@ -120,7 +126,9 @@ export function CustomerBookingsScreen() {
           delete paymentIdempotencyKeysRef.current[payment.booking_id];
         }
       });
-      setBookings(filterActiveBookings(result?.items ?? []));
+      const items = result?.items ?? [];
+      setBookings(filterActiveBookings(items));
+      setFinishedCount(items.length - filterActiveBookings(items).length);
       setPaymentsByBookingId(indexLatestPayments(payments));
     } catch (error) {
       setMessage(getErrorMessage(error));
@@ -144,7 +152,9 @@ export function CustomerBookingsScreen() {
               delete paymentIdempotencyKeysRef.current[payment.booking_id];
             }
           });
-          setBookings(filterActiveBookings(result?.items ?? []));
+          const items = result?.items ?? [];
+          setBookings(filterActiveBookings(items));
+          setFinishedCount(items.length - filterActiveBookings(items).length);
           setPaymentsByBookingId(indexLatestPayments(payments));
         }
       } catch (error) {
@@ -547,8 +557,10 @@ export function CustomerBookingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
+      <View
+        style={[styles.header, isWebDesktop ? null : styles.headerPhone]}
+      >
+        {isWebDesktop ? <Text style={styles.title}>Bookings</Text> : null}
         <SecondaryButton
           disabled={isLoading || isActing}
           label="Refresh"
@@ -563,10 +575,28 @@ export function CustomerBookingsScreen() {
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : bookings.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
-          <Text style={styles.emptyText}>Active bookings appear here.</Text>
-        </View>
+        <PlaceholderPanel
+          actions={
+            <>
+              <PrimaryButton
+                label="Find a service"
+                onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
+              />
+              {finishedCount > 0 ? (
+                <SecondaryButton
+                  label="View booking history"
+                  onPress={() => navigation.navigate("BookingHistory")}
+                />
+              ) : null}
+            </>
+          }
+          description={
+            finishedCount > 0
+              ? `A booking shows up here from the moment you make it until the job is done. ${finishedCount === 1 ? "Your one finished booking is" : `All ${finishedCount} of your finished bookings are`} in your history.`
+              : "A booking shows up here from the moment you make it until the job is done."
+          }
+          title={finishedCount > 0 ? "Nothing in progress" : "No bookings yet"}
+        />
       ) : (
         <View style={styles.list}>
           {bookings.map((booking) => (
@@ -718,8 +748,7 @@ function BookingCard({
         {booking.service_description}
       </Text>
       <Text numberOfLines={1} style={styles.metaText}>
-        {formatDateTime(booking.scheduled_start_time)} -{" "}
-        {formatDateTime(booking.scheduled_end_time)}
+        {formatDateTimeRange(booking.scheduled_start_time, booking.scheduled_end_time)}
       </Text>
       <Text numberOfLines={1} style={styles.metaText}>
         {booking.service_address}
@@ -891,7 +920,7 @@ function getPaymentBadgeStyle(status: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.md,
@@ -903,6 +932,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
+  headerPhone: {
+    justifyContent: "flex-end",
+  },
   title: {
     color: colors.text,
     fontSize: 28,
@@ -913,24 +945,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyCard: {
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  emptyText: {
-    color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   errorText: {
     color: colors.danger,
     fontSize: 14,
@@ -938,12 +952,12 @@ const styles = StyleSheet.create({
   },
   payHint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   actionHint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 19,
   },
   actionErrorText: {
@@ -998,15 +1012,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   statusNeutral: {
-    backgroundColor: "#EEF2FF",
-    color: "#3730A3",
+    backgroundColor: colors.primaryTint,
+    color: colors.primaryText,
   },
   statusWarning: {
-    backgroundColor: "#FFF7ED",
-    color: "#C2410C",
+    backgroundColor: colors.warningTint,
+    color: colors.warningText,
   },
   statusSuccess: {
-    backgroundColor: "#ECFDF3",
+    backgroundColor: colors.successTint,
     color: colors.primary,
   },
   statusMuted: {
@@ -1014,26 +1028,26 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
   },
   statusDanger: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: colors.dangerTint,
     color: colors.danger,
   },
   description: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   metaText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   amountText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
   },
   refundText: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
   },
   cardActions: {
@@ -1070,12 +1084,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   detailValue: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   detailLink: {
@@ -1107,7 +1121,7 @@ const styles = StyleSheet.create({
   },
   stageButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: "#ECFDF3",
+    backgroundColor: colors.successTint,
   },
   stageButtonText: {
     color: colors.text,

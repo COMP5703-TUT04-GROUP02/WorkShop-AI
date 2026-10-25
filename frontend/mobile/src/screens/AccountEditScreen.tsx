@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
@@ -446,11 +446,11 @@ const styles = StyleSheet.create({
   },
   hintText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   messageText: {
-    fontSize: 13,
+    fontSize: 16,
   },
   successMessageText: {
     color: colors.primary,

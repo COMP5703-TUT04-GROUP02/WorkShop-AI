@@ -227,6 +227,7 @@ export function LocationCascadePickerModal({
               </View>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close service area picker"
               accessibilityRole="button"
               onPress={onClose}
@@ -401,12 +402,12 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
   },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   iconButton: {
     width: 36,
@@ -454,11 +455,11 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
   },
   placeholderText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
   },
   optionsList: {
     maxHeight: 210,
@@ -476,7 +477,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   optionSelected: {
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   optionText: {
     color: colors.text,
@@ -489,7 +490,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger,
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
   },
   retryRow: {
     flexDirection: "row",
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   confirmButton: {
@@ -521,7 +522,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
   },

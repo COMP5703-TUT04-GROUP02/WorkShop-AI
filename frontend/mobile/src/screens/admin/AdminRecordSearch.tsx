@@ -38,7 +38,7 @@ export function AdminRecordSearch({ section, disabled, appliedFilters, onDirty, 
   </View>;
 }
 const styles = StyleSheet.create({
-  card: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  card: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.background, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   field: { flexGrow: 1, flexBasis: 200, maxWidth: 320 },
   chip: { padding: spacing.sm, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },

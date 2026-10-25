@@ -164,7 +164,7 @@ export function ProviderSearchFilters({
                 inputMode="numeric"
                 onChangeText={(text) => update("minPrice", text)}
                 placeholder="Minimum"
-                placeholderTextColor={colors.mutedText}
+                placeholderTextColor={colors.placeholder}
                 style={styles.priceInput}
                 value={value.minPrice}
               />
@@ -174,7 +174,7 @@ export function ProviderSearchFilters({
                 inputMode="numeric"
                 onChangeText={(text) => update("maxPrice", text)}
                 placeholder="Maximum"
-                placeholderTextColor={colors.mutedText}
+                placeholderTextColor={colors.placeholder}
                 style={styles.priceInput}
                 value={value.maxPrice}
               />
@@ -263,6 +263,7 @@ function FilterChip({
 }) {
   return (
     <Pressable
+          hitSlop={4}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected: active }}
       disabled={disabled}
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xs,
   },
@@ -335,8 +336,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: "#E7F6F2" },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+  chipText: { color: colors.text, fontSize: 14, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   priceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   priceInput: {
@@ -360,8 +361,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   applyButtonPressed: { backgroundColor: colors.primaryPressed },
-  applyText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
-  errorText: { color: colors.danger, fontSize: 13, lineHeight: 18 },
+  applyText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  errorText: { color: colors.danger, fontSize: 14, lineHeight: 18 },
   helperText: { color: colors.mutedText, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: 0.55 },
 });

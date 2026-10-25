@@ -91,7 +91,12 @@ export function ProviderPortfolioCreateScreen() {
         style={styles.mediaPicker}
       >
         {previewAsset && !isVideo ? (
-          <Image source={{ uri: previewAsset.uri }} style={styles.previewImage} />
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="The photo you selected"
+            source={{ uri: previewAsset.uri }}
+            style={styles.previewImage}
+          />
         ) : (
           <View style={[styles.placeholder, isVideo ? styles.videoPlaceholder : null]}>
             {isVideo ? (
@@ -152,7 +157,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     aspectRatio: 1.5,
   },
@@ -172,7 +177,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   videoText: {
@@ -180,7 +185,7 @@ const styles = StyleSheet.create({
   },
   selectedCountText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   card: {
@@ -193,6 +198,6 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 16,
   },
 });

@@ -31,3 +31,22 @@ export const DEFAULT_PROVIDER_TAG: ProviderTag = "cleaning";
 export function getProviderTagLabel(tag: string) {
   return PROVIDER_TAG_LABELS[tag as ProviderTag] ?? tag;
 }
+
+/**
+ * Verification outcomes, in words rather than column values. An admin reading
+ * a queue should see what state a thing is in, not the enum behind it.
+ */
+export const VERIFICATION_STATUS_LABELS: Record<string, string> = {
+  pending: "Waiting on review",
+  approved: "Approved",
+  rejected: "Rejected",
+  not_submitted: "Not submitted",
+};
+
+export function getVerificationStatusLabel(status: string | null | undefined) {
+  if (!status) {
+    return "Not submitted";
+  }
+
+  return VERIFICATION_STATUS_LABELS[status] ?? status;
+}

@@ -26,7 +26,7 @@ import {
   removeFavouriteByProviderId,
 } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, radius, spacing } from "../../theme/theme";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { FavoriteProvider } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
@@ -205,7 +205,7 @@ export function CustomerFavouritesScreen({
       ) : favourites.length === 0 && !message ? (
         <PlaceholderPanel
           title="No favourites yet"
-          description="Providers you save from their profile will appear here."
+          description="Saving a provider keeps them one tap away and puts them first in search when they cover your area."
         />
       ) : (
         <View
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 25,
+    fontSize: type.title,
     fontWeight: "700",
   },
   subtitle: {

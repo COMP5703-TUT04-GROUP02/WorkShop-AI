@@ -19,6 +19,7 @@ import { useRealtime } from "../context/RealtimeContext";
 import { colors, radius, spacing } from "../theme/theme";
 import type { PaginatedData } from "../types/chat";
 import type { Notification } from "../types/notification";
+import { formatDateTime } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 
 const PAGE_SIZE = 30;
@@ -119,7 +120,6 @@ export function NotificationsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Notifications</Text>
         <View style={styles.headerActions}>
           <SecondaryButton
             disabled={
@@ -143,7 +143,7 @@ export function NotificationsScreen() {
       ) : notifications.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptyText}>Bookings, complaints, and review results appear here.</Text>
+          <Text style={styles.emptyText}>This is where a booking tells you it needs something: a fee to pay, a quote to approve, a pro on the way. Nothing is waiting on you.</Text>
         </View>
       ) : (
         <View style={styles.list}>
@@ -195,20 +195,10 @@ function NotificationCard({
       </View>
       <Text style={styles.notificationContent}>{notification.content}</Text>
       <Text style={styles.notificationMeta}>
-        {formatDate(notification.created_at)}
+        {formatDateTime(notification.created_at)}
       </Text>
     </Pressable>
   );
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleString();
 }
 
 const styles = StyleSheet.create({
@@ -223,7 +213,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     gap: spacing.md,
   },
   headerActions: {
@@ -254,12 +244,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   list: {
     gap: spacing.md,
@@ -286,7 +276,7 @@ const styles = StyleSheet.create({
   notificationTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   unreadDot: {
@@ -297,7 +287,7 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   notificationMeta: {

@@ -6,6 +6,7 @@ import { getAdminBooking, getAdminBookings } from "../../api/admin";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import { colors, radius, spacing } from "../../theme/theme";
 import { adminTypography as type } from "../../theme/adminTypography";
 import type { AdminBookingDetail, AdminBookingFilters, AdminBookingStatusGroup } from "../../types/adminBooking";
@@ -36,6 +37,7 @@ export function AdminBookingsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
+  const isWebDesktop = useIsWebDesktop();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<AdminBookingDetail | null>(null);
   const [detailError, setDetailError] = useState("");
@@ -137,7 +139,26 @@ export function AdminBookingsScreen() {
         : <>
           <Text style={styles.meta}>Results matching the filters above · {total} {total === 1 ? "booking" : "bookings"}</Text>
           {!items.length ? <View style={styles.search}><Text style={styles.heading}>No matching bookings</Text><Text style={styles.meta}>Check the IDs or clear the search.</Text></View> : null}
-          {items.map(booking => <Pressable key={booking.id} accessibilityRole="button"
+          {isWebDesktop && items.length ? <View style={styles.tableHead}>
+            <Text style={[styles.colHeading, styles.colBooking]}>Booking</Text>
+            <Text style={[styles.colHeading, styles.colParty]}>Customer</Text>
+            <Text style={[styles.colHeading, styles.colParty]}>Provider</Text>
+            <Text style={[styles.colHeading, styles.colWhen]}>Scheduled</Text>
+            <Text style={[styles.colHeading, styles.colTotal]}>Total</Text>
+            <Text style={[styles.colHeading, styles.colStatus]}>Status</Text>
+          </View> : null}
+          {items.map(booking => isWebDesktop ? <Pressable key={booking.id} accessibilityRole="button"
+            accessibilityLabel={`View booking #${booking.id} details`} onPress={() => void openDetail(booking.id)} style={({ pressed }) => [styles.tableRow, pressed && { backgroundColor: colors.surface }]}>
+            <View style={styles.colBooking}>
+              <Text numberOfLines={1} style={styles.heading}>{booking.title}</Text>
+              <Text style={styles.meta}>#{booking.id}</Text>
+            </View>
+            <Text numberOfLines={2} style={[styles.body, styles.colParty]}>{booking.customer?.name || "—"}{"\n"}<Text style={styles.meta}>#{booking.customer_id}</Text></Text>
+            <Text numberOfLines={2} style={[styles.body, styles.colParty]}>{booking.provider?.business_name || "—"}{"\n"}<Text style={styles.meta}>#{booking.provider_profile_id}</Text></Text>
+            <Text numberOfLines={2} style={[styles.body, styles.colWhen]}>{formatBookingDateTime(booking.scheduled_start_time)}</Text>
+            <Text style={[styles.amount, styles.colTotal]}>{formatMoney(booking.total_amount)}</Text>
+            <View style={styles.colStatus}><Text style={[styles.badge, bookingStatusStyle(booking.status)]}>{bookingGroupLabel(booking.status)}</Text></View>
+          </Pressable> : <Pressable key={booking.id} accessibilityRole="button"
             accessibilityLabel={`View booking #${booking.id} details`} onPress={() => void openDetail(booking.id)} style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}>
             <View style={styles.row}><Text style={styles.heading}>Booking #{booking.id}</Text><Text style={[styles.badge, bookingStatusStyle(booking.status)]}>{bookingGroupLabel(booking.status)}</Text></View>
             <Text style={styles.heading}>{booking.title}</Text>
@@ -160,23 +181,32 @@ export function AdminBookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.surface },
   content: { padding: spacing.lg, gap: spacing.md },
   title: { ...type.pageTitle, color: colors.text },
-  search: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  search: { padding: spacing.lg, gap: spacing.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
   field: { flexBasis: 200, flexGrow: 1, maxWidth: 320 },
-  card: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  card: { padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   heading: { ...type.cardTitle, color: colors.text },
   body: { ...type.body, color: colors.text },
   meta: { ...type.caption, color: colors.mutedText },
   badge: { ...type.badge, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.sm, overflow: "hidden" },
   filterLabel: { ...type.label, color: colors.text },
   statusOption: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minHeight: 44, justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.background },
-  statusSelected: { backgroundColor: "#E9F7F3", borderColor: colors.primary },
+  statusSelected: { backgroundColor: colors.primaryTint, borderColor: colors.primary },
   optionLabel: { ...type.label, color: colors.mutedText },
   optionSelected: { color: colors.primary },
   link: { ...type.label, color: colors.primary },
   error: { ...type.body, color: colors.danger },
   pagination: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  tableHead: { flexDirection: "row", alignItems: "flex-end", gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  tableRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 64, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background },
+  colHeading: { ...type.caption, color: colors.mutedText, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
+  colBooking: { flex: 2.4, minWidth: 0 },
+  colParty: { flex: 1.8, minWidth: 0 },
+  colWhen: { flex: 1.4, minWidth: 0 },
+  colTotal: { flex: 1, minWidth: 0, textAlign: "right" },
+  colStatus: { width: 150, alignItems: "flex-start" },
+  amount: { ...type.body, color: colors.text, fontWeight: "700", fontVariant: ["tabular-nums"] },
 });

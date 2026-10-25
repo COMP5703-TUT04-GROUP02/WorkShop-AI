@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
 });

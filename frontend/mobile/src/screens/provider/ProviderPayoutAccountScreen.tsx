@@ -164,7 +164,6 @@ export function ProviderPayoutAccountScreen() {
     <ScreenContainer contentStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Payout account</Text>
           <Text style={styles.subtitle}>
             Add your payout details. We validate them locally and synchronize with iyzico Sandbox.
           </Text>
@@ -390,20 +389,20 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
   typeRow: { gap: spacing.sm },
   typeOption: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.background },
-  typeOptionSelected: { borderColor: colors.primary, backgroundColor: "#E9F7F3" },
-  typeLabel: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  typeOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+  typeLabel: { color: colors.text, fontSize: 14, fontWeight: "600" },
   typeLabelSelected: { color: colors.primary, fontWeight: "800" },
   hint: { color: colors.mutedText, fontSize: 13 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20 },
   success: { color: colors.primary, fontSize: 14, lineHeight: 20 },
-  statusCard: { gap: spacing.sm, borderWidth: 1, borderColor: "#B8E7D8", borderRadius: radius.md, backgroundColor: "#F0FBF7", padding: spacing.lg },
-  statusCardError: { borderColor: "#F1B9B4", backgroundColor: "#FFF7F6" },
+  statusCard: { gap: spacing.sm, borderWidth: 1, borderColor: colors.primaryTintBorder, borderRadius: radius.md, backgroundColor: colors.primaryTint, padding: spacing.lg },
+  statusCardError: { borderColor: colors.dangerBorder, backgroundColor: colors.dangerTint },
   statusTopLine: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md },
   statusEyebrow: { color: colors.mutedText, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 },
   statusTitle: { fontSize: 22, fontWeight: "800", marginTop: spacing.xs },
   statusTitleValid: { color: colors.primary },
   statusTitleError: { color: colors.danger },
   statusBadge: { color: colors.mutedText, fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
-  statusBody: { color: colors.text, fontSize: 14, lineHeight: 21 },
+  statusBody: { color: colors.text, fontSize: 16, lineHeight: 21 },
   statusCode: { color: colors.mutedText, fontSize: 13 },
 });

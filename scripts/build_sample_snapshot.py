@@ -16,6 +16,26 @@ from backend.location_data import iter_location_seeds
 
 
 OUTPUT = ROOT / "migrations" / "data" / "0018_workshop_samples.json"
+# How many photos exist per category in backend/sample_media/service_categories.
+# Providers sharing a category are handed different ones, so three cards in a
+# row never show the same picture. A category with fewer photos still works:
+# the builder wraps around whatever is there.
+# Six portfolios carry each trade (30 providers, two trades each), so six
+# photographs is the point at which none repeats. Where a trade has fewer, the
+# ones it has are spread as evenly as they go.
+PHOTOS_PER_CATEGORY = {
+    "cleaning": 6,
+    "childcare": 6,
+    "elderly_care": 5,
+    "electrician": 6,
+    "plumbing": 6,
+    "painter": 6,
+    "locksmith": 5,
+    "technician": 5,
+    "moving": 6,
+    "other": 6,
+}
+PORTFOLIOS_PER_CATEGORY = 6
 PASSWORD_HASH = "$2b$12$7BRnl3Pt1eg7OOqWfwDgb.NXMyr4KtXPxwZ4EXK//JDwXUoyDoHdm"
 PASSWORD = "Demo1234"
 PAYOUT_IBAN = "TR180006200119000006672315"
@@ -169,7 +189,10 @@ def build() -> dict:
                 tos_accepted_at=created.isoformat(),
                 email=f"demo_customer_{index}@workshop.ai",
                 role="customer",
-                avatar_url=None,
+                # Providers are deliberately left without one: the search card
+                # prefers an avatar over the portfolio image, and the work is
+                # what sells a provider.
+                avatar_url=f"/sample-media/avatars/customer_{index}.jpg?v=7",
                 is_active=True,
                 is_banned=False,
                 last_login_at=None,
@@ -313,7 +336,7 @@ def build() -> dict:
                     is_available=weekday <= 6,
                 )
             )
-        for tag in provider_tags[index]:
+        for slot, tag in enumerate(provider_tags[index]):
             approved_services.append(
                 row(
                     f"approved_service:{index}:{tag}",
@@ -322,7 +345,12 @@ def build() -> dict:
                     is_enabled=True,
                 )
             )
-            image_url = f"/sample-media/service_categories/{tag}.png?v=1"
+            rank = slot * (PORTFOLIOS_PER_CATEGORY // 2) + (index - 1) // len(TAGS)
+            variant = rank % PHOTOS_PER_CATEGORY[tag] + 1
+            image_url = (
+                f"/sample-media/service_categories/{tag}_{variant}.jpg?v=3"
+            )
+            image_name = f"{tag}_{variant}.jpg"
             portfolio_key = f"portfolio:{index}:{tag}"
             portfolios.append(
                 row(
@@ -333,8 +361,8 @@ def build() -> dict:
                         f"Completed {tag.replace('_', ' ')} work in Istanbul."
                     ),
                     image_url=image_url,
-                    original_file_name=f"{tag}.png",
-                    content_type="image/png",
+                    original_file_name=image_name,
+                    content_type="image/jpeg",
                     media_type="image",
                     verification_status="approved",
                     verification_note="Approved fixed sample portfolio.",
@@ -346,8 +374,8 @@ def build() -> dict:
                     f"portfolio_media:{index}:{tag}",
                     portfolio_id=ref(portfolio_key),
                     file_url=image_url,
-                    original_file_name=f"{tag}.png",
-                    content_type="image/png",
+                    original_file_name=image_name,
+                    content_type="image/jpeg",
                     media_type="image",
                     sort_order=0,
                     created_at=(created + timedelta(days=index)).isoformat(),

@@ -1,13 +1,14 @@
-import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { getCustomerPayments } from "../api/customer";
 import { getProviderPayments } from "../api/provider";
 import { MarketplaceBreakdownCard } from "../components/MarketplaceBreakdownCard";
+import { PlaceholderPanel } from "../components/PlaceholderPanel";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius, spacing } from "../theme/theme";
+import { colors, radius, spacing, type } from "../theme/theme";
 import type { PaymentHistoryEntry } from "../types/booking";
 import {
   getBookingStatusLabel,
@@ -28,6 +29,7 @@ const PAGE_SIZE = 20;
  * vault, so offering to "manage cards" would be a control that cannot work.
  */
 export function PaymentsScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [payments, setPayments] = useState<PaymentHistoryEntry[]>([]);
   const [page, setPage] = useState(1);
@@ -92,17 +94,22 @@ export function PaymentsScreen() {
     }, [loadPayments]),
   );
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerAction}>
+          <SecondaryButton
+            disabled={isLoading}
+            label="Refresh"
+            onPress={() => void loadPayments()}
+          />
+        </View>
+      ),
+    });
+  }, [isLoading, loadPayments, navigation]);
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Payments</Text>
-        <SecondaryButton
-          disabled={isLoading}
-          label="Refresh"
-          onPress={() => void loadPayments()}
-        />
-      </View>
-
       <Text style={styles.subtitle}>
         {isProvider
           ? "Payments customers have made for your bookings."
@@ -118,14 +125,14 @@ export function PaymentsScreen() {
           <PaymentRow key={payment.id} isProvider={isProvider} payment={payment} />
         ))
       ) : !message ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No payments yet</Text>
-          <Text style={styles.emptyBody}>
-            {isProvider
-              ? "Payments appear here once a customer pays for a booking."
-              : "Once you pay for a booking it shows up here."}
-          </Text>
-        </View>
+        <PlaceholderPanel
+          description={
+            isProvider
+              ? "Every booking a customer pays for lands here, with the platform and processing fees broken out, so you can check a payout against it."
+              : "Every visit fee and service fee you pay lands here, with the booking it belongs to, so you have a record without digging through email."
+          }
+          title="No payments yet"
+        />
       ) : null}
 
       {payments.length > 0 || totalPages > 1 ? (
@@ -220,17 +227,14 @@ function StatusPill({ status }: { status: string }) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.md,
     padding: spacing.lg,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
+  headerAction: {
+    marginRight: spacing.md,
   },
   title: {
     color: colors.text,
@@ -243,14 +247,14 @@ const styles = StyleSheet.create({
   },
   message: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: 16,
   },
   card: {
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.md,
   },
   cardTop: {
@@ -261,12 +265,12 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: type.title,
     fontWeight: "800",
   },
   cardLine: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
   },
   stateRow: {
     flexDirection: "row",
@@ -275,18 +279,18 @@ const styles = StyleSheet.create({
   },
   stateLabel: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   stateValue: {
     color: colors.text,
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     textAlign: "right",
   },
   cardMeta: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   pill: {
     borderRadius: radius.sm,
@@ -294,40 +298,22 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   pillPaid: {
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
   },
   pillRefunded: {
-    backgroundColor: "#FDEEEE",
+    backgroundColor: colors.dangerTint,
   },
   pillPending: {
     backgroundColor: colors.border,
   },
   pillFailed: {
-    backgroundColor: "#FDEEEE",
+    backgroundColor: colors.dangerTint,
   },
   pillText: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,
-  },
-  emptyCard: {
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  emptyBody: {
-    color: colors.mutedText,
-    fontSize: 14,
-    lineHeight: 21,
   },
   pagination: {
     alignItems: "center",

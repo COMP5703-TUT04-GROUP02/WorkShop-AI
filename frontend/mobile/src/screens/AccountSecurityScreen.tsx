@@ -9,6 +9,8 @@ import {
   verifyEmail,
   verifyPhone,
 } from "../api/auth";
+import { ChangeEmailModal } from "../components/ChangeEmailModal";
+import { ChangePasswordModal } from "../components/ChangePasswordModal";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { SecondaryButton } from "../components/SecondaryButton";
@@ -19,7 +21,7 @@ import {
   VerifyCodeModal,
 } from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
-import { colors, radius, spacing } from "../theme/theme";
+import { colors, radius, spacing, type } from "../theme/theme";
 import { getErrorMessage } from "../utils/errors";
 
 /**
@@ -45,9 +47,8 @@ export function AccountSecurityScreen() {
   const [isSendingVerifyCode, setIsSendingVerifyCode] = useState(false);
   const [resendAfterSeconds, setResendAfterSeconds] = useState(60);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
+  const [isEmailModalVisible, setIsEmailModalVisible] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
@@ -65,22 +66,26 @@ export function AccountSecurityScreen() {
   async function sendCodeAndOpen(
     action: "verify-email" | "change-email",
     showError: (message: string) => void,
+    address = "",
   ) {
     setCodeError("");
     try {
       const sent =
         action === "change-email"
-          ? await sendEmailCode("change_email", newEmail.trim())
+          ? await sendEmailCode("change_email", address)
           : await sendEmailCode("verify_email");
       setResendAfterSeconds(sent.resend_after_seconds);
       setPending(action);
+      return true;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 429) {
         setCodeError(getErrorMessage(error));
         setPending(action);
-        return;
+        // The code is already on its way; the sheet has done its job.
+        return true;
       }
       showError(getErrorMessage(error));
+      return false;
     }
   }
 
@@ -139,21 +144,13 @@ export function AccountSecurityScreen() {
     }
   }
 
-  async function handleChangePassword() {
+  async function handleChangePassword(passwords: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    const { currentPassword, newPassword } = passwords;
     setPasswordError("");
     setPasswordMessage("");
-
-    if (newPassword.length < 8) {
-      setPasswordError("The new password needs at least 8 characters.");
-      return;
-    }
-
-    // Checked here as well so a typo never costs a round trip.
-    if (newPassword !== confirmPassword) {
-      setPasswordError("The new passwords do not match.");
-      return;
-    }
-
     setIsChangingPassword(true);
     try {
       const updated = await changePassword({ currentPassword, newPassword });
@@ -164,9 +161,7 @@ export function AccountSecurityScreen() {
       await signIn(updated.email, newPassword);
 
       setCurrentUser(updated);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      setIsPasswordModalVisible(false);
       setPasswordMessage(
         "Password changed. Other devices are signed out and will need the new password.",
       );
@@ -177,32 +172,34 @@ export function AccountSecurityScreen() {
     }
   }
 
-  async function handleStartEmailChange() {
+  async function handleStartEmailChange(email: string) {
     setEmailError("");
     setEmailMessage("");
 
-    const trimmed = newEmail.trim();
+    const trimmed = email.trim();
     if (!trimmed || !trimmed.includes("@")) {
       setEmailError("Enter the new email address first.");
       return;
     }
 
+    setNewEmail(trimmed);
     setIsSendingEmailChangeCode(true);
-    await sendCodeAndOpen("change-email", setEmailError);
+    const sent = await sendCodeAndOpen("change-email", setEmailError, trimmed);
     setIsSendingEmailChangeCode(false);
+    if (sent) {
+      setIsEmailModalVisible(false);
+    }
   }
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Account and Security</Text>
-
       <View style={styles.card}>
-        <View style={styles.row}>
-          <View style={styles.rowText}>
+        <View style={styles.field}>
+          <View style={styles.row}>
             <Text style={styles.label}>Sign-in email</Text>
-            <Text style={styles.value}>{user?.email ?? "—"}</Text>
+            <StatusPill verified={Boolean(user?.email_verified)} />
           </View>
-          <StatusPill verified={Boolean(user?.email_verified)} />
+          <Text style={styles.value}>{user?.email ?? "—"}</Text>
         </View>
         <SecondaryButton
           disabled={isSendingVerifyCode}
@@ -218,14 +215,14 @@ export function AccountSecurityScreen() {
 
         <View style={styles.divider} />
 
-        <View style={styles.row}>
-          <View style={styles.rowText}>
+        <View style={styles.field}>
+          <View style={styles.row}>
             <Text style={styles.label}>Phone</Text>
-            <Text style={styles.hint}>
-              Verifies the number saved on your profile.
-            </Text>
+            <StatusPill verified={Boolean(user?.phone_verified)} />
           </View>
-          <StatusPill verified={Boolean(user?.phone_verified)} />
+          <Text style={styles.hint}>
+            Verifies the number saved on your profile.
+          </Text>
         </View>
         <SecondaryButton
           label={user?.phone_verified ? "Verify phone again" : "Verify phone"}
@@ -244,61 +241,47 @@ export function AccountSecurityScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Change password</Text>
-        <TextField
-          label="Current password"
-          onChangeText={setCurrentPassword}
-          placeholder="Your current password"
-          secureTextEntry
-          value={currentPassword}
-        />
-        <TextField
-          label="New password"
-          onChangeText={setNewPassword}
-          placeholder="Minimum 8 characters"
-          secureTextEntry
-          value={newPassword}
-        />
-        <TextField
-          label="Confirm new password"
-          onChangeText={setConfirmPassword}
-          placeholder="Repeat the new password"
-          secureTextEntry
-          value={confirmPassword}
-        />
-        {passwordError ? <Text style={styles.error}>{passwordError}</Text> : null}
+        <Text style={styles.cardTitle}>Password</Text>
+        <View style={styles.row}>
+          <View style={styles.rowText}>
+            <Text style={styles.label}>Sign-in password</Text>
+            <Text style={styles.hint}>
+              Changing it signs out your other devices.
+            </Text>
+          </View>
+          <SecondaryButton
+            label="Change"
+            onPress={() => {
+              setPasswordError("");
+              setPasswordMessage("");
+              setIsPasswordModalVisible(true);
+            }}
+          />
+        </View>
         {passwordMessage ? (
           <Text style={styles.success}>{passwordMessage}</Text>
         ) : null}
-        <PrimaryButton
-          disabled={!currentPassword || !newPassword || !confirmPassword}
-          isLoading={isChangingPassword}
-          label="Update password"
-          onPress={() => void handleChangePassword()}
-        />
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Change sign-in email</Text>
-        <Text style={styles.hint}>
-          We email a 6-digit code to the new address. The change takes effect
-          once you enter it.
-        </Text>
-        <TextField
-          keyboardType="email-address"
-          label="New email"
-          onChangeText={setNewEmail}
-          placeholder="you@example.com"
-          value={newEmail}
-        />
-        {emailError ? <Text style={styles.error}>{emailError}</Text> : null}
+        <Text style={styles.cardTitle}>Change email</Text>
+        <View style={styles.row}>
+          <View style={styles.rowText}>
+            <Text style={styles.label}>New sign-in address</Text>
+            <Text style={styles.hint}>
+              We email a 6-digit code to the new address.
+            </Text>
+          </View>
+          <SecondaryButton
+            label="Change"
+            onPress={() => {
+              setEmailError("");
+              setEmailMessage("");
+              setIsEmailModalVisible(true);
+            }}
+          />
+        </View>
         {emailMessage ? <Text style={styles.success}>{emailMessage}</Text> : null}
-        <PrimaryButton
-          disabled={!newEmail.trim()}
-          isLoading={isSendingEmailChangeCode}
-          label="Send code"
-          onPress={() => void handleStartEmailChange()}
-        />
       </View>
 
       <View style={styles.card}>
@@ -309,6 +292,23 @@ export function AccountSecurityScreen() {
           not connected yet.
         </Text>
       </View>
+
+      <ChangeEmailModal
+        currentEmail={user?.email ?? ""}
+        errorMessage={emailError}
+        isSubmitting={isSendingEmailChangeCode}
+        onCancel={() => setIsEmailModalVisible(false)}
+        onSubmit={(email) => void handleStartEmailChange(email)}
+        visible={isEmailModalVisible}
+      />
+
+      <ChangePasswordModal
+        errorMessage={passwordError}
+        isSubmitting={isChangingPassword}
+        onCancel={() => setIsPasswordModalVisible(false)}
+        onSubmit={(passwords) => void handleChangePassword(passwords)}
+        visible={isPasswordModalVisible}
+      />
 
       <VerifyCodeModal
         description={
@@ -341,11 +341,6 @@ function StatusPill({ verified }: { verified: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "700",
-  },
   card: {
     gap: spacing.sm,
     borderWidth: 1,
@@ -356,8 +351,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: type.section,
     fontWeight: "700",
+  },
+  // The pill sits on the label's line, not the value's: an email is long
+  // enough that sharing a line with the pill broke it mid-word.
+  field: {
+    gap: 2,
   },
   row: {
     flexDirection: "row",
@@ -376,27 +376,27 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: type.secondary,
     fontWeight: "600",
   },
   value: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: type.body,
     fontWeight: "600",
   },
   hint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: type.secondary,
     lineHeight: 19,
   },
   error: {
     color: colors.danger,
-    fontSize: 14,
+    fontSize: type.secondary,
     lineHeight: 20,
   },
   success: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: type.secondary,
     lineHeight: 20,
   },
   pill: {
@@ -406,11 +406,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pillVerified: {
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
   },
   pillText: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: type.micro,
     fontWeight: "800",
     letterSpacing: 0.5,
   },

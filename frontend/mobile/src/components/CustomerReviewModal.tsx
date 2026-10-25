@@ -101,7 +101,7 @@ export function CustomerReviewModal({
               setFormError("");
             }}
             placeholder="Write a review"
-            placeholderTextColor={colors.mutedText}
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             textAlignVertical="top"
             value={comment}
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
   },
   providerName: {
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   ratingHint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     textAlign: "center",
   },
   input: {
@@ -175,12 +175,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     padding: spacing.sm,
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
   actions: {
     flexDirection: "row",

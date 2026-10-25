@@ -11,7 +11,7 @@ const native = Object.fromEntries(["View", "Text", "ScrollView", "Pressable", "M
   ({ children }) => React.createElement("div", { "data-native": name }, children),
 ]));
 native.StyleSheet = { create: value => value };
-const theme = { colors: { primary: "#10A37F", surface: "#F7F7F8", mutedText: "#6E6E80", danger: "#D92D20" }, radius: { md: 8 }, spacing: { xs: 4, sm: 8, md: 16, lg: 24 } };
+const theme = { colors: { primary: "#10A37F", surface: "#F7F7F8", mutedText: "#6E6E80", danger: "#D92D20", success: "#0E7A4D", successTint: "#E9F6EF" }, radius: { md: 8 }, spacing: { xs: 4, sm: 8, md: 16, lg: 24 } };
 function load(file, mocks = {}) {
   const filename = path.resolve(__dirname, "..", file);
   const code = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
@@ -114,6 +114,7 @@ function harness(api) {
     "../../utils/latestRequest": load("../../utils/latestRequest.ts"),
     "./adminState": load("adminState.ts"),
     "./AdminBookingDetailModal": { AdminBookingDetailModal: () => null },
+    "../../layout/useIsWebDesktop": { useIsWebDesktop: () => false },
   });
   const render = () => { index = 0; tree = AdminBookingsScreen(); if (focus !== lastFocus) { cleanup?.(); lastFocus = focus; cleanup = focus(); } return tree; };
   const find = predicate => nodes(tree).find(node => predicate(node.props ?? {}))?.props;
@@ -230,11 +231,12 @@ test("six groups partition all 22 workflow statuses while cards use broad labels
   assert.equal(new Set(statuses).size, 22);
   const original = load("../../constants/labels.ts").BOOKING_STATUS_LABELS;
   assert.deepEqual([...statuses].sort(), Object.keys(original).sort());
-  assert.equal(bookingStatusStyle("completed").color, theme.colors.primary);
+  assert.equal(bookingStatusStyle("completed").color, theme.colors.success, "a green tint takes green text, not the brand blue");
+  assert.equal(bookingStatusStyle("completed").backgroundColor, theme.colors.successTint);
   assert.equal(bookingStatusStyle("cancelled").color, theme.colors.mutedText);
-  assert.equal(bookingStatusStyle("pending").color, "#C2410C");
-  assert.equal(bookingStatusStyle("accepted").color, "#526779");
-  assert.equal(bookingStatusStyle("accepted").backgroundColor, "#F0F3F5");
+  assert.equal(bookingStatusStyle("pending").color, theme.colors.warningText);
+  assert.equal(bookingStatusStyle("accepted").color, theme.colors.mutedText);
+  assert.equal(bookingStatusStyle("accepted").backgroundColor, theme.colors.surface);
   assert.equal(bookingGroupLabel("quoted"), "Pending");
   assert.equal(bookingGroupLabel("awaiting_confirmation"), "In progress");
   assert.equal(bookingGroupLabel("partially_refunded"), "Refund related");
@@ -261,6 +263,22 @@ test("all dossier timestamps use English dates, preserve missing values, and do 
   }
   assert.equal(formatBookingDateTime(null), "—");
   assert.equal(formatBookingDateTime("not-a-date"), "—");
+});
+
+test("a wide screen lists bookings as rows under a header, a phone as cards", () => {
+  const styles = contentStyles("AdminBookingsScreen.tsx");
+  assert.equal(styles.tableRow.flexDirection, "row", "a record is one line across");
+  assert.ok(styles.tableRow.borderBottomWidth, "rows are separated by a rule, not by card edges");
+  assert.equal(styles.tableHead.flexDirection, "row");
+  assert.ok(styles.card.borderWidth, "the phone card keeps its edge");
+  for (const column of ["colBooking", "colParty", "colWhen", "colTotal"]) {
+    assert.ok(styles[column].flex, `${column} shares the width rather than fixing it`);
+    assert.equal(styles[column].minWidth, 0, `${column} may shrink so long values do not push the row`);
+  }
+  assert.equal(styles.colTotal.textAlign, "right", "money lines up on its last digit");
+  assert.ok(styles.amount.fontVariant.includes("tabular-nums"), "and its digits are the same width");
+  const source = require("node:fs").readFileSync(require("node:path").resolve(__dirname, "..", "AdminBookingsScreen.tsx"), "utf8");
+  assert.match(source, /isWebDesktop && items\.length \? <View style={styles\.tableHead}>/, "the header only exists where the rows do, and only when there are rows");
 });
 
 test("Admin booking API forwards the status group together with exact IDs and paging", async () => {

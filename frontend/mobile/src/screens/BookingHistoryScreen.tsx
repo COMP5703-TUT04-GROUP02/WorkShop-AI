@@ -1,5 +1,6 @@
+import { CalendarClock, MapPin } from "lucide-react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
@@ -34,7 +35,7 @@ import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 import type { BookingDetail, PaymentSummary } from "../types/booking";
 import { getRefundStatusLabel } from "../constants/labels";
-import { formatDateTime } from "../utils/datetime";
+import { formatDateTime, formatDateTimeRange } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 import { formatMoney } from "../utils/money";
 import { useConfirmation } from "../utils/useConfirmation";
@@ -230,17 +231,22 @@ export function BookingHistoryScreen() {
     }
   }
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerAction}>
+          <SecondaryButton
+            disabled={isLoading}
+            label="Refresh"
+            onPress={() => void loadBookings()}
+          />
+        </View>
+      ),
+    });
+  }, [isLoading, loadBookings, navigation]);
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Booking history</Text>
-        <SecondaryButton
-          disabled={isLoading}
-          label="Refresh"
-          onPress={() => void loadBookings()}
-        />
-      </View>
-
       {message ? <Text style={styles.errorText}>{message}</Text> : null}
 
       {isLoading ? (
@@ -250,7 +256,7 @@ export function BookingHistoryScreen() {
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No booking history</Text>
-          <Text style={styles.emptyText}>Completed and cancelled bookings appear here.</Text>
+          <Text style={styles.emptyText}>A booking moves here once it is finished or cancelled, with what was charged, so you have the record without digging through email.</Text>
         </View>
       ) : (
         <View style={styles.list}>
@@ -324,21 +330,36 @@ function HistoryBookingCard({
         </Text>
       </View>
 
-      <Text numberOfLines={2} style={styles.description}>
-        {booking.service_description}
-      </Text>
-      <Text numberOfLines={1} style={styles.metaText}>
-        {formatDateTime(booking.scheduled_start_time)} -{" "}
-        {formatDateTime(booking.scheduled_end_time)}
-      </Text>
-      <Text numberOfLines={1} style={styles.metaText}>
-        {booking.service_address}
-      </Text>
-      <Text style={styles.amountText}>
-        {booking.visit_fee_amount == null
-          ? "—"
-          : `Visit fee: ${formatMoney(booking.visit_fee_amount)}`}
-      </Text>
+      <View style={styles.cardDivider} />
+
+      <View style={styles.cardDetails}>
+        <Text numberOfLines={2} style={styles.description}>
+          {booking.service_description}
+        </Text>
+        <View style={styles.metaRow}>
+          <CalendarClock color={colors.mutedText} size={14} />
+          <Text numberOfLines={1} style={styles.metaText}>
+            {formatDateTimeRange(booking.scheduled_start_time, booking.scheduled_end_time)}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <MapPin color={colors.mutedText} size={14} />
+          <Text numberOfLines={1} style={styles.metaText}>
+            {booking.service_address}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.cardDivider} />
+
+      <View style={styles.amountRow}>
+        <Text style={styles.amountLabel}>Visit fee</Text>
+        <Text style={styles.amountText}>
+          {booking.visit_fee_amount == null
+            ? "—"
+            : formatMoney(booking.visit_fee_amount)}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -411,17 +432,14 @@ function getStatusBadgeStyle(status: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.md,
     padding: spacing.lg,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
+  headerAction: {
+    marginRight: spacing.md,
   },
   title: {
     color: colors.text,
@@ -438,7 +456,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   emptyTitle: {
@@ -448,7 +466,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   errorText: {
@@ -458,19 +476,42 @@ const styles = StyleSheet.create({
   },
   refundNotice: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 19,
   },
   list: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   card: {
-    gap: spacing.sm,
+    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
-    padding: spacing.md,
+    padding: spacing.lg,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  cardDetails: {
+    gap: spacing.sm,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  amountLabel: {
+    color: colors.mutedText,
+    fontSize: 14,
+    fontWeight: "600",
   },
   cardPressed: {
     backgroundColor: colors.surface,
@@ -503,8 +544,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   statusSuccess: {
-    backgroundColor: "#ECFDF3",
-    color: colors.primary,
+    backgroundColor: colors.successTint,
+    color: colors.success,
   },
   statusMuted: {
     backgroundColor: colors.surface,
@@ -512,17 +553,17 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 21,
   },
   metaText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   amountText: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
   },
   modalOverlay: {
     flex: 1,
@@ -559,7 +600,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   detailLink: {

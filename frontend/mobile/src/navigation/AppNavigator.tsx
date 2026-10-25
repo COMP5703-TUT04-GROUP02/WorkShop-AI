@@ -61,8 +61,9 @@ import {
 } from "../context/ProviderProfileGateContext";
 import { RealtimeProvider } from "../context/RealtimeContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
-import { colors } from "../theme/theme";
+import { colors, layout } from "../theme/theme";
 import { DesktopSidebar } from "./DesktopSidebar";
+import { DesktopTopBar } from "./DesktopTopBar";
 import { RoleTabs } from "./RoleTabs";
 import type { RootStackParamList } from "./types";
 
@@ -221,9 +222,26 @@ function AuthenticatedStack() {
   return (
     <Stack.Navigator
       layout={({ children }) => (
-        <View style={[styles.shell, isWebDesktop ? styles.shellDesktop : null]}>
-          {isWebDesktop ? <DesktopSidebar /> : null}
-          <View style={styles.shellContent}>
+        <View
+          style={[
+            styles.shell,
+            isWebDesktop && user?.role === "admin" ? styles.shellDesktop : null,
+            isWebDesktop && user?.role !== "admin"
+              ? styles.shellDesktopGround
+              : null,
+          ]}
+        >
+          {isWebDesktop ? (
+            user?.role === "admin" ? <DesktopSidebar /> : <DesktopTopBar />
+          ) : null}
+          <View
+            style={[
+              styles.shellContent,
+              isWebDesktop && user?.role !== "admin"
+                ? styles.shellContentCentered
+                : null,
+            ]}
+          >
             {children}
           </View>
         </View>
@@ -490,5 +508,13 @@ const styles = StyleSheet.create({
   shellContent: {
     flex: 1,
     minWidth: 0,
+  },
+  shellDesktopGround: {
+    backgroundColor: colors.surface,
+  },
+  shellContentCentered: {
+    width: "100%",
+    maxWidth: layout.webContentMaxWidth,
+    alignSelf: "center",
   },
 });

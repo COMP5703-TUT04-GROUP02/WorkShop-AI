@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Plus } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +14,7 @@ import {
 import { getProviderPortfolios } from "../../api/provider";
 import { PortfolioCard } from "../../components/PortfolioCard";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, spacing } from "../../theme/theme";
+import { colors, radius, spacing } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { ProviderPortfolio } from "../../types/provider";
 
@@ -30,6 +30,22 @@ export function ProviderPortfolioListScreen() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          accessibilityLabel="Add a portfolio"
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("ProviderPortfolioCreate")}
+          style={styles.addButton}
+        >
+          <Plus color="#FFFFFF" size={18} />
+          <Text style={styles.addText}>Add</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,23 +98,11 @@ export function ProviderPortfolioListScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
-        <Text style={styles.title}>Portfolios</Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate("ProviderPortfolioCreate")}
-          style={styles.addButton}
-        >
-          <Plus color="#FFFFFF" size={20} />
-          <Text style={styles.addText}>Add</Text>
-        </Pressable>
-      </View>
-
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : (
         <FlatList
-          ListEmptyComponent={<Text style={styles.emptyText}>No portfolios uploaded yet</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>Past work shown on your profile. An admin checks each piece is your own photograph before it goes live.</Text>}
           ListFooterComponent={
             isLoadingMore ? (
               <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
@@ -132,30 +136,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "800",
-  },
   addButton: {
-    minHeight: 40,
+    minHeight: 36,
+    marginRight: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    borderRadius: 20,
+    gap: 6,
+    borderRadius: radius.md,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.md,
   },
   addText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   loader: {
@@ -171,7 +164,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
   },
   footerLoader: {
     paddingVertical: spacing.lg,

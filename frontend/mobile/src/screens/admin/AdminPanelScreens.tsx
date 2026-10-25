@@ -84,7 +84,7 @@ function AdminPage({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.surface },
   content: { gap: spacing.lg, padding: spacing.lg },
   title: { ...type.pageTitle, color: colors.text },
   subtitle: {

@@ -32,6 +32,7 @@ import type {
   ProviderAvailability,
   ProviderAvailabilityOverride,
 } from "../../types/provider";
+import { formatShortDateTime, formatShortDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 
 type ScheduleTab = "availability" | "jobs";
@@ -404,6 +405,7 @@ export function ProviderScheduleScreen() {
                     key={day.dateKey || `job-blank-${index}`}
                     onPress={() => openJobListModal(day)}
                     scheduleBookings={scheduleBookings}
+                    todayKey={todayKey}
                   />
                 ))}
               </View>
@@ -470,6 +472,7 @@ function SegmentButton({
 }) {
   return (
     <Pressable
+          hitSlop={4}
       accessibilityRole="button"
       onPress={onPress}
       style={[styles.segmentButton, isActive ? styles.segmentButtonActive : null]}
@@ -617,7 +620,7 @@ function DayAvailabilityModal({
             <Switch
               onValueChange={setDayUnavailable}
               thumbColor={dayUnavailable ? colors.primary : "#FFFFFF"}
-              trackColor={{ false: colors.border, true: "#B7E4D5" }}
+              trackColor={{ false: colors.border, true: colors.primaryTintBorder }}
               value={dayUnavailable}
             />
           </View>
@@ -662,10 +665,12 @@ function DayAvailabilityModal({
 function JobCalendarDayCell({
   day,
   scheduleBookings,
+  todayKey,
   onPress,
 }: {
   day: CalendarDay;
   scheduleBookings: BookingDetail[];
+  todayKey: string;
   onPress: () => void;
 }) {
   if (!day.dateKey || !day.dayNumber) {
@@ -680,15 +685,34 @@ function JobCalendarDayCell({
       accessibilityRole="button"
       disabled={!hasJobs}
       onPress={onPress}
-      style={[
-        styles.dayCell,
-        hasJobs ? styles.jobDayCellActive : styles.jobDayCellInactive,
-      ]}
+      style={styles.dayCell}
     >
-      <Text style={styles.dayNumber}>{day.dayNumber}</Text>
-      <Text numberOfLines={1} style={styles.dayTimeText}>
-        {hasJobs ? `${dayBookings.length} bookings` : "No jobs"}
-      </Text>
+      <View
+        style={[
+          styles.dayNumberSlot,
+          day.dateKey === todayKey ? styles.dayNumberSlotToday : null,
+        ]}
+      >
+        <Text
+          style={[
+            styles.dayNumber,
+            !hasJobs ? styles.dayNumberClosed : null,
+            day.dateKey === todayKey ? styles.dayNumberOnToday : null,
+          ]}
+        >
+          {day.dayNumber}
+        </Text>
+      </View>
+      {hasJobs ? (
+        <View
+          accessibilityLabel={`${dayBookings.length} bookings`}
+          style={styles.dayCountBadge}
+        >
+          <Text style={styles.dayCountText}>{dayBookings.length}</Text>
+        </View>
+      ) : (
+        <View style={[styles.dayDot, styles.dayDotClosed]} />
+      )}
     </Pressable>
   );
 }
@@ -732,8 +756,10 @@ function JobListModal({
                   <View pointerEvents="none" style={styles.descriptionFade} />
                 </View>
                 <Text style={styles.cardText}>
-                  {formatShortDateTime(booking.scheduled_start_time)} -{" "}
-                  {formatShortDateTime(booking.scheduled_end_time)}
+                  {formatShortDateTimeRange(
+                    booking.scheduled_start_time,
+                    booking.scheduled_end_time,
+                  )}
                 </Text>
               </Pressable>
             ))}
@@ -780,6 +806,7 @@ function CalendarDayCell({
   }
 
   const isPastDay = day.dateKey < todayKey;
+  const isToday = day.dateKey === todayKey;
   const override = getOverrideForDate(day.dateKey, overrides);
   const defaultAvailability = getAvailabilityForWeekday(
     getIsoWeekday(parseDateKey(day.dateKey)),
@@ -801,22 +828,29 @@ function CalendarDayCell({
       accessibilityRole="button"
       disabled={isPastDay}
       onPress={onPress}
-      style={[
-        styles.dayCell,
-        isAvailable ? styles.dayCellAvailable : styles.dayCellUnavailable,
-        override ? styles.dayCellOverride : null,
-        isPastDay ? styles.dayCellPast : null,
-      ]}
+      style={[styles.dayCell, isPastDay ? styles.dayCellPast : null]}
     >
-      <Text style={[styles.dayNumber, isPastDay ? styles.dayTextPast : null]}>
-        {day.dayNumber}
-      </Text>
-      <Text
-        numberOfLines={1}
-        style={[styles.dayTimeText, isPastDay ? styles.dayTextPast : null]}
+      <View
+        style={[styles.dayNumberSlot, isToday ? styles.dayNumberSlotToday : null]}
       >
-        {timeText}
-      </Text>
+        <Text
+          style={[
+            styles.dayNumber,
+            !isAvailable ? styles.dayNumberClosed : null,
+            isToday ? styles.dayNumberOnToday : null,
+          ]}
+        >
+          {day.dayNumber}
+        </Text>
+      </View>
+      <View
+        accessibilityLabel={timeText}
+        style={[
+          styles.dayDot,
+          isAvailable ? styles.dayDotOpen : styles.dayDotClosed,
+          override ? styles.dayDotOverride : null,
+        ]}
+      />
     </Pressable>
   );
 }
@@ -871,20 +905,6 @@ function bookingOverlapsDate(booking: BookingDetail, dateKey: string) {
   return bookingStart < dayEnd && bookingEnd > dayStart;
 }
 
-function formatShortDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${month}-${day} ${hour}:${minute}`;
-}
-
 function getBookingStatusLabel(status: string) {
   const labels: Record<string, string> = {
     accepted: "In progress",
@@ -921,7 +941,8 @@ function formatMonthKey(date: Date) {
 }
 
 function formatMonthTitle(date: Date) {
-  return `${date.getFullYear()} ${date.getMonth() + 1}`;
+  // "2026 10" is a key, not a heading. A month gets its name.
+  return date.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
 function formatDateKey(date: Date) {
@@ -988,7 +1009,7 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   segmentTextActive: {
@@ -1004,7 +1025,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.md,
   },
@@ -1013,8 +1034,8 @@ const styles = StyleSheet.create({
     height: 46,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: "#E9F7F3",
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryTint,
   },
   defaultTextBox: {
     flex: 1,
@@ -1027,7 +1048,7 @@ const styles = StyleSheet.create({
   },
   cardText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 19,
   },
   linkText: {
@@ -1039,7 +1060,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.md,
   },
@@ -1089,48 +1110,70 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: `${100 / 7}%`,
-    minHeight: 74,
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: "transparent",
-    borderRadius: radius.md,
-    padding: spacing.xs,
+    minHeight: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.sm,
   },
-  dayCellAvailable: {
-    borderColor: "#B7E4D5",
-    backgroundColor: "#F0FBF7",
+  /** The number sits in this, which is the only shape today fills. */
+  dayNumberSlot: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
   },
-  dayCellUnavailable: {
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  dayCellOverride: {
-    borderColor: colors.primary,
+  dayNumberSlotToday: {
+    backgroundColor: colors.primary,
   },
   dayCellPast: {
-    borderColor: colors.border,
-    backgroundColor: "#F4F4F5",
-    opacity: 0.58,
-  },
-  jobDayCellActive: {
-    borderColor: "#B7E4D5",
-    backgroundColor: "#F0FBF7",
-  },
-  jobDayCellInactive: {
-    borderColor: colors.border,
-    backgroundColor: "#F4F4F5",
+    opacity: 0.45,
   },
   dayNumber: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  dayNumberOnToday: {
+    color: "#FFFFFF",
     fontWeight: "800",
   },
-  dayTimeText: {
-    color: colors.mutedText,
-    fontSize: 10,
+  dayNumberClosed: {
+    color: colors.placeholder,
+    fontWeight: "600",
   },
-  dayTextPast: {
-    color: "#A0A4AE",
+  // Open or closed, in the width a cell actually has. The hours themselves are
+  // stated in full in the card above, and in the sheet a tap opens.
+  /** Open, closed, or opened differently from the default week. */
+  dayDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  dayDotOpen: {
+    backgroundColor: colors.primary,
+  },
+  dayDotClosed: {
+    backgroundColor: "transparent",
+  },
+  dayDotOverride: {
+    backgroundColor: colors.warning,
+  },
+  dayCountBadge: {
+    minWidth: 20,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 5,
+  },
+  dayCountText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
   modalOverlay: {
     flex: 1,
@@ -1171,7 +1214,7 @@ const styles = StyleSheet.create({
   },
   weekdayChipSelected: {
     borderColor: colors.primary,
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   weekdayChipText: {
     color: colors.text,
@@ -1188,7 +1231,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
@@ -1218,8 +1261,8 @@ const styles = StyleSheet.create({
   },
   jobStatusBadge: {
     overflow: "hidden",
-    borderRadius: 999,
-    backgroundColor: "#E9F7F3",
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryTint,
     color: colors.primary,
     fontSize: 12,
     fontWeight: "800",
@@ -1241,7 +1284,7 @@ const styles = StyleSheet.create({
   },
   jobDescription: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   detailContent: {
@@ -1261,7 +1304,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   modalActions: {
@@ -1270,7 +1313,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
 });

@@ -1,8 +1,9 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { formatDate } from "../../utils/datetime";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
-import { Check, ChevronRight, FileText, MapPin, Trash2 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { Check, ChevronRight, FileText, MapPin, MessageCircle, Trash2 } from "lucide-react-native";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -32,7 +33,8 @@ import { getProviderTagLabel, PROVIDER_TAGS } from "../../constants/providerTags
 import { useAuth } from "../../context/AuthContext";
 import { useProviderProfileGate } from "../../context/ProviderProfileGateContext";
 import type { RootStackParamList } from "../../navigation/types";
-import { colors, radius, spacing } from "../../theme/theme";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type { SelectedLocation, ServiceAreaSelection } from "../../types/location";
 import type {
@@ -46,7 +48,10 @@ import type {
 } from "../../types/provider";
 import type { ProviderSubmerchant } from "../../types/marketplace";
 import type { Review } from "../../types/review";
+import { PersonAvatar } from "../../components/PersonAvatar";
+import { StarRating } from "../../components/StarRating";
 import { getErrorMessage } from "../../utils/errors";
+import { formatMoney } from "../../utils/money";
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -76,6 +81,7 @@ export function ProviderVerificationScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setMessage("");
@@ -91,19 +97,25 @@ export function ProviderVerificationScreen() {
     }
   }, [refreshProviderProfileStatus]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerAction}>
+          <SecondaryButton label="Refresh" onPress={() => void load()} />
+        </View>
+      ),
+    });
+  }, [load, navigation]);
+
   useFocusEffect(useCallback(() => void load(), [load]));
 
   if (isLoading) return <ActivityIndicator color={colors.primary} style={styles.loader} />;
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.flex}>
-          <Text style={styles.title}>Provider verification</Text>
-          <Text style={styles.subtitle}>Complete the three independent steps before accepting new orders.</Text>
-        </View>
-        <SecondaryButton label="Refresh" onPress={() => void load()} />
-      </View>
+      <Text style={styles.lead}>
+        Complete the three independent steps before accepting new orders.
+      </Text>
       <ProgressCard status={status} payoutStatus={payoutAccount?.status ?? "draft"} />
       {message ? <Text style={styles.error}>{message}</Text> : null}
       <VerificationEntryCard
@@ -276,8 +288,8 @@ function ProviderHomeContent() {
                 <Text style={styles.serviceVerifiedBadge}>Service verified</Text>
               </View>
               <View style={styles.statusRow}>
-                <OpenStatusBadge isOpen={Boolean(profile?.is_open)} />
-                <OnlineStatusBadge isOnline={Boolean(profile?.is_online)} />
+                <TradingStatusBadge isOpen={Boolean(profile?.is_open)} />
+                <ChatPresenceBadge isOnline={Boolean(profile?.is_online)} />
               </View>
               <Text style={styles.bioText}>{profile?.bio || "No business description yet."}</Text>
               <Text style={styles.metaText}>
@@ -286,9 +298,28 @@ function ProviderHomeContent() {
               <Text style={styles.metaText}>
                 Service areas: {formatServiceAreas(serviceAreas)}
               </Text>
-              <Text style={styles.metaText}>
-                {formatRating(profile)} · {profile?.hourly_rate ?? "-"} / hr
-              </Text>
+              <View style={styles.ratingRow}>
+                {profile?.average_rating != null && profile.review_count ? (
+                  <>
+                    <StarRating rating={profile.average_rating} size={15} />
+                    <Text style={styles.ratingValue}>
+                      {profile.average_rating.toFixed(1)}
+                    </Text>
+                    <Text style={styles.metaText}>
+                      {profile.review_count}{" "}
+                      {profile.review_count === 1 ? "review" : "reviews"}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.metaText}>No rating yet</Text>
+                )}
+                <Text style={styles.metaText}>·</Text>
+                <Text style={styles.rateText}>
+                  {profile?.hourly_rate != null
+                    ? `${formatMoney(profile.hourly_rate)} / hr`
+                    : "Rate not set"}
+                </Text>
+              </View>
               <View style={styles.tagWrap}>
                 {(profile?.tags ?? []).map((tag) => (
                   <View key={tag} style={styles.serviceTag}>
@@ -330,7 +361,7 @@ function ProviderHomeContent() {
               showsHorizontalScrollIndicator={false}
             />
           ) : (
-            <Text style={styles.emptyText}>No portfolios uploaded yet</Text>
+            <Text style={styles.emptyText}>Customers decide on the work. Adding a few pieces is the fastest thing you can do for your profile.</Text>
           )}
 
           <Text style={styles.sectionTitle}>Reviews</Text>
@@ -347,7 +378,8 @@ function ProviderHomeContent() {
   );
 }
 
-function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
+/** Working hours, matching what a customer sees on the public profile. */
+function TradingStatusBadge({ isOpen }: { isOpen: boolean }) {
   return (
     <View style={styles.statusBadge}>
       <View style={[styles.statusDot, isOpen ? styles.statusDotActive : styles.statusDotInactive]} />
@@ -356,11 +388,14 @@ function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
   );
 }
 
-function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
+/** Live chat presence — a different kind of fact, so a different glyph. */
+function ChatPresenceBadge({ isOnline }: { isOnline: boolean }) {
   return (
     <View style={styles.statusBadge}>
-      <View style={[styles.statusDot, isOnline ? styles.statusDotActive : styles.statusDotInactive]} />
-      <Text style={styles.statusBadgeText}>{isOnline ? "Online" : "Offline"}</Text>
+      <MessageCircle color={isOnline ? colors.success : colors.placeholder} size={13} />
+      <Text style={isOnline ? styles.statusBadgeText : styles.statusBadgeHint}>
+        {isOnline ? "Online now" : "Offline"}
+      </Text>
     </View>
   );
 }
@@ -369,27 +404,26 @@ function formatServiceAreas(areas: ProviderServiceArea[]) {
   return areas.length > 0 ? areas.map((area) => area.label || area.name).join(", ") : "Not set";
 }
 
-function formatRating(profile: ProviderProfile | null) {
-  if (profile?.average_rating == null || !profile.review_count) return "No rating yet";
-  return `${profile.average_rating.toFixed(1)} stars · ${profile.review_count} reviews`;
-}
-
 function ReviewRow({ review }: { review: Review }) {
+  const name = review.customer?.name?.trim() || "Verified customer";
+
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewTopRow}>
-        <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
-        <Text style={styles.reviewDate}>{formatReviewDate(review.created_at)}</Text>
+        <PersonAvatar
+          avatarUrl={review.customer?.avatar_url}
+          name={name}
+          size={32}
+        />
+        <View style={styles.reviewWho}>
+          <Text style={styles.reviewName}>{name}</Text>
+          <StarRating rating={review.rating} size={13} />
+        </View>
+        <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
       </View>
       <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
     </View>
   );
-}
-
-function formatReviewDate(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
 function ProgressCard({
@@ -399,6 +433,7 @@ function ProgressCard({
   status: ProviderVerificationStatus | null;
   payoutStatus: string;
 }) {
+  const isWebDesktop = useIsWebDesktop();
   const steps = [
     {
       label: "1. ID verification",
@@ -417,9 +452,12 @@ function ProgressCard({
     },
   ];
   return (
-    <View style={styles.stepper}>
+    <View style={[styles.stepper, isWebDesktop ? null : styles.stepperStacked]}>
       {steps.map(({ label, value, complete }, index) => (
-        <View key={label} style={styles.stepItem}>
+        <View
+          key={label}
+          style={[styles.stepItem, isWebDesktop ? null : styles.stepItemStacked]}
+        >
           <View style={[styles.stepDot, complete ? styles.stepDotApproved : null]}>
             <Text style={[styles.stepNumber, complete ? styles.stepNumberApproved : null]}>
               {complete ? "✓" : index + 1}
@@ -429,7 +467,9 @@ function ProgressCard({
             <Text style={styles.progressLabel}>{label}</Text>
             {index < 2 ? <StatusBadge status={value as VerificationStatus} /> : <PayoutStatusBadge status={value} />}
           </View>
-          {index < steps.length - 1 ? <View style={styles.stepConnector} /> : null}
+          {isWebDesktop && index < steps.length - 1 ? (
+            <View style={styles.stepConnector} />
+          ) : null}
         </View>
       ))}
     </View>
@@ -683,42 +723,51 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface }, content: { width: "100%", maxWidth: 820, alignSelf: "center", padding: spacing.lg, gap: spacing.md }, loader: { flex: 1 },
   approvedContent: { gap: spacing.md, padding: spacing.lg },
   headerContent: { gap: spacing.lg },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: 26, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, title: { color: colors.text, fontSize: type.title, fontWeight: "800" }, subtitle: { color: colors.mutedText, marginTop: spacing.xs },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.md }, cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }, cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
-  stepper: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg }, stepItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, position: "relative" }, stepDot: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, stepDotApproved: { borderColor: colors.primary, backgroundColor: "#E9F7F3" }, stepNumber: { color: colors.mutedText, fontWeight: "800" }, stepNumberApproved: { color: colors.primary }, stepCopy: { flex: 1, alignItems: "flex-start", gap: spacing.xs }, stepConnector: { position: "absolute", right: -spacing.lg, width: spacing.lg, height: 1, backgroundColor: colors.border }, progressLabel: { color: colors.text, fontWeight: "700" },
-  badge: { overflow: "hidden", borderRadius: 999, backgroundColor: "#FFF4D6", color: "#8A5A00", paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, fontSize: 12, fontWeight: "700", textTransform: "capitalize" }, badgeApproved: { backgroundColor: "#E9F7F3", color: colors.primary }, badgeRejected: { backgroundColor: "#FDECEC", color: colors.danger },
-  form: { gap: spacing.md }, fieldLabel: { color: colors.text, fontSize: 14, fontWeight: "600" }, hint: { color: colors.mutedText, fontSize: 13, lineHeight: 19 }, error: { color: colors.danger, fontSize: 14, lineHeight: 20 }, rejection: { borderRadius: radius.sm, backgroundColor: "#FDECEC", color: colors.danger, padding: spacing.md },
-  tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }, tag: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md }, tagActive: { borderColor: colors.primary, backgroundColor: "#E9F7F3" }, tagText: { color: colors.text, fontWeight: "600" }, tagTextActive: { color: colors.primary },
+  stepper: { flexDirection: "row", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.lg }, stepItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, position: "relative" }, stepDot: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }, stepDotApproved: { borderColor: colors.primary, backgroundColor: colors.primaryTint }, stepNumber: { color: colors.mutedText, fontWeight: "800" }, stepNumberApproved: { color: colors.primary }, stepCopy: { flex: 1, alignItems: "flex-start", gap: spacing.xs }, stepConnector: { position: "absolute", right: -spacing.lg, width: spacing.lg, height: 1, backgroundColor: colors.border }, progressLabel: { color: colors.text, fontWeight: "700" },
+  lead: { color: colors.mutedText, fontSize: 16, lineHeight: 24 },
+  headerAction: { marginRight: spacing.md },
+  stepperStacked: { flexDirection: "column", gap: spacing.md },
+  stepItemStacked: { alignItems: "center", gap: spacing.snug },
+  badge: { overflow: "hidden", borderRadius: radius.pill, backgroundColor: colors.warningTint, color: colors.warningText, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, fontSize: 12, fontWeight: "700", textTransform: "capitalize" }, badgeApproved: { backgroundColor: colors.primaryTint, color: colors.primary }, badgeRejected: { backgroundColor: colors.dangerTint, color: colors.danger },
+  form: { gap: spacing.md }, fieldLabel: { color: colors.text, fontSize: 14, fontWeight: "600" }, hint: { color: colors.mutedText, fontSize: 13, lineHeight: 19 }, error: { color: colors.danger, fontSize: 14, lineHeight: 20 }, rejection: { borderRadius: radius.sm, backgroundColor: colors.dangerTint, color: colors.danger, padding: spacing.md },
+  tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }, tag: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md }, tagActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint }, tagText: { color: colors.text, fontWeight: "600" }, tagTextActive: { color: colors.primary },
   fileRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.md }, addressButton: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md },
-  readOnlyRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm }, readOnlyValue: { flex: 1, color: colors.text, fontWeight: "600", textAlign: "right" }, muted: { color: colors.mutedText }, link: { color: colors.primary, fontWeight: "700" }, flex: { flex: 1, color: colors.text }, completeIcon: { alignSelf: "center", width: 68, height: 68, alignItems: "center", justifyContent: "center", borderRadius: 34, backgroundColor: "#E9F7F3" }, completeTitle: { color: colors.text, fontSize: 22, fontWeight: "800", textAlign: "center" }, completeText: { color: colors.mutedText, fontSize: 14, lineHeight: 21, textAlign: "center" },
-  profileSummaryCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: spacing.lg, borderWidth: 1, borderColor: colors.border, borderRadius: 18, backgroundColor: colors.background, padding: spacing.lg },
+  readOnlyRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm }, readOnlyValue: { flex: 1, color: colors.text, fontWeight: "600", textAlign: "right" }, muted: { color: colors.mutedText }, link: { color: colors.primary, fontWeight: "700" }, flex: { flex: 1, color: colors.text }, completeIcon: { alignSelf: "center", width: 68, height: 68, alignItems: "center", justifyContent: "center", borderRadius: 34, backgroundColor: colors.primaryTint }, completeTitle: { color: colors.text, fontSize: 22, fontWeight: "800", textAlign: "center" }, completeText: { color: colors.mutedText, fontSize: 14, lineHeight: 21, textAlign: "center" },
+  profileSummaryCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: spacing.lg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.background, padding: spacing.lg },
   profileSummaryMain: { flex: 1, minWidth: 260, gap: spacing.sm },
   businessTitleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
-  businessName: { color: colors.text, fontSize: 24, fontWeight: "800" },
-  serviceVerifiedBadge: { overflow: "hidden", borderRadius: 999, backgroundColor: "#E9F7F3", color: colors.primary, paddingHorizontal: spacing.sm, paddingVertical: 5, fontSize: 12, fontWeight: "800" },
+  businessName: { color: colors.text, fontSize: type.title, fontWeight: "800" },
+  serviceVerifiedBadge: { overflow: "hidden", borderRadius: radius.pill, backgroundColor: colors.primaryTint, color: colors.primary, paddingHorizontal: spacing.sm, paddingVertical: 5, fontSize: 12, fontWeight: "800" },
   statusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  statusBadge: { minHeight: 26, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: 999, backgroundColor: colors.surface, paddingHorizontal: spacing.sm },
+  statusBadge: { minHeight: 26, flexDirection: "row", alignItems: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.sm },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusDotActive: { backgroundColor: colors.primary },
-  statusDotInactive: { backgroundColor: "#A0A4AE" },
-  statusBadgeText: { color: colors.mutedText, fontSize: 12, fontWeight: "800" },
-  bioText: { color: colors.text, fontSize: 15, lineHeight: 22 },
-  metaText: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
+  statusDotInactive: { backgroundColor: colors.placeholder },
+  statusBadgeText: { color: colors.text, fontSize: 12, fontWeight: "800" },
+  statusBadgeHint: { color: colors.mutedText, fontSize: 12 },
+  ratingRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.xs },
+  ratingValue: { color: colors.text, fontSize: 14, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  rateText: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  bioText: { color: colors.text, fontSize: 16, lineHeight: 22 },
+  metaText: { color: colors.mutedText, fontSize: 14, lineHeight: 19 },
   tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  serviceTag: { borderRadius: 999, backgroundColor: colors.surface, paddingHorizontal: spacing.sm, paddingVertical: 5 },
+  serviceTag: { borderRadius: radius.pill, backgroundColor: colors.surface, paddingHorizontal: spacing.sm, paddingVertical: 5 },
   serviceTagText: { color: colors.text, fontSize: 12, fontWeight: "700" },
   settingsButton: { minWidth: 190, minHeight: 52, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.primary, paddingHorizontal: spacing.lg },
   settingsButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "800" },
+  sectionTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
   moreButton: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  moreText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
+  moreText: { color: colors.primary, fontSize: 14, fontWeight: "700" },
   portfolioGap: { width: spacing.md },
-  reviewCard: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.background, padding: spacing.md },
+  reviewCard: { gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.background, padding: spacing.md },
   reviewTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
-  ratingText: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  reviewName: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  reviewWho: { flex: 1, minWidth: 0, gap: 3 },
   reviewDate: { color: colors.mutedText, fontSize: 13 },
-  reviewComment: { color: colors.text, fontSize: 15, lineHeight: 22 },
-  emptyText: { color: colors.mutedText, fontSize: 14, lineHeight: 21 },
+  reviewComment: { color: colors.text, fontSize: 16, lineHeight: 22 },
+  emptyText: { color: colors.mutedText, fontSize: 16, lineHeight: 21 },
   footerLoader: { paddingVertical: spacing.lg },
 });

@@ -181,21 +181,24 @@ const styles = StyleSheet.create({
   label: {
     color: colors.mutedText,
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
   },
   value: {
     color: colors.text,
     flex: 1,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
     textAlign: "right",
+    fontVariant: ["tabular-nums"],
   },
   emphasized: {
+    fontSize: 16,
     fontWeight: "800",
   },
   separator: {
     borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     marginTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
 });

@@ -93,7 +93,7 @@ import type {
 import type { ChatMessage } from "../types/chat";
 import type { ProviderProfile } from "../types/provider";
 import { getErrorMessage } from "../utils/errors";
-import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
+import { formatShortDateTime, formatTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
 import { useConfirmation } from "../utils/useConfirmation";
 import { resolveBookingReferenceDetail } from "../utils/referencePrice";
@@ -1430,7 +1430,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           multiline
           onChangeText={setInputText}
           placeholder="Message"
-          placeholderTextColor={colors.mutedText}
+          placeholderTextColor={colors.placeholder}
           style={styles.input}
           value={inputText}
         />
@@ -1670,7 +1670,7 @@ function MessageBubble({
             {formatMessageContent(message)}
           </Text>
           <Text style={[styles.messageTime, isMine ? styles.messageTimeMine : null]}>
-            {formatMessageTime(message.created_at)}
+            {formatTime(message.created_at)}
           </Text>
         </View>
       )}
@@ -1705,7 +1705,7 @@ function BookingStatusUpdate({
     >
       <Text style={styles.bookingUpdateTitle}>{title}</Text>
       {detail ? <Text style={styles.bookingUpdateDetail}>{detail}</Text> : null}
-      <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>
+      <Text style={styles.messageTime}>{formatTime(message.created_at)}</Text>
     </View>
   );
 }
@@ -1879,7 +1879,7 @@ function BookingMessageCard({
           )}
         </Pressable>
       ) : null}
-      <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>
+      <Text style={styles.messageTime}>{formatTime(message.created_at)}</Text>
     </Pressable>
   );
 }
@@ -2204,18 +2204,6 @@ function isBookingVisibleInActiveBookingsForDetail(
   return isBookingVisibleInActiveBookings(String(booking.status), userRole);
 }
 
-function formatMessageTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -2234,7 +2222,7 @@ const styles = StyleSheet.create({
   },
   headerOrderButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   centerBox: {
@@ -2246,7 +2234,7 @@ const styles = StyleSheet.create({
   },
   centerText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   chatHeaderTitle: {
     maxWidth: 220,
@@ -2257,7 +2245,7 @@ const styles = StyleSheet.create({
   chatHeaderName: {
     maxWidth: 132,
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   chatHeaderStatus: {
@@ -2274,7 +2262,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   chatHeaderStatusDotOffline: {
-    backgroundColor: "#A0A4AE",
+    backgroundColor: colors.placeholder,
   },
   chatHeaderStatusText: {
     color: colors.mutedText,
@@ -2308,7 +2296,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
   },
   messageRow: {
     flexDirection: "row",
@@ -2343,7 +2331,7 @@ const styles = StyleSheet.create({
   messageTime: {
     alignSelf: "flex-end",
     color: colors.mutedText,
-    fontSize: 11,
+    fontSize: 12,
   },
   messageTimeMine: {
     color: "rgba(255, 255, 255, 0.75)",
@@ -2353,23 +2341,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
   bookingCardPinned: {
     width: "100%",
-    shadowColor: "#000000",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowOpacity: 0,
     shadowRadius: 18,
   },
   bookingCardMine: {
-    backgroundColor: "#E8F7F2",
-    borderColor: "#B7E4D5",
+    backgroundColor: colors.primaryTint,
+    borderColor: colors.primaryTintBorder,
   },
   bookingCardPressed: {
     opacity: 0.76,
@@ -2383,17 +2368,17 @@ const styles = StyleSheet.create({
   bookingTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   bookingDescription: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   bookingQuoteText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "800",
   },
   bookingQuoteMessage: {
@@ -2424,14 +2409,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   bookingUpdateMine: {
-    backgroundColor: "#E8F7F2",
+    backgroundColor: colors.primaryTint,
   },
   bookingUpdateOther: {
     backgroundColor: colors.surface,
   },
   bookingUpdateTitle: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   bookingUpdateDetail: {
@@ -2453,19 +2438,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   statusPill: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
   },
   statusText: {
     color: colors.primary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
   },
@@ -2487,7 +2472,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -2523,12 +2508,12 @@ const styles = StyleSheet.create({
   },
   modalErrorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   payHint: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   modalScrollContent: {
@@ -2539,7 +2524,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: spacing.md,
   },
@@ -2550,7 +2535,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   stageBox: {
@@ -2571,7 +2556,7 @@ const styles = StyleSheet.create({
   },
   stageButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: "#ECFDF3",
+    backgroundColor: colors.successTint,
   },
   stageButtonText: {
     color: colors.text,
@@ -2591,7 +2576,7 @@ const styles = StyleSheet.create({
   },
   proofText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   proofFileList: {
@@ -2599,12 +2584,12 @@ const styles = StyleSheet.create({
   },
   proofFileText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   noActionText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 20,
   },
   modalActions: {

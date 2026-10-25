@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-import { colors, spacing } from "../theme/theme";
+import { colors, radius, spacing } from "../theme/theme";
 import type { ProviderPortfolio, ProviderPortfolioMedia } from "../types/provider";
 import { resolveMediaUrl } from "../utils/media";
 
@@ -22,12 +22,25 @@ type PortfolioMediaCarouselProps = {
   portfolio: ProviderPortfolio;
 };
 
+const MEDIA_ASPECT = 1.2;
+/** Tall enough to show the work, short enough to leave the caption in view. */
+const MAX_MEDIA_HEIGHT = 520;
+
 export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProps) {
   const { width } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
-  const mediaWidth = Math.max(260, Math.min(width - spacing.lg * 2, 780));
+  const [frameWidth, setFrameWidth] = useState(0);
+  // The window width is only the fallback for the first frame, before the
+  // container has been measured.
+  // Capped by height as well: on a wide column an aspect of 1.2 would make the
+  // picture 880 tall and push its title and date off the first screen.
+  const available = frameWidth || width - spacing.lg * 2;
+  const mediaWidth = Math.max(
+    260,
+    Math.min(available, MAX_MEDIA_HEIGHT * MEDIA_ASPECT),
+  );
   const mediaItems = getPortfolioMediaItems(portfolio);
 
   useEffect(() => {
@@ -73,8 +86,11 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
   }
 
   return (
-    <View style={{ width: mediaWidth }}>
-      <View style={styles.carouselFrame}>
+    <View
+      onLayout={(event) => setFrameWidth(event.nativeEvent.layout.width)}
+      style={styles.measuredWidth}
+    >
+      <View style={[styles.carouselFrame, { width: mediaWidth }]}>
         <ScrollView
           horizontal
           onMomentumScrollEnd={handleScrollEnd}
@@ -83,14 +99,19 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
           showsHorizontalScrollIndicator={false}
           style={styles.scroller}
         >
-          {mediaItems.map((media) => {
+          {mediaItems.map((media, index) => {
             const mediaUrl = resolveMediaUrl(media.file_url);
             const isVideo = media.media_type === "video";
 
             return (
               <View key={`${media.id}-${media.file_url}`} style={{ width: mediaWidth }}>
                 {mediaUrl && !isVideo ? (
-                  <Image source={{ uri: mediaUrl }} style={styles.media} />
+                  <Image
+                    accessibilityIgnoresInvertColors
+                    accessibilityLabel={`Photo ${index + 1} of ${mediaItems.length}`}
+                    source={{ uri: mediaUrl }}
+                    style={styles.media}
+                  />
                 ) : (
                   <Pressable
                     accessibilityRole="button"
@@ -177,7 +198,7 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
                   style: {
                     width: "100%",
                     maxHeight: "82vh",
-                    borderRadius: 12,
+                    borderRadius: radius.lg,
                     backgroundColor: "#000000",
                   },
                 })
@@ -215,12 +236,15 @@ function getPortfolioMediaItems(
 }
 
 const styles = StyleSheet.create({
+  measuredWidth: {
+    width: "100%",
+  },
   carouselFrame: {
+    alignSelf: "center",
     overflow: "hidden",
-    borderRadius: 18,
   },
   scroller: {
-    borderRadius: 18,
+    borderRadius: radius.lg,
   },
   media: {
     width: "100%",
@@ -245,7 +269,7 @@ const styles = StyleSheet.create({
   },
   videoHint: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
   },
   arrowButton: {
@@ -275,12 +299,12 @@ const styles = StyleSheet.create({
     aspectRatio: 1.2,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   dots: {
     flexDirection: "row",

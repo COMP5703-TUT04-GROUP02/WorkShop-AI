@@ -39,6 +39,10 @@ import { MarketplaceBreakdownCard } from "../../components/MarketplaceBreakdownC
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SecondaryButton } from "../../components/SecondaryButton";
 import { TextField } from "../../components/TextField";
+import {
+  getProviderTagLabel,
+  getVerificationStatusLabel,
+} from "../../constants/providerTags";
 import { colors, radius, spacing } from "../../theme/theme";
 import { adminTypography as type } from "../../theme/adminTypography";
 import type { PaymentHistoryEntry, RefundRequestSummary } from "../../types/booking";
@@ -517,7 +521,7 @@ function MarketplaceSection({
       {view === "payouts" && submerchants.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No matching payout accounts</Text>
-          <Text style={styles.emptyText}>Provider payout account status will appear here.</Text>
+          <Text style={styles.emptyText}>No provider has submitted a payout account yet. Each one needs an IBAN in the name on the trade licence before iyzico will settle to it.</Text>
         </View>
       ) : view === "payouts" ? (
         <View style={styles.list}>
@@ -610,7 +614,7 @@ function MarketplaceSection({
       {view === "payments" && payments.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No matching marketplace payments</Text>
-          <Text style={styles.emptyText}>Payment splits and settlement status will appear here.</Text>
+          <Text style={styles.emptyText}>Nothing matches the filters above. Clearing them shows every payment, each with the split between the provider and the platform and where iyzico has got to with the payout.</Text>
         </View>
       ) : view === "payments" ? (
         <View style={styles.list}>
@@ -755,7 +759,8 @@ function ProfileReviewCard({
         {profile.bio || "No bio"}
       </Text>
       <Text style={styles.cardMeta}>
-        Provider #{profile.id} · {profile.service_province} · {profile.tags.join(", ")}
+        Provider #{profile.id} · {profile.service_province} ·{" "}
+        {profile.tags.map(getProviderTagLabel).join(", ")}
       </Text>
     </Pressable>
   );
@@ -828,6 +833,7 @@ function ProfileReviewModal({
               <Text style={styles.modalSubtitle}>Profile #{profile.id}</Text>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -843,7 +849,10 @@ function ProfileReviewModal({
               <Text style={styles.detailTitle}>Provider profile</Text>
               <ProfileDetailRow label="Business name" value={profile.business_name} />
               <ProfileDetailRow label="Service province" value={profile.service_province} />
-              <ProfileDetailRow label="Service tags" value={profile.tags.join(", ")} />
+              <ProfileDetailRow
+                label="Service tags"
+                value={profile.tags.map(getProviderTagLabel).join(", ")}
+              />
               <ProfileDetailRow label="Hourly rate" value={String(profile.hourly_rate)} />
               <ProfileDetailRow label="Phone number" value={profile.phone_number} />
               <ProfileDetailRow label="Address" value={profile.address} />
@@ -872,7 +881,10 @@ function ProfileReviewModal({
                   value={`${certificate.original_file_name} · ${certificate.file_url}`}
                 />
               ))}
-              <ProfileDetailRow label="Current status" value={profile.verification_status} />
+              <ProfileDetailRow
+                label="Current status"
+                value={getVerificationStatusLabel(profile.verification_status)}
+              />
             </View>
 
             <TextField
@@ -948,6 +960,7 @@ function RefundAppealModal({
               <Text style={styles.modalSubtitle}>Booking #{appeal.booking_id}</Text>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -987,11 +1000,11 @@ function RefundAppealModal({
                   <ProfileDetailRow label="Service address" value={booking.service_address} />
                   <ProfileDetailRow
                     label="Start time"
-                    value={booking.scheduled_start_time ? formatDate(booking.scheduled_start_time) : "-"}
+                    value={booking.scheduled_start_time ? formatDateTime(booking.scheduled_start_time) : "-"}
                   />
                   <ProfileDetailRow
                     label="End time"
-                    value={booking.scheduled_end_time ? formatDate(booking.scheduled_end_time) : "-"}
+                    value={booking.scheduled_end_time ? formatDateTime(booking.scheduled_end_time) : "-"}
                   />
                 </>
               ) : null}
@@ -1100,6 +1113,7 @@ function PortfolioReviewModal({
               <Text style={styles.modalSubtitle}>Provider #{portfolio.provider_profile_id}</Text>
             </View>
             <Pressable
+          hitSlop={4}
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -1119,10 +1133,10 @@ function PortfolioReviewModal({
                 {portfolio.description || "No description"}
               </Text>
               <Text style={styles.detailMeta}>
-                Uploaded: {formatDate(portfolio.created_at)}
+                Uploaded: {formatDateTime(portfolio.created_at)}
               </Text>
               <Text style={styles.detailMeta}>
-                Status: {portfolio.verification_status}
+                Status: {getVerificationStatusLabel(portfolio.verification_status)}
               </Text>
             </View>
 
@@ -1153,16 +1167,6 @@ function PortfolioReviewModal({
   );
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleString();
-}
-
 function getRefundStatusLabel(status: string) {
   switch (status) {
     case "appealed":
@@ -1180,10 +1184,10 @@ function getRefundStatusLabel(status: string) {
 
 const styles = StyleSheet.create({
   paymentTotal: { ...type.cardTitle, color: colors.text },
-  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: "#F0F2F5", padding: spacing.lg, gap: spacing.sm },
+  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.sm },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     gap: spacing.lg,
@@ -1219,7 +1223,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   hubCardTitle: {
@@ -1250,7 +1254,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   emptyTitle: {
@@ -1269,7 +1273,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.md,
   },
   filterTitle: {
@@ -1295,7 +1299,7 @@ const styles = StyleSheet.create({
   },
   filterChipActive: {
     borderColor: colors.primary,
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
   },
   filterChipText: {
     ...type.label,
@@ -1340,8 +1344,8 @@ const styles = StyleSheet.create({
     ...type.badge,
     overflow: "hidden",
     borderRadius: radius.sm,
-    backgroundColor: "#FFF7ED",
-    color: "#C2410C",
+    backgroundColor: colors.warningTint,
+    color: colors.warningText,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
@@ -1405,7 +1409,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.md,
   },
   detailTitle: {

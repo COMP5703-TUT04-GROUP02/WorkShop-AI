@@ -32,7 +32,12 @@ export function PortfolioCard({
     >
       <View style={styles.mediaBox}>
         {mediaUrl && !isVideo ? (
-          <Image source={{ uri: mediaUrl }} style={styles.image} />
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel={portfolio.title}
+            source={{ uri: mediaUrl }}
+            style={styles.image}
+          />
         ) : isVideo ? (
           <View style={styles.videoPlaceholder}>
             <Play color="#FFFFFF" fill="#FFFFFF" size={compact ? 24 : 30} />
@@ -51,8 +56,26 @@ export function PortfolioCard({
       </View>
 
       {portfolio.verification_status !== "approved" ? (
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{portfolio.verification_status}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            portfolio.verification_status === "rejected"
+              ? styles.statusBadgeRejected
+              : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              portfolio.verification_status === "rejected"
+                ? styles.statusTextRejected
+                : null,
+            ]}
+          >
+            {portfolio.verification_status === "rejected"
+              ? "Not published"
+              : "Waiting on review"}
+          </Text>
         </View>
       ) : null}
 
@@ -69,7 +92,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   compactCard: {
@@ -90,7 +113,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#202123",
+    backgroundColor: colors.text,
   },
   emptyPlaceholder: {
     flex: 1,
@@ -100,7 +123,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
   },
   playBadge: {
@@ -111,30 +134,36 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: radius.lg,
     backgroundColor: "rgba(0, 0, 0, 0.58)",
   },
   statusBadge: {
     alignSelf: "flex-start",
     marginTop: spacing.sm,
     marginHorizontal: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: "#FFF7E6",
+    borderRadius: radius.pill,
+    backgroundColor: colors.warningTint,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
   },
+  statusBadgeRejected: {
+    backgroundColor: colors.dangerTint,
+  },
   statusText: {
-    color: "#9A5B00",
-    fontSize: 11,
+    color: colors.warningText,
+    fontSize: 12,
     fontWeight: "800",
-    textTransform: "capitalize",
+  },
+  statusTextRejected: {
+    color: colors.dangerText,
   },
   title: {
-    minHeight: 44,
+    minHeight: 52,
     color: colors.text,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 20,
-    padding: spacing.sm,
+    lineHeight: 22,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.snug,
   },
 });

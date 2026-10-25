@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.lg,
   },
   header: {
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   statusLabel: { ...type.label, color: colors.mutedText },
   statusValue: { ...type.metric, color: colors.text },
   successValue: { color: colors.primary },
-  pendingValue: { color: "#C2410C" },
+  pendingValue: { color: colors.warningText },
   dangerValue: { color: colors.danger },
   serviceCard: {
     gap: spacing.sm,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     borderRadius: radius.md,
-    backgroundColor: "#E7F6F0",
+    backgroundColor: colors.primaryTint,
     padding: spacing.md,
   },
   taskCopy: { flex: 1 },
@@ -408,9 +408,9 @@ const styles = StyleSheet.create({
   confirmationCard: {
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: "#FDBA74",
+    borderColor: colors.warningBorder,
     borderRadius: radius.md,
-    backgroundColor: "#FFF7ED",
+    backgroundColor: colors.warningTint,
     padding: spacing.md,
   },
   confirmationTitle: { ...type.cardTitle, color: colors.text },

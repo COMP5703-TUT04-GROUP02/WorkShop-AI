@@ -88,15 +88,25 @@ def test_sample_provider_locations_and_portfolios_match_service_categories():
     assert {row["values"]["verification_status"] for row in portfolios} == {
         "approved"
     }
-    assert {
-        row["values"]["image_url"]
-        .split("?", 1)[0]
-        .rsplit("/", 1)[-1]
-        .removesuffix(".png")
-        for row in portfolios
-    } == set(TAGS)
+    # Each trade has its own photographs, named for it. There are several per
+    # trade so the sample does not show one picture over and over; the count
+    # is the generator's to choose, and five is the fewest that reads as a
+    # portfolio rather than a repeat.
     media_dir = Path("backend/sample_media/service_categories")
-    assert {path.stem for path in media_dir.glob("*.png")} == set(TAGS)
+    photographs = {path.name for path in media_dir.glob("*.jpg")}
+    by_tag: dict[str, set[str]] = {}
+    for name in photographs:
+        by_tag.setdefault(name.rsplit("_", 1)[0], set()).add(name)
+
+    assert set(by_tag) == set(TAGS)
+    assert all(len(by_tag[tag]) >= 5 for tag in TAGS)
+
+    # Every portfolio points at a photograph that is on disk, and at one of
+    # its own trade: a plumbing job never illustrates itself with a painter.
+    for row in portfolios:
+        tag = row["key"].rsplit(":", 1)[-1]
+        file_name = row["values"]["image_url"].split("?", 1)[0].rsplit("/", 1)[-1]
+        assert file_name in by_tag[tag], f"{row['key']} shows {file_name}"
 
 
 def test_sample_order_states_and_reviews_are_consistent():

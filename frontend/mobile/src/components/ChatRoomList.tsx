@@ -11,9 +11,11 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { useRealtime } from "../context/RealtimeContext";
+import { formatDayAndMonth, formatTime } from "../utils/datetime";
 import { colors, radius, spacing } from "../theme/theme";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import type { ChatMessage, ChatRoom } from "../types/chat";
+import { SecondaryButton } from "./SecondaryButton";
 
 type ChatRoomListProps = {
   loadRooms: () => Promise<{ items: ChatRoom[] } | null>;
@@ -119,8 +121,18 @@ export function ChatRoomList({ loadRooms, viewerRole }: ChatRoomListProps) {
           {message || "No chats yet"}
         </Text>
         <Text style={styles.centerText}>
-          {message ? "Try again." : "Start a conversation from a provider profile."}
+          {message
+            ? "Try again."
+            : viewerRole === "provider"
+              ? "A chat opens as soon as a customer books you, and the quote you send lands in it."
+              : "A chat opens from a provider's profile, and stays with the booking it belongs to."}
         </Text>
+        {!message && viewerRole !== "provider" ? (
+          <SecondaryButton
+            label="Find a service"
+            onPress={() => navigation.navigate("Main", { screen: "CustomerHome" })}
+          />
+        ) : null}
       </View>
     );
   }
@@ -253,20 +265,16 @@ function formatChatTime(value: string | null) {
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
   if (isToday) {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatTime(date);
   }
 
   if (isYesterday) {
     return "Yesterday";
   }
 
-  return date.toLocaleDateString([], {
-    month: "2-digit",
-    day: "2-digit",
-  });
+  // "10/24" is the other ambiguous one: the month and the day swap places
+  // across locales, and a chat list is exactly where you scan for a date.
+  return formatDayAndMonth(date);
 }
 
 function isIncomingChatMessage(value: unknown): value is ChatMessage {
@@ -355,11 +363,11 @@ const styles = StyleSheet.create({
   },
   centerText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
   },
   errorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
   roomItem: {
     minHeight: 74,
@@ -375,12 +383,12 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
   avatarText: {
     color: colors.text,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "700",
   },
   roomMain: {
@@ -396,7 +404,7 @@ const styles = StyleSheet.create({
   roomTitle: {
     flex: 1,
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   timeText: {
@@ -405,7 +413,7 @@ const styles = StyleSheet.create({
   },
   previewText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 19,
   },
   unreadBadge: {
@@ -413,7 +421,7 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xs,
   },

@@ -22,6 +22,7 @@ import { LocationCascadePickerModal } from "../../components/LocationCascadePick
 import { ProviderRecommendationCard } from "../../components/ProviderRecommendationCard";
 import { useRealtime } from "../../context/RealtimeContext";
 import { ScreenContainer } from "../../components/ScreenContainer";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { ProviderRecommendation } from "../../types/provider";
@@ -36,6 +37,8 @@ export function CustomerHomeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { subscribe } = useRealtime();
+  const isWebDesktop = useIsWebDesktop();
+  const [showAllTags, setShowAllTags] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedProvince, setSelectedProvince] = useState("Istanbul");
@@ -71,6 +74,17 @@ export function CustomerHomeScreen() {
       isMounted = false;
     };
   }, []);
+
+  const COLLAPSED_TAG_COUNT = 4;
+  const visibleTags =
+    isWebDesktop || showAllTags
+      ? [...PROVIDER_TAGS]
+      : (() => {
+          const shown = PROVIDER_TAGS.slice(0, COLLAPSED_TAG_COUNT);
+          return selectedTag && !shown.includes(selectedTag as never)
+            ? [...shown.slice(0, COLLAPSED_TAG_COUNT - 1), selectedTag as never]
+            : shown;
+        })();
 
   const loadRecommendations = useCallback(async () => {
     setIsLoadingRecommendations(true);
@@ -170,7 +184,12 @@ export function CustomerHomeScreen() {
 
   return (
     <ScreenContainer>
-      <View style={styles.searchRow}>
+      <View
+        style={[
+          styles.searchRow,
+          isWebDesktop ? null : styles.searchRowPhone,
+        ]}
+      >
         <Pressable
           accessibilityLabel="Service area"
           accessibilityRole="button"
@@ -190,7 +209,7 @@ export function CustomerHomeScreen() {
             onChangeText={setKeyword}
             onSubmitEditing={handleSearchSubmit}
             placeholder="Search services or businesses"
-            placeholderTextColor={colors.mutedText}
+            placeholderTextColor={colors.placeholder}
             returnKeyType="search"
             style={styles.searchInput}
             value={keyword}
@@ -198,23 +217,36 @@ export function CustomerHomeScreen() {
         </View>
       </View>
 
-      <Text style={styles.provinceStatusText} numberOfLines={2}>
-        {isSavingProvince
-          ? "Saving area..."
-          : provinceMessage || selectedAreaLabel}
-      </Text>
+      {isSavingProvince || provinceMessage ? (
+        <Text style={styles.provinceStatusText} numberOfLines={2}>
+          {isSavingProvince ? "Saving area..." : provinceMessage}
+        </Text>
+      ) : null}
 
       <View style={styles.header}>
-        <Text style={styles.title}>Home</Text>
+        {isWebDesktop ? <Text style={styles.title}>Home</Text> : null}
         <Text style={styles.subtitle}>
-          Search listings, read reviews, and book services.
+          Search listings, read reviews, book.
         </Text>
       </View>
 
       <View style={styles.tagSection}>
-        <Text style={styles.sectionTitle}>Popular services</Text>
+        <View style={styles.tagHeader}>
+          <Text style={styles.sectionTitle}>Popular services</Text>
+          {isWebDesktop ? null : (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setShowAllTags((shown) => !shown)}
+            >
+              <Text style={styles.tagToggle}>
+                {showAllTags ? "Show less" : `Show all ${PROVIDER_TAGS.length}`}
+              </Text>
+            </Pressable>
+          )}
+        </View>
         <View style={styles.tagGrid}>
-          {PROVIDER_TAGS.map((tag) => {
+          {visibleTags.map((tag) => {
             const isActive = selectedTag === tag;
 
             return (
@@ -225,7 +257,11 @@ export function CustomerHomeScreen() {
                   setSelectedTag(isActive ? "" : tag);
                   setProvinceMessage("");
                 }}
-                style={[styles.tagChip, isActive ? styles.tagChipActive : null]}
+                style={[
+                  styles.tagChip,
+                  isWebDesktop ? styles.tagChipWide : styles.tagChipNarrow,
+                  isActive ? styles.tagChipActive : null,
+                ]}
               >
                 <Text
                   style={[styles.tagText, isActive ? styles.tagTextActive : null]}
@@ -330,7 +366,7 @@ const styles = StyleSheet.create({
   },
   provinceButton: {
     maxWidth: 132,
-    minHeight: 48,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
@@ -343,19 +379,19 @@ const styles = StyleSheet.create({
   provinceButtonText: {
     flexShrink: 1,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
   searchBox: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
   },
   searchInput: {
@@ -364,9 +400,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
   },
+  searchRowPhone: {
+    marginBottom: spacing.xs,
+  },
   provinceStatusText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   header: {
@@ -374,11 +413,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   tagSection: {
-    gap: spacing.sm,
+    gap: spacing.md,
+  },
+  tagHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  tagToggle: {
+    color: colors.primaryText,
+    fontSize: 14,
+    fontWeight: "700",
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
   },
   sectionHeaderRow: {
@@ -391,15 +441,24 @@ const styles = StyleSheet.create({
   historyText: {
     flexShrink: 1,
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
   },
   tagGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  tagChipWide: {
+    flexGrow: 1,
+    flexBasis: "18%",
+  },
+  tagChipNarrow: {
+    flexGrow: 1,
+    flexBasis: "46%",
+  },
   tagChip: {
-    minHeight: 38,
+    minHeight: 44,
+    alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
@@ -409,7 +468,7 @@ const styles = StyleSheet.create({
   },
   tagChipActive: {
     borderColor: colors.primary,
-    backgroundColor: "#E9F7F3",
+    backgroundColor: colors.primaryTint,
   },
   tagText: {
     color: colors.text,

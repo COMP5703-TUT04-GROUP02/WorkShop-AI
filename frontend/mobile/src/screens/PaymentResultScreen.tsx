@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   body: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   detailRow: {
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   detailValue: {

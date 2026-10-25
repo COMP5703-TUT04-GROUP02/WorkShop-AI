@@ -48,8 +48,6 @@ export function HelpScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Help and Support</Text>
-
       {showFaq ? <FaqSection initialFaqId={route.params?.faqId} /> : null}
       <Section title="Contact us" items={CONTACT} />
 
@@ -150,7 +148,7 @@ function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
               clearButtonMode="while-editing"
               onChangeText={setQuery}
               placeholder="Search help articles"
-              placeholderTextColor={colors.mutedText}
+              placeholderTextColor={colors.placeholder}
               style={styles.searchInput}
               value={query}
             />
@@ -238,6 +236,7 @@ function CategoryChip({
 }) {
   return (
     <Pressable
+          hitSlop={4}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
@@ -280,19 +279,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    color: colors.mutedText,
-    fontSize: 13,
+    color: colors.text,
+    fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
   },
   card: {
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.snug,
   },
   linkCard: {
     flexDirection: "row",
@@ -316,30 +314,33 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     paddingVertical: spacing.sm,
   },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", gap: spacing.sm, marginBottom: spacing.xs },
   chip: {
-    minHeight: 34,
+    minHeight: 40,
+    flexGrow: 1,
+    alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: "#E7F6F2" },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+  chipText: { color: colors.text, fontSize: 14, fontWeight: "600" },
   chipTextActive: { color: colors.primary },
   category: {
-    gap: spacing.sm,
+    gap: spacing.snug,
   },
   categoryTitle: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    marginTop: spacing.sm,
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: spacing.md,
   },
   question: {
     flexDirection: "row",
@@ -355,7 +356,7 @@ const styles = StyleSheet.create({
   },
   linkedCard: {
     borderColor: colors.primary,
-    backgroundColor: "#E7F6F2",
+    backgroundColor: colors.primaryTint,
   },
   linkedLabel: {
     color: colors.primary,
@@ -371,12 +372,12 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   cardBody: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
 });

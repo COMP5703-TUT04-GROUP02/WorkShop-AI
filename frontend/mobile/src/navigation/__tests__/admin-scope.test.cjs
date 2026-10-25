@@ -13,10 +13,11 @@ const native = Object.fromEntries(["View", "Text", "ScrollView", "Pressable", "T
   ({ children }) => React.createElement("div", { "data-native": name }, children),
 ]));
 native.StyleSheet = { create: value => value, hairlineWidth: 1 };
+native.useWindowDimensions = () => ({ width: 1280, height: 720 });
 const theme = {
   colors: { primary: "green", mutedText: "gray", border: "gray", background: "white", text: "black" },
   spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radius: { sm: 6, md: 8 },
-  layout: { webSidebarWidth: 248 },
+  layout: { webContentMaxWidth: 1120, webSidebarWidth: 248 },
 };
 function load(relative, mocks = {}) {
   const filename = path.resolve(__dirname, "../..", relative);
@@ -37,10 +38,11 @@ function load(relative, mocks = {}) {
   }, { filename });
   return module.exports;
 }
-function sidebar(role) {
+/** The real nav module, so the destinations the shells show are the real ones. */
+function navModule(role) {
   const tab = role === "admin" ? "AdminDashboard" : role === "provider" ? "ProviderHome" : "CustomerHome";
   const Icon = () => null;
-  const { DesktopSidebar } = load("navigation/DesktopSidebar.tsx", {
+  return load("navigation/desktopNav.tsx", {
     "@react-navigation/native": {
       useNavigation: () => ({ navigate() {} }),
       useNavigationState: callback => callback({ index: 0, routes: [{ name: "Main", state: { index: 0, routes: [{ name: tab }] } }] }),
@@ -48,10 +50,28 @@ function sidebar(role) {
     "../context/AuthContext": { useAuth: () => ({ user: { role } }) },
     "../context/ProviderProfileGateContext": { useProviderProfileGate: () => ({ isProviderProfileRequired: false }) },
     "../context/RealtimeContext": { useRealtime: () => ({ chatUnreadCount: 0, notificationUnreadCount: 0 }) },
-    "./AdminMenu": { AdminMenu: () => React.createElement("nav", null, "Admin menu") },
+    "../api/customer": { getCustomerBookings: async () => ({ items: [] }) },
+    "../features/current-job/current-job": {
+      pickCurrentJob: () => ({ id: 1, title: "Ceiling light install", statusLabel: "Visit fee due", amountDue: 150, needsCustomer: true }),
+    },
     "./tabIcons": { tabIcons: Object.fromEntries(["home", "schedule", "bookings", "chats", "aiChat", "account"].map(name => [name, Icon])) },
   });
+}
+const shellMocks = role => ({
+  "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
+  "../components/PersonAvatar": { PersonAvatar: () => React.createElement("img", null) },
+  "../utils/money": { formatMoney: value => `${value} TRY` },
+  "../components/NotificationsButton": { NotificationsButton: () => React.createElement("button", null, "Notifications") },
+  "./AdminMenu": { AdminMenu: () => React.createElement("nav", null, "Admin menu") },
+  "./desktopNav": navModule(role),
+});
+function sidebar(role) {
+  const { DesktopSidebar } = load("navigation/DesktopSidebar.tsx", shellMocks(role));
   return renderToStaticMarkup(React.createElement(DesktopSidebar));
+}
+function topBar(role) {
+  const { DesktopTopBar } = load("navigation/DesktopTopBar.tsx", shellMocks(role));
+  return renderToStaticMarkup(React.createElement(DesktopTopBar));
 }
 for (const [role, labels] of [
   ["customer", ["Home", "Chats", "AI Chat", "Bookings", "Account"]],
@@ -63,6 +83,17 @@ for (const [role, labels] of [
     labels.forEach(label => assert.ok(html.includes(`>${label}<`), label));
   });
 }
+test("the top bar carries the same destinations, with Account as the avatar", () => {
+  for (const [role, labels] of [
+    ["customer", ["Home", "Chats", "AI Chat", "Bookings"]],
+    ["provider", ["Home", "Schedule", "Bookings", "Chats"]],
+  ]) {
+    const html = topBar(role);
+    assert.doesNotMatch(html, /Admin menu/);
+    labels.forEach(label => assert.ok(html.includes(`>${label}<`), `${role}: ${label}`));
+    assert.doesNotMatch(html, />Account</, `${role}: Account is the avatar, not a nav row`);
+  }
+});
 test("only Admin gets the scrollable menu", () => {
   const html = sidebar("admin");
   assert.match(html, /data-native="ScrollView"/);
@@ -87,10 +118,12 @@ test("shared settlement card keeps legacy layout unless adminLayout is explicitl
     const title = MarketplaceBreakdownCard({ amount: 100, ...props }).props.children[0];
     return Object.assign({}, ...title.props.style.filter(Boolean));
   };
-  assert.equal(titleStyle({}).fontSize, 13, "other roles keep the original compact split title");
-  assert.equal(titleStyle({}).fontWeight, "800");
-  assert.equal(titleStyle({ adminLayout: true }).fontSize, 16, "only Admin opts into its card hierarchy");
-  assert.equal(titleStyle({ adminLayout: true }).fontWeight, "700");
+  const compactTitle = titleStyle({});
+  const adminTitle = titleStyle({ adminLayout: true });
+  assert.ok(compactTitle.fontSize < adminTitle.fontSize, "other roles keep the smaller compact split title");
+  assert.equal(compactTitle.fontWeight, "800", "and carry it on weight rather than size");
+  assert.equal(adminTitle.fontSize, 16, "only Admin opts into its card hierarchy");
+  assert.equal(adminTitle.fontWeight, "700");
 });
 test("shared TextField leaves old callers unchanged and only forwards an opt-in submit callback", () => {
   const { TextField } = load("components/TextField.tsx");

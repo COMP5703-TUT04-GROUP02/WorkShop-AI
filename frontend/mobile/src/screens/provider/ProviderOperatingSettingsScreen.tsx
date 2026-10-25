@@ -168,7 +168,6 @@ function OperatingSettingsForm({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Operating settings</Text>
       <Text style={styles.hint}>
         Manage day-to-day business information after service verification.
         These changes do not alter the approved application record.
@@ -288,13 +287,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  title: { color: colors.text, fontSize: 24, fontWeight: "800" },
   label: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  hint: { color: colors.mutedText, fontSize: 13, lineHeight: 19 },
+  hint: { color: colors.mutedText, fontSize: 14, lineHeight: 19 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 20 },
   selectionRow: {
     minHeight: 50,
@@ -320,7 +318,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
   },
-  tagActive: { borderColor: colors.primary, backgroundColor: "#E9F7F3" },
+  tagActive: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   tagText: { color: colors.text, fontWeight: "600" },
   tagTextActive: { color: colors.primary },
   link: { color: colors.primary, fontWeight: "700" },

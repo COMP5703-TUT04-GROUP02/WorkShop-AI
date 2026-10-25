@@ -94,19 +94,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     padding: spacing.md,
   },
   noticeTitle: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   noticeBody: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   section: {
@@ -114,12 +114,12 @@ const styles = StyleSheet.create({
   },
   heading: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   body: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 23,
   },
 });

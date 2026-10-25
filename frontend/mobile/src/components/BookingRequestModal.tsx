@@ -9,7 +9,7 @@ import {
   isProviderUnavailableMessage,
   syncEndTimeAfterStartChange,
 } from "../features/bookings/request-time";
-import { colors, spacing } from "../theme/theme";
+import { colors, radius, spacing } from "../theme/theme";
 import type { BookingPayload, BookingUploadFile } from "../types/booking";
 import type { SelectedLocation } from "../types/location";
 import type { ProviderProfile } from "../types/provider";
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   modalErrorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
   },
   modalScrollContent: {
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   serviceOption: {
     borderColor: colors.border,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
   serviceOptionText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   serviceOptionTextSelected: {
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     borderWidth: 1,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,

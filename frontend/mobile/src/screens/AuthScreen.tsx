@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,6 +15,8 @@ import {
 } from "react-native";
 
 import { sendRegisterEmailCode } from "../api/auth";
+import { BrandMark } from "../components/BrandMark";
+import { resolveMediaUrl } from "../utils/media";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RoleSegmentedControl } from "../components/RoleSegmentedControl";
 import { SecondaryButton } from "../components/SecondaryButton";
@@ -33,6 +36,37 @@ import type { RegisterRequest } from "../types/auth";
 import { getErrorMessage } from "../utils/errors";
 
 type AuthMode = "login" | "register";
+
+/**
+ * The panel answers the question the visitor arrived with. Someone signing in
+ * wants to get back to a job; someone signing up wants to know why they should
+ * trust this with one. Different photograph too, so you can tell at a glance
+ * which side of the door you are on.
+ */
+const HERO = {
+  login: {
+    image: "/sample-media/brand/istanbul.jpg",
+    title: "A verified pro near you",
+    subtitle:
+      "Search listings, request quotes, book appointments, and leave reviews.",
+    points: [
+      "Every provider clears an identity, licence and bank account check.",
+      "You pay the visit fee up front; the service fee waits for your approval.",
+      "Reviews only come from bookings that were actually paid for.",
+    ],
+  },
+  register: {
+    image: "/sample-media/brand/istanbul-signup.jpg",
+    title: "Every trade, every province",
+    subtitle:
+      "Ten trades across all 81 provinces of Türkiye, from a dripping tap to a whole move.",
+    points: [
+      "Booking takes a minute. Only the visit fee is charged up front.",
+      "Working here? Three checks and you can take your first job.",
+      "No subscription, no listing fee — the platform takes its cut from the job.",
+    ],
+  },
+} as const;
 
 export function AuthScreen() {
   const { signIn, signUp, signInWithSocial } = useAuth();
@@ -64,7 +98,9 @@ export function AuthScreen() {
   const [isCreatingSocial, setIsCreatingSocial] = useState(false);
 
   const isRegisterMode = mode === "register";
+  const hero = isRegisterMode ? HERO.register : HERO.login;
   const isWebDesktop = useIsWebDesktop();
+  const linkOnPhoto = isWebDesktop ? null : styles.legalLinkOnPhoto;
   // This screen has no header, so keep the form clear of the status bar,
   // notch and home indicator. Insets are zero on web.
   const insets = useSafeAreaInsets();
@@ -256,29 +292,81 @@ export function AuthScreen() {
       ]}
     >
       {isWebDesktop ? (
-        <View style={styles.hero}>
-          <Text style={styles.heroBrand}>Workshop AI</Text>
-          <Text style={styles.heroTitle}>Find local service providers</Text>
-          <Text style={styles.heroSubtitle}>
-            Search listings, request quotes, book appointments, and leave reviews.
-          </Text>
-        </View>
+        <ImageBackground
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="The Istanbul skyline"
+          imageStyle={styles.heroPhoto}
+          source={{ uri: resolveMediaUrl(hero.image) ?? undefined }}
+          style={styles.hero}
+        >
+          {/* The photograph averages 80/255, so a scrim is what makes the
+              contrast a decision rather than a gamble on which part of the
+              frame a line of text lands over. */}
+          <View style={styles.heroScrim} />
+          <View style={styles.heroBrand}>
+            <BrandMark color="#FFFFFF" letterColor={colors.primary} size={30} />
+            <Text style={styles.heroBrandName}>
+              Workshop <Text style={styles.heroBrandSuffix}>AI</Text>
+            </Text>
+          </View>
+          <Text style={styles.heroTitle}>{hero.title}</Text>
+          <Text style={styles.heroSubtitle}>{hero.subtitle}</Text>
+          <View style={styles.heroPoints}>
+            {hero.points.map((point) => (
+              <View key={point} style={styles.heroPoint}>
+                <View style={styles.heroPointDot} />
+                <Text style={styles.heroPointText}>{point}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.heroCaption}>Across Türkiye</Text>
+        </ImageBackground>
       ) : null}
+
+      {isWebDesktop ? null : (
+        <ImageBackground
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="The Istanbul skyline"
+          imageStyle={styles.phoneBackdropPhoto}
+          source={{ uri: resolveMediaUrl(hero.image) ?? undefined }}
+          style={styles.phoneBackdrop}
+        >
+          <View style={styles.phoneBackdropScrim} />
+        </ImageBackground>
+      )}
 
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          isWebDesktop ? styles.scrollContentDesktop : null,
+          isWebDesktop ? styles.scrollContentDesktop : styles.scrollContentPhone,
         ]}
         keyboardShouldPersistTaps="handled"
         style={isWebDesktop ? styles.scrollDesktop : undefined}
       >
-        <View style={styles.header}>
-          {isWebDesktop ? null : <Text style={styles.brand}>Workshop AI</Text>}
-          <Text style={styles.title}>
+        <View
+          style={[styles.header, isWebDesktop ? styles.headerDesktop : null]}
+        >
+          {isWebDesktop ? null : (
+            <View style={styles.phoneBrand}>
+              <BrandMark
+                color="#FFFFFF"
+                letterColor={colors.primary}
+                size={26}
+              />
+              <Text style={styles.phoneBrandName}>
+                Workshop <Text style={styles.phoneBrandSuffix}>AI</Text>
+              </Text>
+            </View>
+          )}
+          <Text style={[styles.title, isWebDesktop ? null : styles.titleOnPhoto]}>
             {isRegisterMode ? "Create an account" : "Welcome back"}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text
+            style={[
+              styles.subtitle,
+              isWebDesktop ? null : styles.subtitleOnPhoto,
+            ]}
+          >
             {isRegisterMode
               ? "Select a role to continue."
               : "Sign in to manage chats, bookings, and requests."}
@@ -414,7 +502,13 @@ export function AuthScreen() {
             onError={setErrorMessage}
           />
 
-          <Pressable onPress={toggleMode} style={styles.switchButton}>
+          <Pressable
+            onPress={toggleMode}
+            style={[
+              styles.switchButton,
+              isWebDesktop ? styles.switchButtonDesktop : null,
+            ]}
+          >
             <Text style={styles.switchText}>
               {isRegisterMode
                 ? "Already have an account? Sign in"
@@ -425,23 +519,26 @@ export function AuthScreen() {
 
         {/* WS-90. Signed-out entry to the legal pages. WS-92 adds the register
             checkbox that links to the same routes. */}
-        <View style={styles.legalRow}>
+        <View
+          style={[styles.legalRow, isWebDesktop ? styles.legalRowDesktop : null]}
+        >
           <Pressable
             accessibilityRole="link"
             hitSlop={6}
             onPress={() => navigation.navigate("Legal", { document: "privacy" })}
           >
-            <Text style={styles.legalLink}>Privacy Policy</Text>
+            <Text style={[styles.legalLink, linkOnPhoto]}>Privacy Policy</Text>
           </Pressable>
-          <Text style={styles.legalDot}>·</Text>
+          <Text style={[styles.legalDot, linkOnPhoto]}>·</Text>
           <Pressable
             accessibilityRole="link"
             hitSlop={6}
             onPress={() => navigation.navigate("Legal", { document: "terms" })}
           >
-            <Text style={styles.legalLink}>Terms of Use</Text>
+            <Text style={[styles.legalLink, linkOnPhoto]}>Terms of Use</Text>
           </Pressable>
         </View>
+
       </ScrollView>
 
       {pendingSocial ? (
@@ -466,34 +563,122 @@ const styles = StyleSheet.create({
   },
   keyboardViewDesktop: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+  },
+  phoneBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  phoneBrandName: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  phoneBrandSuffix: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  // The photograph fills the screen behind everything; the scrim is what makes
+  // white text and a white card both readable on it.
+  phoneBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  phoneBackdropPhoto: {
+    resizeMode: "cover",
+  },
+  phoneBackdropScrim: {
+    flex: 1,
+    backgroundColor: "rgba(14, 28, 42, 0.52)",
+  },
+  titleOnPhoto: {
+    color: "#FFFFFF",
+  },
+  subtitleOnPhoto: {
+    color: "rgba(255, 255, 255, 0.88)",
   },
   hero: {
     flex: 1.05,
     justifyContent: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.text,
     paddingHorizontal: 64,
     paddingVertical: 48,
     gap: spacing.md,
   },
+  heroPhoto: {
+    resizeMode: "cover",
+  },
+  heroScrim: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(14, 28, 42, 0.44)",
+  },
   heroBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  heroBrandName: {
     color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  heroBrandSuffix: {
+    color: colors.accent,
     fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: "700",
-    lineHeight: 50,
-    maxWidth: 460,
+    lineHeight: 44,
+    maxWidth: 600,
   },
   heroSubtitle: {
-    color: "rgba(255,255,255,0.88)",
-    fontSize: 18,
+    color: "rgba(255,255,255,0.86)",
+    fontSize: 16,
     lineHeight: 26,
-    maxWidth: 420,
+    maxWidth: 600,
+  },
+  heroPoints: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  heroCaption: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 13,
+    marginTop: spacing.sm,
+  },
+  heroPoint: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    maxWidth: 600,
+  },
+  heroPointDot: {
+    width: 6,
+    height: 6,
+    marginTop: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
+  },
+  heroPointText: {
+    flex: 1,
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 16,
+    lineHeight: 22,
   },
   scrollDesktop: {
     flex: 1,
@@ -502,6 +687,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     padding: spacing.lg,
+  },
+  scrollContentPhone: {
+    justifyContent: "flex-start",
+    paddingTop: spacing.xl,
   },
   scrollContentDesktop: {
     paddingHorizontal: 56,
@@ -514,10 +703,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.xl,
   },
-  brand: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: "700",
+  headerDesktop: {
+    maxWidth: 400,
+    marginBottom: spacing.xxl,
   },
   title: {
     color: colors.text,
@@ -541,7 +729,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   formDesktop: {
-    maxWidth: 440,
+    maxWidth: 400,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    padding: 0,
+    gap: spacing.lg,
   },
   roleBlock: {
     gap: spacing.sm,
@@ -594,9 +786,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacing.sm,
   },
+  switchButtonDesktop: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    alignItems: "flex-start",
+  },
   switchText: {
     color: colors.primary,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
   legalRow: {
@@ -606,13 +804,23 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.lg,
   },
+  legalRowDesktop: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    justifyContent: "flex-start",
+    marginTop: spacing.xl,
+  },
   legalLink: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     textDecorationLine: "underline",
   },
   legalDot: {
     color: colors.mutedText,
     fontSize: 13,
+  },
+  legalLinkOnPhoto: {
+    color: "rgba(255, 255, 255, 0.92)",
   },
 });

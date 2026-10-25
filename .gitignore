@@ -68,3 +68,7 @@ frontend/mobile/.env
 frontend/mobile/.env.*
 !frontend/mobile/.env.example
 frontend/mobile/*.tsbuildinfo
+
+# Review artefacts: screenshots and the PDF built from them. Big, regenerated
+# on demand, and not part of the source.
+review-output/

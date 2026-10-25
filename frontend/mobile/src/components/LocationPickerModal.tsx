@@ -210,7 +210,7 @@ export function LocationPickerModal({
               autoCorrect={false}
               onChangeText={handleQueryChange}
               placeholder="Start typing an address"
-              placeholderTextColor={colors.mutedText}
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={query}
             />
@@ -299,12 +299,12 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
   },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 2,
   },
   iconButton: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   },
   previewText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     textAlign: "center",
   },
   form: {
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.sm,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   },
   searchingText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   suggestionList: {
     borderWidth: 1,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   suggestionText: {
     color: colors.text,
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
   },
   errorText: {
     color: colors.danger,

@@ -12,6 +12,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { getProviderSubmerchant } from "../api/marketplace";
 import { getProviderVerificationStatus } from "../api/provider";
 import { useAuth } from "./AuthContext";
+import { colors, radius } from "../theme/theme";
 
 const STEP_LABELS = {
   identity: "ID verification",
@@ -191,23 +192,20 @@ const styles = StyleSheet.create({
   dialog: {
     width: "100%",
     maxWidth: 420,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
     padding: 24,
-    shadowColor: "#000000",
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   dialogTitle: {
-    color: "#202123",
+    color: colors.text,
     fontSize: 18,
     fontWeight: "700",
   },
   dialogMessage: {
-    color: "#6E6E80",
-    fontSize: 15,
+    color: colors.mutedText,
+    fontSize: 16,
     lineHeight: 22,
     marginTop: 10,
   },
@@ -217,14 +215,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginTop: 20,
     borderRadius: 8,
-    backgroundColor: "#10A37F",
+    backgroundColor: colors.primary,
   },
   dialogButtonPressed: {
-    backgroundColor: "#0E8F70",
+    backgroundColor: colors.primaryPressed,
   },
   dialogButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
 });

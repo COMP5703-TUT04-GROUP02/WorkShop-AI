@@ -1,10 +1,13 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { getProviderTagLabel } from "../../constants/providerTags";
+import { formatDate } from "../../utils/datetime";
 import { Heart, MessageCircle, Send } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -26,11 +29,17 @@ import {
   createDefaultBookingRequestForm,
   type BookingRequestFormState,
 } from "../../components/BookingRequestModal";
+import { PersonAvatar } from "../../components/PersonAvatar";
+import { ReviewCard } from "../../components/ReviewCard";
+import { StarRating } from "../../components/StarRating";
+import { resolveMediaUrl } from "../../utils/media";
+import { formatMoney } from "../../utils/money";
 import { PortfolioCard } from "../../components/PortfolioCard";
+import { useIsWebDesktop } from "../../layout/useIsWebDesktop";
 import { useRealtime } from "../../context/RealtimeContext";
 import { setProviderFavouriteState } from "../../features/favourites/favourite-state";
 import type { RootStackParamList } from "../../navigation/AppNavigator";
-import { colors, spacing } from "../../theme/theme";
+import { colors, radius, spacing, type } from "../../theme/theme";
 import type { PaginatedData } from "../../types/chat";
 import type {
   CustomerProviderDetail,
@@ -53,8 +62,13 @@ export function CustomerProviderDetailScreen({
   route,
 }: CustomerProviderDetailScreenProps) {
   const { subscribe } = useRealtime();
+  const isWebDesktop = useIsWebDesktop();
   const [detail, setDetail] = useState<CustomerProviderDetail | null>(null);
   const [portfolios, setPortfolios] = useState<ProviderPortfolio[]>([]);
+  // The work sells the provider, so the first piece of it opens the page.
+  const coverImageUrl = resolveMediaUrl(
+    portfolios[0]?.media_items?.[0]?.file_url ?? portfolios[0]?.image_url ?? null,
+  );
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewPaging, setReviewPaging] = useState<PaginatedData<Review> | null>(
@@ -285,16 +299,51 @@ export function CustomerProviderDetailScreen({
               </View>
             ) : provider ? (
               <>
-                <View style={styles.profileCard}>
+                {coverImageUrl ? (
+                  <Image
+                    accessibilityIgnoresInvertColors
+                    accessibilityLabel={`Work by ${provider.business_name}`}
+                    source={{ uri: coverImageUrl }}
+                    style={styles.cover}
+                  />
+                ) : null}
+                <View
+                  style={[
+                    styles.profileCard,
+                    isWebDesktop ? styles.profileCardDesktop : null,
+                  ]}
+                >
                   <View style={styles.profileTextBox}>
                     <View style={styles.businessTitleRow}>
                       <Text numberOfLines={1} style={styles.businessName}>
                         {provider.business_name}
                       </Text>
                     </View>
+                    {/* What decides a booking, in the order it decides it:
+                        who they are, whether they are any good, what they
+                        charge. Trading hours, area and the rest follow. */}
+                    <View style={styles.ratingRow}>
+                      {provider.average_rating != null && provider.review_count ? (
+                        <>
+                          <StarRating rating={provider.average_rating} size={16} />
+                          <Text style={styles.ratingValue}>
+                            {provider.average_rating.toFixed(1)}
+                          </Text>
+                          <Text style={styles.metaText}>
+                            {provider.review_count}{" "}
+                            {provider.review_count === 1 ? "review" : "reviews"}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.metaText}>No rating yet</Text>
+                      )}
+                    </View>
+                    <Text style={styles.rateText}>
+                      from {formatMoney(provider.hourly_rate)} / hr
+                    </Text>
                     <View style={styles.statusRow}>
-                      <OpenStatusBadge isOpen={provider.is_open} />
-                      <OnlineStatusBadge isOnline={provider.is_online} />
+                      <TradingStatusBadge isOpen={provider.is_open} />
+                      <ChatPresenceBadge isOnline={provider.is_online} />
                     </View>
                     {favouriteMessage ? (
                       <Text style={styles.favouriteErrorText}>
@@ -308,18 +357,19 @@ export function CustomerProviderDetailScreen({
                     <Text style={styles.metaText}>
                       Service areas: {formatServiceAreas(provider.service_areas)}
                     </Text>
-                    <Text style={styles.metaText}>
-                      {formatRating(provider)} · {provider.hourly_rate} / hr
-                    </Text>
                     <View style={styles.tagWrap}>
                       {provider.tags.map((tag) => (
                         <View key={tag} style={styles.tagPill}>
-                          <Text style={styles.tagText}>{tag}</Text>
+                          <Text style={styles.tagText}>{getProviderTagLabel(tag)}</Text>
                         </View>
                       ))}
                     </View>
                   </View>
-                  <View style={styles.actionColumn}>
+                  <View
+                    style={
+                      isWebDesktop ? styles.actionColumn : styles.actionRow
+                    }
+                  >
                     <Pressable
                       accessibilityLabel={
                         provider.is_favorited
@@ -334,7 +384,8 @@ export function CustomerProviderDetailScreen({
                       disabled={isUpdatingFavourite}
                       onPress={() => void handleToggleFavourite()}
                       style={({ pressed }) => [
-                        styles.iconActionButton,
+                        styles.actionButton,
+                        isWebDesktop ? null : styles.actionButtonWide,
                         styles.favouriteActionButton,
                         pressed && !isUpdatingFavourite
                           ? styles.favouriteActionButtonPressed
@@ -355,18 +406,26 @@ export function CustomerProviderDetailScreen({
                       accessibilityRole="button"
                       disabled={isOpeningChat}
                       onPress={() => void handleOpenChat()}
-                      style={styles.iconActionButton}
+                      style={[
+                        styles.actionButton,
+                        isWebDesktop ? null : styles.actionButtonWide,
+                        styles.secondaryActionButton,
+                      ]}
                     >
-                      <MessageCircle color="#FFFFFF" size={20} />
-                      <Text style={styles.iconActionText}>Chat</Text>
+                      <MessageCircle color={colors.primaryText} size={20} />
+                      <Text style={styles.secondaryActionText}>Chat</Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
                       onPress={openBookingModal}
-                      style={styles.iconActionButton}
+                      style={[
+                        styles.actionButton,
+                        isWebDesktop ? null : styles.actionButtonWide,
+                        styles.primaryActionButton,
+                      ]}
                     >
                       <Send color="#FFFFFF" size={20} />
-                      <Text style={styles.iconActionText}>Book</Text>
+                      <Text style={styles.primaryActionText}>Book</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -408,7 +467,7 @@ export function CustomerProviderDetailScreen({
         keyExtractor={(item) => String(item.id)}
         onEndReached={() => void loadMoreReviews()}
         onEndReachedThreshold={0.4}
-        renderItem={({ item }) => <ReviewRow review={item} />}
+        renderItem={({ item }) => <ReviewCard review={item} />}
         style={styles.container}
       />
 
@@ -440,35 +499,8 @@ function formatServiceAreas(areas: ProviderServiceArea[] | undefined) {
     : "Not set";
 }
 
-function ReviewRow({ review }: { review: Review }) {
-  return (
-    <View style={styles.reviewCard}>
-      <View style={styles.reviewTopRow}>
-        <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
-        <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
-      </View>
-      <Text style={styles.reviewComment}>
-        {review.comment || "No written review"}
-      </Text>
-    </View>
-  );
-}
-
-function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
-  return (
-    <View style={styles.onlineBadge}>
-      <View
-        style={[
-          styles.onlineDot,
-          isOnline ? styles.onlineDotActive : styles.onlineDotInactive,
-        ]}
-      />
-      <Text style={styles.onlineText}>{isOnline ? "Online" : "Offline"}</Text>
-    </View>
-  );
-}
-
-function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
+/** Whether the business is inside its working hours. */
+function TradingStatusBadge({ isOpen }: { isOpen: boolean }) {
   return (
     <View style={styles.onlineBadge}>
       <View
@@ -482,18 +514,26 @@ function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
   );
 }
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return date.toLocaleDateString();
+/**
+ * Whether they have the app open right now, which is what decides how fast a
+ * message gets read. It carries a chat glyph rather than a second dot: two
+ * identical dots reading "Open" and "Offline" look like a contradiction, when
+ * they are answers to different questions.
+ */
+function ChatPresenceBadge({ isOnline }: { isOnline: boolean }) {
+  return (
+    <View style={styles.onlineBadge}>
+      <MessageCircle
+        color={isOnline ? colors.success : colors.placeholder}
+        size={13}
+      />
+      <Text style={isOnline ? styles.onlineText : styles.onlineHint}>
+        {isOnline ? "Online now" : "Offline"}
+      </Text>
+    </View>
+  );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -512,12 +552,41 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xl,
   },
-  profileCard: {
+  cover: {
+    width: "100%",
+    height: 220,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  ratingRow: {
     flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  ratingValue: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
+  rateText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  profileCardDesktop: {
+    flexDirection: "row",
+  },
+  profileCard: {
+    flexDirection: "column",
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.md,
   },
@@ -528,7 +597,7 @@ const styles = StyleSheet.create({
   businessName: {
     flex: 1,
     color: colors.text,
-    fontSize: 24,
+    fontSize: type.title,
     fontWeight: "800",
   },
   businessTitleRow: {
@@ -548,7 +617,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
   },
@@ -558,24 +627,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   onlineDotActive: {
-    backgroundColor: colors.primary,
+    // Open for business is a state, not an action.
+    backgroundColor: colors.success,
   },
   onlineDotInactive: {
-    backgroundColor: "#A0A4AE",
+    backgroundColor: colors.placeholder,
   },
   onlineText: {
-    color: colors.mutedText,
+    color: colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
+  onlineHint: {
+    color: colors.mutedText,
+    fontSize: 12,
+  },
   bioText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   metaText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   tagWrap: {
     flexDirection: "row",
@@ -583,7 +657,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tagPill: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
     paddingVertical: 5,
@@ -594,20 +668,42 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   actionColumn: {
-    width: 72,
+    width: 84,
     gap: spacing.sm,
   },
-  iconActionButton: {
-    minHeight: 68,
+  // Across the foot of the card on a phone, so the description keeps the full
+  // width of the card and the three actions keep their own.
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+  },
+  actionButton: {
+    minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: 14,
+    borderRadius: radius.md,
+  },
+  actionButtonWide: {
+    flex: 1,
+  },
+  // Book is what the page is for, Chat is the question before it, Save is a
+  // note to self: solid, tinted, and quiet, in that order.
+  primaryActionButton: {
     backgroundColor: colors.primary,
+  },
+  secondaryActionButton: {
+    borderWidth: 1,
+    borderColor: colors.primaryTintBorder,
+    backgroundColor: colors.primaryTint,
   },
   favouriteActionButton: {
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
     backgroundColor: colors.background,
   },
   favouriteActionButtonPressed: {
@@ -616,60 +712,50 @@ const styles = StyleSheet.create({
   actionButtonDisabled: {
     opacity: 0.55,
   },
-  iconActionText: {
+  primaryActionText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "800",
   },
+  secondaryActionText: {
+    color: colors.primaryText,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   favouriteActionText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
+    color: colors.primaryText,
+    fontSize: 14,
+    fontWeight: "700",
   },
   favouriteErrorText: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
   },
   portfolioGap: {
     width: spacing.md,
   },
-  reviewCard: {
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    padding: spacing.md,
-  },
-  reviewTopRow: {
-    flexDirection: "row",
+  reviewAvatar: {
+    width: 36,
+    height: 36,
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryTint,
   },
-  ratingText: {
-    color: colors.text,
-    fontSize: 15,
+  reviewAvatarLetter: {
+    color: colors.primaryText,
+    fontSize: 14,
     fontWeight: "800",
-  },
-  reviewDate: {
-    color: colors.mutedText,
-    fontSize: 13,
-  },
-  reviewComment: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
   },
   emptyText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
     lineHeight: 21,
   },
   footerLoader: {

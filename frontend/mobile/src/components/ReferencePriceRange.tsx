@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   value: {

@@ -123,13 +123,15 @@ function formatSettlementStatus(status: string) {
 const styles = StyleSheet.create({
   card: {
     gap: spacing.xs,
-    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
-    padding: spacing.sm,
+    padding: spacing.md,
   },
   title: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   row: {
@@ -139,7 +141,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     marginVertical: spacing.xs,
   },
   detailsToggle: {
@@ -161,24 +163,26 @@ const styles = StyleSheet.create({
   },
   details: {
     borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     gap: spacing.xs,
     marginTop: spacing.xs,
     paddingTop: spacing.xs,
   },
   label: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   value: {
     color: colors.text,
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "700",
     textAlign: "right",
+    fontVariant: ["tabular-nums"],
   },
   emphasized: {
     color: colors.text,
+    fontSize: 16,
     fontWeight: "800",
   },
   note: {
@@ -187,6 +191,6 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.danger,
-    fontSize: 13,
+    fontSize: 14,
   },
 });

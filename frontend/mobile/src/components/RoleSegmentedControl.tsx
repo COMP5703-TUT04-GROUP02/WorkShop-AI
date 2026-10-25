@@ -59,14 +59,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   optionActive: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.primaryTint,
   },
   label: {
     color: colors.mutedText,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
   labelActive: {
-    color: colors.text,
+    color: colors.primaryText,
   },
 });

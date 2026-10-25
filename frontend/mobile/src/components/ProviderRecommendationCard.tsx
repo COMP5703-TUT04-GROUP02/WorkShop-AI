@@ -60,7 +60,12 @@ export function ProviderRecommendationCard<T extends ProviderCardItem>({
     <View style={[styles.card, cardWidth ? { width: cardWidth } : null]}>
       <Pressable accessibilityRole="button" disabled={disabled} onPress={() => onPress(provider)}>
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.image} />
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel={`Work by ${provider.business_name}`}
+            source={{ uri: imageUrl }}
+            style={styles.image}
+          />
         ) : (
           <View style={styles.imagePlaceholder}>
             <Text style={styles.imagePlaceholderText}>No image</Text>
@@ -85,7 +90,9 @@ export function ProviderRecommendationCard<T extends ProviderCardItem>({
             {provider.business_name}
           </Text>
           <Text style={styles.category} numberOfLines={1}>
-            {isSearchResult ? category : provider.tags.join(" · ")}
+            {isSearchResult
+              ? category
+              : provider.tags.map(getProviderTagLabel).join(" · ")}
           </Text>
           {isSearchResult && distance ? (
             <Text style={styles.distance}>{distance}</Text>
@@ -105,7 +112,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   image: {
@@ -122,7 +129,7 @@ const styles = StyleSheet.create({
   },
   imagePlaceholderText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   body: {
     gap: spacing.xs,
@@ -138,15 +145,16 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: radius.pill,
   },
   statusDotActive: {
-    backgroundColor: colors.primary,
+    // Open for business is a state, not an action: green, not the action blue.
+    backgroundColor: colors.success,
   },
   statusDotInactive: {
-    backgroundColor: "#A0A4AE",
+    backgroundColor: colors.placeholder,
   },
   statusText: {
     color: colors.mutedText,
@@ -156,7 +164,7 @@ const styles = StyleSheet.create({
   name: {
     minHeight: 40,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     lineHeight: 20,
   },

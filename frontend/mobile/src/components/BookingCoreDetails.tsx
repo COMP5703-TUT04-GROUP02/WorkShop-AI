@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../theme/theme";
 import type { BookingDetail } from "../types/booking";
-import { formatDateTime } from "../utils/datetime";
+import { formatDateTime, formatDateTimeRange } from "../utils/datetime";
 
 export function BookingCoreDetails({
   booking,
@@ -42,9 +42,10 @@ export function BookingCoreDetails({
       <Row label="Service address" value={booking.service_address} />
       <Row
         label="Scheduled time"
-        value={`${formatDateTime(booking.scheduled_start_time)} - ${formatDateTime(
+        value={formatDateTimeRange(
+          booking.scheduled_start_time,
           booking.scheduled_end_time,
-        )}`}
+        )}
       />
       {includeLifecycleDates ? (
         <>
@@ -85,12 +86,12 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
   value: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   link: {

@@ -65,6 +65,13 @@ type AIChatMessageItem = {
 
 const WELCOME_MESSAGE = "How can I help you today?";
 
+/** What this assistant can be asked, in its own words. Text, not controls. */
+const WELCOME_EXAMPLES = [
+  "Find me a plumber in Kadikoy who can come on Saturday",
+  "What happens to the visit fee if I cancel?",
+  "Compare the reviews for these two painters",
+];
+
 export function CustomerAIChatScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -353,6 +360,7 @@ export function CustomerAIChatScreen() {
       style={styles.container}
     >
       <Pressable
+          hitSlop={4}
         accessibilityLabel="Clear chat history"
         accessibilityRole="button"
         disabled={isClearing}
@@ -367,6 +375,9 @@ export function CustomerAIChatScreen() {
       </Pressable>
 
       <FlatList
+        ListFooterComponent={
+          messages.length <= 1 ? <AIWelcomePanel /> : null
+        }
         contentContainerStyle={styles.messageList}
         data={invertedMessages}
         inverted
@@ -404,7 +415,7 @@ export function CustomerAIChatScreen() {
             }
           }}
           placeholder="Recommend providers, answer FAQs, book, or compare reviews"
-          placeholderTextColor={colors.mutedText}
+          placeholderTextColor={colors.placeholder}
           style={styles.input}
           value={inputText}
         />
@@ -474,6 +485,28 @@ function consumeLatestBookingFormMessage(
       },
     };
   });
+}
+
+function AIWelcomePanel() {
+  return (
+    <View style={styles.welcomePanel}>
+      <View style={styles.welcomeMark}>
+        <Bot color={colors.primary} size={28} />
+      </View>
+      <Text style={styles.welcomeTitle}>Ask about anything here</Text>
+      <Text style={styles.welcomeText}>
+        It knows the providers, their reviews and how booking works, and it can
+        start a booking for you.
+      </Text>
+      <View style={styles.welcomeExamples}>
+        {WELCOME_EXAMPLES.map((example) => (
+          <Text key={example} style={styles.welcomeExample}>
+            {example}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 function AIMessageBubble({
@@ -802,6 +835,7 @@ function ConfirmationCard({
       ) : null}
       <View style={styles.actionRow}>
         <Pressable
+          hitSlop={4}
           accessibilityRole="button"
           disabled={isLoading}
           onPress={onCancel}
@@ -813,6 +847,7 @@ function ConfirmationCard({
           </Text>
         </Pressable>
         <Pressable
+          hitSlop={4}
           accessibilityRole="button"
           disabled={isLoading}
           onPress={onConfirm}
@@ -1076,7 +1111,57 @@ const styles = StyleSheet.create({
   },
   centerText: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: 16,
+  },
+  // The panel sits clear of the clear-history button, which floats over the
+  // top right of the list.
+  welcomePanel: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  welcomeMark: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.primaryTintBorder,
+    borderRadius: 28,
+    backgroundColor: colors.primaryTint,
+    marginBottom: spacing.xs,
+  },
+  welcomeTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  welcomeText: {
+    maxWidth: 420,
+    color: colors.mutedText,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  welcomeExamples: {
+    alignSelf: "stretch",
+    maxWidth: 480,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginHorizontal: "auto",
+  },
+  welcomeExample: {
+    color: colors.mutedText,
+    fontSize: 16,
+    lineHeight: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   messageList: {
     flexGrow: 1,
@@ -1093,9 +1178,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#BFE8D7",
+    borderColor: colors.primaryTintBorder,
     borderRadius: 19,
-    backgroundColor: "#F2FBF7",
+    backgroundColor: colors.primaryTint,
   },
   clearButtonDisabled: {
     opacity: 0.55,
@@ -1121,7 +1206,7 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: "82%",
     gap: spacing.sm,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -1133,7 +1218,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
   },
   userMessageText: {
@@ -1165,7 +1250,7 @@ const styles = StyleSheet.create({
   },
   markdownTableHeaderRow: {
     borderTopWidth: 0,
-    backgroundColor: "#F4F6F8",
+    backgroundColor: colors.surface,
   },
   markdownTableCell: {
     minWidth: 72,
@@ -1195,7 +1280,7 @@ const styles = StyleSheet.create({
   },
   providerName: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   providerMeta: {
@@ -1246,7 +1331,7 @@ const styles = StyleSheet.create({
   },
   infoCardText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   openBookingButton: {
@@ -1273,12 +1358,12 @@ const styles = StyleSheet.create({
   },
   confirmationTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   confirmationText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   fieldRow: {
@@ -1291,7 +1376,7 @@ const styles = StyleSheet.create({
   },
   fieldValue: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   warningText: {
@@ -1323,12 +1408,12 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   confirmButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   typingRow: {
@@ -1340,7 +1425,7 @@ const styles = StyleSheet.create({
   },
   typingText: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: 14,
   },
   inputBar: {
     flexDirection: "row",
@@ -1360,7 +1445,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -1374,6 +1459,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   sendButtonDisabled: {
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
   },
 });
