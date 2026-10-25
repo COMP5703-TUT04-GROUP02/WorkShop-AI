@@ -26,6 +26,7 @@ import { BookingPriceBreakdown } from "../../components/BookingPriceBreakdown";
 import { BookingContextInformation } from "../../components/BookingContextInformation";
 import { ProviderBookingDetailModal } from "../../components/ProviderBookingDetailModal";
 import { TextField } from "../../components/TextField";
+import { BOOKING_STATUS_LABELS } from "../../constants/labels";
 import { colors, radius, spacing } from "../../theme/theme";
 import type { BookingDetail } from "../../types/booking";
 import type {
@@ -906,13 +907,7 @@ function bookingOverlapsDate(booking: BookingDetail, dateKey: string) {
 }
 
 function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    accepted: "In progress",
-    awaiting_confirmation: "Awaiting confirmation",
-    visit_completed_closed: "Closed",
-  };
-
-  return labels[status] ?? status;
+  return BOOKING_STATUS_LABELS[status] ?? status;
 }
 
 function parseDateKey(dateKey: string) {
