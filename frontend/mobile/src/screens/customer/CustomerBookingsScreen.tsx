@@ -1,3 +1,4 @@
+import { useRealtime } from "../../context/RealtimeContext";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -52,7 +53,7 @@ import type {
   BookingDetail,
   PaymentSummary,
 } from "../../types/booking";
-import { getPaymentStatusLabel } from "../../constants/labels";
+import { getBookingStatusLabel, getPaymentStatusLabel, getRefundStatusLabel } from "../../constants/labels";
 import { formatDateTime, formatDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney, formatPayLabel } from "../../utils/money";
@@ -83,6 +84,9 @@ const HIDDEN_ORDER_STATUSES = [
   "visit_completed_closed",
 ];
 type ReasonAction = "decline_quote" | "decline_final_quote" | "refund";
+/** The list reloads itself this often while it is on screen. */
+const BOOKINGS_REFRESH_MS = 1000;
+
 export function CustomerBookingsScreen() {
   const isWebDesktop = useIsWebDesktop();
   const navigation = useNavigation<
@@ -112,6 +116,10 @@ export function CustomerBookingsScreen() {
   const [reviewBooking, setReviewBooking] = useState<BookingDetail | null>(null);
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const { markBookingUpdatesSeen } = useRealtime();
+  const selectedBookingRef = useRef<BookingDetail | null>(null);
+  selectedBookingRef.current = selectedBooking;
 
   const loadBookings = useCallback(async () => {
     setMessage("");
@@ -194,6 +202,21 @@ export function CustomerBookingsScreen() {
     useCallback(() => {
       void loadBookings();
     }, [loadBookings]),
+  );
+
+  // Bookings move because of someone else - the provider quotes, the payment
+  // settles - so the list refreshes itself while it is on screen. The socket
+  // already carries those events, so the poll is only a safety net for a
+  // dropped connection.
+  useFocusEffect(
+    useCallback(() => {
+      markBookingUpdatesSeen();
+      const timer = setInterval(() => {
+        if (selectedBookingRef.current) return;
+        void loadBookings();
+      }, BOOKINGS_REFRESH_MS);
+      return () => clearInterval(timer);
+    }, [loadBookings, markBookingUpdatesSeen]),
   );
 
   useEffect(
@@ -848,36 +871,7 @@ function DetailRow({
   );
 }
 
-function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: "Pending review",
-    quoted: "Quote awaiting confirmation",
-    awaiting_payment: "Awaiting payment",
-    accepted: "In progress",
-    rejected: "Declined",
-    refunding: "Refund in progress",
-    refunded: "Refunded",
-    partially_refunded: "Partially refunded",
-    awaiting_confirmation: "Awaiting confirmation",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  };
 
-  return labels[status] || status;
-}
-
-function getRefundStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    approved: "Approved",
-    rejected: "Declined",
-    appealed: "Under review",
-    admin_rejected: "Appeal declined",
-    cancelled: "Cancelled",
-  };
-
-  return labels[status] || status;
-}
 
 function filterActiveBookings(bookings: BookingDetail[]) {
   return bookings.filter(

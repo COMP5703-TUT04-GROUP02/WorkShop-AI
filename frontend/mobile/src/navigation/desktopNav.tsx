@@ -7,7 +7,6 @@ import { getCustomerBookings } from "../api/customer";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
-import { pickCurrentJob, type CurrentJob } from "../features/current-job/current-job";
 import type { AdminArea } from "./AdminMenu";
 import { tabIcons } from "./tabIcons";
 import type { MainTabParamList, RootStackParamList } from "./types";
@@ -30,7 +29,8 @@ export function useDesktopNav() {
   const { user } = useAuth();
   const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
     useProviderProfileGate();
-  const { chatUnreadCount, notificationUnreadCount } = useRealtime();
+  const { bookingUpdateCount, chatUnreadCount, notificationUnreadCount } =
+    useRealtime();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const defaultTab =
@@ -44,6 +44,7 @@ export function useDesktopNav() {
     user?.role,
     chatUnreadCount,
     notificationUnreadCount,
+    bookingUpdateCount,
   );
 
   function isActive(item: DesktopNavItem) {
@@ -88,25 +89,6 @@ export function useDesktopNav() {
  * blocks them: while it is loading, or if the request fails, it is null and the
  * shell renders exactly as it did before.
  */
-export function useCurrentJob() {
-  const [job, setJob] = useState<CurrentJob | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCustomerBookings(undefined, 1, 20)
-      .then((data) => {
-        if (!cancelled) setJob(pickCurrentJob(data?.items ?? []));
-      })
-      .catch(() => {
-        if (!cancelled) setJob(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return job;
-}
 
 export function useActiveDesktopRoute(defaultTab: keyof MainTabParamList) {
   return useNavigationState((state) => {
@@ -135,6 +117,7 @@ export function getDesktopNavItems(
   role: string | undefined,
   chatUnreadCount: number,
   notificationUnreadCount: number,
+  bookingUpdateCount = 0,
 ): DesktopNavItem[] {
   const accountItem: DesktopNavItem = {
     tab: "Account",
@@ -170,7 +153,12 @@ export function getDesktopNavItems(
         ],
       },
       { tab: "ProviderSchedule", label: "Schedule", icon: tabIcons.schedule },
-      { tab: "ProviderBookings", label: "Bookings", icon: tabIcons.bookings },
+      {
+        tab: "ProviderBookings",
+        label: "Bookings",
+        icon: tabIcons.bookings,
+        badge: bookingUpdateCount,
+      },
       {
         tab: "ProviderChats",
         label: "Chats",
@@ -203,7 +191,12 @@ export function getDesktopNavItems(
       stackRoutes: ["ChatRoom"],
     },
     { tab: "CustomerAIChat", label: "AI Chat", icon: tabIcons.aiChat },
-    { tab: "CustomerBookings", label: "Bookings", icon: tabIcons.bookings },
+    {
+      tab: "CustomerBookings",
+      label: "Bookings",
+      icon: tabIcons.bookings,
+      badge: bookingUpdateCount,
+    },
     accountItem,
   ];
 }

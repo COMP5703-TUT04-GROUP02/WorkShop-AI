@@ -4,8 +4,7 @@ import { BrandMark } from "../components/BrandMark";
 import { NotificationsButton } from "../components/NotificationsButton";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { colors, layout, radius, spacing } from "../theme/theme";
-import { formatMoney } from "../utils/money";
-import { useCurrentJob, useDesktopNav, type DesktopNavItem } from "./desktopNav";
+import { useDesktopNav, type DesktopNavItem } from "./desktopNav";
 
 /**
  * The desktop shell for customers and providers: five destinations fit across
@@ -47,14 +46,6 @@ export function DesktopTopBar() {
         <View style={styles.rightRule} />
 
         <View style={styles.right}>
-          {user?.role === "customer" ? (
-            <CurrentJobPill
-              onPress={() =>
-                navigation.navigate("Main", { screen: "CustomerBookings" })
-              }
-            />
-          ) : null}
-
           <NotificationsButton unreadCount={notificationUnreadCount} />
 
           {account ? (
@@ -129,29 +120,6 @@ function NavItem({
   );
 }
 
-function CurrentJobPill({ onPress }: { onPress: () => void }) {
-  const job = useCurrentJob();
-
-  if (!job) return null;
-
-  return (
-    <Pressable
-      accessibilityLabel={`Current job: ${job.title}`}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={styles.currentJob}
-    >
-      <Text numberOfLines={1} style={styles.currentJobText}>
-        <Text style={job.needsCustomer ? styles.currentJobDue : undefined}>
-          {job.statusLabel}
-        </Text>
-        {job.amountDue != null ? (
-          <Text style={styles.currentJobDue}> · {formatMoney(job.amountDue)}</Text>
-        ) : null}
-      </Text>
-    </Pressable>
-  );
-}
 
 const styles = StyleSheet.create({
   bar: {
@@ -234,23 +202,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-  },
-  currentJob: {
-    maxWidth: 240,
-    borderWidth: 1,
-    borderColor: colors.warningBorder,
-    borderRadius: radius.pill,
-    backgroundColor: colors.warningTint,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-  },
-  currentJobText: {
-    color: colors.mutedText,
-    fontSize: 14,
-  },
-  currentJobDue: {
-    color: colors.warningText,
-    fontWeight: "700",
   },
   account: {
     maxWidth: 230,

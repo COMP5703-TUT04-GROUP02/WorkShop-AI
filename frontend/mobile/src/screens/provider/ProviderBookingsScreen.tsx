@@ -1,4 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
+import { getBookingStatusLabel } from "../../constants/labels";
+import { useRealtime } from "../../context/RealtimeContext";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -65,6 +67,9 @@ const HIDDEN_ORDER_STATUSES = [
 ];
 type ProviderReasonAction = "reject_booking" | "reject_refund";
 
+/** The list reloads itself this often while it is on screen. */
+const BOOKINGS_REFRESH_MS = 1000;
+
 export function ProviderBookingsScreen() {
   const isWebDesktop = useIsWebDesktop();
   const navigation =
@@ -96,6 +101,10 @@ export function ProviderBookingsScreen() {
   const [proofAssets, setProofAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [finalQuoteAmount, setFinalQuoteAmount] = useState("");
   const [finalQuoteMessage, setFinalQuoteMessage] = useState("");
+
+  const { markBookingUpdatesSeen } = useRealtime();
+  const selectedBookingRef = useRef<BookingDetail | null>(null);
+  selectedBookingRef.current = selectedBooking;
 
   const loadBookings = useCallback(async () => {
     setMessage("");
@@ -155,6 +164,21 @@ export function ProviderBookingsScreen() {
     useCallback(() => {
       void loadBookings();
     }, [loadBookings]),
+  );
+
+  // Bookings move because of someone else - the provider quotes, the payment
+  // settles - so the list refreshes itself while it is on screen. The socket
+  // already carries those events, so the poll is only a safety net for a
+  // dropped connection.
+  useFocusEffect(
+    useCallback(() => {
+      markBookingUpdatesSeen();
+      const timer = setInterval(() => {
+        if (selectedBookingRef.current) return;
+        void loadBookings();
+      }, BOOKINGS_REFRESH_MS);
+      return () => clearInterval(timer);
+    }, [loadBookings, markBookingUpdatesSeen]),
   );
 
   useEffect(
@@ -656,23 +680,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    quoted: "Quoted",
-    awaiting_payment: "Awaiting payment",
-    accepted: "In progress",
-    rejected: "Declined",
-    refunding: "Refund in progress",
-    refunded: "Refunded",
-    awaiting_confirmation: "Awaiting confirmation",
-    completed: "Completed",
-    cancelled: "Cancelled",
-    visit_completed_closed: "Closed",
-  };
-
-  return labels[status] || status;
-}
 
 function getRefundStatusLabel(status: string) {
   const labels: Record<string, string> = {
