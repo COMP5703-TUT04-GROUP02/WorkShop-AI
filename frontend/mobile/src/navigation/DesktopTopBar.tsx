@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-na
 import { BrandMark } from "../components/BrandMark";
 import { NotificationsButton } from "../components/NotificationsButton";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { CountBadge } from "../components/CountBadge";
 import { colors, layout, radius, spacing } from "../theme/theme";
 import { formatMoney } from "../utils/money";
 import { useCurrentJob, useDesktopNav, type DesktopNavItem } from "./desktopNav";
@@ -79,13 +80,7 @@ export function DesktopTopBar() {
               {user?.role === "provider" ? "Provider" : "Customer"}
             </Text>
           </View>
-          {account.badge ? (
-            <View style={styles.accountBadge}>
-              <Text style={styles.accountBadgeText}>
-                {account.badge > 99 ? "99+" : account.badge}
-              </Text>
-            </View>
-          ) : null}
+          <CountBadge count={account.badge} />
         </Pressable>
       ) : null}
     </View>
@@ -138,11 +133,7 @@ function NavItem({
       <Text style={[styles.itemLabel, isActive ? styles.itemLabelActive : null]}>
         {item.label}
       </Text>
-      {item.badge ? (
-        <Text style={styles.itemBadge}>
-          {item.badge > 99 ? "99+" : item.badge}
-        </Text>
-      ) : null}
+      <CountBadge count={item.badge} />
       {isActive ? <View style={styles.itemUnderline} /> : null}
     </Pressable>
   );
@@ -235,12 +226,6 @@ const styles = StyleSheet.create({
   itemLabelActive: {
     color: colors.primary,
   },
-  itemBadge: {
-    color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
   // The bar's own bottom edge marks where you are, the way a left rail does in
   // the sidebar.
   itemUnderline: {
@@ -308,19 +293,5 @@ const styles = StyleSheet.create({
   accountRole: {
     color: colors.mutedText,
     fontSize: 12,
-  },
-  accountBadge: {
-    minWidth: 20,
-    alignItems: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  accountBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
-    fontVariant: ["tabular-nums"],
   },
 });

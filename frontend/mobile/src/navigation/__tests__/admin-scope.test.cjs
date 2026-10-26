@@ -58,6 +58,7 @@ function navModule(role) {
   });
 }
 const shellMocks = role => ({
+  "../components/CountBadge": load("components/CountBadge.tsx"),
   "../components/BrandMark": { BrandMark: () => React.createElement("svg", null) },
   "../components/PersonAvatar": { PersonAvatar: () => React.createElement("img", null) },
   "../utils/money": { formatMoney: value => `${value} TRY` },

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BrandMark } from "../components/BrandMark";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { CountBadge } from "../components/CountBadge";
 import { colors, layout, radius, spacing } from "../theme/theme";
 import { AdminMenu } from "./AdminMenu";
 import { useDesktopNav } from "./desktopNav";
@@ -60,11 +61,7 @@ export function DesktopSidebar() {
             >
               {item.label}
             </Text>
-            {item.badge ? (
-              <Text style={styles.badgeText}>
-                {item.badge > 99 ? "99+" : item.badge}
-              </Text>
-            ) : null}
+            <CountBadge count={item.badge} />
           </Pressable>
         ))}
       </SidebarNavigation>
@@ -170,11 +167,5 @@ const styles = StyleSheet.create({
   },
   itemLabelActive: {
     color: colors.primary,
-  },
-  badgeText: {
-    color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
   },
 });

@@ -1,9 +1,10 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Bell } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import type { RootStackParamList } from "../navigation/types";
+import { CountBadge } from "./CountBadge";
 import { colors } from "../theme/theme";
 
 /**
@@ -27,13 +28,9 @@ export function NotificationsButton({ unreadCount }: { unreadCount: number }) {
       style={({ pressed }) => [styles.button, pressed ? styles.buttonPressed : null]}
     >
       <Bell color={colors.text} size={22} />
-      {unreadCount > 0 ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </Text>
-        </View>
-      ) : null}
+      <View style={styles.badgeSlot}>
+        <CountBadge count={unreadCount} />
+      </View>
     </Pressable>
   );
 }
@@ -45,21 +42,9 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.6,
   },
-  badge: {
+  badgeSlot: {
     position: "absolute",
     top: -2,
     right: -4,
-    minWidth: 18,
-    height: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
   },
 });
