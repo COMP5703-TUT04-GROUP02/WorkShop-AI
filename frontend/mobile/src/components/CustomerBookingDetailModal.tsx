@@ -1,7 +1,7 @@
 import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BookingContextInformation } from "./BookingContextInformation";
-import { BookingCoreDetails } from "./BookingCoreDetails";
+import { BookingCoreDetails, Row as DetailRow } from "./BookingCoreDetails";
 import { BookingPriceBreakdown } from "./BookingPriceBreakdown";
 import { BookingAttachments } from "./BookingAttachments";
 import { DateTimeField } from "./DateTimeField";
@@ -226,13 +226,10 @@ function RefundDetails({ booking, payment }: { booking: BookingDetail; payment?:
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return <View style={styles.row}><Text style={styles.label}>{label}</Text><Text style={styles.value}>{value}</Text></View>;
-}
 
 const styles = StyleSheet.create({
-  modalOverlay: { backgroundColor: "rgba(0,0,0,0.28)", flex: 1, justifyContent: "flex-end" },
-  modalCard: { backgroundColor: colors.background, borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md, gap: spacing.md, maxHeight: "88%", padding: spacing.lg },
+  modalOverlay: { backgroundColor: "rgba(0,0,0,0.28)", flex: 1, justifyContent: "flex-end", alignItems: "center" },
+  modalCard: { backgroundColor: colors.background, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, gap: spacing.md, maxHeight: "88%", padding: spacing.lg, width: "100%", maxWidth: 760 },
   modalTitle: { color: colors.text, fontSize: 22, fontWeight: "800", marginBottom: spacing.md },
   content: { gap: spacing.md, paddingBottom: spacing.md },
   detailBox: { backgroundColor: colors.surface, borderRadius: radius.lg, gap: spacing.sm, padding: spacing.md },

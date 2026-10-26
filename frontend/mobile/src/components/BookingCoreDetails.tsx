@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors, spacing } from "../theme/theme";
+import { useIsWebDesktop } from "../layout/useIsWebDesktop";
+import { colors, spacing, type } from "../theme/theme";
 import type { BookingDetail } from "../types/booking";
 import { formatDateTime, formatDateTimeRange } from "../utils/datetime";
 
@@ -60,7 +61,14 @@ export function BookingCoreDetails({
   );
 }
 
-function Row({
+/**
+ * One fact about the booking.
+ *
+ * Stacked on a phone, where there is no room for two columns. On a wider
+ * screen the label sits in its own column so the values line up and the list
+ * can be read down rather than zig-zagged through.
+ */
+export function Row({
   children,
   label,
   value,
@@ -69,10 +77,16 @@ function Row({
   label: string;
   value?: string;
 }) {
+  const isWide = useIsWebDesktop();
+
   return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      {children || <Text style={styles.value}>{value || "—"}</Text>}
+    <View style={[styles.row, isWide ? styles.rowWide : null]}>
+      <Text style={[styles.label, isWide ? styles.labelWide : null]}>
+        {label}
+      </Text>
+      <View style={isWide ? styles.valueColumn : null}>
+        {children || <Text style={styles.value}>{value || "—"}</Text>}
+      </View>
     </View>
   );
 }
@@ -84,14 +98,31 @@ const styles = StyleSheet.create({
   row: {
     gap: spacing.xs,
   },
+  rowWide: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+    paddingVertical: 5,
+  },
   label: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: type.secondary,
     fontWeight: "600",
+  },
+  // Wide enough for the longest label the booking rows use, so every value
+  // starts on the same line.
+  labelWide: {
+    width: 168,
+    flexShrink: 0,
+    paddingTop: 2,
+  },
+  valueColumn: {
+    flex: 1,
+    minWidth: 0,
   },
   value: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: type.body,
     lineHeight: 22,
   },
   link: {

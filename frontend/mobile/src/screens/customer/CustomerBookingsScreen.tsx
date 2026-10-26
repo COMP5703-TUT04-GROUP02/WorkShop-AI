@@ -1,3 +1,4 @@
+import { getBookingEventId, useRealtime } from "../../context/RealtimeContext";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -52,7 +53,7 @@ import type {
   BookingDetail,
   PaymentSummary,
 } from "../../types/booking";
-import { getPaymentStatusLabel } from "../../constants/labels";
+import { getBookingStatusLabel, getPaymentStatusLabel, getRefundStatusLabel } from "../../constants/labels";
 import { formatDateTime, formatDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
 import { formatMoney, formatPayLabel } from "../../utils/money";
@@ -112,6 +113,8 @@ export function CustomerBookingsScreen() {
   const [reviewBooking, setReviewBooking] = useState<BookingDetail | null>(null);
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const { isConnected, markBookingUpdatesSeen, subscribe } = useRealtime();
 
   const loadBookings = useCallback(async () => {
     setMessage("");
@@ -195,6 +198,26 @@ export function CustomerBookingsScreen() {
       void loadBookings();
     }, [loadBookings]),
   );
+
+  // Bookings move because of the other party - the provider quotes, the
+  // customer pays - and the server already pushes each of those as a system
+  // message on the booking's chat room. Listening to that beats asking again
+  // on a timer: it lands as soon as it happens, and costs nothing in between.
+  useFocusEffect(
+    useCallback(() => {
+      markBookingUpdatesSeen();
+      return subscribe((event) => {
+        if (getBookingEventId(event) == null) return;
+        markBookingUpdatesSeen();
+        void loadBookings();
+      });
+    }, [loadBookings, markBookingUpdatesSeen, subscribe]),
+  );
+
+  // A socket that dropped and came back may have missed an update.
+  useEffect(() => {
+    if (isConnected) void loadBookings();
+  }, [isConnected, loadBookings]);
 
   useEffect(
     () => () => openBookingRequestGuard.invalidate(),
@@ -848,36 +871,7 @@ function DetailRow({
   );
 }
 
-function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: "Pending review",
-    quoted: "Quote awaiting confirmation",
-    awaiting_payment: "Awaiting payment",
-    accepted: "In progress",
-    rejected: "Declined",
-    refunding: "Refund in progress",
-    refunded: "Refunded",
-    partially_refunded: "Partially refunded",
-    awaiting_confirmation: "Awaiting confirmation",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  };
 
-  return labels[status] || status;
-}
-
-function getRefundStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    approved: "Approved",
-    rejected: "Declined",
-    appealed: "Under review",
-    admin_rejected: "Appeal declined",
-    cancelled: "Cancelled",
-  };
-
-  return labels[status] || status;
-}
 
 function filterActiveBookings(bookings: BookingDetail[]) {
   return bookings.filter(

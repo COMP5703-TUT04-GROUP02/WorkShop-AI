@@ -34,7 +34,7 @@ import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 import type { BookingDetail, PaymentSummary } from "../types/booking";
-import { getRefundStatusLabel } from "../constants/labels";
+import { getBookingStatusLabel, getRefundStatusLabel } from "../constants/labels";
 import { formatDateTime, formatDateTimeRange } from "../utils/datetime";
 import { getErrorMessage } from "../utils/errors";
 import { formatMoney } from "../utils/money";
@@ -408,18 +408,6 @@ function getTargetName(booking: BookingDetail, userRole?: string) {
   return booking.provider?.business_name || `Provider #${booking.provider_profile_id}`;
 }
 
-function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    completed: "Completed",
-    cancelled: "Cancelled",
-    rejected: "Declined",
-    refunded: "Refunded",
-    partially_refunded: "Partially refunded",
-    visit_completed_closed: "Closed",
-  };
-
-  return labels[status] || status;
-}
 
 function getStatusBadgeStyle(status: string) {
   if (status === "completed") {

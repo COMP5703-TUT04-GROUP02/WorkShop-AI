@@ -1,4 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
+import { getBookingStatusLabel } from "../../constants/labels";
+import { getBookingEventId, useRealtime } from "../../context/RealtimeContext";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -97,6 +99,8 @@ export function ProviderBookingsScreen() {
   const [finalQuoteAmount, setFinalQuoteAmount] = useState("");
   const [finalQuoteMessage, setFinalQuoteMessage] = useState("");
 
+  const { isConnected, markBookingUpdatesSeen, subscribe } = useRealtime();
+
   const loadBookings = useCallback(async () => {
     setMessage("");
     try {
@@ -156,6 +160,26 @@ export function ProviderBookingsScreen() {
       void loadBookings();
     }, [loadBookings]),
   );
+
+  // Bookings move because of the other party - the provider quotes, the
+  // customer pays - and the server already pushes each of those as a system
+  // message on the booking's chat room. Listening to that beats asking again
+  // on a timer: it lands as soon as it happens, and costs nothing in between.
+  useFocusEffect(
+    useCallback(() => {
+      markBookingUpdatesSeen();
+      return subscribe((event) => {
+        if (getBookingEventId(event) == null) return;
+        markBookingUpdatesSeen();
+        void loadBookings();
+      });
+    }, [loadBookings, markBookingUpdatesSeen, subscribe]),
+  );
+
+  // A socket that dropped and came back may have missed an update.
+  useEffect(() => {
+    if (isConnected) void loadBookings();
+  }, [isConnected, loadBookings]);
 
   useEffect(
     () => () => openBookingRequestGuard.invalidate(),
@@ -656,23 +680,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    quoted: "Quoted",
-    awaiting_payment: "Awaiting payment",
-    accepted: "In progress",
-    rejected: "Declined",
-    refunding: "Refund in progress",
-    refunded: "Refunded",
-    awaiting_confirmation: "Awaiting confirmation",
-    completed: "Completed",
-    cancelled: "Cancelled",
-    visit_completed_closed: "Closed",
-  };
-
-  return labels[status] || status;
-}
 
 function getRefundStatusLabel(status: string) {
   const labels: Record<string, string> = {

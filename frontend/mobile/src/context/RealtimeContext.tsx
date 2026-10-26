@@ -27,12 +27,41 @@ type RealtimeContextValue = {
   isConnected: boolean;
   chatUnreadCount: number;
   notificationUnreadCount: number;
+  /** Bookings that changed since the customer or provider last looked. */
+  bookingUpdateCount: number;
   markChatRoomRead: (chatRoomId: number) => void;
+  markBookingUpdatesSeen: () => void;
   refreshUnreadCounts: () => Promise<void>;
   subscribe: (listener: RealtimeListener) => () => void;
 };
 
+/**
+ * A new booking and every status change already arrive as a system message in
+ * the booking's chat room, so the badge counts those rather than asking the
+ * server for anything new. Counting distinct bookings, not messages: three
+ * updates to one job is one job wanting attention.
+ */
+const BOOKING_EVENT_TYPES = new Set(["booking_created", "booking_status"]);
+
 const BACKGROUND_DISCONNECT_DELAY_MS = 30000;
+
+
+/**
+ * True when an event says a booking was created or changed state.
+ *
+ * Both arrive as a system message in that booking's chat room, which is the
+ * only push the server already makes for bookings — so a screen that wants to
+ * stay current listens for these rather than asking again on a timer.
+ */
+export function getBookingEventId(event: RealtimeEvent): number | null {
+  if (event.type !== "chat_message") return null;
+  const message = event.chat_message as
+    | { message_type?: unknown; related_id?: unknown }
+    | undefined;
+  const kind = typeof message?.message_type === "string" ? message.message_type : "";
+  if (!BOOKING_EVENT_TYPES.has(kind)) return null;
+  return typeof message?.related_id === "number" ? message.related_id : null;
+}
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
@@ -47,12 +76,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     {},
   );
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [updatedBookingIds, setUpdatedBookingIds] = useState<number[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
   const refreshUnreadCounts = useCallback(async () => {
     if (!user) {
       setChatUnreadByRoom({});
       setNotificationUnreadCount(0);
+      setUpdatedBookingIds([]);
       return;
     }
 
@@ -171,6 +202,21 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      if (data.type === "chat_message") {
+        const message = data.chat_message as
+          | { message_type?: unknown; related_id?: unknown; sender_id?: unknown }
+          | undefined;
+        const kind = typeof message?.message_type === "string" ? message.message_type : "";
+        const bookingId = typeof message?.related_id === "number" ? message.related_id : null;
+        const from = typeof message?.sender_id === "number" ? message.sender_id : null;
+
+        if (BOOKING_EVENT_TYPES.has(kind) && bookingId != null && from !== user?.id) {
+          setUpdatedBookingIds((current) =>
+            current.includes(bookingId) ? current : [...current, bookingId],
+          );
+        }
+      }
+
       if (data.type === "notification_delivery") {
         if (typeof data.unread_count === "number") {
           setNotificationUnreadCount(Math.max(data.unread_count, 0));
@@ -262,18 +308,28 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     0,
   );
 
+  const markBookingUpdatesSeen = useCallback(() => {
+    setUpdatedBookingIds((current) => (current.length ? [] : current));
+  }, []);
+
+  const bookingUpdateCount = updatedBookingIds.length;
+
   const value = useMemo(
     () => ({
+      bookingUpdateCount,
       chatUnreadCount,
       isConnected,
+      markBookingUpdatesSeen,
       markChatRoomRead,
       notificationUnreadCount,
       refreshUnreadCounts,
       subscribe,
     }),
     [
+      bookingUpdateCount,
       chatUnreadCount,
       isConnected,
+      markBookingUpdatesSeen,
       markChatRoomRead,
       notificationUnreadCount,
       refreshUnreadCounts,

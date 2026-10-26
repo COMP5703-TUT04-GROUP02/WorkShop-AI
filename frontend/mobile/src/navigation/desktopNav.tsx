@@ -31,7 +31,8 @@ export function useDesktopNav() {
   const { user } = useAuth();
   const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
     useProviderProfileGate();
-  const { chatUnreadCount, notificationUnreadCount } = useRealtime();
+  const { bookingUpdateCount, chatUnreadCount, notificationUnreadCount } =
+    useRealtime();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const defaultTab =
@@ -45,6 +46,7 @@ export function useDesktopNav() {
     user?.role,
     chatUnreadCount,
     notificationUnreadCount,
+    bookingUpdateCount,
   );
 
   function isActive(item: DesktopNavItem) {
@@ -151,6 +153,7 @@ export function getDesktopNavItems(
   role: string | undefined,
   chatUnreadCount: number,
   notificationUnreadCount: number,
+  bookingUpdateCount = 0,
 ): DesktopNavItem[] {
   const accountItem: DesktopNavItem = {
     tab: "Account",
@@ -186,7 +189,12 @@ export function getDesktopNavItems(
         ],
       },
       { tab: "ProviderSchedule", label: "Schedule", icon: tabIcons.schedule },
-      { tab: "ProviderBookings", label: "Bookings", icon: tabIcons.bookings },
+      {
+        tab: "ProviderBookings",
+        label: "Bookings",
+        icon: tabIcons.bookings,
+        badge: bookingUpdateCount,
+      },
       {
         tab: "ProviderChats",
         label: "Chats",
@@ -219,7 +227,12 @@ export function getDesktopNavItems(
       stackRoutes: ["ChatRoom"],
     },
     { tab: "CustomerAIChat", label: "AI Chat", icon: tabIcons.aiChat },
-    { tab: "CustomerBookings", label: "Bookings", icon: tabIcons.bookings },
+    {
+      tab: "CustomerBookings",
+      label: "Bookings",
+      icon: tabIcons.bookings,
+      badge: bookingUpdateCount,
+    },
     accountItem,
   ];
 }

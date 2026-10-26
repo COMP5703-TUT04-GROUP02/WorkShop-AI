@@ -1,3 +1,4 @@
+import { getBookingStatusLabel } from "../../constants/labels";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -905,15 +906,6 @@ function bookingOverlapsDate(booking: BookingDetail, dateKey: string) {
   return bookingStart < dayEnd && bookingEnd > dayStart;
 }
 
-function getBookingStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    accepted: "In progress",
-    awaiting_confirmation: "Awaiting confirmation",
-    visit_completed_closed: "Closed",
-  };
-
-  return labels[status] ?? status;
-}
 
 function parseDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);

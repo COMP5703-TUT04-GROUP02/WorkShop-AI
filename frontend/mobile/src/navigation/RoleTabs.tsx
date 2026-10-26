@@ -44,7 +44,8 @@ export function RoleTabs() {
   const { user } = useAuth();
   const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
     useProviderProfileGate();
-  const { chatUnreadCount, notificationUnreadCount } = useRealtime();
+  const { bookingUpdateCount, chatUnreadCount, notificationUnreadCount } =
+    useRealtime();
   const isWebDesktop = useIsWebDesktop();
   const providerBlockedTabButton = isProviderProfileRequired
     ? buildProviderBlockedTabButton(showProviderProfileRequiredMessage)
@@ -151,6 +152,7 @@ export function RoleTabs() {
               title: "Bookings",
               tabBarLabel: "Bookings",
               tabBarIcon: tabIcons.bookings,
+              tabBarBadge: formatUnreadBadge(bookingUpdateCount),
             }}
           />
         </>
@@ -200,6 +202,7 @@ export function RoleTabs() {
               title: "Bookings",
               tabBarLabel: "Bookings",
               tabBarIcon: tabIcons.bookings,
+              tabBarBadge: formatUnreadBadge(bookingUpdateCount),
               tabBarButton: providerBlockedTabButton,
             }}
           />

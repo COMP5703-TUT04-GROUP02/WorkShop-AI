@@ -3,10 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BrandMark } from "../components/BrandMark";
 import { PersonAvatar } from "../components/PersonAvatar";
-import { formatMoney } from "../utils/money";
 import { colors, layout, radius, spacing } from "../theme/theme";
 import { AdminMenu } from "./AdminMenu";
-import { useCurrentJob, useDesktopNav } from "./desktopNav";
+import { useDesktopNav } from "./desktopNav";
 
 export function DesktopSidebar() {
   const { active, isActive, items, navigation, open, user } = useDesktopNav();
@@ -69,42 +68,10 @@ export function DesktopSidebar() {
           </Pressable>
         ))}
       </SidebarNavigation>
-      {user?.role === "customer" ? (
-        <CurrentJobCard
-          onPress={() => navigation.navigate("Main", { screen: "CustomerBookings" })}
-        />
-      ) : null}
     </View>
   );
 }
 
-/** A read-only pin for whatever booking is waiting on the customer. */
-function CurrentJobCard({ onPress }: { onPress: () => void }) {
-  const job = useCurrentJob();
-
-  if (!job) return null;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={styles.currentJob}
-    >
-      <Text style={styles.currentJobEyebrow}>Current job</Text>
-      <Text numberOfLines={1} style={styles.currentJobTitle}>
-        {job.title}
-      </Text>
-      <Text numberOfLines={1} style={styles.currentJobStatus}>
-        <Text style={job.needsCustomer ? styles.currentJobDue : undefined}>
-          {job.statusLabel}
-        </Text>
-        {job.amountDue != null ? (
-          <Text style={styles.currentJobDue}> · {formatMoney(job.amountDue)}</Text>
-        ) : null}
-      </Text>
-    </Pressable>
-  );
-}
 
 function SidebarNavigation({ isAdmin, children }: { isAdmin: boolean; children: ReactNode }) {
   // Keep the original container for customer/provider navigation.
@@ -203,36 +170,6 @@ const styles = StyleSheet.create({
   },
   itemLabelActive: {
     color: colors.primary,
-  },
-  currentJob: {
-    marginTop: "auto",
-    marginBottom: spacing.md,
-    gap: 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.sm + 2,
-  },
-  currentJobEyebrow: {
-    color: colors.mutedText,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-  currentJobTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  currentJobStatus: {
-    color: colors.mutedText,
-    fontSize: 12,
-  },
-  currentJobDue: {
-    color: colors.warningText,
-    fontWeight: "700",
   },
   badgeText: {
     color: colors.mutedText,
