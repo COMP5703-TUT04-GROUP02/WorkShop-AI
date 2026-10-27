@@ -24,7 +24,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     AsyncStorage.getItem(LANGUAGE_KEY)
       .then((stored) => {
-        if (mounted && isAppLanguage(stored)) setLanguageState(stored);
+        if (mounted && isAppLanguage(stored)) {
+          // Child effects can request data before this provider's effect runs.
+          setApiLanguage(stored);
+          setCurrentLanguage(stored);
+          setLanguageState(stored);
+        }
       })
       .catch(() => {
         // Storage can be unavailable in private browser sessions; keep English usable.
