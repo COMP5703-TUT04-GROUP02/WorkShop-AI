@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedTextInput } from "../i18n/LocalizedTextInput";
+import { T } from "../i18n/T";
 import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -74,7 +78,7 @@ export function ProviderSearchFilters({
         <SlidersHorizontal color={colors.text} size={20} />
         <View style={styles.collapsedText}>
           <View style={styles.headingRow}>
-            <Text style={styles.title}>Filter and sort</Text>
+            <T style={styles.title}>Filter and sort</T>
             {activeCount > 0 ? (
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>{activeCount}</Text>
@@ -95,7 +99,7 @@ export function ProviderSearchFilters({
       {isExpanded ? (
         <>
           <View style={styles.actionsRow}>
-            <Text style={styles.expandedLabel}>Refine results</Text>
+            <T style={styles.expandedLabel}>Refine results</T>
             <SecondaryButton
               disabled={activeCount === 0 || isApplying}
               label="Clear"
@@ -147,7 +151,7 @@ export function ProviderSearchFilters({
                   <FilterChip
                     active={value.minRating === rating}
                     key={rating}
-                    label={`${rating}+ stars`}
+                    label={getCurrentLanguage() === "tr" ? `${rating}+ yıldız` : `${rating}+ stars`}
                     onPress={() =>
                       update("minRating", value.minRating === rating ? null : rating)
                     }
@@ -159,7 +163,7 @@ export function ProviderSearchFilters({
 
           <FilterSection label="Hourly price">
             <View style={styles.priceRow}>
-              <TextInput
+              <LocalizedTextInput
                 accessibilityLabel="Minimum hourly price"
                 inputMode="numeric"
                 onChangeText={(text) => update("minPrice", text)}
@@ -168,8 +172,8 @@ export function ProviderSearchFilters({
                 style={styles.priceInput}
                 value={value.minPrice}
               />
-              <Text style={styles.priceSeparator}>to</Text>
-              <TextInput
+              <T style={styles.priceSeparator}>to</T>
+              <LocalizedTextInput
                 accessibilityLabel="Maximum hourly price"
                 inputMode="numeric"
                 onChangeText={(text) => update("maxPrice", text)}
@@ -232,7 +236,7 @@ export function ProviderSearchFilters({
             ]}
           >
             <Text style={styles.applyText}>
-              {isApplying ? "Applying..." : "Apply filters"}
+              {isApplying ? translateText(getCurrentLanguage(), "Applying...") : translateText(getCurrentLanguage(), "Apply filters")}
             </Text>
           </Pressable>
         </>
@@ -244,7 +248,7 @@ export function ProviderSearchFilters({
 function FilterSection({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionLabel}>{label}</Text>
+      <T style={styles.sectionLabel}>{label}</T>
       {children}
     </View>
   );
@@ -273,9 +277,9 @@ function FilterChip({
         disabled ? styles.disabled : null,
       ]}
     >
-      <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
+      <T style={[styles.chipText, active ? styles.chipTextActive : null]}>
         {label}
-      </Text>
+      </T>
     </Pressable>
   );
 }

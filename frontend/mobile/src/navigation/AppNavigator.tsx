@@ -53,6 +53,7 @@ import {
 import { ProviderPayoutAccountScreen } from "../screens/provider/ProviderPayoutAccountScreen";
 import { ProviderOperatingSettingsScreen } from "../screens/provider/ProviderOperatingSettingsScreen";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../i18n/LanguageContext";
 import { ProviderPayoutStatusProvider } from "../context/ProviderPayoutStatusContext";
 import { consumePendingPaymentResult } from "../utils/pendingPaymentResult";
 import {
@@ -143,6 +144,7 @@ const navigationTheme = {
 
 export function AppNavigator() {
   const { user, isLoading } = useAuth();
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
@@ -186,12 +188,12 @@ export function AppNavigator() {
           <Stack.Screen
             name="Legal"
             component={LegalScreen}
-            options={legalScreenOptions}
+            options={({ route }) => legalScreenOptions(route.params.document, t)}
           />
           <Stack.Screen
             name="PaymentResult"
             component={PaymentResultScreen}
-            options={{ title: "Payment result" }}
+            options={{ title: t("Payment result") }}
           />
         </Stack.Navigator>
       )}
@@ -202,6 +204,7 @@ export function AppNavigator() {
 function AuthenticatedStack() {
   const isWebDesktop = useIsWebDesktop();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -237,7 +240,7 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="CustomerProviderDetail"
         component={CustomerProviderDetailScreen}
-        options={{ title: "Provider" }}
+        options={{ title: t("Provider") }}
       />
       <Stack.Screen
         name="CustomerProviderSearchResults"
@@ -247,7 +250,7 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="CustomerProviderPortfolioDetail"
         component={CustomerProviderPortfolioDetailScreen}
-        options={{ title: "Portfolio" }}
+        options={{ title: t("Portfolio") }}
       />
       <Stack.Screen
         name="ChatRoom"
@@ -259,139 +262,139 @@ function AuthenticatedStack() {
       <Stack.Screen
         name="AccountEdit"
         component={AccountEditScreen}
-        options={{ title: "Edit profile" }}
+        options={{ title: t("Edit profile") }}
       />
       <Stack.Screen
         name="ProviderVerification"
         component={ProviderVerificationScreen}
-        options={{ title: "Verification" }}
+        options={{ title: t("Verification") }}
       />
       <Stack.Screen
         name="ProviderIdentityVerification"
         component={ProviderIdentityVerificationScreen}
-        options={{ title: "ID verification" }}
+        options={{ title: t("ID verification") }}
       />
       <Stack.Screen
         name="ProviderServiceVerification"
         component={ProviderServiceVerificationScreen}
-        options={{ title: "Service verification" }}
+        options={{ title: t("Service verification") }}
       />
       <Stack.Screen
         name="ProviderPayoutAccount"
         component={ProviderPayoutAccountScreen}
-        options={{ title: "Payout account" }}
+        options={{ title: t("Payout account") }}
       />
       <Stack.Screen
         name="ProviderOperatingSettings"
         component={GuardedProviderOperatingSettingsScreen}
-        options={{ title: "Operating settings" }}
+        options={{ title: t("Operating settings") }}
       />
       <Stack.Screen
         name="AccountSecurity"
         component={AccountSecurityScreen}
-        options={{ title: "Account and Security" }}
+        options={{ title: t("Account and Security") }}
       />
       <Stack.Screen
         name="Help"
         component={HelpScreen}
-        options={{ title: "Help and Support" }}
+        options={{ title: t("Help and Support") }}
       />
       {/* Not gated: a provider with an incomplete profile must still be able
           to read the terms they are asked to accept. */}
       <Stack.Screen
         name="Legal"
         component={LegalScreen}
-        options={legalScreenOptions}
+        options={({ route }) => legalScreenOptions(route.params.document, t)}
       />
       <Stack.Screen
         name="BookingHistory"
         component={BookingHistoryScreen}
-        options={{ title: "Booking history" }}
+        options={{ title: t("Booking history") }}
       />
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
-        options={{ title: "Notifications" }}
+        options={{ title: t("Notifications") }}
       />
       <Stack.Screen
         name="NotificationSettings"
         component={NotificationSettingsScreen}
-        options={{ title: "Notification settings" }}
+        options={{ title: t("Notification settings") }}
       />
       <Stack.Screen
         name="Payments"
         component={PaymentsScreen}
-        options={{ title: "Payments" }}
+        options={{ title: t("Payments") }}
       />
       <Stack.Screen
         name="PaymentResult"
         component={PaymentResultScreen}
-        options={{ title: "Payment result" }}
+        options={{ title: t("Payment result") }}
       />
       <Stack.Screen
         name="CustomerFavourites"
         component={CustomerFavouritesScreen}
-        options={{ title: "Favourites" }}
+        options={{ title: t("Favourites") }}
       />
       <Stack.Screen
         name="ProviderPortfolioList"
         component={GuardedProviderPortfolioListScreen}
-        options={{ title: "Portfolios" }}
+        options={{ title: t("Portfolios") }}
       />
       <Stack.Screen
         name="ProviderPortfolioCreate"
         component={GuardedProviderPortfolioCreateScreen}
-        options={{ title: "Add portfolio" }}
+        options={{ title: t("Add portfolio") }}
       />
       <Stack.Screen
         name="ProviderPortfolioDetail"
         component={GuardedProviderPortfolioDetailScreen}
-        options={{ title: "Portfolio" }}
+        options={{ title: t("Portfolio") }}
       />
       <Stack.Screen
         name="AdminIdentityVerification"
         component={GuardedAdminIdentityVerificationScreen}
-        options={{ title: "Identity verification" }}
+        options={{ title: t("Identity verification") }}
       />
       <Stack.Screen
         name="AdminQualificationVerification"
         component={GuardedAdminQualificationVerificationScreen}
-        options={{ title: "Qualification verification" }}
+        options={{ title: t("Qualification verification") }}
       />
       <Stack.Screen
         name="AdminPortfolioReview"
         component={GuardedAdminPortfolioReviewScreen}
-        options={{ title: "Portfolio review" }}
+        options={{ title: t("Portfolio review") }}
       />
       <Stack.Screen
         name="AdminRefundDisputes"
         component={GuardedAdminRefundDisputesScreen}
-        options={{ title: "Refund disputes" }}
+        options={{ title: t("Refund disputes") }}
       />
       <Stack.Screen
         name="AdminPaymentsSettlements"
         component={GuardedAdminPaymentsSettlementsScreen}
-        options={{ title: "Payments & settlements" }}
+        options={{ title: t("Payments & settlements") }}
       />
       <Stack.Screen
         name="AdminPayoutAccounts"
         component={GuardedAdminPayoutAccountsScreen}
-        options={{ title: "Provider payout accounts" }}
+        options={{ title: t("Provider payout accounts") }}
       />
       <Stack.Screen
         name="AdminReviewManagement"
         component={GuardedAdminReviewManagementScreen}
-        options={{ title: "Review management" }}
+        options={{ title: t("Review management") }}
       />
       <Stack.Screen
         name="AdminCustomerAIConfig"
         component={GuardedAdminCustomerAIConfigScreen}
-        options={{ title: "Customer AI config" }}
+        options={{ title: t("Customer AI config") }}
       />
       <Stack.Screen
         name="AdminReviewEmbedding"
         component={GuardedAdminReviewEmbeddingScreen}
-        options={{ title: "Review embedding / search" }}
+        options={{ title: t("Review embedding / search") }}
       />
     </Stack.Navigator>
   );
@@ -399,12 +402,11 @@ function AuthenticatedStack() {
 
 // Registered in both stacks: register happens signed out, and both roles can
 // open the same pages once signed in.
-function legalScreenOptions({
-  route,
-}: {
-  route: { params: RootStackParamList["Legal"] };
-}) {
-  return { title: LEGAL_DOCUMENTS[route.params.document].title };
+function legalScreenOptions(
+  document: RootStackParamList["Legal"]["document"],
+  t: (text: string) => string,
+) {
+  return { title: t(LEGAL_DOCUMENTS[document].title) };
 }
 
 function withRequiredProviderProfile<P extends object>(

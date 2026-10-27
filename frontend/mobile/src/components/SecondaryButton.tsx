@@ -1,6 +1,7 @@
 import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type SecondaryButtonProps = {
   label: string;
@@ -15,6 +16,7 @@ export function SecondaryButton({
   disabled = false,
   style,
 }: SecondaryButtonProps) {
+  const { t } = useLanguage();
   return (
     <Pressable
       accessibilityRole="button"
@@ -27,7 +29,7 @@ export function SecondaryButton({
         disabled ? styles.buttonDisabled : null,
       ]}
     >
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{t(label)}</Text>
     </Pressable>
   );
 }

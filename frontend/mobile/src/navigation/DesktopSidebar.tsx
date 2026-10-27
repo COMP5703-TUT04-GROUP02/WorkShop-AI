@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ComponentType, ReactNode } from "react";
@@ -42,7 +43,7 @@ export function DesktopSidebar() {
 
   return (
     <View style={styles.sidebar}>
-      <Text style={styles.brand}>Workshop AI</Text>
+      <T style={styles.brand}>Workshop AI</T>
       <SidebarNavigation isAdmin={user?.role === "admin"}>
         {user?.role === "admin" ? <AdminMenu active={active.tab === "AdminDashboard" ? active.area ?? "ai" : undefined} onSelect={(area) => navigation.navigate("Main", { screen: "AdminDashboard", params: { area } })} /> : null}
         {items.map((item) => {
@@ -81,14 +82,14 @@ export function DesktopSidebar() {
                 color={isActive ? colors.primary : colors.mutedText}
                 size={20}
               />
-              <Text
+              <T
                 style={[
                   styles.itemLabel,
                   isActive ? styles.itemLabelActive : null,
                 ]}
               >
                 {item.label}
-              </Text>
+              </T>
               {item.badge ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>

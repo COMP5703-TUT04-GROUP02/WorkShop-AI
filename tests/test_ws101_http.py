@@ -97,7 +97,7 @@ def _stub_booking_side_effects(monkeypatch):
     monkeypatch.setattr(
         customer_booking_actions, "add_booking_status_history", lambda *args: None
     )
-    monkeypatch.setattr(customer_booking_actions, "create_notification", lambda *args: None)
+    monkeypatch.setattr(customer_booking_actions, "create_notification", lambda *args, **kwargs: None)
     monkeypatch.setattr(customer_booking_actions, "push_chat_message_to_room_members", no_push)
     monkeypatch.setattr(booking_router, "ensure_provider_available_for_datetime_range", lambda *args: None)
     monkeypatch.setattr(booking_router, "create_booking_status_chat_message", lambda *args: None)

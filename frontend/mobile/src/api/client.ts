@@ -2,6 +2,7 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
 import { API_BASE_URL } from "../config/env";
 import type { ApiResponse, TokenResponse, User } from "../types/auth";
+import type { AppLanguage } from "../i18n/language";
 
 type RetryConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
@@ -20,6 +21,11 @@ let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let sessionHooks: SessionHooks | null = null;
 let refreshInFlight: Promise<boolean> | null = null;
+let apiLanguage: AppLanguage = "en";
+
+export function setApiLanguage(language: AppLanguage) {
+  apiLanguage = language;
+}
 
 const AUTH_PATHS_WITHOUT_REFRESH = new Set([
   "/login",
@@ -38,6 +44,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  config.headers["Accept-Language"] = apiLanguage;
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }

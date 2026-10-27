@@ -1,4 +1,7 @@
 
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+
 export const BOOKING_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   quoted: "Quoted",
@@ -84,22 +87,39 @@ export const WEEKDAY_LABELS: Array<{ value: number; label: string }> = [
 ];
 
 export function getBookingStatusLabel(status: string) {
-  return BOOKING_STATUS_LABELS[status] ?? status;
+  return translateText(getCurrentLanguage(), BOOKING_STATUS_LABELS[status] ?? status);
 }
 
 export function getBookingStatusLabelForChat(status: string) {
-  return BOOKING_STATUS_LABELS_CHAT[status] ?? status;
+  return translateText(getCurrentLanguage(), BOOKING_STATUS_LABELS_CHAT[status] ?? status);
 }
 
 export function getRefundStatusLabel(status: string) {
-  return REFUND_STATUS_LABELS[status] ?? status;
+  return translateText(getCurrentLanguage(), REFUND_STATUS_LABELS[status] ?? status);
 }
 
 export function getPaymentStatusLabel(status: string) {
-  return PAYMENT_STATUS_LABELS[status] ?? status;
+  return translateText(getCurrentLanguage(), PAYMENT_STATUS_LABELS[status] ?? status);
 }
 
 
 export function getWeekdayLabel(weekday: number) {
-  return WEEKDAY_LABELS.find((item) => item.value === weekday)?.label ?? `Day ${weekday}`;
+  const label = WEEKDAY_LABELS.find((item) => item.value === weekday)?.label;
+  return label ? translateText(getCurrentLanguage(), label) : `${translateText(getCurrentLanguage(), "Day")} ${weekday}`;
+}
+
+export function getVerificationStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "Pending", approved: "Approved", rejected: "Rejected",
+  };
+  const label = labels[status];
+  return label ? translateText(getCurrentLanguage(), label) : status;
+}
+
+export function getSubmerchantStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    draft: "Draft", active: "Active", rejected: "Rejected", update_failed: "Update failed",
+  };
+  const label = labels[status];
+  return label ? translateText(getCurrentLanguage(), label) : status;
 }

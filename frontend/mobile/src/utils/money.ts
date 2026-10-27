@@ -1,3 +1,5 @@
+import { currentLocale, getCurrentLanguage } from "../i18n/language";
+
 export const CURRENCY_CODE = "TRY";
 
 export function formatMoney(value: number | string | null | undefined) {
@@ -10,13 +12,18 @@ export function formatMoney(value: number | string | null | undefined) {
     return "—";
   }
 
-  return `${amount.toFixed(2)} ${CURRENCY_CODE}`;
+  return new Intl.NumberFormat(currentLocale(), {
+    style: "currency",
+    currency: CURRENCY_CODE,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function formatPayLabel(value: number | string | null | undefined) {
   if (value == null || value === "") {
-    return "Pay";
+    return getCurrentLanguage() === "tr" ? "Öde" : "Pay";
   }
 
-  return `Pay ${formatMoney(value)}`;
+  return `${getCurrentLanguage() === "tr" ? "Öde" : "Pay"} ${formatMoney(value)}`;
 }

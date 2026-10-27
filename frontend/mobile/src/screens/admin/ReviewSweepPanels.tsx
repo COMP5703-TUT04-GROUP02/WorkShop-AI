@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -127,17 +131,17 @@ function ReviewSweepPanel({ copy, revision = 0, onChanged = () => {} }: { copy: 
     <Text style={styles.title}>{copy.title}</Text><Text style={styles.subtitle}>{copy.subtitle}</Text>
     <View style={styles.controls}><View style={styles.thresholdField}><TextField label={copy.thresholdLabel} value={threshold} editable={!busy} keyboardType="numeric" onChangeText={(value) => { request.current++; setIsChecking(false); setThreshold(value); setSelected([]); setReviews([]); setCheckedAmount(null); setMessage(""); setError(""); }} /></View>
     <SecondaryButton label="Check" disabled={busy} onPress={() => { const amount = Number(threshold); if (!Number.isFinite(amount) || amount <= 0) { setError("Enter an amount greater than 0."); return; } setMessage(""); setError(""); void check(amount); }} /></View>
-    {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-    {message ? <Text accessibilityLiveRegion="polite" style={styles.message}>{message}</Text> : null}
+    {error ? <T accessibilityRole="alert" style={styles.error}>{error}</T> : null}
+    {message ? <T accessibilityLiveRegion="polite" style={styles.message}>{message}</T> : null}
     {isChecking ? <ActivityIndicator /> : null}
-    {checkedAmount === null ? <Text style={styles.meta}>Click Check before selecting reviews.</Text> : <>
+    {checkedAmount === null ? <T style={styles.meta}>Click Check before selecting reviews.</T> : <>
       <Text style={styles.countText}>{total} matched · {selected.length} selected{reviews.length < total ? ` · showing first ${reviews.length}` : ""}</Text>
       <View style={styles.controls}><SecondaryButton label="Select all shown" disabled={busy || !reviews.length} onPress={() => setSelected(reviews.map((item) => item.id))} /><SecondaryButton label="Clear selection" disabled={busy || !selected.length} onPress={() => setSelected([])} /></View>
       {total === 0 ? <Text style={styles.emptyText}>{copy.emptyText}</Text> : null}
-      {reviews.map((review) => <Pressable key={review.id} accessibilityRole="checkbox" accessibilityLabel={`Select review #${review.id}`} accessibilityState={{ checked: selected.includes(review.id), disabled: busy }} disabled={busy} onPress={() => setSelected((current) => current.includes(review.id) ? current.filter((id) => id !== review.id) : [...current, review.id])} style={styles.row}>
-        <View style={styles.rowTop}><Text style={styles.amount}>{selected.includes(review.id) ? "☑" : "☐"} {review.booking_total_amount === null ? "No amount" : formatMoney(review.booking_total_amount)}</Text><Text style={styles.meta}>{review.rating} stars{review.created_at ? " · " + formatDateTime(review.created_at) : ""}</Text></View>
-        <Text style={styles.provider}>{review.provider_business_name || `Provider #${review.provider_profile_id}`}</Text><Text style={styles.comment}>{review.comment || "No comment provided."}</Text>
-      </Pressable>)}
+      {reviews.map((review) => <LocalizedPressable key={review.id} accessibilityRole="checkbox" accessibilityLabel={`Select review #${review.id}`} accessibilityState={{ checked: selected.includes(review.id), disabled: busy }} disabled={busy} onPress={() => setSelected((current) => current.includes(review.id) ? current.filter((id) => id !== review.id) : [...current, review.id])} style={styles.row}>
+        <View style={styles.rowTop}><Text style={styles.amount}>{selected.includes(review.id) ? "☑" : "☐"} {review.booking_total_amount === null ? translateText(getCurrentLanguage(), "No amount") : formatMoney(review.booking_total_amount)}</Text><Text style={styles.meta}>{review.rating} stars{review.created_at ? " · " + formatDateTime(review.created_at) : ""}</Text></View>
+        <Text style={styles.provider}>{review.provider_business_name || `Provider #${review.provider_profile_id}`}</Text><Text style={styles.comment}>{review.comment || translateText(getCurrentLanguage(), "No comment provided.")}</Text>
+      </LocalizedPressable>)}
       <PrimaryButton label={copy.actionLabel(selected.length)} disabled={busy || selected.length === 0} isLoading={isApplying} onPress={() => void apply()} />
       <Text style={styles.footnote}>{copy.footnote}</Text>
     </>}

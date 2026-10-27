@@ -1,3 +1,7 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { T } from "../../i18n/T";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -47,6 +51,7 @@ const WEEKDAYS = [
 ];
 
 export function ProviderScheduleScreen() {
+  useLanguage();
   const [activeTab, setActiveTab] = useState<ScheduleTab>("availability");
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [availabilities, setAvailabilities] = useState<ProviderAvailability[]>([]);
@@ -266,7 +271,7 @@ export function ProviderScheduleScreen() {
         />
       </View>
 
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {message ? <T style={styles.errorText}>{message}</T> : null}
 
       {activeTab === "availability" ? (
         <View style={styles.section}>
@@ -279,17 +284,17 @@ export function ProviderScheduleScreen() {
               <Clock color={colors.primary} size={22} />
             </View>
             <View style={styles.defaultTextBox}>
-              <Text style={styles.cardTitle}>Default work hours</Text>
+              <T style={styles.cardTitle}>Default work hours</T>
               <Text style={styles.cardText}>
-                {defaultWeekdays.map(getWeekdayLabel).join(", ") || "No workdays set"}
+                {defaultWeekdays.map(getWeekdayLabel).join(", ") || translateText(getCurrentLanguage(), "No workdays set")}
               </Text>
               <Text style={styles.cardText}>
                 {defaultWeekdays.length > 0
                   ? `${defaultStartTime} - ${defaultEndTime}`
-                  : "No default hours set"}
+                  : translateText(getCurrentLanguage(), "No default hours set")}
               </Text>
             </View>
-            <Text style={styles.linkText}>Edit</Text>
+            <T style={styles.linkText}>Edit</T>
           </Pressable>
 
           <View style={styles.calendarCard}>
@@ -333,7 +338,7 @@ export function ProviderScheduleScreen() {
             {isLoading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator color={colors.primary} />
-                <Text style={styles.cardText}>Loading schedule...</Text>
+                <T style={styles.cardText}>Loading schedule...</T>
               </View>
             ) : (
               <View style={styles.calendarGrid}>
@@ -394,7 +399,7 @@ export function ProviderScheduleScreen() {
             {isLoading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator color={colors.primary} />
-                <Text style={styles.cardText}>Loading upcoming bookings...</Text>
+                <T style={styles.cardText}>Loading upcoming bookings...</T>
               </View>
             ) : (
               <View style={styles.calendarGrid}>
@@ -517,7 +522,7 @@ function DefaultAvailabilityModal({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Default work hours</Text>
+          <T style={styles.modalTitle}>Default work hours</T>
           <TextField
             label="Start time"
             onChangeText={setDefaultStartTime}
@@ -530,10 +535,10 @@ function DefaultAvailabilityModal({
             placeholder="20:00"
             value={defaultEndTime}
           />
-          <Text style={styles.fieldLabel}>Default workdays</Text>
-          <Text style={styles.cardText}>
+          <T style={styles.fieldLabel}>Default workdays</T>
+          <T style={styles.cardText}>
             Select at least one workday. Unselected days are treated as unavailable.
-          </Text>
+          </T>
           <View style={styles.weekdayChipGrid}>
             {WEEKDAYS.map((weekday) => {
               const isSelected = defaultWeekdays.includes(weekday.value);
@@ -608,11 +613,11 @@ function DayAvailabilityModal({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{selectedDate || "Day settings"}</Text>
+          <Text style={styles.modalTitle}>{selectedDate || translateText(getCurrentLanguage(), "Day settings")}</Text>
           <View style={styles.switchRow}>
             <View style={styles.defaultTextBox}>
-              <Text style={styles.cardTitle}>Unavailable this day</Text>
-              <Text style={styles.cardText}>When saved, this day cannot be booked.</Text>
+              <T style={styles.cardTitle}>Unavailable this day</T>
+              <T style={styles.cardText}>When saved, this day cannot be booked.</T>
             </View>
             <Switch
               onValueChange={setDayUnavailable}
@@ -687,7 +692,7 @@ function JobCalendarDayCell({
     >
       <Text style={styles.dayNumber}>{day.dayNumber}</Text>
       <Text numberOfLines={1} style={styles.dayTimeText}>
-        {hasJobs ? `${dayBookings.length} bookings` : "No jobs"}
+        {hasJobs ? `${dayBookings.length} bookings` : translateText(getCurrentLanguage(), "No jobs")}
       </Text>
     </Pressable>
   );
@@ -710,7 +715,7 @@ function JobListModal({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{selectedDate || "Bookings for this day"}</Text>
+          <Text style={styles.modalTitle}>{selectedDate || translateText(getCurrentLanguage(), "Bookings for this day")}</Text>
           <ScrollView contentContainerStyle={styles.jobListContent}>
             {bookings.map((booking) => (
               <Pressable
@@ -751,7 +756,7 @@ function JobListModal({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <T style={styles.detailLabel}>{label}</T>
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
@@ -855,7 +860,8 @@ function getOverrideForDate(
 }
 
 function getWeekdayLabel(weekday: number) {
-  return WEEKDAYS.find((item) => item.value === weekday)?.label ?? `Day ${weekday}`;
+  const label = WEEKDAYS.find((item) => item.value === weekday)?.label;
+  return label ? translateText(getCurrentLanguage(), label) : `Day ${weekday}`;
 }
 
 function getBookingsForDate(dateKey: string, bookings: BookingDetail[]) {
@@ -892,7 +898,7 @@ function getBookingStatusLabel(status: string) {
     visit_completed_closed: "Closed",
   };
 
-  return labels[status] ?? status;
+  return translateText(getCurrentLanguage(), labels[status] ?? status);
 }
 
 function parseDateKey(dateKey: string) {

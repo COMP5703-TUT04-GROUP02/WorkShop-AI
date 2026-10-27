@@ -1,3 +1,4 @@
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
@@ -10,6 +11,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../i18n/LanguageContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useRealtime } from "../context/RealtimeContext";
 import { AccountScreen } from "../screens/AccountScreen";
@@ -41,6 +43,7 @@ const GuardedProviderChatsScreen =
 
 export function RoleTabs() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { isProviderProfileRequired, showProviderProfileRequiredMessage } =
     useProviderProfileGate();
   const { chatUnreadCount, notificationUnreadCount } = useRealtime();
@@ -97,8 +100,8 @@ export function RoleTabs() {
             name="CustomerHome"
             component={CustomerHomeScreen}
             options={{
-              title: "Home",
-              tabBarLabel: "Home",
+              title: t("Home"),
+              tabBarLabel: t("Home"),
               tabBarIcon: tabIcons.home,
             }}
           />
@@ -106,8 +109,8 @@ export function RoleTabs() {
             name="CustomerChats"
             component={CustomerChatsScreen}
             options={{
-              title: "Chats",
-              tabBarLabel: "Chats",
+              title: t("Chats"),
+              tabBarLabel: t("Chats"),
               tabBarIcon: tabIcons.chats,
               tabBarBadge: formatUnreadBadge(chatUnreadCount),
             }}
@@ -116,8 +119,8 @@ export function RoleTabs() {
             name="CustomerAIChat"
             component={CustomerAIChatScreen}
             options={{
-              title: "AI Chat",
-              tabBarLabel: "AI Chat",
+              title: t("AI Chat"),
+              tabBarLabel: t("AI Chat"),
               tabBarIcon: tabIcons.aiChat,
             }}
           />
@@ -125,8 +128,8 @@ export function RoleTabs() {
             name="CustomerBookings"
             component={CustomerBookingsScreen}
             options={{
-              title: "Bookings",
-              tabBarLabel: "Bookings",
+              title: t("Bookings"),
+              tabBarLabel: t("Bookings"),
               tabBarIcon: tabIcons.bookings,
             }}
           />
@@ -139,8 +142,8 @@ export function RoleTabs() {
             name="ProviderHome"
             component={ProviderHomeScreen}
             options={{
-              title: "Home",
-              tabBarLabel: "Home",
+              title: t("Home"),
+              tabBarLabel: t("Home"),
               tabBarIcon: tabIcons.home,
             }}
           />
@@ -156,8 +159,8 @@ export function RoleTabs() {
               },
             }}
             options={{
-              title: "Schedule",
-              tabBarLabel: "Schedule",
+              title: t("Schedule"),
+              tabBarLabel: t("Schedule"),
               tabBarIcon: tabIcons.schedule,
               tabBarButton: providerBlockedTabButton,
             }}
@@ -174,8 +177,8 @@ export function RoleTabs() {
               },
             }}
             options={{
-              title: "Bookings",
-              tabBarLabel: "Bookings",
+              title: t("Bookings"),
+              tabBarLabel: t("Bookings"),
               tabBarIcon: tabIcons.bookings,
               tabBarButton: providerBlockedTabButton,
             }}
@@ -192,8 +195,8 @@ export function RoleTabs() {
               },
             }}
             options={{
-              title: "Chats",
-              tabBarLabel: "Chats",
+              title: t("Chats"),
+              tabBarLabel: t("Chats"),
               tabBarIcon: tabIcons.chats,
               tabBarBadge: formatUnreadBadge(chatUnreadCount),
               tabBarButton: providerBlockedTabButton,
@@ -207,9 +210,9 @@ export function RoleTabs() {
           name="AdminDashboard"
           component={AdminDashboardScreen}
           options={{
-            title: "Admin",
+            title: t("Admin"),
             headerShown: false,
-            tabBarLabel: "Admin",
+            tabBarLabel: t("Admin"),
             tabBarIcon: tabIcons.admin,
           }}
         />
@@ -219,8 +222,8 @@ export function RoleTabs() {
         name="Account"
         component={AccountScreen}
         options={{
-          title: "Account",
-          tabBarLabel: "Account",
+          title: t("Account"),
+          tabBarLabel: t("Account"),
           tabBarIcon: tabIcons.account,
           tabBarBadge: formatUnreadBadge(notificationUnreadCount),
           headerRight: () => (
@@ -250,7 +253,7 @@ function NotificationsHeaderButton({ unreadCount }: { unreadCount: number }) {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
-    <Pressable
+    <LocalizedPressable
       accessibilityLabel={
         unreadCount > 0
           ? `Notifications, ${unreadCount} unread`
@@ -272,7 +275,7 @@ function NotificationsHeaderButton({ unreadCount }: { unreadCount: number }) {
           </Text>
         </View>
       ) : null}
-    </Pressable>
+    </LocalizedPressable>
   );
 }
 
@@ -308,7 +311,7 @@ function buildProviderBlockedTabButton(
 ) {
   return function ProviderBlockedTabButton(props: BottomTabBarButtonProps) {
     return (
-      <Pressable
+      <LocalizedPressable
         accessibilityLabel={props.accessibilityLabel}
         accessibilityRole={props.accessibilityRole}
         accessibilityState={props.accessibilityState}
@@ -320,7 +323,7 @@ function buildProviderBlockedTabButton(
         testID={props.testID}
       >
         {props.children}
-      </Pressable>
+      </LocalizedPressable>
     );
   };
 }

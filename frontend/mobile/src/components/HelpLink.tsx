@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CircleHelp } from "lucide-react-native";
@@ -27,7 +28,7 @@ export function HelpLink({ faqId, label, onBeforeNavigate }: HelpLinkProps) {
       style={({ pressed }) => [styles.link, pressed ? styles.pressed : null]}
     >
       <CircleHelp color={colors.primary} size={16} />
-      <Text style={styles.label}>{label}</Text>
+      <T style={styles.label}>{label}</T>
     </Pressable>
   );
 }

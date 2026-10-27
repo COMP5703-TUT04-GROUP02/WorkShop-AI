@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { T } from "../../i18n/T";
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -183,12 +186,12 @@ export function AISubscriptionPanel() {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Customer AI</Text>
+      <T style={styles.sectionTitle}>Customer AI</T>
       <Text style={styles.active}>Active: {activeLabel(status)}</Text>
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {errorMessage ? <T style={styles.errorText}>{errorMessage}</T> : null}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>API key</Text>
+        <T style={styles.cardTitle}>API key</T>
         <Text style={styles.cardBody}>
           {keySourceLabel(status)}
           {status?.key.api_key_preview
@@ -335,7 +338,7 @@ function ModelPicker({
   }
   return (
     <View style={styles.modelBlock}>
-      <Text style={styles.modelLabel}>Official models</Text>
+      <T style={styles.modelLabel}>Official models</T>
       <View style={styles.providerRow}>
         {models.map((item) => {
           const isSelected = selected === item;
@@ -391,7 +394,7 @@ function ProviderCard({
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       <Text style={styles.cardBody}>
-        {connected ? "Signed in" : pending ? "Waiting for approval" : "Not signed in"}
+        {connected ? translateText(getCurrentLanguage(), "Signed in") : pending ? translateText(getCurrentLanguage(), "Waiting for approval") : translateText(getCurrentLanguage(), "Not signed in")}
         {connected && model ? ` · ${model}` : ""}
       </Text>
       {provider?.user_code ? (

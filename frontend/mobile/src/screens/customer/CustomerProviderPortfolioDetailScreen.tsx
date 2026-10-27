@@ -1,3 +1,7 @@
+import { translateText } from "../../i18n/translations";
+import { currentLocale, getCurrentLanguage } from "../../i18n/language";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { T } from "../../i18n/T";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -12,6 +16,7 @@ import type { ProviderPortfolio } from "../../types/provider";
 type DetailRoute = RouteProp<RootStackParamList, "CustomerProviderPortfolioDetail">;
 
 export function CustomerProviderPortfolioDetailScreen() {
+  useLanguage();
   const route = useRoute<DetailRoute>();
   const [portfolio, setPortfolio] = useState<ProviderPortfolio | null>(null);
   const [message, setMessage] = useState("");
@@ -54,13 +59,13 @@ export function CustomerProviderPortfolioDetailScreen() {
             {portfolio.description ? (
               <Text style={styles.description}>{portfolio.description}</Text>
             ) : (
-              <Text style={styles.mutedText}>No description</Text>
+              <T style={styles.mutedText}>No description</T>
             )}
             <Text style={styles.mutedText}>{formatDate(portfolio.created_at)}</Text>
           </View>
         </>
       ) : (
-        <Text style={styles.mutedText}>{message || "Loading..."}</Text>
+        <Text style={styles.mutedText}>{message || translateText(getCurrentLanguage(), "Loading...")}</Text>
       )}
     </ScreenContainer>
   );
@@ -73,7 +78,7 @@ function formatDate(value: string) {
     return value.slice(0, 10);
   }
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString(currentLocale());
 }
 
 const styles = StyleSheet.create({

@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { T } from "../i18n/T";
 import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BookingContextInformation } from "./BookingContextInformation";
@@ -126,7 +129,9 @@ export function CustomerBookingDetailModal({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
+          <Text style={styles.modalTitle}>
+            {translateText(getCurrentLanguage(), "Booking")} #{booking.id}
+          </Text>
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.detailBox}>
               <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
@@ -153,12 +158,14 @@ export function CustomerBookingDetailModal({
               </>
             ) : null}
 
-            {canReviewFinalQuote ? <Text style={styles.hint}>Review the final quote above before confirming it.</Text> : null}
+            {canReviewFinalQuote ? <T style={styles.hint}>Review the final quote above before confirming it.</T> : null}
             {canPay ? (
               <Text style={styles.hint}>
                 {paymentAction === "continue"
-                  ? "Your checkout is ready. Continue payment to complete this step."
-                  : `Pay ${formatMoney(booking.status === "awaiting_service_payment" ? booking.final_quote_amount ?? booking.quote_amount : booking.visit_fee_amount ?? booking.quote_amount)} to continue.`}
+                  ? translateText(getCurrentLanguage(), "Your checkout is ready. Continue payment to complete this step.")
+                  : getCurrentLanguage() === "tr"
+                    ? `Devam etmek için ${formatMoney(booking.status === "awaiting_service_payment" ? booking.final_quote_amount ?? booking.quote_amount : booking.visit_fee_amount ?? booking.quote_amount)} ödeyin.`
+                    : `Pay ${formatMoney(booking.status === "awaiting_service_payment" ? booking.final_quote_amount ?? booking.quote_amount : booking.visit_fee_amount ?? booking.quote_amount)} to continue.`}
               </Text>
             ) : null}
 
@@ -174,8 +181,8 @@ export function CustomerBookingDetailModal({
                 {helpLinks.map((link) => <HelpLink key={link.faqId} faqId={link.faqId} label={link.label} onBeforeNavigate={onClose} />)}
               </View>
             ) : null}
-            {!hasAnyAction ? <Text style={styles.noAction}>No actions available for this booking status.</Text> : null}
-            {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
+            {!hasAnyAction ? <T style={styles.noAction}>No actions available for this booking status.</T> : null}
+            {actionError ? <T style={styles.error}>{actionError}</T> : null}
           </ScrollView>
 
           <View style={styles.actions}>
@@ -221,13 +228,13 @@ function RefundDetails({ booking, payment }: { booking: BookingDetail; payment?:
       <DetailRow label="Appealed at" value={formatDateTime(request.appealed_at)} />
       <DetailRow label="Support responded at" value={formatDateTime(request.admin_responded_at)} />
       <DetailRow label="Refunded at" value={formatDateTime(request.refunded_at)} />
-      {request.status === "approved" ? <Text style={styles.refundNotice}>Refunds usually appear in the customer account within 14 business days.</Text> : null}
+      {request.status === "approved" ? <T style={styles.refundNotice}>Refunds usually appear in the customer account within 14 business days.</T> : null}
     </>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
-  return <View style={styles.row}><Text style={styles.label}>{label}</Text><Text style={styles.value}>{value}</Text></View>;
+  return <View style={styles.row}><T style={styles.label}>{label}</T><Text style={styles.value}>{value}</Text></View>;
 }
 
 const styles = StyleSheet.create({

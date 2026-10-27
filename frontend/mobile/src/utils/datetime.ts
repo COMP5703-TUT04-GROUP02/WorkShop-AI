@@ -1,3 +1,5 @@
+import { currentLocale } from "../i18n/language";
+
 export function formatDateTime(value: string | null | undefined) {
   if (!value) {
     return "—";
@@ -8,7 +10,7 @@ export function formatDateTime(value: string | null | undefined) {
     return value;
   }
 
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(currentLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -24,7 +26,7 @@ export function formatShortDateTime(value: string | null | undefined) {
     return value.replace("T", " ").slice(0, 16);
   }
 
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(currentLocale(), {
     month: "short",
     day: "numeric",
     hour: "2-digit",

@@ -150,6 +150,8 @@ def create_booking_chat_message(
         f"{attachment_line}"
     )
     metadata = {
+        "event_key": "booking.created",
+        "detail_kind": "system",
         "booking_id": booking.id,
         "provider_profile_id": booking.provider_profile_id,
         "service_description": booking.service_description,
@@ -197,6 +199,9 @@ def create_booking_status_chat_message(
     detail: str | None,
     db: Session,
     metadata: dict | None = None,
+    *,
+    event_key: str,
+    detail_kind: str = "system",
 ):
     if booking.chat_room_id is None:
         return None
@@ -219,6 +224,8 @@ def create_booking_status_chat_message(
     if detail:
         message_parts.append(f"Note: {detail}")
     message_metadata = {
+        "event_key": event_key,
+        "detail_kind": detail_kind,
         "booking_id": booking.id,
         "old_status": old_status,
         "new_status": booking.status,

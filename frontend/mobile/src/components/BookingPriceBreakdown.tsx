@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../theme/theme";
@@ -73,7 +74,7 @@ export function BookingPriceBreakdown({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <T style={styles.title}>{title}</T>
       {hasVisibleCurrentInitialQuote ? (
         <>
           <PriceRow label="Visit fee" value={visitFee == null ? "—" : formatMoney(visitFee)} />
@@ -155,7 +156,7 @@ function PriceRow({
 }) {
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, emphasized ? styles.emphasized : null]}>{label}</Text>
+      <T style={[styles.label, emphasized ? styles.emphasized : null]}>{label}</T>
       <Text style={[styles.value, emphasized ? styles.emphasized : null]}>{value}</Text>
     </View>
   );

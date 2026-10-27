@@ -27,11 +27,14 @@ def create_notification(
     related_type: NotificationRelatedType,
     related_id: int,
     db: Session,
+    template_params: dict | None = None,
 ):
     notification = models.Notification(
         user_id=user_id,
         title=title,
         content=content,
+        template_key=notification_type.value,
+        template_params=template_params or {},
         notification_type=notification_type.value,
         related_type=related_type.value,
         related_id=related_id,
@@ -49,6 +52,8 @@ def create_notification(
         related_type.value,
         related_id,
         db,
+        template_key=notification_type.value,
+        template_params=template_params or {},
     )
     return notification
 
@@ -340,6 +345,8 @@ def format_notification_response(
         "user_id": notification.user_id,
         "title": notification.title,
         "content": notification.content,
+        "template_key": notification.template_key,
+        "template_params": notification.template_params,
         "notification_type": notification.notification_type,
         "related_type": notification.related_type,
         "related_id": notification.related_id,

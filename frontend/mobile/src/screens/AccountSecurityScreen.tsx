@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import axios from "axios";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -35,6 +39,7 @@ import { getErrorMessage } from "../utils/errors";
 type PendingAction = "none" | "verify-email" | "verify-phone" | "change-email";
 
 export function AccountSecurityScreen() {
+  useLanguage();
   const { user, setCurrentUser, signIn } = useAuth();
 
   const [pending, setPending] = useState<PendingAction>("none");
@@ -194,12 +199,12 @@ export function AccountSecurityScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Account and Security</Text>
+      <T style={styles.title}>Account and Security</T>
 
       <View style={styles.card}>
         <View style={styles.row}>
           <View style={styles.rowText}>
-            <Text style={styles.label}>Sign-in email</Text>
+            <T style={styles.label}>Sign-in email</T>
             <Text style={styles.value}>{user?.email ?? "—"}</Text>
           </View>
           <StatusPill verified={Boolean(user?.email_verified)} />
@@ -220,10 +225,10 @@ export function AccountSecurityScreen() {
 
         <View style={styles.row}>
           <View style={styles.rowText}>
-            <Text style={styles.label}>Phone</Text>
-            <Text style={styles.hint}>
+            <T style={styles.label}>Phone</T>
+            <T style={styles.hint}>
               Verifies the number saved on your profile.
-            </Text>
+            </T>
           </View>
           <StatusPill verified={Boolean(user?.phone_verified)} />
         </View>
@@ -236,15 +241,15 @@ export function AccountSecurityScreen() {
           }}
         />
 
-        {verifyMessage ? <Text style={styles.success}>{verifyMessage}</Text> : null}
-        {verifyError ? <Text style={styles.error}>{verifyError}</Text> : null}
+        {verifyMessage ? <T style={styles.success}>{verifyMessage}</T> : null}
+        {verifyError ? <T style={styles.error}>{verifyError}</T> : null}
         <Text style={styles.hint}>
           We email a 6-digit code to verify your address. {PHONE_CODE_HINT}
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Change password</Text>
+        <T style={styles.cardTitle}>Change password</T>
         <TextField
           label="Current password"
           onChangeText={setCurrentPassword}
@@ -266,9 +271,9 @@ export function AccountSecurityScreen() {
           secureTextEntry
           value={confirmPassword}
         />
-        {passwordError ? <Text style={styles.error}>{passwordError}</Text> : null}
+        {passwordError ? <T style={styles.error}>{passwordError}</T> : null}
         {passwordMessage ? (
-          <Text style={styles.success}>{passwordMessage}</Text>
+          <T style={styles.success}>{passwordMessage}</T>
         ) : null}
         <PrimaryButton
           disabled={!currentPassword || !newPassword || !confirmPassword}
@@ -279,11 +284,11 @@ export function AccountSecurityScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Change sign-in email</Text>
-        <Text style={styles.hint}>
+        <T style={styles.cardTitle}>Change sign-in email</T>
+        <T style={styles.hint}>
           We email a 6-digit code to the new address. The change takes effect
           once you enter it.
-        </Text>
+        </T>
         <TextField
           keyboardType="email-address"
           label="New email"
@@ -291,8 +296,8 @@ export function AccountSecurityScreen() {
           placeholder="you@example.com"
           value={newEmail}
         />
-        {emailError ? <Text style={styles.error}>{emailError}</Text> : null}
-        {emailMessage ? <Text style={styles.success}>{emailMessage}</Text> : null}
+        {emailError ? <T style={styles.error}>{emailError}</T> : null}
+        {emailMessage ? <T style={styles.success}>{emailMessage}</T> : null}
         <PrimaryButton
           disabled={!newEmail.trim()}
           isLoading={isSendingEmailChangeCode}
@@ -302,12 +307,12 @@ export function AccountSecurityScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Sign-in method</Text>
-        <Text style={styles.value}>Email and password</Text>
-        <Text style={styles.hint}>
+        <T style={styles.cardTitle}>Sign-in method</T>
+        <T style={styles.value}>Email and password</T>
+        <T style={styles.hint}>
           Google and Apple sign-in are on the sign-in screen as a reminder. OAuth is
           not connected yet.
-        </Text>
+        </T>
       </View>
 
       <VerifyCodeModal
@@ -335,7 +340,7 @@ export function AccountSecurityScreen() {
 function StatusPill({ verified }: { verified: boolean }) {
   return (
     <View style={[styles.pill, verified ? styles.pillVerified : null]}>
-      <Text style={styles.pillText}>{verified ? "VERIFIED" : "NOT VERIFIED"}</Text>
+      <Text style={styles.pillText}>{verified ? translateText(getCurrentLanguage(), "VERIFIED") : translateText(getCurrentLanguage(), "NOT VERIFIED")}</Text>
     </View>
   );
 }

@@ -130,3 +130,34 @@ export function getCustomerBookingListAction(
   );
   return paymentAction === "pay" || paymentAction === "continue" ? "pay" : null;
 }
+
+export function withBookingPreview(
+  current: Record<number, BookingDetail>,
+  booking: BookingDetail,
+) {
+  return {
+    ...current,
+    [booking.id]: booking,
+  };
+}
+
+export function withBookingPayment(
+  current: Record<number, PaymentSummary>,
+  bookingId: number,
+  payment: PaymentSummary | null,
+) {
+  const next = { ...current };
+  if (payment) {
+    next[bookingId] = payment;
+  } else {
+    delete next[bookingId];
+  }
+  return next;
+}
+
+export function isLatestBookingRefresh(
+  latestVersion: number | undefined,
+  requestVersion: number,
+) {
+  return latestVersion === requestVersion;
+}

@@ -1,3 +1,8 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -5,7 +10,6 @@ import {
   AppState,
   ActivityIndicator,
   Alert,
-  Linking,
   Modal,
   Pressable,
   Platform,
@@ -71,6 +75,7 @@ import {
 } from "../../utils/bookingActions";
 import { createLatestRequestGuard } from "../../utils/latestRequest";
 import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
+import { openPaymentCheckout } from "../../utils/openPaymentCheckout";
 
 const HIDDEN_ORDER_STATUSES = [
   "completed",
@@ -82,6 +87,7 @@ const HIDDEN_ORDER_STATUSES = [
 ];
 type ReasonAction = "decline_quote" | "decline_final_quote" | "refund";
 export function CustomerBookingsScreen() {
+  useLanguage();
   const navigation = useNavigation<
     NativeStackNavigationProp<RootStackParamList>
   >();
@@ -367,7 +373,7 @@ export function CustomerBookingsScreen() {
 
       if (result?.payment_page_url) {
         delete paymentIdempotencyKeysRef.current[booking.id];
-        await Linking.openURL(result.payment_page_url);
+        await openPaymentCheckout(result.payment_page_url);
         setMessage("iyzico checkout opened. Return here after payment to refresh the status.");
         void loadBookings();
       } else if (payment?.status) {
@@ -376,7 +382,9 @@ export function CustomerBookingsScreen() {
         setMessage("Payment checkout is being prepared. Refresh this page shortly.");
       }
     } catch (error) {
-      setActionError(getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      setActionError(errorMessage);
+      setMessage(errorMessage);
     } finally {
       paymentInFlightRef.current = false;
       setIsActing(false);
@@ -497,7 +505,7 @@ export function CustomerBookingsScreen() {
             getBookingById,
           ),
         );
-        await Linking.openURL(result.payment_page_url);
+        await openPaymentCheckout(result.payment_page_url);
         setMessage("The final quote changed. Complete the new authorization, then confirm again.");
         await loadBookings();
         return;
@@ -548,7 +556,7 @@ export function CustomerBookingsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
+        <T style={styles.title}>Bookings</T>
         <SecondaryButton
           disabled={isLoading || isActing}
           label="Refresh"
@@ -556,7 +564,7 @@ export function CustomerBookingsScreen() {
         />
       </View>
 
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {message ? <T style={styles.errorText}>{message}</T> : null}
 
       {isLoading ? (
         <View style={styles.loadingBox}>
@@ -564,8 +572,8 @@ export function CustomerBookingsScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
-          <Text style={styles.emptyText}>Active bookings appear here.</Text>
+          <T style={styles.emptyTitle}>No bookings yet</T>
+          <T style={styles.emptyText}>Active bookings appear here.</T>
         </View>
       ) : (
         <View style={styles.list}>
@@ -728,7 +736,7 @@ function BookingCard({
         <>
           <Text style={styles.amountText}>
             {booking.visit_fee_amount == null
-              ? "Awaiting visit fee"
+              ? translateText(getCurrentLanguage(), "Awaiting visit fee")
               : `Visit fee: ${formatMoney(booking.visit_fee_amount)}`}
           </Text>
           <Text style={styles.amountText}>
@@ -739,8 +747,8 @@ function BookingCard({
         <Text style={styles.amountText}>
           {payableAmount == null
             ? booking.status === "awaiting_service_payment"
-              ? "Awaiting service amount"
-              : "Awaiting visit fee"
+              ? translateText(getCurrentLanguage(), "Awaiting service amount")
+              : translateText(getCurrentLanguage(), "Awaiting visit fee")
             : `${payableLabel}: ${formatMoney(payableAmount)}`}
         </Text>
       )}
@@ -802,16 +810,16 @@ function DetailRow({
 }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <T style={styles.detailLabel}>{label}</T>
       {onPress ? (
-        <Pressable
+        <LocalizedPressable
           accessibilityHint="Opens the provider profile"
           accessibilityLabel={`Open ${value}`}
           accessibilityRole="link"
           onPress={onPress}
         >
           <Text style={[styles.detailValue, styles.detailLink]}>{value}</Text>
-        </Pressable>
+        </LocalizedPressable>
       ) : (
         <Text style={styles.detailValue}>{value}</Text>
       )}
@@ -834,7 +842,7 @@ function getBookingStatusLabel(status: string) {
     cancelled: "Cancelled",
   };
 
-  return labels[status] || status;
+  return translateText(getCurrentLanguage(), labels[status] || status);
 }
 
 function getRefundStatusLabel(status: string) {
@@ -847,7 +855,7 @@ function getRefundStatusLabel(status: string) {
     cancelled: "Cancelled",
   };
 
-  return labels[status] || status;
+  return translateText(getCurrentLanguage(), labels[status] || status);
 }
 
 function filterActiveBookings(bookings: BookingDetail[]) {

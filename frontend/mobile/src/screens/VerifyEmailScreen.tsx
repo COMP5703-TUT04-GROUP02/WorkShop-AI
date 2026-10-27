@@ -1,3 +1,5 @@
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -24,6 +26,7 @@ const DEFAULT_RESEND_SECONDS = 60;
  * opens. Verifying swaps in the main app.
  */
 export function VerifyEmailScreen() {
+  useLanguage();
   const { user, setCurrentUser, signOut } = useAuth();
   const [code, setCode] = useState("");
   const [resendIn, setResendIn] = useState(0);
@@ -90,13 +93,13 @@ export function VerifyEmailScreen() {
     >
       <ScreenContainer contentStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.title}>Verify your email</Text>
+          <T style={styles.title}>Verify your email</T>
           <Text style={styles.description}>
             {notice || `Sending a code to ${user?.email ?? "your email"}...`}
           </Text>
-          <Text style={styles.description}>
+          <T style={styles.description}>
             Enter it below to finish setting up your account.
-          </Text>
+          </T>
 
           <TextField
             keyboardType="number-pad"
@@ -106,9 +109,9 @@ export function VerifyEmailScreen() {
             placeholder="123456"
             value={code}
           />
-          <Text style={styles.hint}>{EMAIL_CODE_HINT}</Text>
+          <T style={styles.hint}>{EMAIL_CODE_HINT}</T>
 
-          {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+          {errorMessage ? <T style={styles.error}>{errorMessage}</T> : null}
 
           <View style={styles.actions}>
             <PrimaryButton
@@ -130,9 +133,9 @@ export function VerifyEmailScreen() {
             />
             <SecondaryButton label="Sign out" onPress={() => void signOut()} />
           </View>
-          <Text style={styles.hint}>
+          <T style={styles.hint}>
             Wrong address? Sign out and register again with the right email.
-          </Text>
+          </T>
         </View>
       </ScreenContainer>
     </View>

@@ -1,3 +1,8 @@
+import { currentLocale, getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { X } from "lucide-react-native";
@@ -47,7 +52,7 @@ import type { ProviderPortfolio, ProviderProfile } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errors";
 import { formatDateTime } from "../../utils/datetime";
 import { formatMoney } from "../../utils/money";
-import { getPaymentStatusLabel } from "../../constants/labels";
+import { getPaymentStatusLabel, getSubmerchantStatusLabel, getVerificationStatusLabel } from "../../constants/labels";
 import type { RootStackParamList } from "../../navigation/types";
 
 const PAGE_SIZE = 20;
@@ -62,6 +67,7 @@ type AdminPaymentFilters = {
 type OperationsSection = "portfolio" | "refunds" | "payments" | "payouts";
 
 export function AdminDashboardScreen() {
+  useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const area = (route.params as { area?: AdminArea } | undefined)?.area ?? "ai";
@@ -81,22 +87,27 @@ export function AdminDashboardScreen() {
 }
 
 export function AdminPortfolioReviewScreen() {
+  useLanguage();
   return <AdminOperationsScreen section="portfolio" />;
 }
 
 export function AdminRefundDisputesScreen() {
+  useLanguage();
   return <AdminOperationsScreen section="refunds" />;
 }
 
 export function AdminPaymentsSettlementsScreen() {
+  useLanguage();
   return <AdminOperationsScreen section="payments" />;
 }
 
 export function AdminPayoutAccountsScreen() {
+  useLanguage();
   return <AdminOperationsScreen section="payouts" />;
 }
 
 function AdminOperationsScreen({ section }: { section: OperationsSection }) {
+  useLanguage();
   const [pendingPortfolios, setPendingPortfolios] = useState<ProviderPortfolio[]>([]);
   const [pendingAppeals, setPendingAppeals] = useState<RefundRequestSummary[]>([]);
   const [submerchants, setSubmerchants] = useState<AdminSubmerchant[]>([]);
@@ -355,12 +366,12 @@ function AdminOperationsScreen({ section }: { section: OperationsSection }) {
         <View>
           <Text style={styles.title}>
             {section === "portfolio"
-              ? "Portfolios pending review"
+              ? translateText(getCurrentLanguage(), "Portfolios pending review")
               : section === "refunds"
-                ? "Refund appeals pending review"
+                ? translateText(getCurrentLanguage(), "Refund appeals pending review")
                 : section === "payments"
-                  ? "Payments & settlements"
-                  : "Provider payout accounts"}
+                  ? translateText(getCurrentLanguage(), "Payments & settlements")
+                  : translateText(getCurrentLanguage(), "Provider payout accounts")}
           </Text>
         </View>
         <SecondaryButton
@@ -372,12 +383,12 @@ function AdminOperationsScreen({ section }: { section: OperationsSection }) {
 
       {section !== "payments" ? <>
         <AdminRecordSearch section={section} appliedFilters={recordFilters} disabled={isLoading || isActing} onDirty={() => { setRecordQueryDirty(true); closePortfolio(); closeAppeal(); }} onSearch={(filters) => { closePortfolio(); closeAppeal(); setRecordPage(1); setRecordQueryDirty(false); setRecordFilters(filters); }} />
-        <Text style={styles.cardMeta}>{recordQueryDirty ? "Conditions changed. Search to update results." : `${recordTotal} results matching the filters above`}</Text>
+        <Text style={styles.cardMeta}>{recordQueryDirty ? translateText(getCurrentLanguage(), "Conditions changed. Search to update results.") : getCurrentLanguage() === "tr" ? `${recordTotal} sonuç yukarıdaki filtrelerle eşleşiyor` : `${recordTotal} results matching the filters above`}</Text>
       </> : null}
 
-      {message ? <Text accessibilityLiveRegion="polite" style={styles.cardMeta}>{message}</Text> : null}
+      {message ? <T accessibilityLiveRegion="polite" style={styles.cardMeta}>{message}</T> : null}
 
-      {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
+      {actionError ? <T style={styles.errorText}>{actionError}</T> : null}
 
       {(section === "payments" || section === "payouts") && !recordQueryDirty && isLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -402,10 +413,10 @@ function AdminOperationsScreen({ section }: { section: OperationsSection }) {
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : pendingPortfolios.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No matching portfolios pending review</Text>
-            <Text style={styles.emptyText}>
+            <T style={styles.emptyTitle}>No matching portfolios pending review</T>
+            <T style={styles.emptyText}>
               Newly uploaded portfolios enter pending status first.
-            </Text>
+            </T>
           </View>
         ) : (
           <View style={styles.list}>
@@ -425,10 +436,10 @@ function AdminOperationsScreen({ section }: { section: OperationsSection }) {
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : pendingAppeals.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No matching refund appeals</Text>
-            <Text style={styles.emptyText}>
+            <T style={styles.emptyTitle}>No matching refund appeals</T>
+            <T style={styles.emptyText}>
               Customer appeals against provider refund rejections appear here.
-            </Text>
+            </T>
           </View>
         ) : (
           <View style={styles.list}>
@@ -516,8 +527,8 @@ function MarketplaceSection({
     <View style={styles.section}>
       {view === "payouts" && submerchants.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No matching payout accounts</Text>
-          <Text style={styles.emptyText}>Provider payout account status will appear here.</Text>
+          <T style={styles.emptyTitle}>No matching payout accounts</T>
+          <T style={styles.emptyText}>Provider payout account status will appear here.</T>
         </View>
       ) : view === "payouts" ? (
         <View style={styles.list}>
@@ -525,7 +536,7 @@ function MarketplaceSection({
             <View key={submerchant.id} style={styles.reviewCard}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>Provider #{submerchant.provider_profile_id}</Text>
-                <Text style={styles.pendingBadge}>{submerchant.status}</Text>
+                <Text style={styles.pendingBadge}>{getSubmerchantStatusLabel(submerchant.status)}</Text>
               </View>
               <Text style={styles.cardMeta}>
                 {submerchant.submerchant_type} · IBAN {maskSecret(submerchant.iban)}
@@ -535,7 +546,7 @@ function MarketplaceSection({
               </Text>
               {submerchant.iyzico_error_code || submerchant.iyzico_error_message ? (
                 <Text style={styles.errorText}>
-                  {submerchant.iyzico_error_code || "iyzico"}: {submerchant.iyzico_error_message || "Unknown error"}
+                  {submerchant.iyzico_error_code || translateText(getCurrentLanguage(), "iyzico")}: {submerchant.iyzico_error_message || translateText(getCurrentLanguage(), "Unknown error")}
                 </Text>
               ) : null}
             </View>
@@ -544,8 +555,8 @@ function MarketplaceSection({
       ) : null}
 
       {view === "payments" ? <View style={styles.filterCard}>
-        <Text style={styles.filterTitle}>Payment filters</Text>
-        <Text style={styles.filterLabel}>Payment status</Text>
+        <T style={styles.filterTitle}>Payment filters</T>
+        <T style={styles.filterLabel}>Payment status</T>
         <View style={styles.filterRow}>
           {[
             ["All", undefined],
@@ -565,7 +576,7 @@ function MarketplaceSection({
             />
           ))}
         </View>
-        <Text style={styles.filterLabel}>Settlement status</Text>
+        <T style={styles.filterLabel}>Settlement status</T>
         <View style={styles.filterRow}>
           {[
             ["All", undefined],
@@ -603,14 +614,14 @@ function MarketplaceSection({
           value={bookingFilter}
         />
         <SecondaryButton label="Apply ID filters" onPress={applyIdFilters} />
-        {filterError ? <Text accessibilityRole="alert" style={styles.errorText}>{filterError}</Text> : null}
+        {filterError ? <T accessibilityRole="alert" style={styles.errorText}>{filterError}</T> : null}
       </View> : null}
 
-      {view === "payments" ? <Text style={styles.cardMeta}>Results matching the filters above</Text> : null}
+      {view === "payments" ? <T style={styles.cardMeta}>Results matching the filters above</T> : null}
       {view === "payments" && payments.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No matching marketplace payments</Text>
-          <Text style={styles.emptyText}>Payment splits and settlement status will appear here.</Text>
+          <T style={styles.emptyTitle}>No matching marketplace payments</T>
+          <T style={styles.emptyText}>Payment splits and settlement status will appear here.</T>
         </View>
       ) : view === "payments" ? (
         <View style={styles.list}>
@@ -629,7 +640,7 @@ function MarketplaceSection({
                   Customer {payment.booking?.customer?.name || `#${payment.customer_id}`} · Provider {payment.booking?.provider?.business_name || `#${payment.provider_profile_id}`}
                 </Text>
                 <Text style={styles.cardMeta}>
-                  Transaction {payment.payment_transaction_id || "Not available"}
+                  Transaction {payment.payment_transaction_id || translateText(getCurrentLanguage(), "Not available")}
                 </Text>
                 <Text style={styles.cardMeta}>
                   Created {formatDateTime(payment.created_at)}
@@ -648,9 +659,9 @@ function MarketplaceSection({
                     ) : null}
                     {settlement.status === "approval_failed" ? (
                       retryQueuedPaymentIds[payment.id] ? (
-                        <Text style={styles.retryQueuedText}>
+                        <T style={styles.retryQueuedText}>
                           Settlement retry queued; waiting for the worker result.
-                        </Text>
+                        </T>
                       ) : (
                         <SecondaryButton
                           disabled={isActing}
@@ -663,12 +674,12 @@ function MarketplaceSection({
                 ) : (
                   <>
                     <MarketplaceBreakdownCard adminLayout payment={payment} title="Payment estimate" />
-                    <Text style={styles.cardMeta}>No settlement record yet</Text>
+                    <T style={styles.cardMeta}>No settlement record yet</T>
                   </>
                 )}
                 {payment.failure_code || payment.failure_message ? (
                   <Text style={styles.errorText}>
-                    {payment.failure_code || "payment_error"}: {payment.failure_message || "Unknown payment error"}
+                    {payment.failure_code || translateText(getCurrentLanguage(), "payment_error")}: {payment.failure_message || translateText(getCurrentLanguage(), "Unknown payment error")}
                   </Text>
                 ) : null}
               </View>
@@ -749,10 +760,10 @@ function ProfileReviewCard({
         <Text numberOfLines={1} style={styles.cardTitle}>
           {profile.business_name}
         </Text>
-        <Text style={styles.pendingBadge}>Pending</Text>
+        <T style={styles.pendingBadge}>Pending</T>
       </View>
       <Text numberOfLines={2} style={styles.cardDescription}>
-        {profile.bio || "No bio"}
+        {profile.bio || translateText(getCurrentLanguage(), "No bio")}
       </Text>
       <Text style={styles.cardMeta}>
         Provider #{profile.id} · {profile.service_province} · {profile.tags.join(", ")}
@@ -778,10 +789,10 @@ function RefundAppealCard({
         <Text numberOfLines={1} style={styles.cardTitle}>
           Refund appeal #{appeal.id}
         </Text>
-        <Text style={styles.pendingBadge}>Appealed</Text>
+        <T style={styles.pendingBadge}>Appealed</T>
       </View>
       <Text numberOfLines={2} style={styles.cardDescription}>
-        {appeal.appeal_reason || "No reason provided"}
+        {appeal.appeal_reason || translateText(getCurrentLanguage(), "No reason provided")}
       </Text>
       <Text style={styles.cardMeta}>
         Refund request #{appeal.id} · Customer #{appeal.customer_id} · Provider #{appeal.provider_profile_id}
@@ -827,7 +838,7 @@ function ProfileReviewModal({
               <Text style={styles.modalTitle}>{profile.business_name}</Text>
               <Text style={styles.modalSubtitle}>Profile #{profile.id}</Text>
             </View>
-            <Pressable
+            <LocalizedPressable
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -835,12 +846,12 @@ function ProfileReviewModal({
               style={styles.closeButton}
             >
               <X color={colors.text} size={22} />
-            </Pressable>
+            </LocalizedPressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
             <View style={styles.detailCard}>
-              <Text style={styles.detailTitle}>Provider profile</Text>
+              <T style={styles.detailTitle}>Provider profile</T>
               <ProfileDetailRow label="Business name" value={profile.business_name} />
               <ProfileDetailRow label="Service province" value={profile.service_province} />
               <ProfileDetailRow label="Service tags" value={profile.tags.join(", ")} />
@@ -851,18 +862,18 @@ function ProfileReviewModal({
                 label="Location"
                 value={`${profile.latitude ?? "-"}, ${profile.longitude ?? "-"}`}
               />
-              <Text style={styles.detailMeta}>Bio</Text>
+              <T style={styles.detailMeta}>Bio</T>
               <Text style={styles.detailText}>{profile.bio}</Text>
               {profile.notes ? (
                 <>
-                  <Text style={styles.detailMeta}>Notes</Text>
+                  <T style={styles.detailMeta}>Notes</T>
                   <Text style={styles.detailText}>{profile.notes}</Text>
                 </>
               ) : null}
             </View>
 
             <View style={styles.detailCard}>
-              <Text style={styles.detailTitle}>Certificates</Text>
+              <T style={styles.detailTitle}>Certificates</T>
               <ProfileDetailRow label="Name" value={profile.certificate_name} />
               <ProfileDetailRow label="URL" value={profile.certificate_url} />
               {profile.certificate_files?.map((certificate, index) => (
@@ -872,7 +883,7 @@ function ProfileReviewModal({
                   value={`${certificate.original_file_name} · ${certificate.file_url}`}
                 />
               ))}
-              <ProfileDetailRow label="Current status" value={profile.verification_status} />
+              <ProfileDetailRow label="Current status" value={getVerificationStatusLabel(profile.verification_status)} />
             </View>
 
             <TextField
@@ -883,7 +894,7 @@ function ProfileReviewModal({
               placeholder="Shown to the provider"
               value={rejectReason}
             />
-            {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
+            {actionError ? <T style={styles.errorText}>{actionError}</T> : null}
           </ScrollView>
 
           <View style={styles.modalActions}>
@@ -905,7 +916,7 @@ function ProfileReviewModal({
 function ProfileDetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <T style={styles.detailLabel}>{label}</T>
       <Text style={styles.detailValue}>{value || "-"}</Text>
     </View>
   );
@@ -947,7 +958,7 @@ function RefundAppealModal({
               <Text style={styles.modalTitle}>Refund appeal #{appeal.id}</Text>
               <Text style={styles.modalSubtitle}>Booking #{appeal.booking_id}</Text>
             </View>
-            <Pressable
+            <LocalizedPressable
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -955,12 +966,12 @@ function RefundAppealModal({
               style={styles.closeButton}
             >
               <X color={colors.text} size={22} />
-            </Pressable>
+            </LocalizedPressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
             <View style={styles.detailCard}>
-              <Text style={styles.detailTitle}>Booking and refund details</Text>
+              <T style={styles.detailTitle}>Booking and refund details</T>
               <ProfileDetailRow
                 label="Refund status"
                 value={getRefundStatusLabel(appeal.status)}
@@ -998,7 +1009,7 @@ function RefundAppealModal({
             </View>
 
             <View style={styles.detailCard}>
-              <Text style={styles.detailTitle}>Appeal details</Text>
+              <T style={styles.detailTitle}>Appeal details</T>
               <ProfileDetailRow label="Refund reason" value={appeal.reason} />
               <ProfileDetailRow
                 label="Provider response"
@@ -1019,7 +1030,7 @@ function RefundAppealModal({
               placeholder="Shown to the customer and provider"
               value={adminNote}
             />
-            {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
+            {actionError ? <T style={styles.errorText}>{actionError}</T> : null}
           </ScrollView>
 
           <View style={styles.modalActions}>
@@ -1055,10 +1066,10 @@ function PortfolioReviewCard({
         <Text numberOfLines={1} style={styles.cardTitle}>
           {portfolio.title}
         </Text>
-        <Text style={styles.pendingBadge}>Pending</Text>
+        <T style={styles.pendingBadge}>Pending</T>
       </View>
       <Text numberOfLines={2} style={styles.cardDescription}>
-        {portfolio.description || "No description"}
+        {portfolio.description || translateText(getCurrentLanguage(), "No description")}
       </Text>
       <Text style={styles.cardMeta}>
         Provider #{portfolio.provider_profile_id} · {portfolio.media_items.length || 1} media items
@@ -1099,7 +1110,7 @@ function PortfolioReviewModal({
               <Text style={styles.modalTitle}>Portfolio #{portfolio.id}</Text>
               <Text style={styles.modalSubtitle}>Provider #{portfolio.provider_profile_id}</Text>
             </View>
-            <Pressable
+            <LocalizedPressable
               accessibilityLabel="Close"
               accessibilityRole="button"
               disabled={isActing}
@@ -1107,7 +1118,7 @@ function PortfolioReviewModal({
               style={styles.closeButton}
             >
               <X color={colors.text} size={22} />
-            </Pressable>
+            </LocalizedPressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
@@ -1116,13 +1127,13 @@ function PortfolioReviewModal({
             <View style={styles.detailCard}>
               <Text style={styles.detailTitle}>{portfolio.title}</Text>
               <Text style={styles.detailText}>
-                {portfolio.description || "No description"}
+                {portfolio.description || translateText(getCurrentLanguage(), "No description")}
               </Text>
               <Text style={styles.detailMeta}>
                 Uploaded: {formatDate(portfolio.created_at)}
               </Text>
               <Text style={styles.detailMeta}>
-                Status: {portfolio.verification_status}
+                {translateText(getCurrentLanguage(), "Status")}: {getVerificationStatusLabel(portfolio.verification_status)}
               </Text>
             </View>
 
@@ -1134,7 +1145,7 @@ function PortfolioReviewModal({
               placeholder="Shown to the provider"
               value={rejectReason}
             />
-            {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
+            {actionError ? <T style={styles.errorText}>{actionError}</T> : null}
           </ScrollView>
 
           <View style={styles.modalActions}>
@@ -1160,22 +1171,28 @@ function formatDate(value: string) {
     return value.slice(0, 10);
   }
 
-  return date.toLocaleString();
+  return date.toLocaleString(currentLocale());
 }
 
 function getRefundStatusLabel(status: string) {
+  let label: string;
   switch (status) {
     case "appealed":
-      return "Under review";
+      label = "Under review";
+      break;
     case "approved":
-      return "Approved";
+      label = "Approved";
+      break;
     case "admin_rejected":
-      return "Appeal declined";
+      label = "Appeal declined";
+      break;
     case "rejected":
-      return "Declined";
+      label = "Declined";
+      break;
     default:
-      return status || "Unknown";
+      label = status || "Unknown";
   }
+  return translateText(getCurrentLanguage(), label);
 }
 
 const styles = StyleSheet.create({

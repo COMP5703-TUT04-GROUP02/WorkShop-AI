@@ -361,6 +361,7 @@ def update_provider_verification(
                 NotificationRelatedType.provider_profile,
                 profile.id,
                 db,
+                template_params={"step": history_step},
             )
         elif new_status == ProviderVerificationStatus.rejected:
             create_notification(
@@ -371,6 +372,7 @@ def update_provider_verification(
                 NotificationRelatedType.provider_profile,
                 profile.id,
                 db,
+                template_params={"step": history_step, "reason": verification_data.verification_note or ""},
             )
     db.commit()
     db.refresh(profile)
@@ -496,6 +498,7 @@ def update_provider_portfolio_verification(
                 NotificationRelatedType.provider_portfolio,
                 portfolio.id,
                 db,
+                template_params={"title": portfolio.title},
             )
         elif portfolio.verification_status == ProviderVerificationStatus.rejected:
             create_notification(
@@ -509,6 +512,7 @@ def update_provider_portfolio_verification(
                 NotificationRelatedType.provider_portfolio,
                 portfolio.id,
                 db,
+                template_params={"title": portfolio.title, "reason": verification_data.verification_note or ""},
             )
 
     db.commit()
@@ -590,6 +594,8 @@ async def admin_update_booking_status(
             "admin_note": booking.status_note,
             "completed_at": booking.completed_at,
         },
+        event_key="booking.status_updated_by_admin",
+        detail_kind="user_text" if booking.status_note else "system",
     )
     create_notification(
         booking.customer_id,
@@ -868,6 +874,8 @@ async def admin_approve_refund_request(
             "admin_note": refund_request.admin_note,
             "refunded_at": refund_request.refunded_at,
         },
+        event_key="booking.refund_appeal_approved_by_admin",
+        detail_kind="user_text" if booking.status_note else "system",
     )
     add_refund_request_status_history(
         refund_request,
@@ -978,6 +986,8 @@ async def admin_reject_refund_request(
             "admin_note": refund_request.admin_note,
             "restored_booking_status": booking.status,
         },
+        event_key="booking.refund_appeal_rejected_by_admin",
+        detail_kind="user_text" if booking.status_note else "system",
     )
     add_refund_request_status_history(
         refund_request,

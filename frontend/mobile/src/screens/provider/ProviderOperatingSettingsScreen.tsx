@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { T } from "../../i18n/T";
 import { useFocusEffect } from "@react-navigation/native";
 import { MapPin, Trash2 } from "lucide-react-native";
 import { useCallback, useState } from "react";
@@ -29,6 +33,7 @@ import type { ApprovedServices, ProviderProfile, ProviderServiceArea } from "../
 import { getErrorMessage } from "../../utils/errors";
 
 export function ProviderOperatingSettingsScreen() {
+  useLanguage();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [services, setServices] = useState<ApprovedServices | null>(null);
   const [areas, setAreas] = useState<ProviderServiceArea[]>([]);
@@ -62,7 +67,7 @@ export function ProviderOperatingSettingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <T style={styles.error}>{error}</T> : null}
       {profile && services ? (
         <OperatingSettingsForm
           approvedServices={services}
@@ -168,11 +173,11 @@ function OperatingSettingsForm({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Operating settings</Text>
-      <Text style={styles.hint}>
+      <T style={styles.title}>Operating settings</T>
+      <T style={styles.hint}>
         Manage day-to-day business information after service verification.
         These changes do not alter the approved application record.
-      </Text>
+      </T>
       <TextField
         label="Business description"
         multiline
@@ -192,19 +197,19 @@ function OperatingSettingsForm({
         value={hourlyRate}
       />
 
-      <Text style={styles.label}>Business address</Text>
+      <T style={styles.label}>Business address</T>
       <Pressable
         onPress={() => setShowAddressPicker(true)}
         style={styles.selectionRow}
       >
         <MapPin color={colors.primary} size={20} />
         <Text style={styles.flex}>
-          {address?.label || "Select the exact business address"}
+          {address?.label || translateText(getCurrentLanguage(), "Select the exact business address")}
         </Text>
       </Pressable>
 
-      <Text style={styles.label}>Enabled services</Text>
-      <Text style={styles.hint}>Only Admin-approved services can be enabled.</Text>
+      <T style={styles.label}>Enabled services</T>
+      <T style={styles.hint}>Only Admin-approved services can be enabled.</T>
       <View style={styles.tags}>
         {approvedServices.approved_service_categories.map((service) => {
           const active = enabledServices.includes(service);
@@ -229,9 +234,9 @@ function OperatingSettingsForm({
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.label}>Service areas</Text>
+        <T style={styles.label}>Service areas</T>
         <Pressable onPress={() => setShowAreaPicker(true)}>
-          <Text style={styles.link}>Add area</Text>
+          <T style={styles.link}>Add area</T>
         </Pressable>
       </View>
       {areas.map((area) => (
@@ -248,7 +253,7 @@ function OperatingSettingsForm({
         </View>
       ))}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <T style={styles.error}>{error}</T> : null}
       <PrimaryButton
         isLoading={isSaving}
         label="Save operating settings"

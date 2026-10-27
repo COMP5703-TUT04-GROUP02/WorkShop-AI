@@ -32,6 +32,8 @@ def error_response(
     code: int = 400,
     detail=None,
     errors=None,
+    key: str | None = None,
+    params: dict | None = None,
 ):
     return {
         "success": False,
@@ -40,5 +42,7 @@ def error_response(
             "code": code,
             "detail": detail,
             "errors": errors,
+            "key": key,
+            "params": params,
         },
     }

@@ -102,6 +102,7 @@ async def start_provider_visit_action(
             "arrival_started_at": booking.arrival_started_at,
             "arrival_evidence_count": len(saved),
         },
+        event_key="booking.visit_started",
     )
     db.commit()
     db.refresh(booking)
@@ -193,6 +194,8 @@ async def submit_final_quote_action(
                 "final_quote_message": booking.final_quote_message,
                 "currency": "TRY",
             },
+            event_key="booking.final_quote_submitted",
+            detail_kind="user_text" if booking.final_quote_message else "system",
         )
     db.refresh(booking)
     if booking_status_chat_message:
@@ -286,6 +289,7 @@ async def approve_provider_refund_request_action(
             "payment_status": payment.status,
             "refunded_at": refund_request.refunded_at,
         },
+        event_key="booking.refund_approved_by_provider",
     )
     add_refund_request_status_history(
         refund_request,
@@ -383,6 +387,8 @@ async def reject_provider_refund_request_action(
             "provider_note": refund_request.provider_note,
             "responded_at": refund_request.responded_at,
         },
+        event_key="booking.refund_rejected_by_provider",
+        detail_kind="user_text",
     )
     add_refund_request_status_history(
         refund_request,
@@ -519,6 +525,8 @@ async def quote_provider_booking_action(
                 "quoted_at": booking.quoted_at,
                 "currency": "TRY",
             },
+            event_key="booking.initial_quote_submitted",
+            detail_kind="user_text" if booking.quote_message else "system",
         )
         create_notification(
             booking.customer_id,
@@ -575,6 +583,8 @@ async def reject_provider_booking_action(
         booking.status_note,
         db,
         {"reason": booking.status_note},
+        event_key="booking.rejected_by_provider",
+        detail_kind="user_text",
     )
     create_notification(
         booking.customer_id,
@@ -715,6 +725,7 @@ async def complete_provider_booking_action(
             "proof_attachment_count": len(proof_attachments),
             "proof_attachments": proof_metadata,
         },
+        event_key="booking.completion_submitted_by_provider",
     )
     create_notification(
         booking.customer_id,

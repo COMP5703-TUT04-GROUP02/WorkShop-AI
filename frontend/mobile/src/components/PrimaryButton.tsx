@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type PrimaryButtonProps = {
   label: string;
@@ -16,6 +17,7 @@ export function PrimaryButton({
   disabled = false,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || isLoading;
+  const { t } = useLanguage();
 
   return (
     <Pressable
@@ -31,7 +33,7 @@ export function PrimaryButton({
       {isLoading ? (
         <ActivityIndicator color="#FFFFFF" />
       ) : (
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label}>{t(label)}</Text>
       )}
     </Pressable>
   );

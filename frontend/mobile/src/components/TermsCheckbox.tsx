@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { Check } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -25,21 +26,21 @@ export function TermsCheckbox({ checked, onToggle, onOpenDocument }: TermsCheckb
       </View>
       <Text style={styles.text}>
         I accept the{" "}
-        <Text
+        <T
           accessibilityRole="link"
           onPress={() => onOpenDocument("terms")}
           style={styles.link}
         >
           Terms of Use
-        </Text>{" "}
+        </T>{" "}
         and the{" "}
-        <Text
+        <T
           accessibilityRole="link"
           onPress={() => onOpenDocument("privacy")}
           style={styles.link}
         >
           Privacy Policy
-        </Text>
+        </T>
         .
       </Text>
     </Pressable>

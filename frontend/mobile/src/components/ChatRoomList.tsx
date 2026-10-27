@@ -1,3 +1,8 @@
+import { translateText } from "../i18n/translations";
+import { currentLocale, getCurrentLanguage } from "../i18n/language";
+import { bookingEventPreview } from "../i18n/bookingEvents";
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useState } from "react";
@@ -21,6 +26,7 @@ type ChatRoomListProps = {
 };
 
 export function ChatRoomList({ loadRooms, viewerRole }: ChatRoomListProps) {
+  useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
@@ -107,7 +113,7 @@ export function ChatRoomList({ loadRooms, viewerRole }: ChatRoomListProps) {
     return (
       <View style={styles.centerBox}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={styles.centerText}>Loading chats...</Text>
+        <T style={styles.centerText}>Loading chats...</T>
       </View>
     );
   }
@@ -116,10 +122,10 @@ export function ChatRoomList({ loadRooms, viewerRole }: ChatRoomListProps) {
     return (
       <View style={styles.centerBox}>
         <Text style={styles.emptyTitle}>
-          {message || "No chats yet"}
+          {message || translateText(getCurrentLanguage(), "No chats yet")}
         </Text>
         <Text style={styles.centerText}>
-          {message ? "Try again." : "Start a conversation from a provider profile."}
+          {message ? translateText(getCurrentLanguage(), "Try again.") : translateText(getCurrentLanguage(), "Start a conversation from a provider profile.")}
         </Text>
       </View>
     );
@@ -127,7 +133,7 @@ export function ChatRoomList({ loadRooms, viewerRole }: ChatRoomListProps) {
 
   return (
     <View style={styles.list}>
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {message ? <T style={styles.errorText}>{message}</T> : null}
 
       {rooms.map((room) => (
         <ChatRoomPreviewItem
@@ -214,7 +220,7 @@ function getAvatarText(name: string) {
 
 function formatLastMessagePreview(message: ChatMessage | null) {
   if (!message) {
-    return "No messages yet.";
+    return translateText(getCurrentLanguage(), "No messages yet.");
   }
 
   if (message.attachments.length > 0 || message.message_type === "attachment") {
@@ -222,18 +228,14 @@ function formatLastMessagePreview(message: ChatMessage | null) {
       attachment.content_type.startsWith("image/"),
     );
 
-    return hasPicture ? "[picture]" : "[file]";
+    return translateText(getCurrentLanguage(), hasPicture ? "[picture]" : "[file]");
   }
 
-  if (message.message_type === "booking_created") {
-    return "[booking] New booking request";
+  if (message.message_type === "booking_created" || message.message_type === "booking_status") {
+    return bookingEventPreview(message, getCurrentLanguage());
   }
 
-  if (message.message_type === "booking_status") {
-    return "[booking] Booking status updated";
-  }
-
-  return message.message || "No messages yet.";
+  return message.message || translateText(getCurrentLanguage(), "No messages yet.");
 }
 
 function formatChatTime(value: string | null) {
@@ -253,17 +255,17 @@ function formatChatTime(value: string | null) {
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
   if (isToday) {
-    return date.toLocaleTimeString([], {
+    return date.toLocaleTimeString(currentLocale(), {
       hour: "2-digit",
       minute: "2-digit",
     });
   }
 
   if (isYesterday) {
-    return "Yesterday";
+    return translateText(getCurrentLanguage(), "Yesterday");
   }
 
-  return date.toLocaleDateString([], {
+  return date.toLocaleDateString(currentLocale(), {
     month: "2-digit",
     day: "2-digit",
   });

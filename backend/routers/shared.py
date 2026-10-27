@@ -239,6 +239,7 @@ async def send_chat_message(
                 NotificationRelatedType.chat_room,
                 chat_room.id,
                 db,
+                template_params={"sender_role": "customer", "attachment_count": len(attachments)},
             )
     if current_user.role == "provider":
         notification_message = "A provider sent you a message"
@@ -254,6 +255,7 @@ async def send_chat_message(
             NotificationRelatedType.chat_room,
             chat_room.id,
             db,
+            template_params={"sender_role": "provider", "attachment_count": len(attachments)},
         )
     db.commit()
     db.refresh(chat_message)

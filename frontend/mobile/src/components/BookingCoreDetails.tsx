@@ -1,3 +1,5 @@
+import { T } from "../i18n/T";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../theme/theme";
@@ -25,14 +27,14 @@ export function BookingCoreDetails({
     <View style={styles.container}>
       <Row label={participantLabel}>
         {role === "customer" && onOpenProvider ? (
-          <Pressable
+          <LocalizedPressable
             accessibilityHint="Opens the provider profile"
             accessibilityLabel={`Open ${participantValue}`}
             accessibilityRole="link"
             onPress={() => onOpenProvider(booking)}
           >
             <Text style={[styles.value, styles.link]}>{participantValue}</Text>
-          </Pressable>
+          </LocalizedPressable>
         ) : (
           <Text style={styles.value}>{participantValue}</Text>
         )}
@@ -70,7 +72,7 @@ function Row({
 }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
+      <T style={styles.label}>{label}</T>
       {children || <Text style={styles.value}>{value || "—"}</Text>}
     </View>
   );

@@ -1,3 +1,6 @@
+import { T } from "../i18n/T";
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
 import * as ImagePicker from "expo-image-picker";
 import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -108,7 +111,9 @@ export function ProviderBookingDetailModal({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
+          <Text style={styles.modalTitle}>
+            {translateText(getCurrentLanguage(), "Booking")} #{booking.id}
+          </Text>
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.detailBox}>
               <DetailRow label="Status" value={getBookingStatusLabel(booking.status)} />
@@ -163,8 +168,8 @@ export function ProviderBookingDetailModal({
             ) : null}
 
             {canComplete ? <ProofPicker assets={proofAssets} isActing={isActing} label="Completion proof" onPick={onPickCompletionProof} /> : null}
-            {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
-            {!hasAnyAction ? <Text style={styles.noAction}>No actions available for this booking status.</Text> : null}
+            {actionError ? <T style={styles.error}>{actionError}</T> : null}
+            {!hasAnyAction ? <T style={styles.noAction}>No actions available for this booking status.</T> : null}
           </ScrollView>
 
           <View style={styles.actions}>
@@ -201,8 +206,12 @@ function RefundDetails({ booking }: { booking: BookingDetail }) {
 function ProofPicker({ assets, isActing, label, onPick }: { assets: ImagePicker.ImagePickerAsset[]; isActing: boolean; label: string; onPick?: () => void }) {
   return (
     <View style={styles.proofBox}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.proofText}>{assets.length > 0 ? `Selected ${assets.length} files` : `Add photos or video for ${label.toLowerCase()}`}</Text>
+      <T style={styles.detailLabel}>{label}</T>
+      <Text style={styles.proofText}>
+        {assets.length > 0
+          ? getCurrentLanguage() === "tr" ? `${assets.length} dosya seçildi` : `Selected ${assets.length} files`
+          : getCurrentLanguage() === "tr" ? `${translateText("tr", label)} için fotoğraf veya video ekleyin` : `Add photos or video for ${label.toLowerCase()}`}
+      </Text>
       {assets.length > 0 ? <View style={styles.fileList}>{assets.map((asset, index) => <Text key={`${asset.uri}-${index}`} style={styles.fileText}>{asset.fileName || `${label} ${index + 1}`}</Text>)}</View> : null}
       <SecondaryButton disabled={isActing || !onPick} label="Add proof" onPress={onPick || (() => undefined)} />
     </View>
@@ -210,7 +219,7 @@ function ProofPicker({ assets, isActing, label, onPick }: { assets: ImagePicker.
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
-  return <View style={styles.row}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>;
+  return <View style={styles.row}><T style={styles.detailLabel}>{label}</T><Text style={styles.detailValue}>{value}</Text></View>;
 }
 
 const styles = StyleSheet.create({

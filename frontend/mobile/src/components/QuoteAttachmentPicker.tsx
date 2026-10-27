@@ -1,3 +1,5 @@
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -37,13 +39,13 @@ export function QuoteAttachmentPicker({ files, onChange, disabled, error = "" }:
   }
   return (
     <View style={styles.section}>
-      <Text style={styles.label}>Quote attachments (optional)</Text>
+      <T style={styles.label}>Quote attachments (optional)</T>
       {files.map((file, index) => (
         <View key={`${file.uri}-${index}`} style={styles.row}>
           <Text numberOfLines={1} style={styles.name}>{file.fileName}</Text>
-          <Pressable accessibilityLabel={`Remove ${file.fileName}`} accessibilityRole="button" disabled={disabled} onPress={() => onChange(files.filter((_, item) => item !== index))}>
-            <Text style={styles.remove}>Remove</Text>
-          </Pressable>
+          <LocalizedPressable accessibilityLabel={`Remove ${file.fileName}`} accessibilityRole="button" disabled={disabled} onPress={() => onChange(files.filter((_, item) => item !== index))}>
+            <T style={styles.remove}>Remove</T>
+          </LocalizedPressable>
         </View>
       ))}
       <SecondaryButton disabled={disabled} label="Add attachments" onPress={() => void pickFiles()} />

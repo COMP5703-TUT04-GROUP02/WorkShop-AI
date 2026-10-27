@@ -1,7 +1,9 @@
+import { T } from "../i18n/T";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ScreenContainer } from "../components/ScreenContainer";
+import { useLanguage } from "../i18n/LanguageContext";
 import type { LegalDocument, RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 
@@ -59,24 +61,25 @@ export const LEGAL_DOCUMENTS: Record<
 type LegalScreenProps = NativeStackScreenProps<RootStackParamList, "Legal">;
 
 export function LegalScreen({ route }: LegalScreenProps) {
+  const { t } = useLanguage();
   const document = LEGAL_DOCUMENTS[route.params.document];
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>{document.title}</Text>
+      <Text style={styles.title}>{t(document.title)}</Text>
 
       <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>Demo only</Text>
-        <Text style={styles.noticeBody}>
+        <T style={styles.noticeTitle}>Demo only</T>
+        <T style={styles.noticeBody}>
           This is placeholder text, not a legal agreement. The final wording is
           coming soon.
-        </Text>
+        </T>
       </View>
 
       {document.sections.map((section) => (
         <View key={section.heading} style={styles.section}>
-          <Text style={styles.heading}>{section.heading}</Text>
-          <Text style={styles.body}>{section.body}</Text>
+          <Text style={styles.heading}>{t(section.heading)}</Text>
+          <Text style={styles.body}>{t(section.body)}</Text>
         </View>
       ))}
     </ScreenContainer>

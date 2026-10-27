@@ -1,3 +1,9 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedTextInput } from "../../i18n/LocalizedTextInput";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronDown, MapPin, Search } from "lucide-react-native";
@@ -33,6 +39,7 @@ import {
 } from "../../constants/providerTags";
 
 export function CustomerHomeScreen() {
+  useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { subscribe } = useRealtime();
@@ -171,7 +178,7 @@ export function CustomerHomeScreen() {
   return (
     <ScreenContainer>
       <View style={styles.searchRow}>
-        <Pressable
+        <LocalizedPressable
           accessibilityLabel="Service area"
           accessibilityRole="button"
           onPress={() => setIsProvinceModalVisible(true)}
@@ -182,11 +189,11 @@ export function CustomerHomeScreen() {
             {selectedAreaLabel}
           </Text>
           <ChevronDown color={colors.mutedText} size={17} />
-        </Pressable>
+        </LocalizedPressable>
 
         <View style={styles.searchBox}>
           <Search color={colors.mutedText} size={20} />
-          <TextInput
+          <LocalizedTextInput
             onChangeText={setKeyword}
             onSubmitEditing={handleSearchSubmit}
             placeholder="Search services or businesses"
@@ -200,19 +207,19 @@ export function CustomerHomeScreen() {
 
       <Text style={styles.provinceStatusText} numberOfLines={2}>
         {isSavingProvince
-          ? "Saving area..."
+          ? translateText(getCurrentLanguage(), "Saving area...")
           : provinceMessage || selectedAreaLabel}
       </Text>
 
       <View style={styles.header}>
-        <Text style={styles.title}>Home</Text>
-        <Text style={styles.subtitle}>
+        <T style={styles.title}>Home</T>
+        <T style={styles.subtitle}>
           Search listings, read reviews, and book services.
-        </Text>
+        </T>
       </View>
 
       <View style={styles.tagSection}>
-        <Text style={styles.sectionTitle}>Popular services</Text>
+        <T style={styles.sectionTitle}>Popular services</T>
         <View style={styles.tagGrid}>
           {PROVIDER_TAGS.map((tag) => {
             const isActive = selectedTag === tag;
@@ -246,19 +253,21 @@ export function CustomerHomeScreen() {
       >
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>
-            {selectedTag ? `${getProviderTagLabel(selectedTag)}` : "Recommended"}
+            {selectedTag ? `${getProviderTagLabel(selectedTag)}` : translateText(getCurrentLanguage(), "Recommended")}
           </Text>
           <Text style={styles.historyText}>
             {selectedTag
               ? selectedAreaLabel
-              : `Based on ${getProviderTagLabel(historyProviderTag).toLowerCase()}`}
+              : getCurrentLanguage() === "tr"
+                ? `${getProviderTagLabel(historyProviderTag)} geçmişinize göre`
+                : `Based on ${getProviderTagLabel(historyProviderTag).toLowerCase()}`}
           </Text>
         </View>
 
         {isLoadingRecommendations ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.primary} />
-            <Text style={styles.loadingText}>Loading recommendations...</Text>
+            <T style={styles.loadingText}>Loading recommendations...</T>
           </View>
         ) : recommendations.length > 0 ? (
           <View style={styles.recommendationGrid}>
@@ -276,7 +285,9 @@ export function CustomerHomeScreen() {
             title={selectedTag ? "No providers found" : "No recommendations yet"}
             description={
               selectedTag
-                ? `No ${getProviderTagLabel(selectedTag).toLowerCase()} providers in ${selectedAreaLabel}.`
+                ? getCurrentLanguage() === "tr"
+                  ? `${selectedAreaLabel} bölgesinde ${getProviderTagLabel(selectedTag)} hizmet sağlayıcısı bulunamadı.`
+                  : `No ${getProviderTagLabel(selectedTag).toLowerCase()} providers in ${selectedAreaLabel}.`
                 : `No recommendations in ${selectedAreaLabel} yet.`
             }
           />

@@ -5,6 +5,24 @@ from fastapi.responses import JSONResponse
 from backend.utils.response import error_response
 
 
+ERROR_KEYS = {
+    "Invalid email or password": "invalid_credentials",
+    "Email already registered": "email_registered",
+    "Current password is incorrect": "incorrect_password",
+    "No account yet. Accept the Terms of Use to create one.": "social_account_missing",
+    "Password login is not available": "password_login_unavailable",
+    "Invalid token": "invalid_token",
+    "User account is inactive": "account_inactive",
+    "User account is banned": "account_banned",
+    "Email not verified": "email_not_verified",
+    "Booking not found": "booking_not_found",
+    "Provider profile not found": "provider_not_found",
+    "Provider payout account is not ready": "provider_payout_not_ready",
+    "Refund request not found": "refund_not_found",
+    "Only customers can access this resource": "customer_only",
+}
+
+
 async def http_exception_handler(request: Request, exc: HTTPException):
     message = exc.detail
 
@@ -17,6 +35,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             message=message,
             code=exc.status_code,
             detail=exc.detail,
+            key=ERROR_KEYS.get(message, "request_failed"),
         ),
         headers=exc.headers,
     )
@@ -47,6 +66,7 @@ async def validation_exception_handler(
             message="Validation error",
             code=422,
             errors=errors,
+            key="validation_error",
         ),
     )
 
@@ -58,5 +78,6 @@ async def general_exception_handler(request: Request, exc: Exception):
             message="Internal server error",
             code=500,
             detail=str(exc),
+            key="internal_server_error",
         ),
     )

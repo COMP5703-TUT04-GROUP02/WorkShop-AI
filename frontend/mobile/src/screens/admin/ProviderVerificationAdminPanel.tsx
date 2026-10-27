@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { T } from "../../i18n/T";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -90,17 +93,17 @@ export function ProviderVerificationAdminPanel({
   ];
   const groups = groupApplications(applications);
   return <View style={styles.section}>
-    <View style={styles.header}><View style={styles.flex}><Text style={styles.title}>Provider verification</Text><Text style={styles.subtitle}>Identity and service verification are reviewed separately.</Text></View><SecondaryButton label="Refresh" onPress={() => void load()} disabled={isLoading || isActing} /></View>
-    {message ? <Text accessibilityRole="alert" style={styles.error}>{message}</Text> : null}
-    {isLoading ? <ActivityIndicator color={colors.primary} /> : groups.length === 0 ? <Text style={styles.empty}>No applications pending review.</Text> : groups.map(([userId, entries]) => <View key={userId} style={styles.applicant}>
-      <Text style={styles.cardTitle}>{entries.find((entry) => entry.kind === "identity")?.item.submitted_first_name ?? entries.find((entry) => entry.kind === "qualification")?.item.display_name ?? "Provider"} · Provider user #{userId}</Text>
+    <View style={styles.header}><View style={styles.flex}><T style={styles.title}>Provider verification</T><T style={styles.subtitle}>Identity and service verification are reviewed separately.</T></View><SecondaryButton label="Refresh" onPress={() => void load()} disabled={isLoading || isActing} /></View>
+    {message ? <T accessibilityRole="alert" style={styles.error}>{message}</T> : null}
+    {isLoading ? <ActivityIndicator color={colors.primary} /> : groups.length === 0 ? <T style={styles.empty}>No applications pending review.</T> : groups.map(([userId, entries]) => <View key={userId} style={styles.applicant}>
+      <Text style={styles.cardTitle}>{entries.find((entry) => entry.kind === "identity")?.item.submitted_first_name ?? entries.find((entry) => entry.kind === "qualification")?.item.display_name ?? translateText(getCurrentLanguage(), "Provider")} · Provider user #{userId}</Text>
       {entries.map((entry) => <View key={entry.kind + ":" + entry.item.id} style={styles.application}>
         <ReviewCard active={selection?.kind === entry.kind && selection.item.id === entry.item.id}
           title={entry.kind === "identity" ? "Identity verification" : "Service verification"}
           subtitle={entry.kind === "identity" ? `${entry.item.submitted_first_name} ${entry.item.submitted_last_name} · ${entry.item.document_type.replace("_", " ")}` : `${entry.item.display_name} · ${entry.item.service_categories.map(getProviderTagLabel).join(", ")}`}
           onPress={() => { if (isActing) return; setSelection(entry); setRejectReason(""); setMessage(""); }} />
         {selection?.kind === entry.kind && selection.item.id === entry.item.id ? <View style={styles.detail}>
-      <View style={styles.header}><Text style={styles.detailTitle}>{selection.kind === "identity" ? "Identity review" : "Service verification review"}</Text><Pressable accessibilityRole="button" disabled={isActing} onPress={() => { setSelection(null); setRejectReason(""); }}><Text style={styles.link}>Close</Text></Pressable></View>
+      <View style={styles.header}><Text style={styles.detailTitle}>{selection.kind === "identity" ? translateText(getCurrentLanguage(), "Identity review") : translateText(getCurrentLanguage(), "Service verification review")}</Text><Pressable accessibilityRole="button" disabled={isActing} onPress={() => { setSelection(null); setRejectReason(""); }}><T style={styles.link}>Close</T></Pressable></View>
       {selection.kind === "identity" ? <IdentityDetails item={selection.item} /> : <QualificationDetails item={selection.item} />}
       <TextField label="Rejection reason" editable={!isActing} multiline numberOfLines={3} onChangeText={setRejectReason} placeholder="Required only when rejecting" value={rejectReason} />
       <View style={styles.actions}><SecondaryButton disabled={isActing} label="Reject" onPress={() => void decide("rejected")} /><PrimaryButton disabled={isActing} isLoading={isActing} label="Approve" onPress={() => void decide("approved")} /></View>
@@ -116,7 +119,7 @@ function Queue({ title, empty, children }: { title: string; empty: string; child
 }
 
 function ReviewCard({ active, title, subtitle, onPress }: { active: boolean; title: string; subtitle: string; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ expanded: active }} onPress={onPress} style={[styles.reviewCard, active ? styles.activeCard : null]}><View style={styles.header}><Text style={styles.cardTitle}>{title}</Text><Text style={styles.pending}>Pending</Text></View><Text style={styles.subtitle}>{subtitle}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityState={{ expanded: active }} onPress={onPress} style={[styles.reviewCard, active ? styles.activeCard : null]}><View style={styles.header}><Text style={styles.cardTitle}>{title}</Text><T style={styles.pending}>Pending</T></View><Text style={styles.subtitle}>{subtitle}</Text></Pressable>;
 }
 
 function IdentityDetails({ item }: { item: IdentityVerificationApplication }) {
@@ -181,14 +184,14 @@ function VerificationFiles({ files }: { files: VerificationUploadFile[] }) {
     }
     window.open(objectUrl, "_blank", "noopener,noreferrer");
   }
-  return <View style={styles.files}><Text style={styles.rowLabel}>Files</Text>{files.map((file) => {
+  return <View style={styles.files}><T style={styles.rowLabel}>Files</T>{files.map((file) => {
     const previewUrl = previewUrls[file.file_url];
     const previewError = previewErrors[file.file_url];
     return <Pressable key={`${file.file_url}-${file.original_file_name}`} onPress={() => openFile(file)} style={styles.fileCard}>{file.content_type.startsWith("image/") && previewUrl ? <Image resizeMode="contain" source={{ uri: previewUrl }} style={styles.preview} /> : file.content_type.startsWith("image/") && !previewError ? <ActivityIndicator color={colors.primary} style={styles.preview} /> : null}<Text style={styles.link}>{file.original_file_name}</Text><Text style={previewError ? styles.error : styles.subtitle}>{previewError || `${file.content_type} · tap to open`}</Text></Pressable>;
   })}</View>;
 }
 
-function Row({ label, value }: { label: string; value: string }) { return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value || "-"}</Text></View>; }
+function Row({ label, value }: { label: string; value: string }) { return <View style={styles.row}><T style={styles.rowLabel}>{label}</T><Text style={styles.rowValue}>{value || "-"}</Text></View>; }
 
 const styles = StyleSheet.create({
   applicant: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, gap: spacing.md },

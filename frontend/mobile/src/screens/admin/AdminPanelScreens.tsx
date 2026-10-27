@@ -1,3 +1,5 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { T } from "../../i18n/T";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../../theme/theme";
@@ -12,6 +14,7 @@ import {
 } from "./ReviewSweepPanels";
 
 export function AdminIdentityVerificationScreen() {
+  useLanguage();
   return (
     <AdminPage
       title="Identity verification"
@@ -23,10 +26,12 @@ export function AdminIdentityVerificationScreen() {
 }
 
 export function AdminVerificationScreen() {
+  useLanguage();
   return <AdminPage><ProviderVerificationAdminPanel /></AdminPage>;
 }
 
 export function AdminQualificationVerificationScreen() {
+  useLanguage();
   return (
     <AdminPage
       title="Qualification verification"
@@ -38,6 +43,7 @@ export function AdminQualificationVerificationScreen() {
 }
 
 export function AdminReviewManagementScreen() {
+  useLanguage();
   return (
     <AdminPage
       title="Review visibility management"
@@ -48,6 +54,7 @@ export function AdminReviewManagementScreen() {
 }
 
 export function AdminCustomerAIConfigScreen() {
+  useLanguage();
   return (
     <AdminPage>
       <AISubscriptionPanel />
@@ -56,6 +63,7 @@ export function AdminCustomerAIConfigScreen() {
 }
 
 export function AdminReviewEmbeddingScreen() {
+  useLanguage();
   return (
     <AdminPage>
       <ReviewEmbeddingAdminPanel />
@@ -75,7 +83,7 @@ function AdminPage({
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       {title ? <View>
-        <Text style={styles.title}>{title}</Text>
+        <T style={styles.title}>{title}</T>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View> : null}
       {children}

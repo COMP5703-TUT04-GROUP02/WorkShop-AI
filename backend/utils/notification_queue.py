@@ -13,11 +13,15 @@ def enqueue_notification_delivery(
     related_type: str,
     related_id: int,
     db: Session,
+    template_key: str | None = None,
+    template_params: dict | None = None,
 ):
     payload = {
         "user_id": user_id,
         "title": title,
         "content": content,
+        "template_key": template_key,
+        "template_params": template_params,
         "notification_type": notification_type,
         "related_type": related_type,
         "related_id": related_id,

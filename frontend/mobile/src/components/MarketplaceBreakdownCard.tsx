@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -41,7 +45,7 @@ export function MarketplaceBreakdownCard({
 
   return (
     <View style={styles.card}>
-      <Text style={[styles.title, adminLayout && adminTypography.cardTitle]}>{title}</Text>
+      <T style={[styles.title, adminLayout && adminTypography.cardTitle]}>{title}</T>
       {visitFeeAmount != null ? <Row adminLayout={adminLayout} label="Visit fee" value={formatMoney(visitFeeAmount)} /> : null}
       {serviceAmount != null ? <Row adminLayout={adminLayout} label={serviceAmountLabel} value={formatMoney(serviceAmount)} /> : null}
       {visitFeeAmount != null || serviceAmount != null ? (
@@ -51,17 +55,17 @@ export function MarketplaceBreakdownCard({
       {!adminLayout ? <Row label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
       <Row adminLayout={adminLayout} label="Expected provider income" value={formatMoney(providerIncome)} emphasized />
       {adminLayout ? <Row adminLayout label="Total deductions" value={formatMoney(totalDeductions)} emphasized /> : null}
-      <Pressable
+      <LocalizedPressable
         accessibilityLabel={isExpanded ? "Hide fee details" : "View fee details"}
         accessibilityRole="button"
         onPress={() => setIsExpanded((expanded) => !expanded)}
         style={styles.detailsToggle}
       >
         <Text style={[styles.detailsToggleText, adminLayout && adminTypography.label]}>
-          {isExpanded ? "Hide fee details" : "View fee details"}
+          {isExpanded ? translateText(getCurrentLanguage(), "Hide fee details") : translateText(getCurrentLanguage(), "View fee details")}
         </Text>
         <Text style={styles.detailsToggleIcon}>{isExpanded ? "−" : "+"}</Text>
-      </Pressable>
+      </LocalizedPressable>
       {isExpanded ? (
         <View style={styles.details}>
           <Row adminLayout={adminLayout} label="Platform commission" value={formatMoney(breakdown.platformCommission)} />
@@ -78,11 +82,11 @@ export function MarketplaceBreakdownCard({
       {settlement ? (
         <Row adminLayout={adminLayout} label="Settlement" value={formatSettlementStatus(settlement.status)} />
       ) : (
-        <Text style={[styles.note, adminLayout && adminTypography.caption]}>Estimate until the payment is captured.</Text>
+        <T style={[styles.note, adminLayout && adminTypography.caption]}>Estimate until the payment is captured.</T>
       )}
-      <Text style={[styles.note, adminLayout && adminTypography.caption]}>
+      <T style={[styles.note, adminLayout && adminTypography.caption]}>
         Tax and payment fees are fixed Sandbox estimates; the final settlement comes from iyzico.
-      </Text>
+      </T>
       {settlement?.failure_message ? (
         <Text style={[styles.error, adminLayout && adminTypography.body]}>{settlement.failure_message}</Text>
       ) : null}
@@ -110,7 +114,7 @@ function Row({
 }) {
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, emphasized ? styles.emphasized : null, adminLayout && (emphasized ? adminTypography.label : adminTypography.body)]}>{label}</Text>
+      <T style={[styles.label, emphasized ? styles.emphasized : null, adminLayout && (emphasized ? adminTypography.label : adminTypography.body)]}>{label}</T>
       <Text style={[styles.value, emphasized ? styles.emphasized : null, adminLayout && adminTypography.label]}>{value}</Text>
     </View>
   );

@@ -213,6 +213,7 @@ async def create_customer_booking_action(
             NotificationRelatedType.booking,
             booking.id,
             db,
+            template_params={"attachment_count": len(attachment_records)},
         )
         consume_latest_booking_form(
             current_user.id,
@@ -340,6 +341,7 @@ async def cancel_customer_booking_action(
             "reason": booking.status_note,
             "failed_pending_payment_count": failed_payment_count,
         },
+        event_key="booking.cancelled_by_customer",
     )
     provider_profile = (
         db.query(models.ProviderProfile)
@@ -507,6 +509,8 @@ async def create_customer_refund_request_action(
             "previous_booking_status": refund_request.previous_booking_status,
             "payment_id": payment.id,
         },
+        event_key="booking.refund_requested",
+        detail_kind="user_text",
     )
     add_refund_request_status_history(
         refund_request,
@@ -607,6 +611,8 @@ async def appeal_customer_refund_request_action(
             "appeal_reason": refund_request.appeal_reason,
             "appealed_at": refund_request.appealed_at,
         },
+        event_key="booking.refund_appealed",
+        detail_kind="user_text",
     )
     add_refund_request_status_history(
         refund_request,
@@ -709,6 +715,7 @@ def _build_checkout_payload(
     payment: models.Payment,
     current_user: models.User,
     db: Session,
+    locale: str = "en",
 ) -> dict:
     buyer, address = _checkout_buyer_details(booking, current_user, db)
     submerchant = get_provider_submerchant(booking.provider_profile_id, db)
@@ -717,7 +724,7 @@ def _build_checkout_payload(
     amount = float(payment.amount)
     _, provider_amount = calculate_commission(Decimal(str(payment.amount)))
     return {
-        "locale": "en",
+        "locale": "tr" if locale == "tr" else "en",
         "conversationId": payment.conversation_id,
         "price": amount,
         "paidPrice": amount,
@@ -909,6 +916,11 @@ async def apply_iyzico_checkout_result(
                 "currency": payment.currency,
                 "paid_at": payment.paid_at,
             },
+            event_key=(
+                "booking.visit_fee_paid"
+                if payment.payment_stage == "visit_fee"
+                else "booking.service_fee_paid"
+            ),
         )
         provider_profile = (
             db.query(models.ProviderProfile)
@@ -948,6 +960,7 @@ async def pay_customer_booking_action(
     idempotency_key: str | None = None,
     payment_stage: str = "visit_fee",
     frontend_return_url: str | None = None,
+    locale: str = "en",
 ):
     if current_user.role != "customer":
         raise HTTPException(status_code=403, detail="Only customers can pay bookings")
@@ -1117,10 +1130,62 @@ async def pay_customer_booking_action(
             }
 
     if not payment:
-        raise HTTPException(
-            status_code=400,
-            detail="Pending payment not found for this booking",
+        finalized_payment = (
+            db.query(models.Payment)
+            .filter(
+                models.Payment.booking_id == booking.id,
+                models.Payment.customer_id == current_user.id,
+                models.Payment.payment_stage == payment_stage,
+                models.Payment.status.in_(
+                    [
+                        PaymentStatus.authorized,
+                        PaymentStatus.paid,
+                        PaymentStatus.capture_failed,
+                        PaymentStatus.refunded,
+                        PaymentStatus.partially_refunded,
+                        PaymentStatus.refund_failed,
+                    ]
+                ),
+            )
+            .first()
         )
+        if finalized_payment:
+            raise HTTPException(
+                status_code=409,
+                detail="Payment for this stage was already finalized",
+            )
+        failed_payment = (
+            db.query(models.Payment)
+            .filter(
+                models.Payment.booking_id == booking.id,
+                models.Payment.customer_id == current_user.id,
+                models.Payment.payment_stage == payment_stage,
+                models.Payment.status == PaymentStatus.failed,
+            )
+            .first()
+        )
+        if not failed_payment:
+            raise HTTPException(
+                status_code=400,
+                detail="Pending payment not found for this booking",
+            )
+        payment = models.Payment(
+            booking_id=booking.id,
+            customer_id=current_user.id,
+            provider_profile_id=booking.provider_profile_id,
+            amount=amount,
+            currency="TRY",
+            status=PaymentStatus.pending,
+            payment_stage=payment_stage,
+            payment_method="iyzico_checkout",
+            idempotency_key=normalized_idempotency_key,
+            external_payment_id=None,
+            created_at=now,
+            paid_at=None,
+            refunded_at=None,
+        )
+        db.add(payment)
+        db.flush()
 
     if payment.status == PaymentStatus.checkout_created:
         checkout_expires_at = parse_dt(payment.checkout_expires_at)
@@ -1223,7 +1288,7 @@ async def pay_customer_booking_action(
     db.commit()
     db.refresh(payment)
     db.refresh(booking)
-    checkout_payload = _build_checkout_payload(booking, payment, current_user, db)
+    checkout_payload = _build_checkout_payload(booking, payment, current_user, db, locale)
     try:
         result = await iyzico_service.get_iyzico_client().initialize_checkout_form(
             checkout_payload
@@ -1375,6 +1440,7 @@ async def accept_customer_booking_quote_action(
             "amount": payment.amount,
             "currency": payment.currency,
         },
+        event_key="booking.initial_quote_accepted",
     )
     provider_profile = (
         db.query(models.ProviderProfile)
@@ -1472,6 +1538,8 @@ async def reject_customer_booking_quote_action(
             "reason": booking.status_note,
             "failed_pending_payment_count": failed_payment_count,
         },
+        event_key="booking.initial_quote_rejected",
+        detail_kind="user_text",
     )
     provider_profile = (
         db.query(models.ProviderProfile)
@@ -1566,6 +1634,7 @@ async def accept_customer_final_quote_action(
             "amount": payment.amount,
             "currency": payment.currency,
         },
+        event_key="booking.final_quote_accepted",
     )
     db.commit()
     db.refresh(payment)
@@ -1626,6 +1695,8 @@ async def reject_customer_final_quote_action(
             "final_quote_amount": booking.final_quote_amount,
             "final_quote_message": booking.final_quote_message,
         },
+        event_key="booking.final_quote_rejected",
+        detail_kind="user_text",
     )
     db.commit()
     db.refresh(booking)
@@ -1677,6 +1748,8 @@ async def close_final_quote_negotiation_action(
         "Customer cancelled the booking without requesting a refund",
         booking.status_note,
         db,
+        event_key="booking.closed_without_refund",
+        detail_kind="user_text",
     )
     db.commit()
     db.refresh(booking)
@@ -1715,6 +1788,7 @@ async def _complete_direct_paid_booking(
         booking.status_note,
         db,
         {"completed_at": booking.completed_at},
+        event_key="booking.completion_confirmed",
     )
     db.commit()
     db.refresh(payment)
@@ -1734,6 +1808,7 @@ async def confirm_customer_booking_complete_action(
     booking_id: int,
     current_user: models.User,
     db: Session,
+    locale: str = "en",
 ):
     if current_user.role != "customer":
         raise HTTPException(
@@ -1851,7 +1926,7 @@ async def confirm_customer_booking_complete_action(
         db.flush()
         try:
             preauth_result = await iyzico_service.get_iyzico_client().initialize_checkout_form_preauth(
-                _build_checkout_payload(booking, replacement, current_user, db)
+                _build_checkout_payload(booking, replacement, current_user, db, locale)
             )
         except iyzico_service.IyzicoClientError as exc:
             replacement.status = PaymentStatus.failed
@@ -1956,6 +2031,7 @@ async def confirm_customer_booking_complete_action(
         booking.status_note,
         db,
         {"completed_at": booking.completed_at},
+        event_key="booking.completion_confirmed",
     )
     provider_profile = (
         db.query(models.ProviderProfile)
@@ -2035,6 +2111,8 @@ async def reject_customer_booking_complete_action(
         booking.status_note,
         db,
         {"reason": booking.status_note},
+        event_key="booking.completion_rejected",
+        detail_kind="user_text",
     )
     provider_profile = (
         db.query(models.ProviderProfile)

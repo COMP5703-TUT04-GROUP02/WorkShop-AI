@@ -1,3 +1,8 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedTextInput } from "../i18n/LocalizedTextInput";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Star } from "lucide-react-native";
@@ -57,17 +62,17 @@ export function CustomerReviewModal({
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>Rate this service</Text>
+          <T style={styles.title}>Rate this service</T>
           <Text style={styles.providerName}>
             {booking.provider?.business_name || `Provider #${booking.provider_profile_id}`}
           </Text>
-          <Text style={styles.label}>Rating</Text>
+          <T style={styles.label}>Rating</T>
           <View style={styles.stars}>
             {Array.from({ length: 5 }, (_, index) => {
               const value = index + 1;
               const selected = value <= rating;
               return (
-                <Pressable
+                <LocalizedPressable
                   accessibilityLabel={`${value} stars`}
                   accessibilityRole="button"
                   disabled={isSubmitting}
@@ -84,15 +89,15 @@ export function CustomerReviewModal({
                     size={34}
                     strokeWidth={1.8}
                   />
-                </Pressable>
+                </LocalizedPressable>
               );
             })}
           </View>
           <Text style={styles.ratingHint}>
-            {rating > 0 ? `${rating} / 5` : "Tap a star to rate"}
+            {rating > 0 ? `${rating} / 5` : translateText(getCurrentLanguage(), "Tap a star to rate")}
           </Text>
-          <Text style={styles.label}>Review</Text>
-          <TextInput
+          <T style={styles.label}>Review</T>
+          <LocalizedTextInput
             editable={!isSubmitting}
             multiline
             numberOfLines={5}

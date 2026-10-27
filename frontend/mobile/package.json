@@ -38,6 +38,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "check:translations": "node ../../scripts/check-translations.cjs --check",
     "test:admin-scope": "node --test src/navigation/__tests__/admin-scope.test.cjs",
     "test:admin-bookings": "node --test src/screens/admin/__tests__/adminBookings.test.cjs",
     "test:admin": "tsc --ignoreConfig src/screens/admin/adminState.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/screens/admin/__tests__/adminState.test.cjs",
@@ -53,6 +54,7 @@
     "test:iban": "tsc --ignoreConfig src/utils/iban.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/iban.test.cjs",
     "test:booking-help": "tsc --ignoreConfig src/utils/bookingHelp.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/bookingHelp.test.cjs",
     "test:faq": "tsc --ignoreConfig src/features/help/faq-filter.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/features/help/__tests__/faq-filter.test.cjs",
+    "test:i18n": "tsc --ignoreConfig src/i18n/notificationTemplates.ts src/i18n/translations.ts src/i18n/accessibility.ts src/i18n/bookingEvents.ts --module commonjs --target ES2022 --rootDir src --outDir .test-build --skipLibCheck && node --test src/i18n/__tests__/localization.test.cjs",
     "test:marketplace": "tsc --ignoreConfig src/utils/marketplace.ts --module commonjs --target ES2022 --outDir .test-build --skipLibCheck && node --test src/utils/__tests__/marketplace.test.cjs"
   },
   "private": true

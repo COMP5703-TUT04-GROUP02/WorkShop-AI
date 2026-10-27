@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { PrimaryButton } from "./PrimaryButton";
@@ -36,7 +37,7 @@ export function ActionReasonModal({
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
+          <T style={styles.title}>{title}</T>
           <ScrollView contentContainerStyle={styles.content}>
             {onChangeAmount ? (
               <TextField
@@ -55,7 +56,7 @@ export function ActionReasonModal({
               placeholder="Enter a reason"
               value={reason}
             />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? <T style={styles.error}>{error}</T> : null}
           </ScrollView>
           <View style={styles.actions}>
             <SecondaryButton label="Cancel" onPress={onCancel} />

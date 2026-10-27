@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { T } from "../../i18n/T";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { AdminRecordFilters } from "../../api/admin";
@@ -30,10 +33,10 @@ export function AdminRecordSearch({ section, disabled, appliedFilters, onDirty, 
     if (Object.keys(invalid).length === 0) onSearch(next);
   }
   return <View style={styles.card}>
-    {section === "payouts" ? <View style={styles.row}>{["", "draft", "active", "rejected", "update_failed"].map((value) => <Pressable key={value} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: value === status }} onPress={() => onSearch(payoutFiltersForStatus(appliedFilters, value))} style={[styles.chip, value === status && styles.selected]}><Text style={[styles.optionLabel, value === status && styles.active]}>{value || "All statuses"}</Text></Pressable>)}</View> : null}
+    {section === "payouts" ? <View style={styles.row}>{["", "draft", "active", "rejected", "update_failed"].map((value) => <Pressable key={value} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: value === status }} onPress={() => onSearch(payoutFiltersForStatus(appliedFilters, value))} style={[styles.chip, value === status && styles.selected]}><Text style={[styles.optionLabel, value === status && styles.active]}>{value || translateText(getCurrentLanguage(), "All statuses")}</Text></Pressable>)}</View> : null}
     <View style={styles.row}>{fields.map(([key, label]) => <View key={key} style={styles.field}><TextField label={label} value={values[key]} editable={!disabled} keyboardType="number-pad" error={errors[key]} onSubmitEditing={() => { if (!disabled) search(); }} onChangeText={(value) => { setValues((current) => ({ ...current, [key]: value })); setErrors((current) => ({ ...current, [key]: undefined })); if (section !== "payouts") onDirty(); }} /></View>)}</View>
-    {section === "payouts" && isAdminIdPending(values.providerProfileId, appliedFilters.providerProfileId) ? <Text style={styles.muted}>Provider ID not applied. Search to update.</Text> : null}
-    {section === "refunds" ? <Text style={styles.muted}>Pending appeals only. All filled fields must match.</Text> : null}
+    {section === "payouts" && isAdminIdPending(values.providerProfileId, appliedFilters.providerProfileId) ? <T style={styles.muted}>Provider ID not applied. Search to update.</T> : null}
+    {section === "refunds" ? <T style={styles.muted}>Pending appeals only. All filled fields must match.</T> : null}
     <View style={styles.row}><PrimaryButton label="Search" disabled={disabled} onPress={search} /><SecondaryButton label="Clear search" disabled={disabled} onPress={() => { setValues({ providerProfileId: "", customerId: "", refundRequestId: "" }); setErrors({}); onSearch({}); }} /></View>
   </View>;
 }

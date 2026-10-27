@@ -1,3 +1,5 @@
+import { T } from "../i18n/T";
+import { getVerificationStatusLabel } from "../constants/labels";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Play } from "lucide-react-native";
 
@@ -39,7 +41,7 @@ export function PortfolioCard({
           </View>
         ) : (
           <View style={styles.emptyPlaceholder}>
-            <Text style={styles.emptyText}>No image</Text>
+            <T style={styles.emptyText}>No image</T>
           </View>
         )}
 
@@ -52,7 +54,7 @@ export function PortfolioCard({
 
       {portfolio.verification_status !== "approved" ? (
         <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{portfolio.verification_status}</Text>
+          <Text style={styles.statusText}>{getVerificationStatusLabel(portfolio.verification_status)}</Text>
         </View>
       ) : null}
 

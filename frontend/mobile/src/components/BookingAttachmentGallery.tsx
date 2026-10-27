@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { T } from "../i18n/T";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
 import { FileText, Play } from "lucide-react-native";
 import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -20,7 +24,7 @@ export function BookingAttachmentGallery({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <T style={styles.sectionTitle}>{title}</T>
       <View style={styles.grid}>
         {attachments.map((attachment) => (
           <AttachmentItem attachment={attachment} key={attachment.id} title={title} />
@@ -48,7 +52,7 @@ function AttachmentItem({
   }
 
   return (
-    <Pressable
+    <LocalizedPressable
       accessibilityLabel={`Open ${title.toLowerCase()} ${attachment.original_file_name}`}
       accessibilityRole="button"
       onPress={() => void openFile()}
@@ -63,13 +67,13 @@ function AttachmentItem({
           ) : (
             <FileText color={colors.primary} size={28} />
           )}
-          <Text style={styles.videoLabel}>{isVideo ? "Video" : "File"}</Text>
+          <Text style={styles.videoLabel}>{isVideo ? translateText(getCurrentLanguage(), "Video") : translateText(getCurrentLanguage(), "File")}</Text>
         </View>
       )}
       <Text numberOfLines={1} style={styles.fileName}>
         {attachment.original_file_name}
       </Text>
-    </Pressable>
+    </LocalizedPressable>
   );
 }
 

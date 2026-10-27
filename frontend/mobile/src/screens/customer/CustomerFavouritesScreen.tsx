@@ -1,3 +1,6 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Heart } from "lucide-react-native";
@@ -41,6 +44,7 @@ const PAGE_SIZE = 20;
 export function CustomerFavouritesScreen({
   navigation,
 }: CustomerFavouritesScreenProps) {
+  useLanguage();
   const { user } = useAuth();
   const isCustomer = user?.role === "customer";
   const [favourites, setFavourites] = useState<FavoriteProvider[]>([]);
@@ -178,16 +182,16 @@ export function CustomerFavouritesScreen({
       <View style={styles.intro}>
         <Heart color={colors.primary} size={24} />
         <View style={styles.introText}>
-          <Text style={styles.title}>Saved providers</Text>
-          <Text style={styles.subtitle}>
+          <T style={styles.title}>Saved providers</T>
+          <T style={styles.subtitle}>
             Open a provider profile or remove it from your favourites.
-          </Text>
+          </T>
         </View>
       </View>
 
       {message ? (
         <View style={styles.errorRow}>
-          <Text style={styles.errorText}>{message}</Text>
+          <T style={styles.errorText}>{message}</T>
           {!isLoading && favourites.length === 0 ? (
             <SecondaryButton
               label="Retry"
@@ -200,7 +204,7 @@ export function CustomerFavouritesScreen({
       {isLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.subtitle}>Loading favourites...</Text>
+          <T style={styles.subtitle}>Loading favourites...</T>
         </View>
       ) : favourites.length === 0 && !message ? (
         <PlaceholderPanel
@@ -258,7 +262,7 @@ function FavouriteProviderCard({
   const provider = favourite.provider;
 
   const removeButton = (
-    <Pressable
+    <LocalizedPressable
       accessibilityLabel={`Remove ${provider?.business_name ?? "provider"} from favourites`}
       accessibilityRole="button"
       disabled={isRemoving}
@@ -272,9 +276,9 @@ function FavouriteProviderCard({
       {isRemoving ? (
         <ActivityIndicator color={colors.danger} size="small" />
       ) : (
-        <Text style={styles.removeButtonText}>Remove</Text>
+        <T style={styles.removeButtonText}>Remove</T>
       )}
-    </Pressable>
+    </LocalizedPressable>
   );
 
   if (provider) {
@@ -292,8 +296,8 @@ function FavouriteProviderCard({
 
   return (
     <View style={[styles.unavailableCard, { width: cardWidth }]}>
-      <Text style={styles.unavailableTitle}>Provider unavailable</Text>
-      <Text style={styles.subtitle}>This provider profile is no longer available.</Text>
+      <T style={styles.unavailableTitle}>Provider unavailable</T>
+      <T style={styles.subtitle}>This provider profile is no longer available.</T>
       {removeButton}
     </View>
   );

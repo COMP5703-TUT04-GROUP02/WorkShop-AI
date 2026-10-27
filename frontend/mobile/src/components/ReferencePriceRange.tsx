@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { useLanguage } from "../i18n/LanguageContext";
+import { translateText } from "../i18n/translations";
 import { colors, radius, spacing } from "../theme/theme";
 import type { ReferencePriceRange as ReferencePriceRangeValue } from "../types/booking";
 import { buildReferencePricePresentation } from "../utils/referencePrice";
@@ -13,6 +15,7 @@ export function ReferencePriceRange({
   audience,
   range,
 }: ReferencePriceRangeProps) {
+  const { language } = useLanguage();
   const presentation = buildReferencePricePresentation(range, audience);
   if (audience === "provider" && presentation.value == null) {
     return null;
@@ -20,9 +23,9 @@ export function ReferencePriceRange({
 
   return (
     <View style={[styles.card, audience === "customer" ? styles.customerCard : null]}>
-      <Text style={styles.label}>{presentation.label}</Text>
+      <Text style={styles.label}>{translateText(language, presentation.label)}</Text>
       {presentation.value ? (
-        <Text style={styles.value}>{presentation.value}</Text>
+        <Text style={styles.value}>{translateText(language, presentation.value)}</Text>
       ) : null}
     </View>
   );

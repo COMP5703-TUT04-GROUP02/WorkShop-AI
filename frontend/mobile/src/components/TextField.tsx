@@ -1,3 +1,4 @@
+import { LocalizedTextInput } from "../i18n/LocalizedTextInput";
 import {
   KeyboardTypeOptions,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
 } from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
+import { useLanguage } from "../i18n/LanguageContext";
 
 type TextFieldProps = {
   label: string;
@@ -40,10 +42,11 @@ export function TextField({
   onSubmitEditing,
   error,
 }: TextFieldProps) {
+  const { t } = useLanguage();
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
+      <Text style={styles.label}>{t(label)}</Text>
+      <LocalizedTextInput
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
         editable={editable}
@@ -51,7 +54,7 @@ export function TextField({
         maxLength={maxLength}
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
-        placeholder={placeholder}
+        placeholder={placeholder ? t(placeholder) : undefined}
         placeholderTextColor={colors.mutedText}
         secureTextEntry={secureTextEntry}
         multiline={multiline}

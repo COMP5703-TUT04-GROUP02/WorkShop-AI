@@ -1,3 +1,5 @@
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { AlertCircle, ArrowRight } from "lucide-react-native";
@@ -20,7 +22,7 @@ export function ProviderPayoutReminder() {
 
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
-      <Pressable
+      <LocalizedPressable
         accessibilityLabel="Complete payout details"
         accessibilityRole="button"
         onPress={() => navigation.navigate("ProviderPayoutAccount")}
@@ -33,13 +35,13 @@ export function ProviderPayoutReminder() {
           <AlertCircle color={colors.danger} size={20} />
         </View>
         <View style={styles.copy}>
-          <Text style={styles.title}>Complete payout details</Text>
-          <Text style={styles.message}>
+          <T style={styles.title}>Complete payout details</T>
+          <T style={styles.message}>
             Complete your details in Account → Payout account.
-          </Text>
+          </T>
         </View>
         <ArrowRight color={colors.danger} size={20} />
-      </Pressable>
+      </LocalizedPressable>
     </View>
   );
 }

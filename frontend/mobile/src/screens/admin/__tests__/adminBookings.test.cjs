@@ -6,6 +6,7 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
+let selectedLanguage = "en";
 
 const native = Object.fromEntries(["View", "Text", "ScrollView", "Pressable", "Modal", "ActivityIndicator"].map(name => [name,
   ({ children }) => React.createElement("div", { "data-native": name }, children),
@@ -21,6 +22,15 @@ function load(file, mocks = {}) {
   vm.runInNewContext(code, { module, exports: module.exports, require(name) {
     if (name in mocks) return mocks[name];
     if (name === "react-native") return native;
+    if (name.endsWith("/i18n/language")) return {
+      getCurrentLanguage: () => selectedLanguage,
+      currentLocale: () => selectedLanguage === "tr" ? "tr-TR" : "en-GB",
+    };
+    if (name.endsWith("/i18n/translations")) return load("../../i18n/translations.ts");
+    if (name.endsWith("/i18n/LanguageContext")) return { useLanguage: () => ({ language: selectedLanguage, t: text => text }) };
+    if (name.endsWith("/i18n/T")) return { T: native.Text };
+    if (name.endsWith("/i18n/LocalizedPressable")) return { LocalizedPressable: native.Pressable };
+    if (name.endsWith("/i18n/LocalizedTextInput")) return { LocalizedTextInput: () => null };
     if (name === "../../theme/theme") return theme;
     if (name === "../../theme/adminTypography") return load("../../theme/adminTypography.ts");
     if (name === "react" || name === "react/jsx-runtime") return require(name);
@@ -250,7 +260,7 @@ test("All and six group choices are directly available without a dropdown or nes
   h.dispose();
 });
 
-test("all dossier timestamps use English dates, preserve missing values, and do not follow browser locale", () => {
+test("dossier timestamps follow the selected language and preserve missing values", () => {
   const { formatBookingDateTime } = load("bookingPresentation.ts");
   const { bookingValue } = load("AdminBookingDetailModal.tsx");
   for (const key of ["created_at", "booking_at", "scheduled_start_time", "scheduled_end_time", "onboarding_paused_at", "changed_at", "paid_at", "blockage_resolved_at"]) {
@@ -261,6 +271,9 @@ test("all dossier timestamps use English dates, preserve missing values, and do 
   }
   assert.equal(formatBookingDateTime(null), "—");
   assert.equal(formatBookingDateTime("not-a-date"), "—");
+  selectedLanguage = "tr";
+  assert.match(formatBookingDateTime("2026-10-16T07:30:00Z"), /Eki 2026/);
+  selectedLanguage = "en";
 });
 
 test("Admin booking API forwards the status group together with exact IDs and paging", async () => {

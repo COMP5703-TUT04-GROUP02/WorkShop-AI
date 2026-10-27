@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { Check, ChevronDown, MapPin, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -222,24 +226,24 @@ export function LocationCascadePickerModal({
             <View style={styles.titleRow}>
               <MapPin color={colors.primary} size={22} />
               <View>
-                <Text style={styles.title}>Select service area</Text>
-                <Text style={styles.subtitle}>Province / City / District</Text>
+                <T style={styles.title}>Select service area</T>
+                <T style={styles.subtitle}>Province / City / District</T>
               </View>
             </View>
-            <Pressable
+            <LocalizedPressable
               accessibilityLabel="Close service area picker"
               accessibilityRole="button"
               onPress={onClose}
               style={styles.iconButton}
             >
               <X color={colors.text} size={20} />
-            </Pressable>
+            </LocalizedPressable>
           </View>
 
           {isLoading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator color={colors.primary} />
-              <Text style={styles.loadingText}>Loading service areas...</Text>
+              <T style={styles.loadingText}>Loading service areas...</T>
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.content}>
@@ -277,13 +281,13 @@ export function LocationCascadePickerModal({
 
           {message ? (
             <View style={styles.retryRow}>
-              <Text style={styles.errorText}>{message}</Text>
+              <T style={styles.errorText}>{message}</T>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setReloadKey((current) => current + 1)}
                 style={styles.retryButton}
               >
-                <Text style={styles.retryButtonText}>Retry</Text>
+                <T style={styles.retryButtonText}>Retry</T>
               </Pressable>
             </View>
           ) : null}
@@ -301,8 +305,8 @@ export function LocationCascadePickerModal({
               {completedLocation
                 ? `Use ${completedLocation.label}`
                 : allowAnyLevel
-                  ? "Choose a province, city, or district"
-                  : "Choose a district"}
+                  ? translateText(getCurrentLanguage(), "Choose a province, city, or district")
+                  : translateText(getCurrentLanguage(), "Choose a district")}
             </Text>
           </Pressable>
         </View>
@@ -337,8 +341,8 @@ function LocationLevel({
 
   return (
     <View style={styles.level}>
-      <Text style={styles.levelLabel}>{label}</Text>
-      <Pressable
+      <T style={styles.levelLabel}>{label}</T>
+      <LocalizedPressable
         accessibilityLabel={`${label}: ${selected?.name ?? placeholder}`}
         accessibilityRole="button"
         disabled={disabled || locations.length === 0}
@@ -349,7 +353,7 @@ function LocationLevel({
           {selected?.name ?? placeholder}
         </Text>
         <ChevronDown color={colors.mutedText} size={18} />
-      </Pressable>
+      </LocalizedPressable>
       {expanded ? (
         <ScrollView nestedScrollEnabled style={styles.optionsList}>
           {locations.map((location) => {

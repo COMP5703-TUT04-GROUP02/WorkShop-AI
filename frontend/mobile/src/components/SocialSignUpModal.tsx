@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { useEffect, useState } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 
@@ -64,14 +65,14 @@ export function SocialSignUpModal({
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>Finish signing up</Text>
+          <T style={styles.title}>Finish signing up</T>
           <Text style={styles.description}>
             There is no Workshop AI account for this {PROVIDER_LABEL[provider]} ID yet.
             Choose how you will use the app to create one.
           </Text>
 
           <View style={styles.roleBlock}>
-            <Text style={styles.label}>Role</Text>
+            <T style={styles.label}>Role</T>
             <RoleSegmentedControl onChange={setRole} value={role} />
           </View>
 
@@ -81,7 +82,7 @@ export function SocialSignUpModal({
             onToggle={() => setTermsAccepted((accepted) => !accepted)}
           />
 
-          {shownError ? <Text style={styles.error}>{shownError}</Text> : null}
+          {shownError ? <T style={styles.error}>{shownError}</T> : null}
 
           <View style={styles.actions}>
             <PrimaryButton

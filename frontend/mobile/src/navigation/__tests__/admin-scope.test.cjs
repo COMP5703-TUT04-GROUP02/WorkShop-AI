@@ -29,6 +29,12 @@ function load(relative, mocks = {}) {
     require(name) {
       if (name in mocks) return mocks[name];
       if (name === "react-native") return native;
+      if (name.endsWith("/i18n/T")) return { T: native.Text };
+      if (name.endsWith("/i18n/LocalizedTextInput")) return { LocalizedTextInput: native.TextInput };
+      if (name.endsWith("/i18n/LocalizedPressable")) return { LocalizedPressable: native.Pressable };
+      if (name.endsWith("/i18n/LanguageContext")) return { useLanguage: () => ({ language: "en", t: text => text }) };
+      if (name.endsWith("/i18n/language")) return { getCurrentLanguage: () => "en", currentLocale: () => "en-GB" };
+      if (name.endsWith("/i18n/translations")) return { translateText: (_language, text) => text };
       if (name === "../theme/theme") return theme;
       if (name === "../theme/adminTypography") return load("theme/adminTypography.ts");
       if (name === "react" || name === "react/jsx-runtime") return require(name);

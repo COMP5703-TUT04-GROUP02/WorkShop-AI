@@ -59,3 +59,8 @@ test("finds an entry by id", () => {
   assert.equal(findFaqItem(categories, "CUST-REF-009").question, "How long does a refund take?");
   assert.equal(findFaqItem(categories, "CUST-NOPE-001"), null);
 });
+
+test("Turkish search respects dotted and dotless I", () => {
+  const translated = [{ title: "İadeler", items: [{ id: "CUST-REF-001", question: "İade nasıl istenir?", answer: "İade talebi oluşturun." }] }];
+  assert.equal(filterFaq(translated, "İADE", null, "tr")[0].items[0].id, "CUST-REF-001");
+});

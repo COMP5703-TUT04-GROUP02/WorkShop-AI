@@ -249,6 +249,7 @@ async def update_pending_booking(
             "scheduled_end_time": booking.scheduled_end_time,
             "status": booking.status,
         },
+        event_key="booking.updated_by_customer",
     )
 
     db.commit()
@@ -288,6 +289,7 @@ async def pay_booking_by_booking_id(
             idempotency_key=idempotency_key,
             payment_stage=payment_data.payment_stage.value,
             frontend_return_url=payment_result_url_for_request(request),
+            locale="tr" if request.headers.get("accept-language", "").lower().startswith("tr") else "en",
         )
     )
 
@@ -414,6 +416,7 @@ async def cancel_refund_request(
             "restored_booking_status": booking.status,
             "cancelled_at": refund_request.cancelled_at,
         },
+        event_key="booking.refund_cancelled_by_customer",
     )
     add_refund_request_status_history(
         refund_request,
@@ -553,6 +556,7 @@ async def cancel_booking(
 @router.put("/customer/bookings/{booking_id}/confirm-complete")
 async def confirm_booking_complete(
     booking_id: int,
+    request: Request,
     current_user: models.User = Depends(require_customer),
     db: Session = Depends(get_db),
 ):
@@ -561,6 +565,7 @@ async def confirm_booking_complete(
             booking_id,
             current_user,
             db,
+            locale="tr" if request.headers.get("accept-language", "").lower().startswith("tr") else "en",
         )
     )
 

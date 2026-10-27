@@ -1,3 +1,6 @@
+import { T } from "../i18n/T";
+import { localizeKnownBookingSystemText } from "../i18n/bookingEvents";
+import { useLanguage } from "../i18n/LanguageContext";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../theme/theme";
@@ -8,6 +11,7 @@ export function BookingContextInformation({
 }: {
   booking: BookingDetail;
 }) {
+  const { language } = useLanguage();
   const initialDeclineReason = booking.status === "pending"
     ? booking.last_declined_quote?.decline_reason
     : null;
@@ -38,7 +42,10 @@ export function BookingContextInformation({
           : !booking.current_refund_request && booking.status_note?.trim()
             ? {
                 label: "Latest update",
-                value: booking.status_note.trim(),
+                value: localizeKnownBookingSystemText(
+                  booking.status_note.trim(),
+                  language,
+                ),
               }
             : null;
 
@@ -56,7 +63,7 @@ export function BookingContextInformation({
 function ContextRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
+      <T style={styles.label}>{label}</T>
       <Text style={styles.value}>{value}</Text>
     </View>
   );

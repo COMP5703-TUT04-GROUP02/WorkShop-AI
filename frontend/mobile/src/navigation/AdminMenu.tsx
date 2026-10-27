@@ -1,3 +1,5 @@
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -44,13 +46,13 @@ export function AdminMenu({ active, onSelect }: {
       onPress={() => onSelect(id)}
       style={[styles.item, active === id && styles.selected]}
     >
-      <Text style={[styles.text, active === id && styles.active]}>{label}</Text>
+      <T style={[styles.text, active === id && styles.active]}>{label}</T>
     </Pressable>
   );
 
   return (
     <View style={styles.menu}>
-      <Pressable
+      <LocalizedPressable
         accessibilityLabel="Admin"
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -59,13 +61,13 @@ export function AdminMenu({ active, onSelect }: {
         style={styles.item}
       >
         <AdminIcon color={active ? colors.primary : colors.mutedText} size={20} />
-        <Text style={[styles.text, !!active && styles.active]}>Admin</Text>
+        <T style={[styles.text, !!active && styles.active]}>Admin</T>
         <MenuChevron expanded={expanded} active={!!active} />
-      </Pressable>
+      </LocalizedPressable>
       {expanded ? (
         <View style={[styles.children, styles.adminChildren]}>
           {ADMIN_PAGES.slice(0, 2).map(leaf)}
-          <Pressable
+          <LocalizedPressable
             accessibilityLabel="Provider information review"
             accessibilityRole="button"
             accessibilityState={{ expanded: providerExpanded }}
@@ -73,11 +75,11 @@ export function AdminMenu({ active, onSelect }: {
             onPress={() => setProviderExpanded(!providerExpanded)}
             style={styles.item}
           >
-            <Text style={[styles.text, providerActive && styles.active]}>
+            <T style={[styles.text, providerActive && styles.active]}>
               Provider information review
-            </Text>
+            </T>
             <MenuChevron expanded={providerExpanded} active={providerActive} />
-          </Pressable>
+          </LocalizedPressable>
           {providerExpanded ? (
             <View style={styles.children}>{ADMIN_PAGES.slice(2, 4).map(leaf)}</View>
           ) : null}

@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { StyleSheet, Text, View } from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
@@ -10,8 +11,8 @@ type PlaceholderPanelProps = {
 export function PlaceholderPanel({ title, description }: PlaceholderPanelProps) {
   return (
     <View style={styles.panel}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <T style={styles.title}>{title}</T>
+      <T style={styles.description}>{description}</T>
     </View>
   );
 }

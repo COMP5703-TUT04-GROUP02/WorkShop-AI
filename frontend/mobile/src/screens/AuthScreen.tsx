@@ -1,3 +1,5 @@
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -27,6 +29,7 @@ import { TextField } from "../components/TextField";
 import { EMAIL_CODE_HINT } from "../components/VerifyCodeModal";
 import { useAuth } from "../context/AuthContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
+import { LanguagePicker } from "../i18n/LanguagePicker";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
 import type { RegisterRequest } from "../types/auth";
@@ -35,6 +38,7 @@ import { getErrorMessage } from "../utils/errors";
 type AuthMode = "login" | "register";
 
 export function AuthScreen() {
+  const { language, t } = useLanguage();
   const { signIn, signUp, signInWithSocial } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -91,7 +95,7 @@ export function AuthScreen() {
     setCodeMessage("");
 
     if (!normalizedEmail.includes("@")) {
-      setErrorMessage("Enter your email address first.");
+      setErrorMessage(t("Enter your email address first."));
       return;
     }
 
@@ -101,7 +105,9 @@ export function AuthScreen() {
       setCodeSentTo(sent.sent_to);
       setEmailCode("");
       setResendIn(sent.resend_after_seconds);
-      setCodeMessage(`We sent a 6-digit code to ${sent.sent_to}.`);
+      setCodeMessage(language === "tr"
+        ? `${sent.sent_to} adresine 6 haneli bir kod gönderdik.`
+        : `We sent a 6-digit code to ${sent.sent_to}.`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -212,7 +218,7 @@ export function AuthScreen() {
       const problem = findRegisterProblem();
 
       if (problem) {
-        setErrorMessage(problem);
+        setErrorMessage(t(problem));
         return;
       }
     }
@@ -257,11 +263,11 @@ export function AuthScreen() {
     >
       {isWebDesktop ? (
         <View style={styles.hero}>
-          <Text style={styles.heroBrand}>Workshop AI</Text>
-          <Text style={styles.heroTitle}>Find local service providers</Text>
-          <Text style={styles.heroSubtitle}>
+          <T style={styles.heroBrand}>Workshop AI</T>
+          <T style={styles.heroTitle}>Find local service providers</T>
+          <T style={styles.heroSubtitle}>
             Search listings, request quotes, book appointments, and leave reviews.
-          </Text>
+          </T>
         </View>
       ) : null}
 
@@ -273,15 +279,16 @@ export function AuthScreen() {
         keyboardShouldPersistTaps="handled"
         style={isWebDesktop ? styles.scrollDesktop : undefined}
       >
+        <LanguagePicker />
         <View style={styles.header}>
-          {isWebDesktop ? null : <Text style={styles.brand}>Workshop AI</Text>}
+          {isWebDesktop ? null : <T style={styles.brand}>Workshop AI</T>}
           <Text style={styles.title}>
-            {isRegisterMode ? "Create an account" : "Welcome back"}
+            {t(isRegisterMode ? "Create an account" : "Welcome back")}
           </Text>
           <Text style={styles.subtitle}>
-            {isRegisterMode
+            {t(isRegisterMode
               ? "Select a role to continue."
-              : "Sign in to manage chats, bookings, and requests."}
+              : "Sign in to manage chats, bookings, and requests.")}
           </Text>
         </View>
 
@@ -343,9 +350,9 @@ export function AuthScreen() {
                     value={emailCode}
                   />
                   {codeMessage ? (
-                    <Text style={styles.codeHint}>{codeMessage}</Text>
+                    <T style={styles.codeHint}>{codeMessage}</T>
                   ) : null}
-                  <Text style={styles.codeHint}>{EMAIL_CODE_HINT}</Text>
+                  <Text style={styles.codeHint}>{t(EMAIL_CODE_HINT)}</Text>
                 </>
               ) : null}
             </View>
@@ -387,13 +394,13 @@ export function AuthScreen() {
 
           {isRegisterMode ? (
             <View style={styles.roleBlock}>
-              <Text style={styles.fieldLabel}>Role</Text>
+              <T style={styles.fieldLabel}>Role</T>
               <RoleSegmentedControl onChange={setRole} value={role} />
             </View>
           ) : null}
 
           {errorMessage ? (
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <T style={styles.errorText}>{errorMessage}</T>
           ) : null}
 
           <PrimaryButton
@@ -404,7 +411,7 @@ export function AuthScreen() {
 
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
+            <T style={styles.dividerText}>or</T>
             <View style={styles.dividerLine} />
           </View>
 
@@ -416,9 +423,9 @@ export function AuthScreen() {
 
           <Pressable onPress={toggleMode} style={styles.switchButton}>
             <Text style={styles.switchText}>
-              {isRegisterMode
+              {t(isRegisterMode
                 ? "Already have an account? Sign in"
-                : "Don't have an account? Create one"}
+                : "Don't have an account? Create one")}
             </Text>
           </Pressable>
         </View>
@@ -431,15 +438,15 @@ export function AuthScreen() {
             hitSlop={6}
             onPress={() => navigation.navigate("Legal", { document: "privacy" })}
           >
-            <Text style={styles.legalLink}>Privacy Policy</Text>
+            <T style={styles.legalLink}>Privacy Policy</T>
           </Pressable>
-          <Text style={styles.legalDot}>·</Text>
+          <T style={styles.legalDot}>·</T>
           <Pressable
             accessibilityRole="link"
             hitSlop={6}
             onPress={() => navigation.navigate("Legal", { document: "terms" })}
           >
-            <Text style={styles.legalLink}>Terms of Use</Text>
+            <T style={styles.legalLink}>Terms of Use</T>
           </Pressable>
         </View>
       </ScrollView>

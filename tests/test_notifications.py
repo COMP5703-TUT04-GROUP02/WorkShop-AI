@@ -1,3 +1,4 @@
+from backend import models
 from backend.services.redis_service import set_notification_unread_count
 from backend.utils.notification import get_notification_unread_count
 
@@ -52,3 +53,26 @@ def test_chat_notification_keeps_summary_and_list_in_sync(client, marketplace):
     assert listing.json()["data"]["total"] >= 1
     assert summary.json()["data"]["unread_count"] == unread
     assert summary.json()["data"]["latest_notification"] is not None
+    assert items[0]["template_key"] == "chat_message_received"
+    assert items[0]["template_params"] == {"sender_role": "customer", "attachment_count": 0}
+
+
+def test_legacy_notification_text_is_preserved(client, marketplace, db_session):
+    provider = marketplace["provider"]
+    db_session.add(models.Notification(
+        user_id=provider["user"]["id"],
+        title="Previous title",
+        content="Previous content",
+        notification_type="chat_message_received",
+        related_type="chat_room",
+        related_id=0,
+    ))
+    db_session.commit()
+
+    listing = client.get("/notifications", headers=provider["headers"])
+    assert listing.status_code == 200, listing.text
+    item = listing.json()["data"]["items"][0]
+    assert item["title"] == "Previous title"
+    assert item["content"] == "Previous content"
+    assert item["template_key"] is None
+    assert item["template_params"] is None

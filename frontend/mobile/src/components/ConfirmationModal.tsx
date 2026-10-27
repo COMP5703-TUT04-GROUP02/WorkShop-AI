@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
+import { useLanguage } from "../i18n/LanguageContext";
 import { SecondaryButton } from "./SecondaryButton";
 
 export type ConfirmationModalProps = {
@@ -20,6 +21,7 @@ export function ConfirmationModal({
   title,
   visible,
 }: ConfirmationModalProps) {
+  const { t } = useLanguage();
   if (!visible) {
     return null;
   }
@@ -33,8 +35,8 @@ export function ConfirmationModal({
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+          <Text style={styles.title}>{t(title)}</Text>
+          <Text style={styles.message}>{t(message)}</Text>
           <View style={styles.actions}>
             <SecondaryButton label="Keep" onPress={onCancel} />
             <Pressable
@@ -45,7 +47,7 @@ export function ConfirmationModal({
                 pressed ? styles.confirmButtonPressed : null,
               ]}
             >
-              <Text style={styles.confirmLabel}>{confirmLabel}</Text>
+              <Text style={styles.confirmLabel}>{t(confirmLabel)}</Text>
             </Pressable>
           </View>
         </View>

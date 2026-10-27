@@ -2,6 +2,8 @@ import { getBookingStatusLabel } from "../../constants/labels";
 import { colors } from "../../theme/theme";
 import type { AdminBookingFilters, AdminBookingStatusGroup } from "../../types/adminBooking";
 import { parseDateTime } from "../../utils/datetime";
+import { currentLocale, getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
 
 // Retain system success/warning/neutral tones; avoid saturated indigo blocks.
 const TONES = {
@@ -26,7 +28,7 @@ function bookingGroup(status: string) {
 }
 
 export function bookingGroupLabel(status: string) {
-  return bookingGroup(status)?.label ?? getBookingStatusLabel(status);
+  return translateText(getCurrentLanguage(), bookingGroup(status)?.label ?? getBookingStatusLabel(status));
 }
 
 export function bookingStatusStyle(status: string) {
@@ -43,9 +45,9 @@ export function bookingFiltersForStatus(applied: AdminBookingFilters, statusGrou
   return { ...applied, statusGroup };
 }
 
-/** English UI; retain the same device-local timezone as the existing formatter. */
+/** Retain the device-local timezone while formatting in the chosen UI language. */
 export function formatBookingDateTime(value: string | null | undefined) {
   if (!value) return "—";
   const date = parseDateTime(value);
-  return date ? date.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—";
+  return date ? date.toLocaleString(currentLocale(), { dateStyle: "medium", timeStyle: "short" }) : "—";
 }

@@ -1,3 +1,5 @@
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react-native";
 import { createElement, useEffect, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
@@ -67,7 +69,7 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
   if (mediaItems.length === 0) {
     return (
       <View style={[styles.emptyBox, { width: mediaWidth }]}>
-        <Text style={styles.emptyText}>No portfolio media</Text>
+        <T style={styles.emptyText}>No portfolio media</T>
       </View>
     );
   }
@@ -100,7 +102,7 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
                     <View style={styles.playCircle}>
                       <Play color="#FFFFFF" fill="#FFFFFF" size={34} />
                     </View>
-                    <Text style={styles.videoHint}>Tap to play video</Text>
+                    <T style={styles.videoHint}>Tap to play video</T>
                   </Pressable>
                 )}
               </View>
@@ -110,7 +112,7 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
 
         {mediaItems.length > 1 ? (
           <>
-            <Pressable
+            <LocalizedPressable
               accessibilityLabel="Previous"
               accessibilityRole="button"
               disabled={activeIndex === 0}
@@ -123,8 +125,8 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
               ]}
             >
               <ChevronLeft color="#FFFFFF" size={24} />
-            </Pressable>
-            <Pressable
+            </LocalizedPressable>
+            <LocalizedPressable
               accessibilityLabel="Next"
               accessibilityRole="button"
               disabled={activeIndex === mediaItems.length - 1}
@@ -137,7 +139,7 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
               ]}
             >
               <ChevronRight color="#FFFFFF" size={24} />
-            </Pressable>
+            </LocalizedPressable>
           </>
         ) : null}
       </View>
@@ -160,14 +162,14 @@ export function PortfolioMediaCarousel({ portfolio }: PortfolioMediaCarouselProp
         visible={Boolean(activeVideoUrl)}
       >
         <View style={styles.videoModalOverlay}>
-          <Pressable
+          <LocalizedPressable
             accessibilityLabel="Close video"
             accessibilityRole="button"
             onPress={() => setActiveVideoUrl(null)}
             style={styles.videoCloseButton}
           >
-            <Text style={styles.videoCloseText}>×</Text>
-          </Pressable>
+            <T style={styles.videoCloseText}>×</T>
+          </LocalizedPressable>
           <View style={styles.videoPlayerBox}>
             {activeVideoUrl
               ? createElement("video", {

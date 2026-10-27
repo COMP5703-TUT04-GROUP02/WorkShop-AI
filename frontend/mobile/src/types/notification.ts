@@ -3,6 +3,8 @@ export type Notification = {
   user_id: number;
   title: string;
   content: string;
+  template_key?: string | null;
+  template_params?: Record<string, string | number> | null;
   notification_type: string;
   related_type: string;
   related_id: number;

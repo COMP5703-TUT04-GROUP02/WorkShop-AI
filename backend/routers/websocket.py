@@ -438,6 +438,7 @@ async def chat_websocket(
                     NotificationRelatedType.chat_room,
                     chat_room.id,
                     db,
+                    template_params={"sender_role": current_user.role, "attachment_count": len(attachments)},
                 )
 
             db.commit()

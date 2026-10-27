@@ -164,7 +164,7 @@ async def test_create_and_update_write_normalized_times_with_external_side_effec
     monkeypatch.setattr(customer_booking_actions, "get_or_create_chat_room", fake_chat_room)
     monkeypatch.setattr(customer_booking_actions, "create_booking_chat_message", fake_chat_message)
     monkeypatch.setattr(customer_booking_actions, "add_booking_status_history", lambda *args: None)
-    monkeypatch.setattr(customer_booking_actions, "create_notification", lambda *args: None)
+    monkeypatch.setattr(customer_booking_actions, "create_notification", lambda *args, **kwargs: None)
     monkeypatch.setattr(customer_booking_actions, "push_chat_message_to_room_members", no_push)
     monkeypatch.setattr(customer_booking_actions, "format_booking_detail_response", lambda booking, db: {"scheduled_start_time": booking.scheduled_start_time, "title": booking.title})
     monkeypatch.setattr(customer_booking_actions, "format_chat_room_response_with_unread", lambda *args: {})

@@ -1,3 +1,8 @@
+import { useLanguage } from "../i18n/LanguageContext";
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -57,6 +62,7 @@ const HISTORY_ORDER_STATUSES = [
 ];
 
 export function BookingHistoryScreen() {
+  useLanguage();
   const { user } = useAuth();
   const navigation = useNavigation<
     NativeStackNavigationProp<RootStackParamList>
@@ -233,7 +239,7 @@ export function BookingHistoryScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Booking history</Text>
+        <T style={styles.title}>Booking history</T>
         <SecondaryButton
           disabled={isLoading}
           label="Refresh"
@@ -241,7 +247,7 @@ export function BookingHistoryScreen() {
         />
       </View>
 
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {message ? <T style={styles.errorText}>{message}</T> : null}
 
       {isLoading ? (
         <View style={styles.loadingBox}>
@@ -249,8 +255,8 @@ export function BookingHistoryScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No booking history</Text>
-          <Text style={styles.emptyText}>Completed and cancelled bookings appear here.</Text>
+          <T style={styles.emptyTitle}>No booking history</T>
+          <T style={styles.emptyText}>Completed and cancelled bookings appear here.</T>
         </View>
       ) : (
         <View style={styles.list}>
@@ -355,16 +361,16 @@ function DetailRow({
 }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <T style={styles.detailLabel}>{label}</T>
       {onPress ? (
-        <Pressable
+        <LocalizedPressable
           accessibilityHint="Opens the provider profile"
           accessibilityLabel={`Open ${value}`}
           accessibilityRole="link"
           onPress={onPress}
         >
           <Text style={[styles.detailValue, styles.detailLink]}>{value}</Text>
-        </Pressable>
+        </LocalizedPressable>
       ) : (
         <Text style={styles.detailValue}>{value}</Text>
       )}
@@ -397,7 +403,7 @@ function getBookingStatusLabel(status: string) {
     visit_completed_closed: "Closed",
   };
 
-  return labels[status] || status;
+  return translateText(getCurrentLanguage(), labels[status] || status);
 }
 
 function getStatusBadgeStyle(status: string) {

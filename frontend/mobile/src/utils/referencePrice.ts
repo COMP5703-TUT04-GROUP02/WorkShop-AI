@@ -1,10 +1,11 @@
+import { currentLocale } from "../i18n/language";
 import type { BookingDetail, ReferencePriceRange } from "../types/booking";
 
 export type ReferencePriceAudience = "provider" | "customer";
 
-const wholeNumberFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 0,
-});
+function formatWholeNumber(value: number) {
+  return new Intl.NumberFormat(currentLocale(), { maximumFractionDigits: 0 }).format(value);
+}
 
 export function buildReferencePricePresentation(
   range: ReferencePriceRange | null | undefined,
@@ -22,7 +23,7 @@ export function buildReferencePricePresentation(
   ) {
     return {
       label,
-      value: `₺${wholeNumberFormatter.format(range.minimum)}–₺${wholeNumberFormatter.format(range.maximum)}`,
+      value: `₺${formatWholeNumber(range.minimum)}–₺${formatWholeNumber(range.maximum)}`,
     };
   }
 

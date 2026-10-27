@@ -1,3 +1,7 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { T } from "../../i18n/T";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -62,6 +66,7 @@ const HIDDEN_ORDER_STATUSES = [
 type ProviderReasonAction = "reject_booking" | "reject_refund";
 
 export function ProviderBookingsScreen() {
+  useLanguage();
   const openBookingRequestGuard = useRef(createLatestRequestGuard()).current;
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
   const [paymentsByBookingId, setPaymentsByBookingId] = useState<
@@ -455,7 +460,7 @@ export function ProviderBookingsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
+        <T style={styles.title}>Bookings</T>
         <SecondaryButton
           disabled={isLoading || isActing}
           label="Refresh"
@@ -463,7 +468,7 @@ export function ProviderBookingsScreen() {
         />
       </View>
 
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {message ? <T style={styles.errorText}>{message}</T> : null}
 
       {isLoading ? (
         <View style={styles.loadingBox}>
@@ -471,8 +476,8 @@ export function ProviderBookingsScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
-          <Text style={styles.emptyText}>Active bookings appear here.</Text>
+          <T style={styles.emptyTitle}>No bookings yet</T>
+          <T style={styles.emptyText}>Active bookings appear here.</T>
         </View>
       ) : (
         <View style={styles.list}>
@@ -599,7 +604,7 @@ function ProviderBookingCard({
       </Text>
       <Text style={styles.amountText}>
         {booking.visit_fee_amount == null
-          ? "No visit fee yet"
+          ? translateText(getCurrentLanguage(), "No visit fee yet")
           : `Visit fee: ${formatMoney(booking.visit_fee_amount)}`}
       </Text>
       {booking.current_refund_request ? (
@@ -619,7 +624,7 @@ function ProviderBookingCard({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <T style={styles.detailLabel}>{label}</T>
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
@@ -640,7 +645,7 @@ function getBookingStatusLabel(status: string) {
     visit_completed_closed: "Closed",
   };
 
-  return labels[status] || status;
+  return translateText(getCurrentLanguage(), labels[status] || status);
 }
 
 function getRefundStatusLabel(status: string) {
@@ -653,7 +658,7 @@ function getRefundStatusLabel(status: string) {
     cancelled: "Cancelled",
   };
 
-  return labels[status] || status;
+  return translateText(getCurrentLanguage(), labels[status] || status);
 }
 
 function getStatusBadgeStyle(status: string) {

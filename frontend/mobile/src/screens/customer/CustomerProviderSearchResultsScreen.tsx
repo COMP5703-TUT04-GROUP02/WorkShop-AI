@@ -1,3 +1,6 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ArrowLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -42,6 +45,7 @@ export function CustomerProviderSearchResultsScreen({
   navigation,
   route,
 }: CustomerProviderSearchResultsScreenProps) {
+  useLanguage();
   const {
     category,
     keyword,
@@ -173,17 +177,17 @@ export function CustomerProviderSearchResultsScreen({
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Pressable
+        <LocalizedPressable
           accessibilityLabel="Back to home"
           accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
           <ArrowLeft color={colors.text} size={21} />
-        </Pressable>
+        </LocalizedPressable>
 
         <View style={styles.headerText}>
-          <Text style={styles.title}>Search results</Text>
+          <T style={styles.title}>Search results</T>
           <Text style={styles.subtitle} numberOfLines={2}>
             {serviceAreaLabel} · {keyword}
           </Text>
@@ -208,12 +212,12 @@ export function CustomerProviderSearchResultsScreen({
         <Text style={styles.tokenText}>Keywords: {tokens.join(" / ")}</Text>
       ) : null}
 
-      {message ? <Text style={styles.messageText}>{message}</Text> : null}
+      {message ? <T style={styles.messageText}>{message}</T> : null}
 
       {isLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.loadingText}>Searching providers...</Text>
+          <T style={styles.loadingText}>Searching providers...</T>
         </View>
       ) : results.length > 0 ? (
         <View

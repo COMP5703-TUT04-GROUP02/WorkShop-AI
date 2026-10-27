@@ -1,3 +1,6 @@
+import { translateText } from "../i18n/translations";
+import { currentLocale, getCurrentLanguage } from "../i18n/language";
+import { T } from "../i18n/T";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { createElement, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -43,7 +46,7 @@ export function DateTimeField({
   if (Platform.OS === "web") {
     return (
       <View style={styles.container}>
-        <Text style={styles.label}>{label}</Text>
+        <T style={styles.label}>{label}</T>
         {createElement("input", {
           type: mode === "date" ? "date" : "datetime-local",
           max: maximumDate
@@ -108,7 +111,7 @@ function NativeDateTimeField({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <T style={styles.label}>{label}</T>
       <Pressable
         accessibilityRole="button"
         onPress={() => setPickerMode(fieldMode === "date" ? "date" : Platform.OS === "ios" ? "datetime" : "date")}
@@ -122,12 +125,12 @@ function NativeDateTimeField({
         >
           {date
             ? fieldMode === "date"
-              ? date.toLocaleDateString(undefined, { dateStyle: "medium" })
-              : date.toLocaleString(undefined, {
+              ? date.toLocaleDateString(currentLocale(), { dateStyle: "medium" })
+              : date.toLocaleString(currentLocale(), {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })
-            : fieldMode === "date" ? "Select date" : "Select date and time"}
+            : fieldMode === "date" ? translateText(getCurrentLanguage(), "Select date") : translateText(getCurrentLanguage(), "Select date and time")}
         </Text>
       </Pressable>
       {pickerMode ? (

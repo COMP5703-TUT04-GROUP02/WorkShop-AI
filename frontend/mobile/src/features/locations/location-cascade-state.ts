@@ -2,6 +2,7 @@ import type {
   ServiceAreaSelection,
   ServiceLocation,
 } from "../../types/location";
+import { currentLocale } from "../../i18n/language";
 
 export type LocationCascadeState = {
   province: ServiceLocation | null;
@@ -32,9 +33,9 @@ export function findLocationByName(
   locations: ServiceLocation[],
   name: string,
 ): ServiceLocation | null {
-  const normalizedName = name.trim().toLocaleLowerCase("en");
+  const normalizedName = name.trim().toLocaleLowerCase(currentLocale());
   return locations.find(
-    (location) => location.name.toLocaleLowerCase("en") === normalizedName,
+    (location) => location.name.toLocaleLowerCase(currentLocale()) === normalizedName,
   ) ?? null;
 }
 
@@ -45,7 +46,7 @@ export function sortServiceLocations(
   return [...locations].sort((left, right) => {
     if (left.code === preferredCode) return -1;
     if (right.code === preferredCode) return 1;
-    return left.name.localeCompare(right.name, "en", { sensitivity: "base" });
+    return left.name.localeCompare(right.name, currentLocale(), { sensitivity: "base" });
   });
 }
 

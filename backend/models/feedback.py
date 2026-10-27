@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.clock import utc_now
@@ -83,6 +83,8 @@ class Notification(Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    template_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    template_params: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     notification_type: Mapped[str] = mapped_column(String(64), nullable=False)
     related_type: Mapped[str] = mapped_column(String(64), nullable=False)
     related_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)

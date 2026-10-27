@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { T } from "../../i18n/T";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -62,6 +66,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export function ProviderPayoutAccountScreen() {
+  useLanguage();
   const { user } = useAuth();
   const { refresh: refreshPayoutStatus } = useProviderPayoutStatus();
   const { refreshProviderProfileStatus } = useProviderProfileGate();
@@ -164,10 +169,10 @@ export function ProviderPayoutAccountScreen() {
     <ScreenContainer contentStyle={styles.content}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Payout account</Text>
-          <Text style={styles.subtitle}>
+          <T style={styles.title}>Payout account</T>
+          <T style={styles.subtitle}>
             Add your payout details. We validate them locally and synchronize with iyzico Sandbox.
-          </Text>
+          </T>
         </View>
         <SecondaryButton
           disabled={isLoading || isSaving}
@@ -177,7 +182,7 @@ export function ProviderPayoutAccountScreen() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator accessibilityLabel="Loading payout account" color={colors.primary} />
+        <ActivityIndicator accessibilityLabel={translateText(getCurrentLanguage(), "Loading payout account")} color={colors.primary} />
       ) : (
         <>
           {message ? (
@@ -193,7 +198,7 @@ export function ProviderPayoutAccountScreen() {
           ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Business type</Text>
+            <T style={styles.sectionTitle}>Business type</T>
             <View style={styles.typeRow}>
               {TYPE_OPTIONS.map((option) => {
                 const selected = form.submerchant_type === option.value;
@@ -205,9 +210,9 @@ export function ProviderPayoutAccountScreen() {
                     onPress={() => updateField("submerchant_type", option.value)}
                     style={[styles.typeOption, selected ? styles.typeOptionSelected : null]}
                   >
-                    <Text style={[styles.typeLabel, selected ? styles.typeLabelSelected : null]}>
+                    <T style={[styles.typeLabel, selected ? styles.typeLabelSelected : null]}>
                       {option.label}
-                    </Text>
+                    </T>
                   </Pressable>
                 );
               })}
@@ -215,7 +220,7 @@ export function ProviderPayoutAccountScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Payout details</Text>
+            <T style={styles.sectionTitle}>Payout details</T>
             <TextField error={fieldErrors.name} label="Name or legal company title" value={form.name} onChangeText={(value) => updateField("name", value)} />
             <TextField error={fieldErrors.email} label="Email" keyboardType="email-address" value={form.email} onChangeText={(value) => updateField("email", value)} />
             <TextField error={fieldErrors.gsm_number} label="Phone number" keyboardType="phone-pad" value={form.gsm_number} onChangeText={(value) => updateField("gsm_number", value)} />
@@ -225,14 +230,14 @@ export function ProviderPayoutAccountScreen() {
 
           {form.submerchant_type === "PERSONAL" ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Personal identity</Text>
+              <T style={styles.sectionTitle}>Personal identity</T>
               <TextField error={fieldErrors.contact_name} label="First name" value={form.contact_name} onChangeText={(value) => updateField("contact_name", value)} />
               <TextField error={fieldErrors.contact_surname} label="Last name" value={form.contact_surname} onChangeText={(value) => updateField("contact_surname", value)} />
               <TextField error={fieldErrors.identity_number} label="Identity number" value={form.identity_number} onChangeText={(value) => updateField("identity_number", value)} />
             </View>
           ) : (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Company information</Text>
+              <T style={styles.sectionTitle}>Company information</T>
               <TextField error={fieldErrors.tax_office} label="Tax office" value={form.tax_office} onChangeText={(value) => updateField("tax_office", value)} />
               <TextField error={fieldErrors.legal_company_title} label="Legal company title" value={form.legal_company_title} onChangeText={(value) => updateField("legal_company_title", value)} />
               {isLimitedCompany ? (
@@ -263,7 +268,7 @@ function StatusCard({ submerchant }: { submerchant: ProviderSubmerchant | null }
     <View style={[styles.statusCard, isError ? styles.statusCardError : null]}>
       <View style={styles.statusTopLine}>
         <View>
-        <Text style={styles.statusEyebrow}>Sandbox synchronization</Text>
+        <T style={styles.statusEyebrow}>Sandbox synchronization</T>
           <Text
             style={[
               styles.statusTitle,
@@ -273,16 +278,16 @@ function StatusCard({ submerchant }: { submerchant: ProviderSubmerchant | null }
             {label}
           </Text>
         </View>
-        <Text style={styles.statusBadge}>Payout details</Text>
+        <T style={styles.statusBadge}>Payout details</T>
       </View>
       <Text style={styles.statusBody}>
         {submerchant
           ? isError
-            ? "Update the details below and save them again."
+            ? translateText(getCurrentLanguage(), "Update the details below and save them again.")
             : status === "active"
-              ? "The payout details were accepted by iyzico Sandbox."
-              : "Complete the details below to submit this payout account."
-          : "No payout account has been submitted yet."}
+              ? translateText(getCurrentLanguage(), "The payout details were accepted by iyzico Sandbox.")
+              : translateText(getCurrentLanguage(), "Complete the details below to submit this payout account.")
+          : translateText(getCurrentLanguage(), "No payout account has been submitted yet.")}
       </Text>
     </View>
   );

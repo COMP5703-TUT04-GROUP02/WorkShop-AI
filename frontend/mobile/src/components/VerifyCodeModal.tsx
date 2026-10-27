@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { useEffect, useState } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 
@@ -93,8 +94,8 @@ export function VerifyCodeModal({
     >
       <View style={styles.backdrop}>
         <View accessibilityViewIsModal style={styles.sheet}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
+          <T style={styles.title}>{title}</T>
+          <T style={styles.description}>{description}</T>
 
           <TextField
             keyboardType="number-pad"
@@ -104,10 +105,10 @@ export function VerifyCodeModal({
             placeholder="123456"
             value={code}
           />
-          <Text style={styles.hint}>{hint}</Text>
+          <T style={styles.hint}>{hint}</T>
 
           {errorMessage ? (
-            <Text style={styles.error}>{errorMessage}</Text>
+            <T style={styles.error}>{errorMessage}</T>
           ) : null}
 
           <View style={styles.actions}>

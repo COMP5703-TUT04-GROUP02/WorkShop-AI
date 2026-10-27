@@ -1,3 +1,5 @@
+import { LocalizedTextInput } from "../i18n/LocalizedTextInput";
+import { T } from "../i18n/T";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +17,7 @@ import {
 import { getCustomerFaq } from "../api/faq";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../i18n/LanguageContext";
 import { filterFaq, findFaqItem } from "../features/help/faq-filter";
 import type { LegalDocument, RootStackParamList } from "../navigation/types";
 import { colors, radius, spacing } from "../theme/theme";
@@ -38,6 +41,7 @@ const LEGAL: { document: LegalDocument; title: string }[] = [
 ];
 
 export function HelpScreen() {
+  const { language } = useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "Help">>();
@@ -48,14 +52,14 @@ export function HelpScreen() {
 
   return (
     <ScreenContainer>
-      <Text style={styles.title}>Help and Support</Text>
+      <T style={styles.title}>Help and Support</T>
 
-      {showFaq ? <FaqSection initialFaqId={route.params?.faqId} /> : null}
+      {showFaq ? <FaqSection key={language} language={language} initialFaqId={route.params?.faqId} /> : null}
       <Section title="Contact us" items={CONTACT} />
 
       {/* WS-90. Signed-in entry point to the same pages the register form uses. */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Legal</Text>
+        <T style={styles.sectionTitle}>Legal</T>
         {LEGAL.map((item) => (
           <Pressable
             key={item.document}
@@ -69,7 +73,7 @@ export function HelpScreen() {
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.cardTitle}>{item.title}</Text>
+            <T style={styles.cardTitle}>{item.title}</T>
             <ChevronRight color={colors.mutedText} size={20} />
           </Pressable>
         ))}
@@ -78,7 +82,7 @@ export function HelpScreen() {
   );
 }
 
-function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
+function FaqSection({ initialFaqId, language }: { initialFaqId?: string; language: "en" | "tr" }) {
   const [categories, setCategories] = useState<FaqCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -92,7 +96,7 @@ function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
     let active = true;
     setLoading(true);
     setError("");
-    getCustomerFaq()
+    getCustomerFaq(language)
       .then((result) => {
         if (!active) return;
         setCategories(result);
@@ -109,34 +113,34 @@ function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
     return () => {
       active = false;
     };
-  }, [initialFaqId, reloadKey]);
+  }, [initialFaqId, language, reloadKey]);
 
   const visible = useMemo(
-    () => filterFaq(categories, query, categoryTitle),
-    [categories, query, categoryTitle],
+    () => filterFaq(categories, query, categoryTitle, language),
+    [categories, query, categoryTitle, language],
   );
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>FAQ</Text>
+      <T style={styles.sectionTitle}>FAQ</T>
 
       {loading ? (
         <ActivityIndicator color={colors.primary} />
       ) : error ? (
         <View style={styles.card}>
-          <Text style={styles.cardBody}>{error}</Text>
+          <T style={styles.cardBody}>{error}</T>
           <Pressable
             accessibilityRole="button"
             onPress={() => setReloadKey((key) => key + 1)}
           >
-            <Text style={styles.retry}>Try again</Text>
+            <T style={styles.retry}>Try again</T>
           </Pressable>
         </View>
       ) : (
         <>
           {linkedItem ? (
             <View style={[styles.card, styles.linkedCard]}>
-              <Text style={styles.linkedLabel}>Suggested answer</Text>
+              <T style={styles.linkedLabel}>Suggested answer</T>
               <Text style={styles.questionText}>{linkedItem.question}</Text>
               <Text style={styles.cardBody}>{linkedItem.answer}</Text>
             </View>
@@ -144,7 +148,7 @@ function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
 
           <View style={styles.searchBox}>
             <Search color={colors.mutedText} size={18} />
-            <TextInput
+            <LocalizedTextInput
               accessibilityLabel="Search help articles"
               autoCorrect={false}
               clearButtonMode="while-editing"
@@ -173,9 +177,9 @@ function FaqSection({ initialFaqId }: { initialFaqId?: string }) {
           </View>
 
           {visible.length === 0 ? (
-            <Text style={styles.cardBody}>
+            <T style={styles.cardBody}>
               No answers match your search. Try fewer words or another category.
-            </Text>
+            </T>
           ) : (
             visible.map((category) => (
               <View key={category.title} style={styles.category}>
@@ -259,11 +263,11 @@ function Section({
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <T style={styles.sectionTitle}>{title}</T>
       {items.map((item) => (
         <View key={item.title} style={styles.card}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardBody}>{item.body}</Text>
+          <T style={styles.cardTitle}>{item.title}</T>
+          <T style={styles.cardBody}>{item.body}</T>
         </View>
       ))}
     </View>

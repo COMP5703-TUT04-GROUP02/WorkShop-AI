@@ -1,3 +1,9 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedTextInput } from "../../i18n/LocalizedTextInput";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
@@ -66,6 +72,7 @@ type AIChatMessageItem = {
 const WELCOME_MESSAGE = "How can I help you today?";
 
 export function CustomerAIChatScreen() {
+  useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const listRef = useRef<FlatList<AIChatMessageItem>>(null);
@@ -340,7 +347,7 @@ export function CustomerAIChatScreen() {
     return (
       <View style={styles.centerBox}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={styles.centerText}>Opening AI assistant...</Text>
+        <T style={styles.centerText}>Opening AI assistant...</T>
       </View>
     );
   }
@@ -352,7 +359,7 @@ export function CustomerAIChatScreen() {
       keyboardVerticalOffset={88}
       style={styles.container}
     >
-      <Pressable
+      <LocalizedPressable
         accessibilityLabel="Clear chat history"
         accessibilityRole="button"
         disabled={isClearing}
@@ -364,7 +371,7 @@ export function CustomerAIChatScreen() {
         ) : (
           <RefreshCw color={colors.primary} size={19} />
         )}
-      </Pressable>
+      </LocalizedPressable>
 
       <FlatList
         contentContainerStyle={styles.messageList}
@@ -390,12 +397,12 @@ export function CustomerAIChatScreen() {
       {isSending ? (
         <View style={styles.typingRow}>
           <ActivityIndicator color={colors.primary} size="small" />
-          <Text style={styles.typingText}>AI is thinking...</Text>
+          <T style={styles.typingText}>AI is thinking...</T>
         </View>
       ) : null}
 
       <View style={styles.inputBar}>
-        <TextInput
+        <LocalizedTextInput
           multiline
           onChangeText={setInputText}
           onSubmitEditing={() => {
@@ -530,17 +537,17 @@ function AIMessageBubble({
                   {provider.business_name}
                 </Text>
                 <Text style={styles.providerMeta} numberOfLines={1}>
-                  {getProviderTags(provider).join(" · ") || "No tags"}
+                  {getProviderTags(provider).join(" · ") || translateText(getCurrentLanguage(), "No tags")}
                 </Text>
                 <Text style={styles.providerMeta} numberOfLines={1}>
-                  {provider.service_province || "Unknown area"} ·{" "}
+                  {provider.service_province || translateText(getCurrentLanguage(), "Unknown area")} ·{" "}
                   {provider.hourly_rate ?? "-"} / hr
                 </Text>
                 <Text style={styles.providerReason} numberOfLines={2}>
-                  {provider.reason || "View profile"}
+                  {provider.reason || translateText(getCurrentLanguage(), "View profile")}
                 </Text>
                 <View style={styles.providerOpenRow}>
-                  <Text style={styles.providerOpenText}>View provider profile</Text>
+                  <T style={styles.providerOpenText}>View provider profile</T>
                   <ChevronRight color={colors.primary} size={16} />
                 </View>
               </Pressable>
@@ -550,7 +557,7 @@ function AIMessageBubble({
 
         {!isUser && helpArticles.length > 0 ? (
           <View style={styles.helpArticleList}>
-            <Text style={styles.helpArticleTitle}>Open in Help and Support</Text>
+            <T style={styles.helpArticleTitle}>Open in Help and Support</T>
             {helpArticles.map((article) => (
               <HelpLink key={article.id} faqId={article.id} label={article.question} />
             ))}
@@ -559,7 +566,7 @@ function AIMessageBubble({
 
         {!isUser && bookingDraft?.preview ? (
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Booking draft</Text>
+            <T style={styles.infoCardTitle}>Booking draft</T>
             <Text style={styles.infoCardText}>
               {bookingDraft.next_question ||
                 `Missing: ${bookingDraft.missing_field_names?.join(", ") || "required details"}`}
@@ -577,7 +584,7 @@ function AIMessageBubble({
             {isOpeningBookingForm ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.openBookingButtonText}>Open booking form</Text>
+              <T style={styles.openBookingButtonText}>Open booking form</T>
             )}
           </Pressable>
         ) : null}
@@ -793,7 +800,7 @@ function ConfirmationCard({
       ) : null}
       {card.fields?.map((field, index) => (
         <View key={`${field.label ?? "field"}-${index}`} style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>{field.label ?? "Field"}</Text>
+          <Text style={styles.fieldLabel}>{field.label ?? translateText(getCurrentLanguage(), "Field")}</Text>
           <Text style={styles.fieldValue}>{formatUnknownValue(field.value)}</Text>
         </View>
       ))}
@@ -809,7 +816,7 @@ function ConfirmationCard({
         >
           <X color={colors.text} size={16} />
           <Text style={styles.cancelButtonText}>
-            {card.cancel_label || "Cancel"}
+            {card.cancel_label || translateText(getCurrentLanguage(), "Cancel")}
           </Text>
         </Pressable>
         <Pressable
@@ -824,7 +831,7 @@ function ConfirmationCard({
             <>
               <Check color="#FFFFFF" size={16} />
               <Text style={styles.confirmButtonText}>
-                {card.confirm_label || "Confirm"}
+                {card.confirm_label || translateText(getCurrentLanguage(), "Confirm")}
               </Text>
             </>
           )}

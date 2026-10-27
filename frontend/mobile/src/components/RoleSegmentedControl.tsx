@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { T } from "../i18n/T";
 
 import { colors, radius, spacing } from "../theme/theme";
 import type { RegisterRequest } from "../types/auth";
@@ -31,9 +32,9 @@ export function RoleSegmentedControl({
             onPress={() => onChange(option.value)}
             style={[styles.option, isActive ? styles.optionActive : null]}
           >
-            <Text style={[styles.label, isActive ? styles.labelActive : null]}>
+            <T style={[styles.label, isActive ? styles.labelActive : null]}>
               {option.label}
-            </Text>
+            </T>
           </Pressable>
         );
       })}

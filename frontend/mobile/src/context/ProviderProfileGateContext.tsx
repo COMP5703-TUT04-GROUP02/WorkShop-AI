@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import {
   createContext,
   type ReactNode,
@@ -147,7 +148,7 @@ export function ProviderProfileGateProvider({
       >
         <View style={styles.overlay}>
           <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>Verification required</Text>
+            <T style={styles.dialogTitle}>Verification required</T>
             <Text style={styles.dialogMessage}>
               {requiredMessage}
             </Text>
@@ -159,7 +160,7 @@ export function ProviderProfileGateProvider({
                 pressed ? styles.dialogButtonPressed : null,
               ]}
             >
-              <Text style={styles.dialogButtonText}>OK</Text>
+              <T style={styles.dialogButtonText}>OK</T>
             </Pressable>
           </View>
         </View>

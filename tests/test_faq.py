@@ -27,6 +27,17 @@ def test_customer_faq_file_parses_with_stable_ids():
         assert item["answer"]
 
 
+def test_turkish_faq_matches_english_ids_and_order():
+    english = get_faq("customer", "en")
+    turkish = get_faq("customer", "tr")
+    assert len(turkish) == len(english) == 8
+    english_ids = [item["id"] for category in english for item in category["items"]]
+    turkish_ids = [item["id"] for category in turkish for item in category["items"]]
+    assert turkish_ids == english_ids
+    assert len(turkish_ids) == 50
+    assert turkish[0]["items"][0]["question"] == "Nasıl müşteri hesabı oluştururum?"
+
+
 def test_customer_faq_has_no_developer_setup_text():
     text = " ".join(
         f"{item['question']} {item['answer']}"
@@ -46,6 +57,15 @@ def test_faq_endpoint_is_public(client):
     first = data["categories"][0]["items"][0]
     assert first["id"] == "CUST-ACC-001"
     assert first["question"] == "How do I create a customer account?"
+
+
+def test_faq_endpoint_can_return_turkish(client):
+    response = client.get("/faq", params={"language": "tr"})
+    assert response.status_code == 200
+    first = response.json()["data"]["categories"][0]["items"][0]
+    assert first["id"] == "CUST-ACC-001"
+    assert first["question"] == "Nasıl müşteri hesabı oluştururum?"
+    assert client.get("/faq", params={"language": "de"}).status_code == 422
 
 
 def test_faq_endpoint_rejects_unknown_audience(client):

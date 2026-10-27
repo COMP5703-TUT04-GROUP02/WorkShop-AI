@@ -1,3 +1,10 @@
+import { translateText } from "../i18n/translations";
+import { currentLocale, getCurrentLanguage } from "../i18n/language";
+import { bookingEventCopy } from "../i18n/bookingEvents";
+import { useLanguage } from "../i18n/LanguageContext";
+import { LocalizedTextInput } from "../i18n/LocalizedTextInput";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { CalendarClock, MapPin, Send, SendHorizontal } from "lucide-react-native";
@@ -14,7 +21,6 @@ import {
   Alert,
   AppState,
   FlatList,
-  Linking,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -96,7 +102,7 @@ import { getErrorMessage } from "../utils/errors";
 import { formatShortDateTime, toEditableDateTime } from "../utils/datetime";
 import { formatMoney, formatPayLabel } from "../utils/money";
 import { useConfirmation } from "../utils/useConfirmation";
-import { resolveBookingReferenceDetail } from "../utils/referencePrice";
+import { openPaymentCheckout } from "../utils/openPaymentCheckout";
 import {
   createPaymentIdempotencyKey,
   shouldRotatePaymentIdempotencyKey,
@@ -106,10 +112,13 @@ import {
   canCustomerCancelBooking,
   canCustomerRequestRefund as canCustomerRequestRefundForBooking,
   getCustomerBookingListAction,
+  isLatestBookingRefresh,
   shouldShowBookingInChat,
   shouldShowFinalQuote,
   shouldShowInitialQuote,
   shouldShowInitialQuoteHistory,
+  withBookingPayment,
+  withBookingPreview,
   type CustomerBookingListAction,
 } from "../utils/bookingActions";
 import {
@@ -132,7 +141,15 @@ type ChatReasonAction =
   | "reject_final_quote"
   | "refund"
   | "reject_refund";
+
+type BookingStateResult = {
+  booking?: BookingDetail | null;
+  chat_message?: ChatMessage | null;
+  payment?: PaymentSummary | null;
+};
+
 export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
+  useLanguage();
   const { user } = useAuth();
   const { markChatRoomRead } = useRealtime();
   const { confirmationModal, requestConfirmation } = useConfirmation();
@@ -266,6 +283,92 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   );
   const [bookingPreviews, setBookingPreviews] = useState<Record<number, BookingDetail>>({});
   const [bookingPaymentsById, setBookingPaymentsById] = useState<Record<number, PaymentSummary>>({});
+  const selectedBookingIdRef = useRef<number | null>(null);
+  const bookingRefreshVersionsRef = useRef<Record<number, number>>({});
+  const paymentRefreshVersionRef = useRef(0);
+
+  useEffect(() => {
+    selectedBookingIdRef.current = selectedBooking?.id ?? null;
+  }, [selectedBooking?.id]);
+
+  const applyBookingSnapshot = useCallback((
+    booking: BookingDetail,
+    payment: PaymentSummary | null | undefined = undefined,
+    requestVersion?: number,
+  ) => {
+    if (
+      requestVersion !== undefined &&
+      !isLatestBookingRefresh(
+        bookingRefreshVersionsRef.current[booking.id],
+        requestVersion,
+      )
+    ) {
+      return false;
+    }
+
+    if (requestVersion === undefined) {
+      bookingRefreshVersionsRef.current[booking.id] =
+        (bookingRefreshVersionsRef.current[booking.id] ?? 0) + 1;
+    }
+
+    setBookingPreviews((current) => withBookingPreview(current, booking));
+    if (selectedBookingIdRef.current === booking.id) {
+      setSelectedBooking(booking);
+      if (payment !== undefined) {
+        setSelectedBookingPayment(payment);
+      }
+    }
+    if (payment !== undefined) {
+      paymentRefreshVersionRef.current += 1;
+      setBookingPaymentsById((current) =>
+        withBookingPayment(current, booking.id, payment),
+      );
+    }
+    return true;
+  }, []);
+
+  const applyBookingActionResult = useCallback((result?: BookingStateResult | null) => {
+    if (result?.booking) {
+      applyBookingSnapshot(result.booking, result.payment);
+    }
+    const chatMessage = result?.chat_message;
+    if (chatMessage) {
+      setMessages((currentMessages) =>
+        appendChatMessageWithoutDuplicate(currentMessages, chatMessage),
+      );
+    }
+  }, [applyBookingSnapshot]);
+
+  const refreshBookingSnapshot = useCallback(async (bookingId: number) => {
+    const requestVersion =
+      (bookingRefreshVersionsRef.current[bookingId] ?? 0) + 1;
+    bookingRefreshVersionsRef.current[bookingId] = requestVersion;
+    const booking = await getBookingById(bookingId);
+    if (booking) {
+      applyBookingSnapshot(booking, undefined, requestVersion);
+    }
+    return booking;
+  }, [applyBookingSnapshot]);
+
+  const refreshCustomerPaymentCache = useCallback(async () => {
+    const requestVersion = paymentRefreshVersionRef.current + 1;
+    paymentRefreshVersionRef.current = requestVersion;
+    if (user?.role !== "customer") {
+      setBookingPaymentsById({});
+      return;
+    }
+
+    const result = await getCustomerPayments(1, 100);
+    if (paymentRefreshVersionRef.current === requestVersion) {
+      setBookingPaymentsById(indexLatestPayments(result?.items ?? []));
+    }
+  }, [user?.role]);
+
+  const clearSelectedBooking = useCallback(() => {
+    selectedBookingIdRef.current = null;
+    setSelectedBooking(null);
+    setSelectedBookingPayment(null);
+  }, []);
   const pinnedBookingItem = useMemo(
     () => getLatestBookingCardItem(displayMessages, bookingPreviews),
     [bookingPreviews, displayMessages],
@@ -280,59 +383,25 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   );
 
   useEffect(() => {
-    let isActive = true;
     const missingBookingIds = bookingCardIds.filter((bookingId) => !bookingPreviews[bookingId]);
-    if (missingBookingIds.length === 0) {
-      return () => {
-        isActive = false;
-      };
-    }
-
-    void Promise.all(
-      missingBookingIds.map(async (bookingId) => {
-        try {
-          return await getBookingById(bookingId);
-        } catch {
-          return null;
-        }
-      }),
-    ).then((results) => {
-      if (!isActive) return;
-      setBookingPreviews((current) => {
-        const next = { ...current };
-        results.forEach((booking) => {
-          if (booking) next[booking.id] = booking;
-        });
-        return next;
+    missingBookingIds.forEach((bookingId) => {
+      void refreshBookingSnapshot(bookingId).catch(() => {
+        // The message metadata still renders a limited fallback card.
       });
     });
-
-    return () => {
-      isActive = false;
-    };
-  }, [bookingCardIds, bookingPreviews]);
+  }, [bookingCardIds, bookingPreviews, refreshBookingSnapshot]);
 
   useEffect(() => {
-    if (user?.role !== "customer" || bookingCardIds.length === 0) {
+    if (bookingCardIds.length === 0) {
+      paymentRefreshVersionRef.current += 1;
       setBookingPaymentsById({});
       return;
     }
 
-    let isActive = true;
-    void getCustomerPayments(1, 100)
-      .then((result) => {
-        if (isActive) {
-          setBookingPaymentsById(indexLatestPayments(result?.items ?? []));
-        }
-      })
-      .catch(() => {
-        // The card can fall back to payment metadata from the chat message.
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [bookingCardIds, user?.role]);
+    void refreshCustomerPaymentCache().catch(() => {
+      // The card can fall back to payment metadata from the chat message.
+    });
+  }, [bookingCardIds, refreshCustomerPaymentCache]);
 
   const scrollToLatestMessage = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -353,7 +422,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       ),
       headerRight: () =>
         canCreateBooking ? (
-          <Pressable
+          <LocalizedPressable
             accessibilityLabel="Request booking"
             accessibilityRole="button"
             disabled={isCreatingBooking}
@@ -365,8 +434,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
             style={styles.headerOrderButton}
           >
             <Send color="#FFFFFF" size={17} />
-            <Text style={styles.headerOrderButtonText}>Booking</Text>
-          </Pressable>
+            <T style={styles.headerOrderButtonText}>Booking</T>
+          </LocalizedPressable>
         ) : null,
     });
   }, [
@@ -438,6 +507,20 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           appendChatMessageWithoutDuplicate(currentMessages, chatMessage),
         );
         if (
+          chatMessage.message_type === "booking_created" ||
+          chatMessage.message_type === "booking_status"
+        ) {
+          const bookingId = getBookingIdFromMessage(chatMessage);
+          if (bookingId) {
+            void refreshBookingSnapshot(bookingId).catch(() => {
+              // Keep the existing preview until the next booking event or manual open.
+            });
+            void refreshCustomerPaymentCache().catch(() => {
+              // Booking status is authoritative even if payment history is unavailable.
+            });
+          }
+        }
+        if (
           chatMessage.sender_id !== user?.id &&
           websocket.readyState === WebSocket.OPEN
         ) {
@@ -457,7 +540,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       }
 
       if (data?.type === "error" && typeof data.message === "string") {
-        setErrorMessage(data.message);
+        setErrorMessage(getCurrentLanguage() === "tr" ? "Bağlantıda bir sorun oluştu. Tekrar deneyin." : data.message);
       }
     };
 
@@ -481,7 +564,13 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         websocketRef.current = null;
       }
     };
-  }, [isAppActive, route.params.chatRoomId, user?.id]);
+  }, [
+    isAppActive,
+    refreshBookingSnapshot,
+    refreshCustomerPaymentCache,
+    route.params.chatRoomId,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (chatListMessages.length > 0) {
@@ -546,8 +635,10 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
             // The booking detail remains usable even if the payment list is unavailable.
           }
         }
+        selectedBookingIdRef.current = booking.id;
         setSelectedBooking(booking);
         setSelectedBookingPayment(payment);
+        applyBookingSnapshot(booking, payment);
         setBookingForm(createBookingFormFromDetail(booking));
         setQuoteAmount(
           booking.expected_service_amount == null
@@ -593,8 +684,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   }
 
   function closeBookingActionModal() {
-    setSelectedBooking(null);
-    setSelectedBookingPayment(null);
+    clearSelectedBooking();
     setBookingForm(null);
     setQuoteAmount("");
     setVisitFeeAmount("");
@@ -628,8 +718,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
     setIsBookingActionLoading(true);
     try {
-      await updateCustomerPendingBooking(selectedBooking.id, payload);
-      setSelectedBooking(null);
+      const result = await updateCustomerPendingBooking(selectedBooking.id, payload);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       Alert.alert("Update failed", getErrorMessage(error));
@@ -663,14 +754,15 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await quoteProviderBooking(
+      const result = await quoteProviderBooking(
         selectedBooking.id,
         amount,
         quoteMessage.trim() || null,
         visitFee,
         quoteFiles,
       );
-      setSelectedBooking(null);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
@@ -700,8 +792,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await rejectProviderBooking(selectedBooking.id, reason);
-      setSelectedBooking(null);
+      const result = await rejectProviderBooking(selectedBooking.id, reason);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -719,16 +812,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setBookingActionError("");
     try {
       const result = await acceptCustomerBookingQuote(selectedBooking.id);
-      const chatMessage = result?.chat_message;
-      setSelectedBooking(
-        await resolveBookingReferenceDetail(
-          result?.booking ?? selectedBooking,
-          getBookingById,
-        ),
-      );
-      if (chatMessage) {
-        setMessages((currentMessages) => [...currentMessages, chatMessage]);
-      } else {
+      applyBookingActionResult(result);
+      if (!result?.chat_message) {
         await loadMessages();
       }
     } catch (error) {
@@ -752,8 +837,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await rejectCustomerBookingQuote(selectedBooking.id, reason);
-      setSelectedBooking(null);
+      const result = await rejectCustomerBookingQuote(selectedBooking.id, reason);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -771,12 +857,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setBookingActionError("");
     try {
       const result = await acceptCustomerFinalQuote(selectedBooking.id);
-      setSelectedBooking(
-        await resolveBookingReferenceDetail(
-          result?.booking ?? selectedBooking,
-          getBookingById,
-        ),
-      );
+      applyBookingActionResult(result);
       await loadMessages();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
@@ -807,19 +888,22 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setBookingActionError("");
     try {
       if (action === "accept_quote") {
-        await acceptCustomerBookingQuote(bookingId);
+        const result = await acceptCustomerBookingQuote(bookingId);
+        applyBookingActionResult(result);
         await loadMessages();
         return;
       }
       if (action === "accept_final_quote") {
-        await acceptCustomerFinalQuote(bookingId);
+        const result = await acceptCustomerFinalQuote(bookingId);
+        applyBookingActionResult(result);
         await loadMessages();
         return;
       }
 
       const result = await confirmCustomerBookingComplete(bookingId);
+      applyBookingActionResult(result);
       if (result?.payment_page_url) {
-        await Linking.openURL(result.payment_page_url);
+        await openPaymentCheckout(result.payment_page_url);
         setBookingActionError(
           "The final quote changed. Complete the new authorization, then confirm again.",
         );
@@ -853,8 +937,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await rejectCustomerFinalQuote(selectedBooking.id, reason);
-      setSelectedBooking(null);
+      const result = await rejectCustomerFinalQuote(selectedBooking.id, reason);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
@@ -876,8 +961,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await cancelCustomerBooking(selectedBooking.id);
-      setSelectedBooking(null);
+      const result = await cancelCustomerBooking(selectedBooking.id);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -915,6 +1001,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         idempotencyKey,
         paymentStage,
       );
+      applyBookingActionResult(result);
 
       if (shouldRotatePaymentIdempotencyKey(result?.payment)) {
         delete paymentIdempotencyKeysRef.current[targetBookingId];
@@ -922,11 +1009,11 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
       if (result?.payment_page_url) {
         delete paymentIdempotencyKeysRef.current[targetBookingId];
-        await Linking.openURL(result.payment_page_url);
+        await openPaymentCheckout(result.payment_page_url);
       }
 
       if (bookingId || !selectedBooking) {
-        setSelectedBooking(null);
+        clearSelectedBooking();
       }
       await loadMessages();
     } catch (error) {
@@ -946,8 +1033,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await cancelCustomerBookingAfterVisit(selectedBooking.id);
-      setSelectedBooking(null);
+      const result = await cancelCustomerBookingAfterVisit(selectedBooking.id);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1002,12 +1090,13 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await requestCustomerRefund(
+      const result = await requestCustomerRefund(
         selectedBooking.id,
         reason,
         parsedAmount,
       );
-      setSelectedBooking(null);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1026,8 +1115,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await cancelCustomerRefund(refundRequestId);
-      setSelectedBooking(null);
+      const result = await cancelCustomerRefund(refundRequestId);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1062,8 +1152,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await appealCustomerRefund(refundRequestId, reason);
-      setSelectedBooking(null);
+      const result = await appealCustomerRefund(refundRequestId, reason);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1082,16 +1173,16 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setBookingActionError("");
     try {
       const result = await confirmCustomerBookingComplete(bookingToReview.id);
+      applyBookingActionResult(result);
       if (result?.payment_page_url) {
-        setSelectedBooking(result.booking ?? bookingToReview);
-        await Linking.openURL(result.payment_page_url);
+        await openPaymentCheckout(result.payment_page_url);
         setBookingActionError(
           "The final quote changed. Complete the new authorization, then confirm again.",
         );
         await loadMessages();
         return;
       }
-      setSelectedBooking(null);
+      clearSelectedBooking();
       await loadMessages();
       setReviewError("");
       setReviewBooking(
@@ -1157,7 +1248,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await startProviderVisit(
+      const result = await startProviderVisit(
         selectedBooking.id,
         proofAssets.map((asset) => ({
           uri: asset.uri,
@@ -1165,7 +1256,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           mimeType: asset.mimeType,
         })),
       );
-      setSelectedBooking(null);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
@@ -1193,13 +1285,14 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await submitProviderFinalQuote(
+      const result = await submitProviderFinalQuote(
         selectedBooking.id,
         amount,
         finalQuoteMessage.trim() || null,
         quoteFiles,
       );
-      setSelectedBooking(null);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
@@ -1226,7 +1319,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await completeProviderBooking(
+      const result = await completeProviderBooking(
         selectedBooking.id,
         proofAssets.map((asset) => ({
           uri: asset.uri,
@@ -1236,7 +1329,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         null,
         null,
       );
-      setSelectedBooking(null);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1255,8 +1349,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await approveProviderRefundRequest(refundRequestId);
-      setSelectedBooking(null);
+      const result = await approveProviderRefundRequest(refundRequestId);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1281,8 +1376,9 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setIsBookingActionLoading(true);
     setBookingActionError("");
     try {
-      await rejectProviderRefundRequest(refundRequestId, reason);
-      setSelectedBooking(null);
+      const result = await rejectProviderRefundRequest(refundRequestId, reason);
+      applyBookingActionResult(result);
+      clearSelectedBooking();
       await loadMessages();
     } catch (error) {
       setBookingActionError(getErrorMessage(error));
@@ -1320,11 +1416,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
     setCreateBookingError("");
     try {
       const result = await createCustomerBooking(payload);
-      if (result?.chat_message) {
-        setMessages((currentMessages) =>
-          appendChatMessageWithoutDuplicate(currentMessages, result.chat_message),
-        );
-      } else {
+      applyBookingActionResult(result);
+      if (!result?.chat_message) {
         await loadMessages();
       }
       setIsCreateBookingModalVisible(false);
@@ -1344,7 +1437,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       {isLoading ? (
         <View style={styles.centerBox}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.centerText}>Loading chat...</Text>
+          <T style={styles.centerText}>Loading chat...</T>
         </View>
       ) : (
         <View style={styles.chatArea}>
@@ -1391,7 +1484,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>No messages yet</Text>
+                <T style={styles.emptyText}>No messages yet</T>
               </View>
             }
             onContentSizeChange={() => scrollToLatestMessage(false)}
@@ -1423,10 +1516,10 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
         </View>
       )}
 
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {errorMessage ? <T style={styles.errorText}>{errorMessage}</T> : null}
 
       <View style={styles.inputBar}>
-        <TextInput
+        <LocalizedTextInput
           multiline
           onChangeText={setInputText}
           placeholder="Message"
@@ -1434,7 +1527,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
           style={styles.input}
           value={inputText}
         />
-        <Pressable
+        <LocalizedPressable
           accessibilityLabel="Send message"
           accessibilityRole="button"
           disabled={!inputText.trim() || isSending}
@@ -1448,7 +1541,7 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
             color={!inputText.trim() || isSending ? colors.mutedText : "#FFFFFF"}
             size={20}
           />
-        </Pressable>
+        </LocalizedPressable>
       </View>
 
       {user?.role === "provider" ? (
@@ -1608,7 +1701,7 @@ function ChatHeaderTitle({
           ]}
         />
         <Text style={styles.chatHeaderStatusText}>
-          {isOnline ? "Online" : "Offline"}
+          {isOnline ? translateText(getCurrentLanguage(), "Online") : translateText(getCurrentLanguage(), "Offline")}
         </Text>
       </View>
     </View>
@@ -1685,16 +1778,7 @@ function BookingStatusUpdate({
   message: ChatMessage;
   isMine: boolean;
 }) {
-  const metadata = message.metadata ?? {};
-  const status =
-    typeof metadata.new_status === "string" ? metadata.new_status : "";
-  const detail = typeof metadata.detail === "string" ? metadata.detail : "";
-  const title =
-    typeof metadata.title === "string"
-      ? metadata.title
-      : status
-        ? `Booking update: ${getBookingStatusLabelForChat(status)}`
-        : "Booking updated";
+  const copy = bookingEventCopy(message, getCurrentLanguage());
 
   return (
     <View
@@ -1703,8 +1787,8 @@ function BookingStatusUpdate({
         isMine ? styles.bookingUpdateMine : styles.bookingUpdateOther,
       ]}
     >
-      <Text style={styles.bookingUpdateTitle}>{title}</Text>
-      {detail ? <Text style={styles.bookingUpdateDetail}>{detail}</Text> : null}
+      <Text style={styles.bookingUpdateTitle}>{copy.title}</Text>
+      {copy.detail ? <Text style={styles.bookingUpdateDetail}>{copy.detail}</Text> : null}
       <Text style={styles.messageTime}>{formatMessageTime(message.created_at)}</Text>
     </View>
   );
@@ -1732,12 +1816,7 @@ function BookingMessageCard({
   userRole?: string;
 }) {
   const metadata = message.metadata ?? {};
-  const title =
-    typeof metadata.title === "string"
-      ? metadata.title
-      : message.message_type === "booking_created"
-        ? "New booking request"
-        : "Booking updated";
+  const title = bookingEventCopy(message, getCurrentLanguage()).title;
   const serviceDescription =
     typeof metadata.service_description === "string"
       ? metadata.service_description
@@ -1822,7 +1901,7 @@ function BookingMessageCard({
         ) : null}
       </View>
       <Text numberOfLines={2} style={styles.bookingDescription}>
-        {serviceDescription.replace("Service:", "").trim() || "Booking details"}
+        {serviceDescription.replace("Service:", "").trim() || translateText(getCurrentLanguage(), "Booking details")}
       </Text>
       {address ? (
         <View style={styles.bookingMetaRow}>
@@ -1842,7 +1921,7 @@ function BookingMessageCard({
       ) : null}
       {quoteAmount != null || visitFeeAmount != null ? (
         <Text style={styles.bookingQuoteText}>
-          {status === "awaiting_service_payment" ? "Service amount" : "Visit fee"}: {formatMoney(payableAmount)}
+          {status === "awaiting_service_payment" ? translateText(getCurrentLanguage(), "Service amount") : translateText(getCurrentLanguage(), "Visit fee")}: {formatMoney(payableAmount)}
         </Text>
       ) : null}
       {quoteMessage ? (
@@ -1850,7 +1929,7 @@ function BookingMessageCard({
           {quoteMessage}
         </Text>
       ) : null}
-      {canOpenOrder ? <Text style={styles.bookingHint}>Tap to view booking</Text> : null}
+      {canOpenOrder ? <T style={styles.bookingHint}>Tap to view booking</T> : null}
       {primaryAction ? (
         <Pressable
           accessibilityRole="button"
@@ -1863,13 +1942,13 @@ function BookingMessageCard({
           ) : (
             <Text style={styles.bookingPayButtonText}>
               {primaryAction === "accept_quote"
-                ? "Accept quote"
+                ? translateText(getCurrentLanguage(), "Accept quote")
                 : primaryAction === "accept_final_quote"
-                  ? "Accept final quote"
+                  ? translateText(getCurrentLanguage(), "Accept final quote")
                   : primaryAction === "confirm_complete"
-                    ? "Confirm complete"
+                    ? translateText(getCurrentLanguage(), "Confirm complete")
                     : paymentStatus === "checkout_created"
-                      ? "Continue payment"
+                      ? translateText(getCurrentLanguage(), "Continue payment")
                       : formatPayLabel(
                           status === "awaiting_service_payment"
                             ? finalQuoteAmount ?? quoteAmount
@@ -2211,7 +2290,7 @@ function formatMessageTime(value: string) {
     return "";
   }
 
-  return date.toLocaleTimeString([], {
+  return date.toLocaleTimeString(currentLocale(), {
     hour: "2-digit",
     minute: "2-digit",
   });

@@ -11,6 +11,7 @@ from pathlib import Path
 
 FAQ_DIR = Path(__file__).resolve().parent.parent / "content" / "faq"
 FAQ_AUDIENCES = ("customer",)
+FAQ_LANGUAGES = ("en", "tr")
 
 _CATEGORY = re.compile(r"^## (?P<title>.+?)\s*$")
 _ENTRY_ID = re.compile(r"^### (?P<id>[A-Z]+-[A-Z]+-\d{3})\s*$")
@@ -67,11 +68,14 @@ def parse_faq(markdown: str) -> list[dict]:
     return categories
 
 
-@lru_cache(maxsize=len(FAQ_AUDIENCES))
-def get_faq(audience: str) -> list[dict]:
+@lru_cache(maxsize=len(FAQ_AUDIENCES) * len(FAQ_LANGUAGES))
+def get_faq(audience: str, language: str = "en") -> list[dict]:
     if audience not in FAQ_AUDIENCES:
         raise KeyError(audience)
-    return parse_faq((FAQ_DIR / f"{audience}.md").read_text(encoding="utf-8"))
+    if language not in FAQ_LANGUAGES:
+        raise KeyError(language)
+    filename = f"{audience}.md" if language == "en" else f"{audience}.{language}.md"
+    return parse_faq((FAQ_DIR / filename).read_text(encoding="utf-8"))
 
 
 def get_faq_items(audience: str, faq_ids: list[str]) -> list[dict]:

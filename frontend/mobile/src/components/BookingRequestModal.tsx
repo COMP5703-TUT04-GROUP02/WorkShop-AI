@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { T } from "../i18n/T";
 import * as ImagePicker from "expo-image-picker";
 import { MapPin } from "lucide-react-native";
 import { useState } from "react";
@@ -166,10 +169,10 @@ export function BookingRequestModal({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Request booking</Text>
+          <T style={styles.modalTitle}>Request booking</T>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
             {errorMessage && !availabilityError ? (
-              <Text style={styles.modalErrorText}>{errorMessage}</Text>
+              <T style={styles.modalErrorText}>{errorMessage}</T>
             ) : null}
             <TextField
               label="Booking title"
@@ -177,9 +180,9 @@ export function BookingRequestModal({
               placeholder="e.g. Kitchen pipe repair"
               value={bookingForm.title}
             />
-            <Text style={styles.hint}>Maximum 30 words.</Text>
+            <T style={styles.hint}>Maximum 30 words.</T>
             <View style={styles.serviceField}>
-              <Text style={styles.serviceLabel}>Service</Text>
+              <T style={styles.serviceLabel}>Service</T>
               <View style={styles.serviceOptions}>
                 {serviceCategories.map((category) => {
                   const selected = bookingForm.serviceCategory === category;
@@ -207,7 +210,7 @@ export function BookingRequestModal({
               value={bookingForm.serviceDescription}
             />
             <View style={styles.serviceField}>
-              <Text style={styles.serviceLabel}>Service location</Text>
+              <T style={styles.serviceLabel}>Service location</T>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setIsLocationPickerVisible(true)}
@@ -223,7 +226,7 @@ export function BookingRequestModal({
                   }
                 >
                   {bookingForm.serviceAddress ||
-                    "Choose an address or use current location"}
+                    translateText(getCurrentLanguage(), "Choose an address or use current location")}
                 </Text>
               </Pressable>
             </View>
@@ -238,14 +241,14 @@ export function BookingRequestModal({
               value={bookingForm.scheduledEndTime}
             />
             {hasInvalidTimeRange ? (
-              <Text style={styles.modalErrorText}>End time must be later than start time.</Text>
+              <T style={styles.modalErrorText}>End time must be later than start time.</T>
             ) : null}
             {availabilityError ? (
-              <Text style={styles.modalErrorText}>{availabilityError}</Text>
+              <T style={styles.modalErrorText}>{availabilityError}</T>
             ) : null}
             <View style={styles.attachmentBox}>
-              <Text style={styles.attachmentTitle}>Attachments (optional)</Text>
-              <Text style={styles.hint}>Up to 5 images (2 MB each) and 2 videos (10 MB each).</Text>
+              <T style={styles.attachmentTitle}>Attachments (optional)</T>
+              <T style={styles.hint}>Up to 5 images (2 MB each) and 2 videos (10 MB each).</T>
               {bookingForm.attachments.map((file, index) => (
                 <View key={`${file.uri}-${index}`} style={styles.fileRow}>
                   <Text numberOfLines={1} style={styles.fileName}>{file.fileName}</Text>
@@ -263,7 +266,7 @@ export function BookingRequestModal({
                 label="Add photos or videos"
                 onPress={() => void pickAttachments()}
               />
-              {fileError ? <Text style={styles.modalErrorText}>{fileError}</Text> : null}
+              {fileError ? <T style={styles.modalErrorText}>{fileError}</T> : null}
             </View>
           </ScrollView>
           <View style={styles.modalActions}>

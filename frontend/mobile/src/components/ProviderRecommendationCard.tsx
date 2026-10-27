@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import type { ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -63,7 +64,7 @@ export function ProviderRecommendationCard<T extends ProviderCardItem>({
           <Image source={{ uri: imageUrl }} style={styles.image} />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>No image</Text>
+            <T style={styles.imagePlaceholderText}>No image</T>
           </View>
         )}
 

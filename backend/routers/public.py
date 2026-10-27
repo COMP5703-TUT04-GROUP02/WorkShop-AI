@@ -5,6 +5,7 @@ and the help-centre FAQ.
 """
 
 from datetime import datetime
+from typing import Literal
 
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -352,5 +353,8 @@ def get_review_by_id(review_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/faq", response_model=ApiResponse[FaqResponse])
-def get_help_faq(audience: FaqAudience = Query(default="customer")):
-    return success_response({"audience": audience, "categories": get_faq(audience)})
+def get_help_faq(
+    audience: FaqAudience = Query(default="customer"),
+    language: Literal["en", "tr"] = Query(default="en"),
+):
+    return success_response({"audience": audience, "categories": get_faq(audience, language)})

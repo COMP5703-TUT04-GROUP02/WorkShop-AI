@@ -1,3 +1,5 @@
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronDown } from "lucide-react-native";
@@ -81,6 +83,7 @@ function toFormValues(
 }
 
 export function AccountEditScreen() {
+  useLanguage();
   const { user, patchUserProfile } = useAuth();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -325,7 +328,7 @@ export function AccountEditScreen() {
                 />
 
                 <View style={styles.fieldBlock}>
-                  <Text style={styles.label}>Service area</Text>
+                  <T style={styles.label}>Service area</T>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => setIsProvincePickerVisible(true)}
@@ -348,10 +351,10 @@ export function AccountEditScreen() {
             ) : null}
 
             {isProviderNameLocked ? (
-              <Text style={styles.hintText}>
+              <T style={styles.hintText}>
                 Your legal name is locked while identity verification is under
                 review or approved.
-              </Text>
+              </T>
             ) : null}
 
             {message ? (

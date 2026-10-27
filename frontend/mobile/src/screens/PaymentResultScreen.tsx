@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -26,6 +30,7 @@ export function PaymentResultScreen({
   navigation,
   route,
 }: PaymentResultScreenProps) {
+  useLanguage();
   const { user } = useAuth();
   const bookingId = Number(route.params?.booking_id);
   const [booking, setBooking] = useState<BookingDetail | null>(null);
@@ -88,12 +93,12 @@ export function PaymentResultScreen({
     return (
       <ScrollView contentContainerStyle={styles.content} style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.eyebrow}>Payment result</Text>
-          <Text style={styles.title}>Payment callback received</Text>
-          <Text style={styles.body}>
+          <T style={styles.eyebrow}>Payment result</T>
+          <T style={styles.title}>Payment callback received</T>
+          <T style={styles.body}>
             Sign in to view the latest booking and payment status. Your payment
             result reference will be kept and reopened after sign-in.
-          </Text>
+          </T>
           <View style={styles.actions}>
             <PrimaryButton
               label="Sign in"
@@ -108,47 +113,47 @@ export function PaymentResultScreen({
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.eyebrow}>Payment result</Text>
+        <T style={styles.eyebrow}>Payment result</T>
         <Text style={styles.title}>
           {isLoading
-            ? "Checking payment"
+            ? translateText(getCurrentLanguage(), "Checking payment")
             : isPaid
-              ? "Payment successful"
+              ? translateText(getCurrentLanguage(), "Payment successful")
               : isAuthorized
-                ? "Payment authorized"
+                ? translateText(getCurrentLanguage(), "Payment authorized")
                 : isProcessing
-                  ? "Payment processing"
+                  ? translateText(getCurrentLanguage(), "Payment processing")
                   : isRefunded
-                    ? "Payment refunded"
+                    ? translateText(getCurrentLanguage(), "Payment refunded")
                     : isVoided
-                      ? "Authorization released"
+                      ? translateText(getCurrentLanguage(), "Authorization released")
                       : isFailed
-                        ? "Payment failed"
-                        : "Payment not completed"}
+                        ? translateText(getCurrentLanguage(), "Payment failed")
+                        : translateText(getCurrentLanguage(), "Payment not completed")}
         </Text>
 
         {isLoading ? (
           <ActivityIndicator color={colors.primary} />
         ) : message ? (
-          <Text style={styles.errorText}>{message}</Text>
+          <T style={styles.errorText}>{message}</T>
         ) : (
           <>
             <Text style={styles.body}>
               {isPaid
-                ? "Your payment was successful. Check the booking status below for the next step."
+                ? translateText(getCurrentLanguage(), "Your payment was successful. Check the booking status below for the next step.")
                 : isAuthorized
-                  ? "Your payment method was authorized. The final charge will be captured after service completion."
+                  ? translateText(getCurrentLanguage(), "Your payment method was authorized. The final charge will be captured after service completion.")
                   : isProcessing
-                    ? "Your payment is still being processed. Do not start another checkout until the result is confirmed."
+                    ? translateText(getCurrentLanguage(), "Your payment is still being processed. Do not start another checkout until the result is confirmed.")
                     : isRefunded
                       ? payment?.status === "partially_refunded"
-                        ? "Part of this payment was refunded."
-                        : "This payment was refunded."
+                        ? translateText(getCurrentLanguage(), "Part of this payment was refunded.")
+                        : translateText(getCurrentLanguage(), "This payment was refunded.")
                       : isVoided
-                        ? "The payment authorization was released and no charge was captured."
+                        ? translateText(getCurrentLanguage(), "The payment authorization was released and no charge was captured.")
                         : isFailed
-                          ? "The payment was not completed. You can try checkout again from the booking page."
-                          : "The booking is still awaiting payment. You can try checkout again from the booking page."}
+                          ? translateText(getCurrentLanguage(), "The payment was not completed. You can try checkout again from the booking page.")
+                          : translateText(getCurrentLanguage(), "The booking is still awaiting payment. You can try checkout again from the booking page.")}
             </Text>
             <DetailRow label="Booking" value={`#${bookingId}`} />
             <DetailRow
@@ -192,7 +197,7 @@ export function PaymentResultScreen({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <T style={styles.detailLabel}>{label}</T>
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );

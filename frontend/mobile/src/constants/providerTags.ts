@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+
 export const PROVIDER_TAGS = [
   "cleaning",
   "childcare",
@@ -29,5 +32,6 @@ export const PROVIDER_TAG_LABELS: Record<ProviderTag, string> = {
 export const DEFAULT_PROVIDER_TAG: ProviderTag = "cleaning";
 
 export function getProviderTagLabel(tag: string) {
-  return PROVIDER_TAG_LABELS[tag as ProviderTag] ?? tag;
+  const label = PROVIDER_TAG_LABELS[tag as ProviderTag];
+  return label ? translateText(getCurrentLanguage(), label) : tag;
 }

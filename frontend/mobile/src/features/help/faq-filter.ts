@@ -9,15 +9,17 @@ export function filterFaq(
   categories: FaqCategory[],
   query: string,
   categoryTitle: string | null,
+  language: "en" | "tr" = "en",
 ): FaqCategory[] {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const locale = language === "tr" ? "tr-TR" : "en-GB";
+  const terms = query.toLocaleLowerCase(locale).split(/\s+/).filter(Boolean);
 
   return categories
     .filter((category) => categoryTitle === null || category.title === categoryTitle)
     .map((category) => ({
       ...category,
       items: category.items.filter((item) => {
-        const text = `${item.question} ${item.answer}`.toLowerCase();
+        const text = `${item.question} ${item.answer}`.toLocaleLowerCase(locale);
         return terms.every((term) => text.includes(term));
       }),
     }))

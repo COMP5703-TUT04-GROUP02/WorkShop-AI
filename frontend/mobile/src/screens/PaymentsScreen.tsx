@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { useLanguage } from "../i18n/LanguageContext";
+import { T } from "../i18n/T";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -28,6 +32,7 @@ const PAGE_SIZE = 20;
  * vault, so offering to "manage cards" would be a control that cannot work.
  */
 export function PaymentsScreen() {
+  useLanguage();
   const { user } = useAuth();
   const [payments, setPayments] = useState<PaymentHistoryEntry[]>([]);
   const [page, setPage] = useState(1);
@@ -95,7 +100,7 @@ export function PaymentsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Payments</Text>
+        <T style={styles.title}>Payments</T>
         <SecondaryButton
           disabled={isLoading}
           label="Refresh"
@@ -105,25 +110,25 @@ export function PaymentsScreen() {
 
       <Text style={styles.subtitle}>
         {isProvider
-          ? "Payments customers have made for your bookings."
-          : "What you have paid, and for which booking."}
+          ? translateText(getCurrentLanguage(), "Payments customers have made for your bookings.")
+          : translateText(getCurrentLanguage(), "What you have paid, and for which booking.")}
       </Text>
 
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      {message ? <T style={styles.message}>{message}</T> : null}
 
       {isLoading ? (
-        <ActivityIndicator accessibilityLabel="Loading payments" color={colors.primary} />
+        <ActivityIndicator accessibilityLabel={translateText(getCurrentLanguage(), "Loading payments")} color={colors.primary} />
       ) : payments.length > 0 ? (
         payments.map((payment) => (
           <PaymentRow key={payment.id} isProvider={isProvider} payment={payment} />
         ))
       ) : !message ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No payments yet</Text>
+          <T style={styles.emptyTitle}>No payments yet</T>
           <Text style={styles.emptyBody}>
             {isProvider
-              ? "Payments appear here once a customer pays for a booking."
-              : "Once you pay for a booking it shows up here."}
+              ? translateText(getCurrentLanguage(), "Payments appear here once a customer pays for a booking.")
+              : translateText(getCurrentLanguage(), "Once you pay for a booking it shows up here.")}
           </Text>
         </View>
       ) : null}
@@ -173,12 +178,12 @@ function PaymentRow({
       </Text>
 
       <View style={styles.stateRow}>
-        <Text style={styles.stateLabel}>Payment</Text>
+        <T style={styles.stateLabel}>Payment</T>
         <Text style={styles.stateValue}>{getPaymentStatusLabel(payment.status)}</Text>
       </View>
       {payment.booking?.status ? (
         <View style={styles.stateRow}>
-          <Text style={styles.stateLabel}>Booking</Text>
+          <T style={styles.stateLabel}>Booking</T>
           <Text style={styles.stateValue}>
             {getBookingStatusLabel(payment.booking.status)}
           </Text>

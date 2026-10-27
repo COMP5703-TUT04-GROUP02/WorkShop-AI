@@ -1,3 +1,7 @@
+import { T } from "../i18n/T";
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
 import * as ImagePicker from "expo-image-picker";
 import {
   BellRing,
@@ -24,6 +28,8 @@ import { ScreenContainer } from "../components/ScreenContainer";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
 import { useIsWebDesktop } from "../layout/useIsWebDesktop";
+import { LanguagePicker } from "../i18n/LanguagePicker";
+import { useLanguage } from "../i18n/LanguageContext";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
 import { resolveMediaUrl } from "../utils/media";
@@ -37,6 +43,7 @@ type MenuItemProps = {
 };
 
 export function AccountScreen() {
+  useLanguage();
   const { user, signOut, uploadAvatar } = useAuth();
   const {
     hasProviderProfile,
@@ -93,7 +100,7 @@ export function AccountScreen() {
             isWebDesktop ? styles.profileHeaderDesktop : null,
           ]}
         >
-          <Pressable
+          <LocalizedPressable
             accessibilityLabel="Upload avatar"
             accessibilityRole="button"
             onPress={() => {
@@ -118,15 +125,15 @@ export function AccountScreen() {
                 <Plus color="#FFFFFF" size={22} />
               </View>
             ) : null}
-          </Pressable>
+          </LocalizedPressable>
 
           <Text style={styles.userName} numberOfLines={1}>
-            {user?.name ?? "Workshop AI"}
+            {user?.name ?? translateText(getCurrentLanguage(), "Workshop AI")}
           </Text>
           <Text style={styles.userMeta} numberOfLines={1}>
             {user?.email}
           </Text>
-          {message ? <Text style={styles.messageText}>{message}</Text> : null}
+          {message ? <T style={styles.messageText}>{message}</T> : null}
         </View>
 
         <View style={styles.menuColumn}>
@@ -214,6 +221,10 @@ export function AccountScreen() {
           </View>
 
           <View style={styles.menuCard}>
+            <LanguagePicker />
+          </View>
+
+          <View style={styles.menuCard}>
             <MenuItem
               icon={<LogOut color={colors.danger} size={24} />}
               isDanger
@@ -234,6 +245,7 @@ function MenuItem({
   onPress,
   isDanger = false,
 }: MenuItemProps) {
+  const { t } = useLanguage();
   return (
     <Pressable
       accessibilityRole="button"
@@ -245,7 +257,7 @@ function MenuItem({
     >
       <View style={styles.menuIcon}>{icon}</View>
       <Text style={[styles.menuLabel, isDanger ? styles.dangerText : null]}>
-        {label}
+        {t(label)}
       </Text>
       {badgeCount > 0 ? (
         <View style={styles.menuBadge}>

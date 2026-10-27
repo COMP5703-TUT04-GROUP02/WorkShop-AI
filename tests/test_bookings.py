@@ -73,6 +73,9 @@ def test_booking_quote_pay_complete_review_flow(client, marketplace):
     )
     assert accepted.status_code == 200, accepted.text
     assert accepted.json()["data"]["booking"]["status"] == "awaiting_visit_payment"
+    accepted_metadata = accepted.json()["data"]["chat_message"]["metadata"]
+    assert accepted_metadata["event_key"] == "booking.initial_quote_accepted"
+    assert accepted_metadata["detail_kind"] == "system"
 
     paid = client.put(
         f"/customer/bookings/{booking_id}/pay",
@@ -144,6 +147,8 @@ def test_booking_quote_pay_complete_review_flow(client, marketplace):
         client, customer, booking["chat_room_id"]
     )
     assert completed_messages[-1]["metadata"]["new_status"] == "completed"
+    assert completed_messages[-1]["metadata"]["event_key"] == "booking.completion_confirmed"
+    assert completed_messages[-1]["metadata"]["detail_kind"] == "system"
     assert (
         completed_messages[-1]["metadata"]["title"]
         == "Customer confirmed service completion"
@@ -194,6 +199,8 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
         message["metadata"]["title"] == "Provider started the visit"
         and message["metadata"]["detail"]
         == "Provider arrived and submitted visit evidence"
+        and message["metadata"]["event_key"] == "booking.visit_started"
+        and message["metadata"]["detail_kind"] == "system"
         for message in messages
     )
     first = client.put(
@@ -207,6 +214,8 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
     assert any(
         message["metadata"]["title"] == "Provider submitted the final quote"
         and message["metadata"]["detail"] == "First final quote"
+        and message["metadata"]["event_key"] == "booking.final_quote_submitted"
+        and message["metadata"]["detail_kind"] == "user_text"
         for message in messages
     )
     declined = client.put(
@@ -224,6 +233,8 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
     assert any(
         message["metadata"]["title"] == "Customer declined the final quote"
         and message["metadata"]["detail"] == "Please revise the parts cost"
+        and message["metadata"]["event_key"] == "booking.final_quote_rejected"
+        and message["metadata"]["detail_kind"] == "user_text"
         for message in messages
     )
     revised = client.put(
@@ -247,6 +258,8 @@ def test_final_quote_can_be_declined_and_revised_without_new_arrival_evidence(cl
         message["metadata"]["title"] == "Customer accepted the final quote"
         and message["metadata"]["detail"]
         == "Customer accepted the final quote and is waiting to pay"
+        and message["metadata"]["event_key"] == "booking.final_quote_accepted"
+        and message["metadata"]["detail_kind"] == "system"
         for message in messages
     )
 
@@ -294,7 +307,8 @@ def test_refund_and_complaint_on_paid_booking(client, marketplace):
     admin = marketplace["admin"]["headers"]
     provider_id = marketplace["provider_profile"]["id"]
 
-    booking_id = create_booking(client, customer, provider_id)["id"]
+    booking = create_booking(client, customer, provider_id)
+    booking_id = booking["id"]
     client.put(
         f"/provider/bookings/{booking_id}/quote",
         json={"quote_amount": 180, "visit_fee_amount": 30, "quote_message": "Labour only"},
@@ -338,6 +352,9 @@ def test_refund_and_complaint_on_paid_booking(client, marketplace):
     )
     assert cancelled_visit_refund.status_code == 200, cancelled_visit_refund.text
     assert cancelled_visit_refund.json()["data"]["booking"]["status"] == "provider_arrived"
+    messages = _booking_status_chat_messages(client, customer, booking["chat_room_id"])
+    assert messages[-1]["metadata"]["event_key"] == "booking.refund_cancelled_by_customer"
+    assert messages[-1]["metadata"]["detail_kind"] == "system"
 
     final_quote = client.put(
         f"/provider/bookings/{booking_id}/final-quote",

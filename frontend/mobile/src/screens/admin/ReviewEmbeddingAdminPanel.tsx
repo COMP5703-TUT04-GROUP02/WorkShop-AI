@@ -1,3 +1,6 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { T } from "../../i18n/T";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -107,7 +110,9 @@ export function ReviewEmbeddingAdminPanel() {
           if (task.status === "success") {
             setMessage("Full review embedding sync completed.");
           } else {
-            setError(task.error_message || `Embedding task ${task.status}.`);
+            setError(getCurrentLanguage() === "tr"
+              ? "Gömme işleminde bir sorun oluştu. Tekrar deneyin."
+              : task.error_message || `Embedding task ${task.status}.`);
           }
         }
       } catch (requestError) {
@@ -207,10 +212,10 @@ export function ReviewEmbeddingAdminPanel() {
     <View style={styles.section}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Review embeddings</Text>
-          <Text style={styles.subtitle}>
+          <T style={styles.title}>Review embeddings</T>
+          <T style={styles.subtitle}>
             Generate review vectors with the local TEI service and store them in Milvus.
-          </Text>
+          </T>
         </View>
         <SecondaryButton
           disabled={isLoading || isBusy}
@@ -229,19 +234,19 @@ export function ReviewEmbeddingAdminPanel() {
 
       <View style={styles.serviceCard}>
         <View style={styles.serviceRow}>
-          <Text style={styles.serviceLabel}>Embedding service</Text>
+          <T style={styles.serviceLabel}>Embedding service</T>
           <Text style={embeddingHealth ? styles.readyText : styles.mutedText}>
             {embeddingHealth
               ? `Ready · ${embeddingHealth.dimension} dimensions`
-              : "Not checked"}
+              : translateText(getCurrentLanguage(), "Not checked")}
           </Text>
         </View>
         <View style={styles.serviceRow}>
-          <Text style={styles.serviceLabel}>Milvus</Text>
+          <T style={styles.serviceLabel}>Milvus</T>
           <Text style={milvusHealth ? styles.readyText : styles.mutedText}>
             {milvusHealth
               ? `Ready · v${milvusHealth.server_version}`
-              : "Not checked"}
+              : translateText(getCurrentLanguage(), "Not checked")}
           </Text>
         </View>
         <SecondaryButton
@@ -257,24 +262,24 @@ export function ReviewEmbeddingAdminPanel() {
             <ActivityIndicator color={colors.primary} size="small" />
           ) : null}
           <View style={styles.taskCopy}>
-            <Text style={styles.taskTitle}>Full sync task</Text>
+            <T style={styles.taskTitle}>Full sync task</T>
             <Text numberOfLines={1} style={styles.taskText}>
-              {activeTask?.status ?? "queued"} · {activeTaskId ?? activeTask?.task_id}
+              {activeTask?.status ?? translateText(getCurrentLanguage(), "queued")} · {activeTaskId ?? activeTask?.task_id}
             </Text>
           </View>
         </View>
       ) : null}
 
-      {message ? <Text style={styles.successMessage}>{message}</Text> : null}
-      {error ? <Text style={styles.errorMessage}>{error}</Text> : null}
+      {message ? <T style={styles.successMessage}>{message}</T> : null}
+      {error ? <T style={styles.errorMessage}>{error}</T> : null}
 
       {showFullSyncConfirmation ? (
         <View style={styles.confirmationCard}>
-          <Text style={styles.confirmationTitle}>Rebuild all review embeddings?</Text>
-          <Text style={styles.confirmationText}>
+          <T style={styles.confirmationTitle}>Rebuild all review embeddings?</T>
+          <T style={styles.confirmationText}>
             This replaces the Milvus review collection with vectors generated from the current
             visible reviews.
-          </Text>
+          </T>
           <View style={styles.actions}>
             <SecondaryButton
               label="Cancel"
@@ -306,10 +311,10 @@ export function ReviewEmbeddingAdminPanel() {
           style={styles.actionButton}
         />
       </View>
-      <Text style={styles.note}>
+      <T style={styles.note}>
         New and edited reviews sync automatically. Use the full rebuild after importing reviews
         directly through a migration or SQL.
-      </Text>
+      </T>
     </View>
   );
 }
@@ -325,7 +330,7 @@ function StatusCard({
 }) {
   return (
     <View style={styles.statusCard}>
-      <Text style={styles.statusLabel}>{label}</Text>
+      <T style={styles.statusLabel}>{label}</T>
       <Text
         style={[
           styles.statusValue,

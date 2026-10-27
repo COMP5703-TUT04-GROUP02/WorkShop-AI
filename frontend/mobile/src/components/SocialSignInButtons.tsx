@@ -1,3 +1,5 @@
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Google from "expo-auth-session/providers/google";
 import * as Crypto from "expo-crypto";
@@ -54,9 +56,9 @@ export function SocialSignInButtons(props: SocialSignInButtonsProps) {
 
   if (!googleReady && !appleAvailable) {
     return __DEV__ ? (
-      <Text style={styles.hint}>
+      <T style={styles.hint}>
         Google and Apple sign-in are not set up for this build.
-      </Text>
+      </T>
     ) : null;
   }
 
@@ -96,7 +98,7 @@ function GoogleButton({ onCredential, onError, disabled }: SocialSignInButtonsPr
   const isDisabled = disabled || !request;
 
   return (
-    <Pressable
+    <LocalizedPressable
       accessibilityLabel="Continue with Google"
       accessibilityRole="button"
       disabled={isDisabled}
@@ -113,8 +115,8 @@ function GoogleButton({ onCredential, onError, disabled }: SocialSignInButtonsPr
       ]}
     >
       <GoogleLogo />
-      <Text style={styles.googleLabel}>Continue with Google</Text>
-    </Pressable>
+      <T style={styles.googleLabel}>Continue with Google</T>
+    </LocalizedPressable>
   );
 }
 

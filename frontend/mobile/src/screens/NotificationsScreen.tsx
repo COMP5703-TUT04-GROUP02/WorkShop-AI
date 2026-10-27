@@ -1,3 +1,4 @@
+import { T } from "../i18n/T";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import {
@@ -16,6 +17,8 @@ import {
 } from "../api/notifications";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { useRealtime } from "../context/RealtimeContext";
+import { useLanguage } from "../i18n/LanguageContext";
+import { notificationCopy } from "../i18n/notificationTemplates";
 import { colors, radius, spacing } from "../theme/theme";
 import type { PaginatedData } from "../types/chat";
 import type { Notification } from "../types/notification";
@@ -24,7 +27,8 @@ import { getErrorMessage } from "../utils/errors";
 const PAGE_SIZE = 30;
 
 export function NotificationsScreen() {
-  const { notificationUnreadCount, refreshUnreadCounts } = useRealtime();
+  useLanguage();
+  const { notificationUnreadCount, refreshUnreadCounts, subscribe } = useRealtime();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [paging, setPaging] = useState<PaginatedData<Notification> | null>(null);
   const [page, setPage] = useState(1);
@@ -51,7 +55,10 @@ export function NotificationsScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadNotifications();
-    }, [loadNotifications]),
+      return subscribe((event) => {
+        if (event.type === "notification_delivery") void loadNotifications();
+      });
+    }, [loadNotifications, subscribe]),
   );
 
   async function loadMore() {
@@ -119,7 +126,7 @@ export function NotificationsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Notifications</Text>
+        <T style={styles.title}>Notifications</T>
         <View style={styles.headerActions}>
           <SecondaryButton
             disabled={
@@ -136,14 +143,14 @@ export function NotificationsScreen() {
         </View>
       </View>
 
-      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+      {message ? <T style={styles.errorText}>{message}</T> : null}
 
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : notifications.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptyText}>Bookings, complaints, and review results appear here.</Text>
+          <T style={styles.emptyTitle}>No notifications yet</T>
+          <T style={styles.emptyText}>Bookings, complaints, and review results appear here.</T>
         </View>
       ) : (
         <View style={styles.list}>
@@ -176,6 +183,8 @@ function NotificationCard({
   onPress: () => void;
 }) {
   const isUnread = !notification.read_at;
+  const { language, locale } = useLanguage();
+  const copy = notificationCopy(notification, language);
 
   return (
     <Pressable
@@ -189,26 +198,26 @@ function NotificationCard({
     >
       <View style={styles.notificationHeader}>
         <Text numberOfLines={1} style={styles.notificationTitle}>
-          {notification.title}
+          {copy.title}
         </Text>
         {isUnread ? <View style={styles.unreadDot} /> : null}
       </View>
-      <Text style={styles.notificationContent}>{notification.content}</Text>
+      <Text style={styles.notificationContent}>{copy.content}</Text>
       <Text style={styles.notificationMeta}>
-        {formatDate(notification.created_at)}
+        {formatDate(notification.created_at, locale)}
       </Text>
     </Pressable>
   );
 }
 
-function formatDate(value: string) {
+function formatDate(value: string, locale: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return value.slice(0, 10);
   }
 
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 const styles = StyleSheet.create({

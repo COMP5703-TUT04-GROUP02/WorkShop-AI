@@ -1,3 +1,7 @@
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { T } from "../../i18n/T";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -20,6 +24,7 @@ import { colors, radius, spacing } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errors";
 
 export function ProviderPortfolioCreateScreen() {
+  useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [title, setTitle] = useState("");
@@ -103,16 +108,16 @@ export function ProviderPortfolioCreateScreen() {
               {assets.length > 0
                 ? `Selected ${assets.length} portfolio items`
                 : isVideo
-                  ? "Video selected"
-                  : "Choose photo or video"}
+                  ? translateText(getCurrentLanguage(), "Video selected")
+                  : translateText(getCurrentLanguage(), "Choose photo or video")}
             </Text>
           </View>
         )}
       </Pressable>
       {assets.length > 1 ? (
-        <Text style={styles.selectedCountText}>
+        <T style={styles.selectedCountText}>
           Saved as one portfolio; swipe to browse
-        </Text>
+        </T>
       ) : null}
 
       <View style={styles.card}>
@@ -131,7 +136,7 @@ export function ProviderPortfolioCreateScreen() {
           value={description}
         />
 
-        {message ? <Text style={styles.messageText}>{message}</Text> : null}
+        {message ? <T style={styles.messageText}>{message}</T> : null}
 
         <PrimaryButton
           disabled={isSaving}

@@ -1,3 +1,8 @@
+import { translateText } from "../../i18n/translations";
+import { currentLocale, getCurrentLanguage } from "../../i18n/language";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
@@ -54,6 +59,7 @@ const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
 const REVIEW_PAGE_SIZE = 10;
 
 export function ProviderHomeScreen() {
+  useLanguage();
   const { isProviderProfileLoading, isProviderProfileRequired } =
     useProviderProfileGate();
 
@@ -69,6 +75,7 @@ export function ProviderHomeScreen() {
 }
 
 export function ProviderVerificationScreen() {
+  useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { refreshProviderProfileStatus } = useProviderProfileGate();
   const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
@@ -99,13 +106,13 @@ export function ProviderVerificationScreen() {
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.header}>
         <View style={styles.flex}>
-          <Text style={styles.title}>Provider verification</Text>
-          <Text style={styles.subtitle}>Complete the three independent steps before accepting new orders.</Text>
+          <T style={styles.title}>Provider verification</T>
+          <T style={styles.subtitle}>Complete the three independent steps before accepting new orders.</T>
         </View>
         <SecondaryButton label="Refresh" onPress={() => void load()} />
       </View>
       <ProgressCard status={status} payoutStatus={payoutAccount?.status ?? "draft"} />
-      {message ? <Text style={styles.error}>{message}</Text> : null}
+      {message ? <T style={styles.error}>{message}</T> : null}
       <VerificationEntryCard
         label="1. ID verification"
         status={status?.identity_status ?? "not_submitted"}
@@ -127,6 +134,7 @@ export function ProviderVerificationScreen() {
 }
 
 export function ProviderIdentityVerificationScreen() {
+  useLanguage();
   const { user } = useAuth();
   const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
   const [application, setApplication] = useState<IdentityVerificationApplication | null>(null);
@@ -149,8 +157,8 @@ export function ProviderIdentityVerificationScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.headerContent}>
-        <Text style={styles.title}>ID verification</Text>
-        <Text style={styles.subtitle}>Update your identity details and submit them for review.</Text>
+        <T style={styles.title}>ID verification</T>
+        <T style={styles.subtitle}>Update your identity details and submit them for review.</T>
         <IdentityStep
           application={application}
           firstName={user?.first_name || ""}
@@ -164,6 +172,7 @@ export function ProviderIdentityVerificationScreen() {
 }
 
 export function ProviderServiceVerificationScreen() {
+  useLanguage();
   const { refreshProviderProfileStatus } = useProviderProfileGate();
   const [status, setStatus] = useState<ProviderVerificationStatus | null>(null);
   const [application, setApplication] = useState<QualificationVerificationApplication | null>(null);
@@ -187,8 +196,8 @@ export function ProviderServiceVerificationScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <View style={styles.headerContent}>
-        <Text style={styles.title}>Service verification</Text>
-        <Text style={styles.subtitle}>Update your service details and submit them for review.</Text>
+        <T style={styles.title}>Service verification</T>
+        <T style={styles.subtitle}>Update your service details and submit them for review.</T>
         <QualificationStep
           application={application}
           onSubmitted={() => void load()}
@@ -260,7 +269,7 @@ function ProviderHomeContent() {
   return (
     <FlatList
       ListEmptyComponent={
-        isLoading ? null : <Text style={styles.emptyText}>{error || "No reviews yet"}</Text>
+        isLoading ? null : <Text style={styles.emptyText}>{error || translateText(getCurrentLanguage(), "No reviews yet")}</Text>
       }
       ListFooterComponent={
         isLoadingMore ? <ActivityIndicator color={colors.primary} style={styles.footerLoader} /> : null
@@ -271,17 +280,17 @@ function ProviderHomeContent() {
             <View style={styles.profileSummaryMain}>
               <View style={styles.businessTitleRow}>
                 <Text numberOfLines={1} style={styles.businessName}>
-                  {profile?.business_name ?? "Provider"}
+                  {profile?.business_name ?? translateText(getCurrentLanguage(), "Provider")}
                 </Text>
-                <Text style={styles.serviceVerifiedBadge}>Service verified</Text>
+                <T style={styles.serviceVerifiedBadge}>Service verified</T>
               </View>
               <View style={styles.statusRow}>
                 <OpenStatusBadge isOpen={Boolean(profile?.is_open)} />
                 <OnlineStatusBadge isOnline={Boolean(profile?.is_online)} />
               </View>
-              <Text style={styles.bioText}>{profile?.bio || "No business description yet."}</Text>
+              <Text style={styles.bioText}>{profile?.bio || translateText(getCurrentLanguage(), "No business description yet.")}</Text>
               <Text style={styles.metaText}>
-                Business address: {profile?.address || "Not set"}
+                Business address: {profile?.address || translateText(getCurrentLanguage(), "Not set")}
               </Text>
               <Text style={styles.metaText}>
                 Service areas: {formatServiceAreas(serviceAreas)}
@@ -302,16 +311,16 @@ function ProviderHomeContent() {
               onPress={() => navigation.navigate("ProviderOperatingSettings")}
               style={styles.settingsButton}
             >
-              <Text style={styles.settingsButtonText}>Operating settings</Text>
+              <T style={styles.settingsButtonText}>Operating settings</T>
             </Pressable>
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <T style={styles.error}>{error}</T> : null}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Portfolios</Text>
+            <T style={styles.sectionTitle}>Portfolios</T>
             <Pressable accessibilityRole="button" onPress={() => navigation.navigate("ProviderPortfolioList")} style={styles.moreButton}>
-              <Text style={styles.moreText}>Manage portfolios</Text>
+              <T style={styles.moreText}>Manage portfolios</T>
               <ChevronRight color={colors.primary} size={18} />
             </Pressable>
           </View>
@@ -330,10 +339,10 @@ function ProviderHomeContent() {
               showsHorizontalScrollIndicator={false}
             />
           ) : (
-            <Text style={styles.emptyText}>No portfolios uploaded yet</Text>
+            <T style={styles.emptyText}>No portfolios uploaded yet</T>
           )}
 
-          <Text style={styles.sectionTitle}>Reviews</Text>
+          <T style={styles.sectionTitle}>Reviews</T>
         </View>
       }
       contentContainerStyle={styles.approvedContent}
@@ -351,7 +360,7 @@ function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
   return (
     <View style={styles.statusBadge}>
       <View style={[styles.statusDot, isOpen ? styles.statusDotActive : styles.statusDotInactive]} />
-      <Text style={styles.statusBadgeText}>{isOpen ? "Open" : "Closed"}</Text>
+      <Text style={styles.statusBadgeText}>{isOpen ? translateText(getCurrentLanguage(), "Open") : translateText(getCurrentLanguage(), "Closed")}</Text>
     </View>
   );
 }
@@ -360,7 +369,7 @@ function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
   return (
     <View style={styles.statusBadge}>
       <View style={[styles.statusDot, isOnline ? styles.statusDotActive : styles.statusDotInactive]} />
-      <Text style={styles.statusBadgeText}>{isOnline ? "Online" : "Offline"}</Text>
+      <Text style={styles.statusBadgeText}>{isOnline ? translateText(getCurrentLanguage(), "Online") : translateText(getCurrentLanguage(), "Offline")}</Text>
     </View>
   );
 }
@@ -381,7 +390,7 @@ function ReviewRow({ review }: { review: Review }) {
         <Text style={styles.ratingText}>{review.rating.toFixed(1)} stars</Text>
         <Text style={styles.reviewDate}>{formatReviewDate(review.created_at)}</Text>
       </View>
-      <Text style={styles.reviewComment}>{review.comment || "No comment provided."}</Text>
+      <Text style={styles.reviewComment}>{review.comment || translateText(getCurrentLanguage(), "No comment provided.")}</Text>
     </View>
   );
 }
@@ -389,7 +398,7 @@ function ReviewRow({ review }: { review: Review }) {
 function formatReviewDate(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(currentLocale());
 }
 
 function ProgressCard({
@@ -426,7 +435,7 @@ function ProgressCard({
             </Text>
           </View>
           <View style={styles.stepCopy}>
-            <Text style={styles.progressLabel}>{label}</Text>
+            <T style={styles.progressLabel}>{label}</T>
             {index < 2 ? <StatusBadge status={value as VerificationStatus} /> : <PayoutStatusBadge status={value} />}
           </View>
           {index < steps.length - 1 ? <View style={styles.stepConnector} /> : null}
@@ -444,24 +453,24 @@ function PayoutAccountStep({
   status: string;
 }) {
   return (
-    <Pressable
+    <LocalizedPressable
       accessibilityRole="button"
       accessibilityLabel="Open payout account"
       onPress={() => navigation.navigate("ProviderPayoutAccount")}
       style={styles.card}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>3. Payout account</Text>
+        <T style={styles.cardTitle}>3. Payout account</T>
         <PayoutStatusBadge status={status} />
       </View>
-      <Text style={styles.hint}>
+      <T style={styles.hint}>
         Add and synchronize the account that receives marketplace payouts.
-      </Text>
+      </T>
       <View style={styles.sectionHeader}>
-        <Text style={styles.link}>{status === "active" ? "Review payout details" : "Complete payout details"}</Text>
+        <Text style={styles.link}>{status === "active" ? translateText(getCurrentLanguage(), "Review payout details") : translateText(getCurrentLanguage(), "Complete payout details")}</Text>
         <ChevronRight color={colors.primary} size={20} />
       </View>
-    </Pressable>
+    </LocalizedPressable>
   );
 }
 
@@ -477,22 +486,22 @@ function VerificationEntryCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <LocalizedPressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${label}`}
       onPress={onPress}
       style={styles.card}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{label}</Text>
+        <T style={styles.cardTitle}>{label}</T>
         <StatusBadge status={status} />
       </View>
-      <Text style={styles.hint}>{description}</Text>
+      <T style={styles.hint}>{description}</T>
       <View style={styles.sectionHeader}>
-        <Text style={styles.link}>{status === "approved" ? "Review submission" : "Open details"}</Text>
+        <Text style={styles.link}>{status === "approved" ? translateText(getCurrentLanguage(), "Review submission") : translateText(getCurrentLanguage(), "Open details")}</Text>
         <ChevronRight color={colors.primary} size={20} />
       </View>
-    </Pressable>
+    </LocalizedPressable>
   );
 }
 
@@ -523,7 +532,7 @@ function IdentityStep({ application, firstName, lastName, onSubmitted, status }:
   }
 
   return <View style={styles.card}>
-    <View style={styles.cardHeader}><Text style={styles.cardTitle}>1. Identity verification</Text><StatusBadge status={status} /></View>
+    <View style={styles.cardHeader}><T style={styles.cardTitle}>1. Identity verification</T><StatusBadge status={status} /></View>
     {!canSubmit ? <ApplicationSummary rows={[
       ["Name", `${application?.submitted_first_name ?? firstName} ${application?.submitted_last_name ?? lastName}`],
       ["Date of birth", application?.date_of_birth ?? "-"], ["Document", documentLabel(application?.document_type)],
@@ -531,8 +540,8 @@ function IdentityStep({ application, firstName, lastName, onSubmitted, status }:
     ]} note="The application cannot be changed or cancelled while pending. Approved identity details stay locked." /> :
       <View style={styles.form}>
         <ReadOnlyRow label="First name" value={firstName} /><ReadOnlyRow label="Last name" value={lastName} />
-        <Text style={styles.hint}>These names are read from your account.</Text>
-        {!firstName.trim() || !lastName.trim() ? <Text style={styles.error}>Complete both names in Account → Edit profile first.</Text> : null}
+        <T style={styles.hint}>These names are read from your account.</T>
+        {!firstName.trim() || !lastName.trim() ? <T style={styles.error}>Complete both names in Account → Edit profile first.</T> : null}
         <DateTimeField
           label="Date of birth"
           maximumDate={new Date()}
@@ -542,7 +551,7 @@ function IdentityStep({ application, firstName, lastName, onSubmitted, status }:
         />
         <ChoiceRow options={[["national_id", "National ID"], ["passport", "Passport"]]} selected={documentType} onSelect={(value) => setDocumentType(value as "national_id" | "passport")} />
         <FilePicker files={files} onChange={setFiles} />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <T style={styles.error}>{error}</T> : null}
         <PrimaryButton disabled={!firstName.trim() || !lastName.trim()} isLoading={isSubmitting} label="Submit identity verification" onPress={() => void submit()} />
       </View>}
   </View>;
@@ -605,7 +614,7 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
   }
 
   return <View style={styles.card}>
-    <View style={styles.cardHeader}><Text style={styles.cardTitle}>2. Service verification</Text><StatusBadge status={status} /></View>
+    <View style={styles.cardHeader}><T style={styles.cardTitle}>2. Service verification</T><StatusBadge status={status} /></View>
     {!canSubmit ? <ApplicationSummary rows={[
       ["Provider type", application?.entity_type ?? "-"], ["Display name", application?.display_name ?? "-"],
       ["Business address", application?.business_address ?? "-"], ["Services", application?.service_categories.map(getProviderTagLabel).join(", ") ?? "-"],
@@ -613,26 +622,26 @@ function QualificationStep({ application, onSubmitted, status }: { application: 
       ["Files", String(application?.qualification_files.length ?? 0)],
     ]} note="The application cannot be changed or cancelled while pending." /> :
       <View style={styles.form}>
-        <Text style={styles.fieldLabel}>Provider type</Text>
+        <T style={styles.fieldLabel}>Provider type</T>
         <ChoiceRow options={[["personal", "Personal"], ["organisation", "Organisation"]]} selected={entityType} onSelect={(value) => setEntityType(value as "personal" | "organisation")} />
-        {entityType === "organisation" ? <><TextField label="Legal organisation name" onChangeText={setLegalName} value={legalName} /><TextField label="Unique enterprise ID" onChangeText={setEnterpriseId} value={enterpriseId} /></> : <Text style={styles.hint}>Your approved account name becomes the display name.</Text>}
+        {entityType === "organisation" ? <><TextField label="Legal organisation name" onChangeText={setLegalName} value={legalName} /><TextField label="Unique enterprise ID" onChangeText={setEnterpriseId} value={enterpriseId} /></> : <T style={styles.hint}>Your approved account name becomes the display name.</T>}
         <TextField label="Business description" multiline onChangeText={setDescription} value={description} />
         <TextField label="Contact phone" keyboardType="phone-pad" onChangeText={setPhone} value={phone} />
         <AddressButton location={address} onPress={() => setShowAddressPicker(true)} />
-        <Text style={styles.fieldLabel}>Services to verify</Text>
+        <T style={styles.fieldLabel}>Services to verify</T>
         <TagPicker selected={categories} onChange={setCategories} options={[...PROVIDER_TAGS]} />
         <View style={styles.sectionHeader}>
-          <Text style={styles.fieldLabel}>Service areas</Text>
-          <Pressable onPress={() => setShowAreaPicker(true)}><Text style={styles.link}>Add area</Text></Pressable>
+          <T style={styles.fieldLabel}>Service areas</T>
+          <Pressable onPress={() => setShowAreaPicker(true)}><T style={styles.link}>Add area</T></Pressable>
         </View>
-        <Text style={styles.hint}>Choose every province, city, or district this provider will serve.</Text>
+        <T style={styles.hint}>Choose every province, city, or district this provider will serve.</T>
         {areas.map((area) => <View key={area.id} style={styles.fileRow}>
           <MapPin color={colors.primary} size={18} />
           <Text style={styles.flex}>{area.label ?? area.name}</Text>
           <Pressable onPress={() => setAreas((current) => current.filter((item) => item.id !== area.id))}><Trash2 color={colors.danger} size={18} /></Pressable>
         </View>)}
         <FilePicker files={files} onChange={setFiles} />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <T style={styles.error}>{error}</T> : null}
         <PrimaryButton isLoading={isSubmitting} label="Submit service verification" onPress={() => void submit()} />
         <LocationPickerModal onClose={() => setShowAddressPicker(false)} onConfirm={(location) => { setAddress(location); setShowAddressPicker(false); }} value={address} visible={showAddressPicker} />
         <LocationCascadePickerModal allowAnyLevel onClose={() => setShowAreaPicker(false)} onSelect={addArea} value={null} visible={showAreaPicker} />
@@ -651,9 +660,9 @@ function FilePicker({ files, onChange }: { files: LocalVerificationFile[]; onCha
     setError("");
     onChange([...files, ...result.assets.map((asset) => ({ uri: asset.uri, fileName: asset.name, mimeType: asset.mimeType || "application/octet-stream" }))]);
   }
-  return <View style={styles.form}><Text style={styles.fieldLabel}>Verification files (1–5)</Text><Text style={styles.hint}>PDF, PNG or JPG/JPEG. Maximum 5 MB per file.</Text>
+  return <View style={styles.form}><T style={styles.fieldLabel}>Verification files (1–5)</T><T style={styles.hint}>PDF, PNG or JPG/JPEG. Maximum 5 MB per file.</T>
     {files.map((file, index) => <View key={`${file.uri}-${index}`} style={styles.fileRow}><FileText color={colors.primary} size={18} /><Text numberOfLines={1} style={styles.flex}>{file.fileName}</Text><Pressable onPress={() => onChange(files.filter((_, itemIndex) => itemIndex !== index))}><Trash2 color={colors.danger} size={18} /></Pressable></View>)}
-    <SecondaryButton disabled={files.length >= MAX_FILES} label="Add files" onPress={() => void pick()} />{error ? <Text style={styles.error}>{error}</Text> : null}</View>;
+    <SecondaryButton disabled={files.length >= MAX_FILES} label="Add files" onPress={() => void pick()} />{error ? <T style={styles.error}>{error}</T> : null}</View>;
 }
 
 function TagPicker({ selected, onChange, options }: { selected: string[]; onChange: (values: string[]) => void; options: string[] }) {
@@ -661,21 +670,21 @@ function TagPicker({ selected, onChange, options }: { selected: string[]; onChan
 }
 
 function ChoiceRow({ options, selected, onSelect }: { options: Array<[string, string]>; selected: string; onSelect: (value: string) => void }) {
-  return <View style={styles.tags}>{options.map(([value, label]) => <Pressable key={value} onPress={() => onSelect(value)} style={[styles.tag, selected === value ? styles.tagActive : null]}><Text style={[styles.tagText, selected === value ? styles.tagTextActive : null]}>{label}</Text></Pressable>)}</View>;
+  return <View style={styles.tags}>{options.map(([value, label]) => <Pressable key={value} onPress={() => onSelect(value)} style={[styles.tag, selected === value ? styles.tagActive : null]}><T style={[styles.tagText, selected === value ? styles.tagTextActive : null]}>{label}</T></Pressable>)}</View>;
 }
 
 function AddressButton({ location, onPress }: { location: SelectedLocation | null; onPress: () => void }) {
-  return <View style={styles.form}><Text style={styles.fieldLabel}>Business address</Text><Pressable onPress={onPress} style={styles.addressButton}><MapPin color={colors.primary} size={20} /><Text style={styles.flex}>{location?.label || "Select the exact business address"}</Text></Pressable></View>;
+  return <View style={styles.form}><T style={styles.fieldLabel}>Business address</T><Pressable onPress={onPress} style={styles.addressButton}><MapPin color={colors.primary} size={20} /><Text style={styles.flex}>{location?.label || translateText(getCurrentLanguage(), "Select the exact business address")}</Text></Pressable></View>;
 }
 
 function ApplicationSummary({ rows, note }: { rows: Array<[string, string]>; note: string }) {
   return <View style={styles.form}>{rows.map(([label, value]) => <ReadOnlyRow key={label} label={label} value={value} />)}<Text style={styles.hint}>{note}</Text></View>;
 }
-function ReadOnlyRow({ label, value }: { label: string; value: string }) { return <View style={styles.readOnlyRow}><Text style={styles.muted}>{label}</Text><Text style={styles.readOnlyValue}>{value || "-"}</Text></View>; }
+function ReadOnlyRow({ label, value }: { label: string; value: string }) { return <View style={styles.readOnlyRow}><T style={styles.muted}>{label}</T><Text style={styles.readOnlyValue}>{value || "-"}</Text></View>; }
 function StatusBadge({ status, label }: { status: VerificationStatus; label?: string }) { return <Text style={[styles.badge, status === "approved" ? styles.badgeApproved : status === "rejected" ? styles.badgeRejected : null]}>{label ?? status.replace("_", " ")}</Text>; }
 function PayoutStatusBadge({ status }: { status: string }) {
   const label = status === "active" ? "Approved" : status === "rejected" || status === "update_failed" ? "Needs update" : "Not submitted";
-  return <Text style={[styles.badge, status === "active" ? styles.badgeApproved : status === "rejected" || status === "update_failed" ? styles.badgeRejected : null]}>{label}</Text>;
+  return <T style={[styles.badge, status === "active" ? styles.badgeApproved : status === "rejected" || status === "update_failed" ? styles.badgeRejected : null]}>{label}</T>;
 }
 function documentLabel(value?: string) { return value === "passport" ? "Passport" : value === "national_id" ? "National ID" : "-"; }
 

@@ -1,3 +1,7 @@
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
+import { getCurrentLanguage } from "../../i18n/language";
+import { translateText } from "../../i18n/translations";
 import { X } from "lucide-react-native";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -42,7 +46,7 @@ export function bookingValue(key: string, value: unknown): string {
 }
 
 function Row({ label, value, status }: { label: string; value: string; status?: string }) {
-  return <View style={styles.row}><Text style={styles.label}>{label}</Text><Text selectable style={[styles.value, status ? { color: bookingStatusStyle(status).color } : null]}>{value}</Text></View>;
+  return <View style={styles.row}><T style={styles.label}>{label}</T><Text selectable style={[styles.value, status ? { color: bookingStatusStyle(status).color } : null]}>{value}</Text></View>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -59,7 +63,7 @@ function Fields({ record, currency }: { record: AdminBookingRecord; currency?: s
 function Records({ title, records }: { title: string; records: AdminBookingRecord[] }) {
   return <Section title={`${title} (${records.length})`}>
     {records.length ? records.map((record, index) => <View style={styles.record} key={String(record.id ?? index)}><Fields record={record} /></View>)
-      : <Text style={styles.muted}>No records</Text>}
+      : <T style={styles.muted}>No records</T>}
   </Section>;
 }
 
@@ -72,10 +76,10 @@ export function AdminBookingDetailModal({ bookingId, booking, loading, error, on
       <View style={styles.sheet} accessibilityViewIsModal>
         <View style={styles.header}>
           <View style={{ flex: 1 }}><Text accessibilityRole="header" style={styles.title}>Booking #{bookingId}</Text></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close booking details" onPress={onClose} style={styles.close}><X size={22} color={colors.text} /></Pressable>
+          <LocalizedPressable accessibilityRole="button" accessibilityLabel="Close booking details" onPress={onClose} style={styles.close}><X size={22} color={colors.text} /></LocalizedPressable>
         </View>
-        {loading ? <ActivityIndicator accessibilityLabel="Loading booking details" color={colors.primary} />
-          : error ? <View style={styles.card}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><SecondaryButton label="Retry loading details" onPress={onRetry} /></View>
+        {loading ? <ActivityIndicator accessibilityLabel={translateText(getCurrentLanguage(), "Loading booking details")} color={colors.primary} />
+          : error ? <View style={styles.card}><T accessibilityRole="alert" style={styles.error}>{error}</T><SecondaryButton label="Retry loading details" onPress={onRetry} /></View>
           : booking ? <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
             {BOOKING_GROUPS.map(([title, keys]) => <Section title={title} key={title}>
               {keys.map(key => <Row key={key} label={labelFor(key)} status={key === "status" ? booking.status : undefined} value={key === "status" ? getBookingStatusLabel(booking.status) : bookingValue(key, booking[key])} />)}
@@ -92,17 +96,17 @@ export function AdminBookingDetailModal({ bookingId, booking, loading, error, on
             </Section>
             <Records title="Quote revisions" records={booking.quote_revisions} />
             <Section title={`Payments (${booking.payments.length})`}>
-              {!booking.payments.length ? <Text style={styles.muted}>No records</Text> : null}
+              {!booking.payments.length ? <T style={styles.muted}>No records</T> : null}
               {booking.payments.map(({ settlement, ...payment }) => <View style={styles.record} key={payment.id}>
                 <Text style={styles.recordTitle}>Payment #{payment.id}</Text>
                 <Fields record={payment as AdminBookingRecord} currency={String(payment.currency)} />
-                <Text style={styles.recordTitle}>Settlement</Text>
-                {settlement ? <Fields record={settlement} currency={String(payment.currency)} /> : <Text style={styles.muted}>No settlement record</Text>}
+                <T style={styles.recordTitle}>Settlement</T>
+                {settlement ? <Fields record={settlement} currency={String(payment.currency)} /> : <T style={styles.muted}>No settlement record</T>}
               </View>)}
             </Section>
             <Records title="Refund requests" records={booking.refund_requests} />
             <Section title={`Attachments (${booking.attachments?.length ?? 0})`}>
-              {!booking.attachments?.length ? <Text style={styles.muted}>No attachments</Text> : null}
+              {!booking.attachments?.length ? <T style={styles.muted}>No attachments</T> : null}
               {booking.attachments?.map(attachment => <View style={styles.record} key={attachment.id}>
                 <BookingAttachmentGallery attachments={[attachment]} title={`${attachment.purpose.replace(/_/g, " ")}${attachment.quote_revision_id ? ` · Quote revision ID #${attachment.quote_revision_id}` : ""}`} />
                 <Row label="Attachment ID" value={`#${attachment.id}`} />

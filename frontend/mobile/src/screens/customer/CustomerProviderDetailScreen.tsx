@@ -1,3 +1,8 @@
+import { translateText } from "../../i18n/translations";
+import { currentLocale, getCurrentLanguage } from "../../i18n/language";
+import { useLanguage } from "../../i18n/LanguageContext";
+import { LocalizedPressable } from "../../i18n/LocalizedPressable";
+import { T } from "../../i18n/T";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Heart, MessageCircle, Send } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -52,6 +57,7 @@ export function CustomerProviderDetailScreen({
   navigation,
   route,
 }: CustomerProviderDetailScreenProps) {
+  useLanguage();
   const { subscribe } = useRealtime();
   const [detail, setDetail] = useState<CustomerProviderDetail | null>(null);
   const [portfolios, setPortfolios] = useState<ProviderPortfolio[]>([]);
@@ -268,7 +274,7 @@ export function CustomerProviderDetailScreen({
       <FlatList
         ListEmptyComponent={
           isLoading ? null : (
-            <Text style={styles.emptyText}>{message || "No reviews yet"}</Text>
+            <Text style={styles.emptyText}>{message || translateText(getCurrentLanguage(), "No reviews yet")}</Text>
           )
         }
         ListFooterComponent={
@@ -281,7 +287,7 @@ export function CustomerProviderDetailScreen({
             {isLoading ? (
               <View style={styles.centerBox}>
                 <ActivityIndicator color={colors.primary} />
-                <Text style={styles.emptyText}>Loading provider profile...</Text>
+                <T style={styles.emptyText}>Loading provider profile...</T>
               </View>
             ) : provider ? (
               <>
@@ -303,7 +309,7 @@ export function CustomerProviderDetailScreen({
                     ) : null}
                     <Text style={styles.bioText}>{provider.bio}</Text>
                     <Text style={styles.metaText}>
-                      Business address: {provider.address || "Not set"}
+                      Business address: {provider.address || translateText(getCurrentLanguage(), "Not set")}
                     </Text>
                     <Text style={styles.metaText}>
                       Service areas: {formatServiceAreas(provider.service_areas)}
@@ -320,7 +326,7 @@ export function CustomerProviderDetailScreen({
                     </View>
                   </View>
                   <View style={styles.actionColumn}>
-                    <Pressable
+                    <LocalizedPressable
                       accessibilityLabel={
                         provider.is_favorited
                           ? "Remove provider from favourites"
@@ -348,9 +354,9 @@ export function CustomerProviderDetailScreen({
                         size={20}
                       />
                       <Text style={styles.favouriteActionText}>
-                        {provider.is_favorited ? "Saved" : "Save"}
+                        {provider.is_favorited ? translateText(getCurrentLanguage(), "Saved") : translateText(getCurrentLanguage(), "Save")}
                       </Text>
-                    </Pressable>
+                    </LocalizedPressable>
                     <Pressable
                       accessibilityRole="button"
                       disabled={isOpeningChat}
@@ -358,7 +364,7 @@ export function CustomerProviderDetailScreen({
                       style={styles.iconActionButton}
                     >
                       <MessageCircle color="#FFFFFF" size={20} />
-                      <Text style={styles.iconActionText}>Chat</Text>
+                      <T style={styles.iconActionText}>Chat</T>
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
@@ -366,12 +372,12 @@ export function CustomerProviderDetailScreen({
                       style={styles.iconActionButton}
                     >
                       <Send color="#FFFFFF" size={20} />
-                      <Text style={styles.iconActionText}>Book</Text>
+                      <T style={styles.iconActionText}>Book</T>
                     </Pressable>
                   </View>
                 </View>
 
-                <Text style={styles.sectionTitle}>Portfolios</Text>
+                <T style={styles.sectionTitle}>Portfolios</T>
                 {portfolios.length > 0 ? (
                   <FlatList
                     ItemSeparatorComponent={() => <View style={styles.portfolioGap} />}
@@ -393,13 +399,13 @@ export function CustomerProviderDetailScreen({
                     showsHorizontalScrollIndicator={false}
                   />
                 ) : (
-                  <Text style={styles.emptyText}>No portfolios to preview</Text>
+                  <T style={styles.emptyText}>No portfolios to preview</T>
                 )}
 
-                <Text style={styles.sectionTitle}>Reviews</Text>
+                <T style={styles.sectionTitle}>Reviews</T>
               </>
             ) : (
-              <Text style={styles.emptyText}>{message || "Provider not found"}</Text>
+              <Text style={styles.emptyText}>{message || translateText(getCurrentLanguage(), "Provider not found")}</Text>
             )}
           </View>
         }
@@ -448,7 +454,7 @@ function ReviewRow({ review }: { review: Review }) {
         <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
       </View>
       <Text style={styles.reviewComment}>
-        {review.comment || "No written review"}
+        {review.comment || translateText(getCurrentLanguage(), "No written review")}
       </Text>
     </View>
   );
@@ -463,7 +469,7 @@ function OnlineStatusBadge({ isOnline }: { isOnline: boolean }) {
           isOnline ? styles.onlineDotActive : styles.onlineDotInactive,
         ]}
       />
-      <Text style={styles.onlineText}>{isOnline ? "Online" : "Offline"}</Text>
+      <Text style={styles.onlineText}>{isOnline ? translateText(getCurrentLanguage(), "Online") : translateText(getCurrentLanguage(), "Offline")}</Text>
     </View>
   );
 }
@@ -477,7 +483,7 @@ function OpenStatusBadge({ isOpen }: { isOpen: boolean }) {
           isOpen ? styles.onlineDotActive : styles.onlineDotInactive,
         ]}
       />
-      <Text style={styles.onlineText}>{isOpen ? "Open" : "Closed"}</Text>
+      <Text style={styles.onlineText}>{isOpen ? translateText(getCurrentLanguage(), "Open") : translateText(getCurrentLanguage(), "Closed")}</Text>
     </View>
   );
 }
@@ -492,7 +498,7 @@ function formatDate(value: string | null) {
     return value.slice(0, 10);
   }
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString(currentLocale());
 }
 
 const styles = StyleSheet.create({

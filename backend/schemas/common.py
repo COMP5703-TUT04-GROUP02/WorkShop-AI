@@ -22,6 +22,8 @@ class ErrorInfo(BaseModel):
     code: int
     detail: Any = None
     errors: Any = None
+    key: str | None = None
+    params: dict[str, Any] | None = None
 
 class ErrorResponse(BaseModel):
     success: bool = False

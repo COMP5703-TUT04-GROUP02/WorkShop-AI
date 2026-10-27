@@ -1,3 +1,5 @@
+import { useLanguage } from "../../i18n/LanguageContext";
+import { T } from "../../i18n/T";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Plus } from "lucide-react-native";
@@ -21,6 +23,7 @@ import type { ProviderPortfolio } from "../../types/provider";
 const PAGE_SIZE = 12;
 
 export function ProviderPortfolioListScreen() {
+  useLanguage();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [items, setItems] = useState<ProviderPortfolio[]>([]);
@@ -83,14 +86,14 @@ export function ProviderPortfolioListScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Text style={styles.title}>Portfolios</Text>
+        <T style={styles.title}>Portfolios</T>
         <Pressable
           accessibilityRole="button"
           onPress={() => navigation.navigate("ProviderPortfolioCreate")}
           style={styles.addButton}
         >
           <Plus color="#FFFFFF" size={20} />
-          <Text style={styles.addText}>Add</Text>
+          <T style={styles.addText}>Add</T>
         </Pressable>
       </View>
 
@@ -98,7 +101,7 @@ export function ProviderPortfolioListScreen() {
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : (
         <FlatList
-          ListEmptyComponent={<Text style={styles.emptyText}>No portfolios uploaded yet</Text>}
+          ListEmptyComponent={<T style={styles.emptyText}>No portfolios uploaded yet</T>}
           ListFooterComponent={
             isLoadingMore ? (
               <ActivityIndicator color={colors.primary} style={styles.footerLoader} />

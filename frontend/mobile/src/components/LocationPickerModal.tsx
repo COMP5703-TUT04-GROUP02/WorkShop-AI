@@ -1,3 +1,8 @@
+import { getCurrentLanguage } from "../i18n/language";
+import { translateText } from "../i18n/translations";
+import { LocalizedTextInput } from "../i18n/LocalizedTextInput";
+import { LocalizedPressable } from "../i18n/LocalizedPressable";
+import { T } from "../i18n/T";
 import * as Location from "expo-location";
 import { LocateFixed, MapPin, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
@@ -179,34 +184,34 @@ export function LocationPickerModal({
         <View style={styles.sheet}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Select service location</Text>
-              <Text style={styles.subtitle}>Filter nearby available providers</Text>
+              <T style={styles.title}>Select service location</T>
+              <T style={styles.subtitle}>Filter nearby available providers</T>
             </View>
-            <Pressable
+            <LocalizedPressable
               accessibilityLabel="Close location picker"
               accessibilityRole="button"
               onPress={onClose}
               style={styles.iconButton}
             >
               <X color={colors.text} size={20} />
-            </Pressable>
+            </LocalizedPressable>
           </View>
 
           <View style={styles.preview}>
             <MapPin color={colors.primary} size={34} />
             <Text style={styles.previewTitle}>
-              {selected?.label ?? "No location selected"}
+              {selected?.label ?? translateText(getCurrentLanguage(), "No location selected")}
             </Text>
             <Text style={styles.previewText}>
               {selected
                 ? `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`
-                : "Search for an address or use your current location"}
+                : translateText(getCurrentLanguage(), "Search for an address or use your current location")}
             </Text>
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Address</Text>
-            <TextInput
+            <T style={styles.label}>Address</T>
+            <LocalizedTextInput
               autoCorrect={false}
               onChangeText={handleQueryChange}
               placeholder="Start typing an address"
@@ -219,7 +224,7 @@ export function LocationPickerModal({
               <View style={styles.searchingRow}>
                 <ActivityIndicator color={colors.primary} size="small" />
                 <Text style={styles.searchingText}>
-                  {isResolving ? "Reading the address…" : "Searching…"}
+                  {isResolving ? translateText(getCurrentLanguage(), "Reading the address…") : translateText(getCurrentLanguage(), "Searching…")}
                 </Text>
               </View>
             ) : null}
@@ -247,7 +252,7 @@ export function LocationPickerModal({
             ) : null}
 
             {errorMessage ? (
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <T style={styles.errorText}>{errorMessage}</T>
             ) : null}
           </View>
 
@@ -266,10 +271,10 @@ export function LocationPickerModal({
 
           <View style={styles.hintRow}>
             <LocateFixed color={colors.mutedText} size={14} />
-            <Text style={styles.hintText}>
+            <T style={styles.hintText}>
               Addresses come from the Workshop AI places service, so the map point
               is always exact.
-            </Text>
+            </T>
           </View>
         </View>
       </View>
