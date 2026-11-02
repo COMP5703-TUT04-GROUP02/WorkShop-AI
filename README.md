@@ -1,365 +1,126 @@
 # Workshop AI
 
-Workshop AI is a local-services marketplace: customers find nearby providers, request a quote, book a visit, pay, and leave a review. Amounts are in Turkish lira (TRY).
+Workshop AI is a local-services marketplace for customers, service providers, and administrators. Customers find providers, discuss a job, book a visit, pay in two stages, and review completed work. Prices are in Turkish lira (TRY).
 
-The repository contains a FastAPI backend and an Expo app that runs on iOS, Android, and web.
+The project includes a FastAPI API and an Expo / React Native client for web, iOS, and Android. The checked-in Docker stack is a development/demo deployment; payments default to iyzico Sandbox.
 
-## Features
+## What is implemented
 
-- Public provider search by service tag, area, price, and availability
-- Customer and provider chat, including real-time WebSocket delivery
-- Booking flow: request → visit quote → pay visit fee → arrival → final quote → pay service fee → complete → review
-- Provider profiles, portfolios, and working-hour calendars
-- Admin tools for users, verification, bookings, payments, settlements, refunds, and complaints
-- Optional customer AI chat (API key, or admin ChatGPT Plus device-code login)
+- **Customers:** provider discovery and filters, favourites, profiles and addresses, booking attachments, customer–provider chat, visit and service payments, reviews, refunds, and complaints.
+- **Providers:** independent identity and service-qualification applications, payout-account setup, operating settings and service areas, availability, portfolios, visit quotes, arrival evidence, final-quote revisions, and completion evidence.
+- **Administrators:** account management, verification decisions, booking and payment oversight, settlement/refund handling, complaints, review moderation, and customer AI configuration.
+- **AI assistance:** provider search and recommendations, review search, booking drafts, and confirmation cards for supported write actions. Chat needs a configured model connection; review vector search uses Milvus and local TEI embeddings in Docker.
+- **Accounts and messaging:** password login, email-code registration and email changes, optional Google/Apple login, RS256 JWT sessions, HTTP chat history, WebSocket delivery, and in-app notifications. Phone verification remains a demo flow without SMS delivery.
 
-
-
-## Status
-
-This is a working demo, not a production deployment.
-
-- Checkout uses iyzico Sandbox. Marketplace payments require an iyzico-enabled Marketplace merchant account; no live funds are involved.
-- Customers pay the visit fee first through Hosted Checkout. The provider submits arrival evidence and a final quote; the customer can decline and renegotiate, or accept and pay the service fee before work starts.
-- Cancellation closes the booking without automatically refunding paid fees. Refunds follow Customer request → Provider review → Admin appeal, with at most one successful full/partial refund per booking.
-- Payment APIs cover both payment stages, callback verification, checkout idempotency, Marketplace settlement retry, and refunds. Customer completion confirmation does not charge the card again.
-- Marketplace settlement approval and full/partial refunds are confirmed by iyzico before local terminal states are written. The app does not claim to know when a provider receives money.
-- Google sign-in shows on each platform once its OAuth client ID is set; on iOS and Android it needs a development build (`npx expo run:ios`), not Expo Go. Sign in with Apple is iOS only. See [Google and Apple sign-in](#google-and-apple-sign-in).
-- Address autocomplete needs a server-side Google Places API (New) key. The rest of the app runs without it.
-- Vector search for reviews (Milvus + local TEI embeddings) starts with Docker Compose. A split local API process can omit it.
-- Provider ID verification, Service verification, and Payout account can be submitted independently. New orders require both Admin approvals and an active iyzico payout account.
-
-
-
-## Stack
-
-
-| Layer    | Choice                                                           |
-| -------- | ---------------------------------------------------------------- |
-| API      | FastAPI, SQLAlchemy, Alembic                                     |
-| Database | PostgreSQL 16                                                    |
-| Auth     | RS256 JWTs, refresh-token sessions                               |
-| Realtime | WebSockets, Redis                                                |
-| App      | Expo / React Native (web included)                               |
-| Optional | Redis-backed Celery, Milvus, TEI embeddings, Qwen-compatible LLM |
-
-
-
-
-## Repository layout
+### Booking and payment flow
 
 ```text
-backend/            API, models, routers, and services
-frontend/mobile/   Expo client
-migrations/        Alembic revisions
-tests/             pytest suite
-docs/              API notes and conventions
-scripts/           JWT key generation
-docker-compose.yml PostgreSQL, Redis, Milvus, TEI, API, Expo web
+Request → provider visit quote → customer accepts and pays visit fee
+→ provider records arrival → final service quote (revision supported)
+→ customer accepts and pays service fee → provider completes
+→ customer confirms completion → review
 ```
 
+Cancellation does not automatically refund paid fees. Refunds follow customer request → provider review → admin appeal where applicable. Settlement and refund results depend on iyzico responses; completion confirmation does not charge the customer again. New orders require approved identity, approved service qualification, and an active iyzico payout account.
 
+## Quick start: Docker
 
-## Requirements
-
-- **Docker** (recommended one-command stack)
-- Python 3.11 or newer and Node.js 20 or newer (only for split local debug)
-- Host ports: PostgreSQL **5436**, Redis **6379**, TEI **8091**, API **8000**, web **8090**
-
-
-
-## Getting started
-
-Prefer Docker. Use the host API / Expo process only when you need to debug one side without rebuilding images.
-
-### 1. Docker (recommended)
-
-This starts PostgreSQL, Redis, Milvus, TEI (`Qwen3-Embedding-0.6B`), the API, a Celery worker, and the Expo web build. Copy `.env.example` to `.env` and set `LLM_API_KEY` (and `LLM_PROVIDER` if needed). Compose reads that file for chat. Review embeddings default to the TEI container (`http://tei:80/v1`); do not point `EMBEDDING_BASE_URL` or `WORKSHOP_DATABASE_URL` at `127.0.0.1` inside the stack. The first TEI start downloads model weights into a volume.
+Install Docker with Compose v2. From the repository root:
 
 ```bash
 cp .env.example .env
-# set LLM_API_KEY=...
-docker compose up --build
+# Optional: configure external services in .env (see deployment guide).
+docker compose up --build -d
+docker compose ps
+docker compose logs -f api
 ```
 
-- App: [http://127.0.0.1:8090](http://127.0.0.1:8090)
-- API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+| Service | Local address |
+| --- | --- |
+| Web app | http://127.0.0.1:8090 |
+| API documentation | http://127.0.0.1:8000/docs |
+| API health | http://127.0.0.1:8000/health |
 
-API startup runs `alembic upgrade head`; it does not invoke a runtime seed command.
-On a fresh PostgreSQL volume, Alembic creates the schema and installs the fixed
-sample dataset from migration `0018_workshop_samples`. The old seed commands and
-`WORKSHOP_SEED` switch have been removed.
+The stack has nine services: PostgreSQL, Redis, etcd, MinIO, Milvus, TEI, API, Celery worker, and web. API startup generates local JWT keys if absent and runs Alembic migrations. TEI downloads its model on first use, so its first start needs network access and extra time. Only the web client runs in Docker; mobile development runs on the host.
 
-Rebuilding containers preserves existing database volumes and their contents. It
-does not clear an old database. Alembic applies migration `0018` once to databases
-that have not yet recorded that revision.
+**No paid API key is required to start the basic app and inspect the sample data.** AI chat, address autocomplete, social login, outgoing email, and payments each need their own configuration. See [Deployment and credentials](docs/deployment.md) for what to obtain yourself and what works without it.
 
-iOS / Android / Expo Go still run on the host (`cd frontend/mobile && npm start`). Only the web client is containerised.
+## Demo data
 
-### 2. Split local debug (API / Expo on the host)
+On a fresh database, migration `0018_workshop_samples` installs fixed sample data: 5 customers, 30 providers, 300 completed bookings, 300 reviews, and 60 approved portfolio entries. Migration `0019_sample_trade_photographs` updates retired demo image references. Startup does not run a separate seed command.
 
-Use this when you want `--reload` on the API, Expo web/dev tools, or a phone client, without rebuilding the web image. Keep Docker for PostgreSQL and Redis (and TEI if you need review search).
-
-#### 1. Clone and configure the API
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r backend/requirements.txt
-cp .env.example .env
-python scripts/generate_jwt_keys.py
-```
-
-The key script writes `backend/certs/jwt-private.pem` and `backend/certs/jwt-public.pem`. Those files stay local and should not be committed.
-
-#### 2. Start PostgreSQL and Redis
-
-```bash
-docker compose up -d postgres redis
-```
-
-The default database URL in `.env.example` is:
-
-```text
-postgresql+psycopg://workshop:workshop@127.0.0.1:5436/workshop
-```
-
-
-
-#### 3. Apply database migrations
-
-```bash
-alembic upgrade head
-```
-
-This creates the schema, service-area reference data, and fixed sample accounts.
-Do not run the retired seed commands.
-
-
-
-#### 4. Run the API
-
-```bash
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-- OpenAPI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-
-
-#### 5. Run the app
-
-```bash
-cd frontend/mobile
-cp .env.example .env
-npm install
-npm start
-```
-
-Point `EXPO_PUBLIC_API_BASE_URL` at the API (for a local browser session, `http://127.0.0.1:8000` is enough). On a physical device, set `EXPO_PUBLIC_LAN_API_BASE_URL` to the machine’s LAN address, for example `http://192.168.1.10:8000`, and keep the phone on the same network.
-
-```bash
-npm run web      # browser
-npm run ios      # simulator / device
-npm run android
-```
-
-
-
-## Sample data
-
-Fresh databases receive a fixed demonstration dataset from Alembic migration
-`0018_workshop_samples`. Docker startup does not run a seed command. The data
-migration runs once for a database and inserts 5 customers, 30 providers, 300
-completed bookings, 300 matching reviews, and 60 approved portfolio entries.
-Every service tag is represented by 6 providers because each provider offers two
-categories. All provider profiles and service areas use the province-level
-`Istanbul` location.
-
-All demo accounts use password `Demo1234`:
+All sample accounts use password `Demo1234`:
 
 | Role | Email |
-| ---- | ----- |
+| --- | --- |
 | Admin | `demo_admin@workshop.ai` |
 | Customer | `demo_customer_1@workshop.ai` … `demo_customer_5@workshop.ai` |
 | Provider | `demo_provider_1@workshop.ai` … `demo_provider_30@workshop.ai` |
 
-Provider payout records use the shared Sandbox IBAN
-`TR180006200119000006672315`, remain in `draft`, and do not claim that iyzico
-authenticated them. The migration makes no external payment-provider requests.
+Sample payout records are local Sandbox drafts, not active iyzico submerchants. Use the provider payout-account flow and your own Sandbox credentials to activate a selected provider before testing new bookings and checkout. Database initialization makes no external payment requests.
 
-The committed JSON under `migrations/data/` is the reviewed snapshot. When that
-snapshot is intentionally changed, rebuild it with:
+Migrations run once per database. Rebuilding images preserves volumes. If an older database already has conflicting demo emails, the sample migration stops rather than overwriting them; back up and reconcile the data or use a separate fresh development database. Do not delete a working database to refresh sample images.
+
+## Local API and Expo development
+
+Use Python 3.12 and Node.js 20 to match the Docker images and CI.
 
 ```bash
-python scripts/build_sample_snapshot.py
+# Repository root
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+cp .env.example .env
+python scripts/generate_jwt_keys.py
+docker compose up -d postgres redis
+alembic upgrade head
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-This authoring command is not part of Docker startup.
+On Windows, activate with `.venv\Scripts\activate`. In a second terminal:
 
+```bash
+cd frontend/mobile
+cp .env.example .env
+npm ci
+npm run web
+# Or: npm run ios / npm run android
+```
 
+For a browser, use `EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`. For a physical phone, set `EXPO_PUBLIC_LAN_API_BASE_URL` to your computer's reachable LAN address and use the same network. Native Google login requires a development build. See [deployment](docs/deployment.md) for CORS, social login, embeddings, worker setup, and differences between host and container addresses.
 
+## Repository layout
 
-## iyzico Sandbox testing
+```text
+backend/             FastAPI routers, schemas, models, business actions, AI, tasks
+frontend/mobile/     Expo client (web, iOS, Android)
+migrations/          Versioned schema and fixed sample-data migrations
+scripts/             JWT key generation and sample-snapshot authoring
+tests/               Backend tests
+docker/              API entrypoint and web build/reverse proxy
+docs/                Deployment, API and contributor reference
+docker-compose.yml   Development/demo stack
+```
 
-Successful Sandbox cards:
+## Checks
 
-| Card number | Bank / type |
-| ----------- | ----------- |
-| `5526080000000006` | Akbank Mastercard credit |
-| `4603450000000000` | Denizbank Visa credit |
-| `4987490000000002` | QNB Visa debit |
-
-Use a future expiry date and a correctly formatted CVV. These cards simulate payments only; they do not move real funds.
-
-The following Sandbox fixtures are retained for manual and automated payment testing; deployment does not insert them:
-
-| Field | Personal / private company | Limited / joint stock company |
-| ----- | -------------------------- | ----------------------------- |
-| Name | `John's market` | `John's market` |
-| Email | `email@submerchantemail.com` | `email@submerchantemail.com` |
-| Phone | `+905350000000` | `+905350000000` |
-| Address | `Nidakule Göztepe, Merdivenköy Mah. Bora Sok. No:1` | same |
-| IBAN | `TR180006200119000006672315` | `TR180006200119000006672315` |
-| Identity number | `31300864726` | — |
-| Tax office | `Tax office` | `Tax office` |
-| Legal company title | `John Doe inc` | `XYZ inc` |
-| Tax number | — | `9261877` |
-
-The legacy demo-provider Sandbox seed command has been removed. Once provider accounts exist, use the provider payout-account flow to submit Sandbox details. Database initialization does not make external payment-provider requests.
-
-
-
-
-## Configuration
-
-Copy `.env.example` and adjust as needed. The values most people change first:
-
-
-| Variable                                                   | Purpose                                                                                                                                                   |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WORKSHOP_DATABASE_URL`                                    | SQLAlchemy URL (PostgreSQL on port 5436 by default)                                                                                                       |
-| `WORKSHOP_JWT_*`                                           | RS256 key paths and token lifetimes                                                                                                                       |
-| `WORKSHOP_CORS_ORIGINS`                                    | Allowed web origins (Expo web ports are already listed)                                                                                                   |
-| `LLM_PROVIDER`                                             | Chat vendor: `qwen`, `openai`, `claude`, `kimi`, `kimi-code`, `deepseek`, `grok`, or `custom`                                                             |
-| `LLM_API_KEY` / vendor `*_API_KEY`                         | API key for the selected vendor                                                                                                                           |
-| `LLM_BASE_URL` / `LLM_MODEL`                               | Optional overrides for the provider preset                                                                                                                |
-| `EMBEDDING_*`                                              | Review vectors. Compose defaults to local TEI (`Qwen3-Embedding-0.6B`, 1024). Leave blank in Docker; uncomment the host URL only for a local API process. |
-| `WORKSHOP_GOOGLE_CLIENT_IDS` / `WORKSHOP_APPLE_CLIENT_IDS` | Token audiences for `/social-login`: Google OAuth client IDs; Apple defaults to the iOS bundle ID                                                           |
-| `WORKSHOP_GOOGLE_MAPS_API_KEY`                             | Server-only key for the Places API (New) proxy                                                                                                             |
-| `WORKSHOP_EMAIL_BACKEND`                                   | `console` logs verification codes (default); `smtp` mails them                                                                                             |
-| `WORKSHOP_SMTP_USERNAME` / `WORKSHOP_SMTP_PASSWORD`        | Project mailbox `5703.workshop.ai@gmail.com` (default) and its App Password; ask the team for the password, never commit it                                 |
-| `WORKSHOP_EMAIL_FROM`                                      | Sender address; defaults to the project mailbox                                                                                                             |
-| `IYZICO_BASE_URL` / `IYZICO_API_KEY` / `IYZICO_SECRET_KEY` | iyzico Sandbox endpoint and credentials                                                                                                                     |
-| `IYZICO_CALLBACK_URL` / `IYZICO_FRONTEND_RETURN_URL`       | Hosted Checkout callback and frontend return URLs                                                                                                           |
-| `IYZICO_CHECKOUT_TTL_SECONDS`                              | Hosted Checkout lifetime before a new checkout is required                                                                                                 |
-| `EXPO_PUBLIC_API_BASE_URL`                                 | API used by the Expo web/dev client                                                                                                                       |
-| `EXPO_PUBLIC_LAN_API_BASE_URL`                             | API used by Expo Go on a phone                                                                                                                            |
-
-
-Vector search uses Milvus plus local TEI embeddings. The recommended Docker stack starts both. A split local API process can skip them and still run bookings and chat. For review search on the host API, start TEI with `docker compose up -d tei` and uncomment the `EMBEDDING_*` host values in `.env`.
-
-## Google and Apple sign-in
-
-The app gets an ID token from Google or Apple and posts it to `/social-login`. The backend checks the signature, audience, nonce and a verified email, then signs in the linked account, links an existing account with that email, or creates one. A new account needs the Terms accepted, so the app asks for them on the sign-up form.
-
-**Apple** (iOS only). The bundle ID is `com.comp5703.workshopai`.
-
-1. In the Apple Developer account, add the bundle ID under Identifiers with **Sign in with Apple** enabled.
-2. Build and run a development build: `cd frontend/mobile && npx expo run:ios`. Pick the team when Xcode asks.
-3. The simulator or device must be signed in to an Apple ID.
-
-Expo Go can test it too, with `WORKSHOP_APPLE_CLIENT_IDS=com.comp5703.workshopai,host.exp.Exponent`.
-
-**Google**
-
-1. In Google Cloud Console, configure the OAuth consent screen and create three OAuth client IDs:
-   - iOS, bundle ID `com.comp5703.workshopai`
-   - Android, package `com.comp5703.workshopai` and the signing key's SHA-1
-   - Web application, with `http://localhost:8081` and `http://localhost:8090` as authorized JavaScript origins and redirect URIs
-2. Put them in `frontend/mobile/.env` as `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, and all three, comma-separated, in the root `.env` as `WORKSHOP_GOOGLE_CLIENT_IDS`.
-3. iOS and Android need a development build (`npx expo run:ios` / `npx expo run:android`); Expo Go cannot receive the redirect. Web works with `npm run web`.
-
-## Language models
-
-Customer AI chat can use a **developer API key** or an **admin-signed ChatGPT / Grok subscription**. An admin picks a vendor and key on the Admin dashboard (**Customer AI**), then loads the official `/models` list. Keys are stored `0600` as `backend/certs/llm_api.json` and override `.env` until cleared.
-
-### API keys
-
-Set `LLM_PROVIDER` and the matching key, or save the same values from the dashboard:
-
-
-| `LLM_PROVIDER`         | Key                                  | Default model     | API host                         |
-| ---------------------- | ------------------------------------ | ----------------- | -------------------------------- |
-| `qwen` (default)       | `LLM_API_KEY` or `QWEN_API_KEY`      | `qwen3.8-max`     | DashScope compatible-mode        |
-| `openai` (alias `gpt`) | `OPENAI_API_KEY`                     | `gpt-6.1-sol`     | `https://api.openai.com/v1`      |
-| `claude`               | `ANTHROPIC_API_KEY`                  | `claude-sonnet-5` | `https://api.anthropic.com/v1`   |
-| `kimi`                 | `KIMI_API_KEY` or `MOONSHOT_API_KEY` | `kimi-k3`         | `https://api.moonshot.cn/v1`     |
-| `kimi-code`            | `KIMI_CODE_API_KEY`                  | `k3`              | `https://api.kimi.com/coding/v1` |
-| `deepseek`             | `DEEPSEEK_API_KEY`                   | `deepseek-chat`   | `https://api.deepseek.com/v1`    |
-| `grok`                 | `XAI_API_KEY`                        | `grok-4.7`        | `https://api.x.ai/v1`            |
-| `custom`               | `LLM_API_KEY`                        | (set `LLM_MODEL`) | (set `LLM_BASE_URL`)             |
-
-
-`LLM_MODEL` and `LLM_BASE_URL` override the preset when you need a specific model ID. Comment them out when switching vendors, otherwise the old host is reused.
-
-Review search does not use a ChatGPT subscription. Compose defaults to Hugging Face Text Embeddings Inference (TEI) running `Qwen/Qwen3-Embedding-0.6B` (1024 dimensions). That is independent of the chat vendor. If `EMBEDDING_*` is unset outside Docker, Qwen and OpenAI API keys can still provide embeddings (`text-embedding-v4` / `text-embedding-3-large`).
-
-### ChatGPT Plus subscription
-
-An admin signs in with ChatGPT Plus/Pro from the Admin dashboard. Customer AI Chat then uses that membership quota instead of a billed API key.
-
-1. Sign in as `demo_admin@workshop.ai`.
-2. Open **Customer AI**.
-3. Click **Sign in** on ChatGPT Plus/Pro, open the URL, enter the pairing code.
-4. Click **Use this subscription**. Use **Save and use** on the API key card to switch back.
-
-After sign-in, click **Load official models** and pick one.
-
-### Grok subscription
-
-The same Admin page can sign in with SuperGrok / X Premium+ through xAI’s device-code OAuth (`auth.x.ai`). Load models, then **Use this subscription**.
-
-## Tests
+Run the checks appropriate to your changes (see [Contributing](CONTRIBUTING.md)):
 
 ```bash
 pytest
-pytest tests/test_marketplace.py
+ruff check backend tests
 cd frontend/mobile && npm run typecheck
 ```
 
-CI runs Alembic against PostgreSQL 16, Ruff (syntax and undefined-name checks), pytest, and the Expo TypeScript check.
-
-## Auth notes
-
-- Passwords live on `authentication_identities`, not on `users`.
-- Access tokens are RS256 JWTs. `sub` is the user id. `sid` is the refresh-token `jti`, so logout can revoke the session.
-- WebSocket routes `/ws/me` and `/ws/chats/{id}` accept the socket first, then require `{ "type": "auth", "token": "<access_token>" }`.
-
-
-
-## Provider tags
-
-`cleaning`, `childcare`, `elderly_care`, `electrician`, `plumbing`, `painter`, `locksmith`, `technician`, `moving`, `other`
+Backend CI also applies migrations against PostgreSQL 16. Documentation changes should be checked against source routes, environment configuration, and relative links.
 
 ## Documentation
 
-- [API usage](docs/api-usage.md)
-- [Backend feature map](docs/backend-feature-map.md)
+- [Documentation index](docs/README.md)
+- [Deployment and credentials](docs/deployment.md)
+- [API usage and route inventory](docs/api-usage.md)
+- [Backend architecture and business flows](docs/backend-feature-map.md)
 - [API conventions](docs/backend-api-standard.md)
 - [Contributing](CONTRIBUTING.md)
 
-
-
-## Contributing
-
-Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
-
-- Branch: `<usyd-unikey>/WS-<num>-short-slug` (example: `xhua0028/WS-23-auth-api`). Omit `WS-<num>` only when there is no Jira item. No direct pushes to `main`.
-- Commit and PR title: `WS-<num> <type>: <description>` (example: `WS-23 feat: add RS256 JWT sessions`). Omit `WS-<num>` only when there is no Jira item.
-- Merge only via pull request. At least one reviewer when another maintainer is available. Only repository maintainers may merge `main`.
-- Checks when they apply: `pytest` and `ruff check backend tests`; mobile `npm run typecheck`; new Alembic revision (never edit applied ones).
-- Do not commit `.env` files, JWT keys, or upload artifacts.
-
+Work on a branch and open a pull request; do not push directly to `main`. Do not commit `.env`, private keys, OAuth tokens, or uploads.

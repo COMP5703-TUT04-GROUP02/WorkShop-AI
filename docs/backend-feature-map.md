@@ -1,242 +1,66 @@
-# Workshop AI Backend Feature Map
+# Backend architecture and business flows
 
-This document describes backend structure, core features, how the frontend should call the API, and which functions are internal-only.
+Read this with [API usage](api-usage.md), [API conventions](backend-api-standard.md), and the schemas exposed by the running server at `/docs`. Source modules and the running OpenAPI schema define the current contract.
 
-## Summary
+## Module map
 
-The frontend uses the backend in two main ways:
+| Location | Responsibility |
+| --- | --- |
+| `backend/main.py` | App setup, routers, static files, error handlers and OpenAPI |
+| `backend/config.py`, `backend/llm_provider.py` | Runtime settings and provider resolution |
+| `backend/models/`, `backend/schemas/` | Persisted entities and typed API contracts |
+| `backend/routers/auth.py` | Email-code registration, login, sessions, social login and account security |
+| `backend/routers/public.py` | Provider discovery, locations, Places, portfolios and reviews |
+| `backend/routers/customer/` | Profiles, address book, discovery, bookings and feedback |
+| `backend/routers/provider.py` | Provider operations, availability, portfolios and booking actions |
+| `backend/routers/provider_verification.py` | Independent verification applications and protected documents |
+| `backend/routers/marketplace.py`, `backend/routers/payment.py` | Payout accounts and iyzico callback |
+| `backend/routers/admin.py`, `backend/routers/admin_verification.py` | Admin operations and verification decisions |
+| `backend/routers/shared.py`, `backend/routers/websocket.py` | Shared booking/chat data, attachments, notifications and live delivery |
+| `backend/routers/ai.py` | AI chat, pending actions, model connections, health and review indexing |
+| `backend/utils/` | Shared business actions, permission/state validation and formatting |
+| `backend/services/` | External integrations including email, social auth, LLM, payments, Redis and Milvus |
+| `backend/ai/` | Prompts, tools, parsers and tool-calling orchestration |
+| `backend/tasks/` | Celery AI, notification and review-embedding tasks |
+| `migrations/` | Versioned schema and fixed demonstration data |
 
-- **HTTP API** — most business features.
-- **WebSocket** — real-time chat; messages are still persisted.
+The frontend calls HTTP/WebSocket entry points, never Python utility functions directly. Routers and confirmed AI actions reuse business functions in `utils/customer_booking_actions.py` and `utils/provider_booking_actions.py`.
 
-The frontend must **not** call Python internals directly, for example:
+## Account lifecycle
 
-- `create_customer_booking_action()`
-- `quote_provider_booking_action()`
-- `prepare_booking_draft_action_tool()`
-- `create_notification()`
-- `sync_review_embedding()`
+1. Request a registration code through `/register/email-code`.
+2. Submit the matching code and account details to `/register`; public registration cannot create administrators.
+3. Login returns an RS256 access token and refresh-token session. Revocation is checked through the session identifier.
+4. Email verification and email changes use purpose-bound, expiring one-time codes. Console email delivery logs the actual code; SMTP sends it.
+5. Password changes verify the current password and revoke refresh sessions.
+6. Google/Apple login validates the external identity; configured client audiences must match the app. Creating a new social account requires Terms acceptance.
 
-Routers, WebSocket handlers, or Celery tasks invoke those internally.
+Phone verification remains a demo endpoint; it does not send an SMS. It must not be described as production phone ownership verification.
 
-## Directory layout
+## Provider onboarding
 
-```text
-backend/
-  main.py                 FastAPI entry, registers routers
-  config.py               Environment and settings
-  database.py             Database connection
-  models/                 SQLAlchemy models
-  schemas.py              Pydantic request/response models
+Identity verification, service qualification and payout-account setup can be submitted independently. Admin reviews identity and qualification; iyzico processes payout/submerchant configuration. Qualification approval establishes the provider profile and approved services. New-order eligibility requires identity approval, qualification approval and an active payout account.
 
-  routers/                HTTP API and WebSocket entry points
-  utils/                  Business actions, formatting, auth helpers
-  services/               External services: Qwen, Redis, Milvus
-  ai/                     Prompts, LangChain tools, tool-calling flow
-  tasks/                  Celery background tasks
-  uploads/                Local upload directory
-  private_uploads/        Non-public identity and qualification documents
-```
+Operating settings, enabled approved services, service areas and availability determine what can be booked. Verification documents are protected resources, not public portfolio images.
 
-## Router layer
+## Booking, payments and refunds
 
-Routers are what the frontend calls.
+The customer selects an enabled canonical service category and submits the booking with address, schedule and optional attachments. A chat room links the customer and provider.
 
-| File | Responsibility | Typical caller |
-|---|---|---|
-| `routers/auth.py` | Register, login, social login, refresh, logout, current user, mock verify, change password/email | Web/mobile |
-| `routers/public.py` | Public providers, reviews, portfolios, ratings | Guest / customer |
-| `routers/customer.py` | Customer profile, favorites, chat, bookings, pay, refund, complaints, reviews | customer |
-| `routers/provider.py` | Provider profile, verification, availability, portfolio, bookings, refunds | provider |
-| `routers/provider_verification.py` | Identity/qualification applications, operation settings, service areas, protected files | provider |
-| `routers/admin.py` | Users, provider verification, bookings/payments/refunds/complaints/reviews | admin |
-| `routers/admin_verification.py` | Separate identity and qualification review queues and decisions | admin |
-| `routers/shared.py` | Chat messages, notifications, booking details, attachments, status history | Authenticated users |
-| `routers/ai.py` | AI chat, tools, pending actions, async tasks, Milvus sync | Users / admin |
-| `routers/websocket.py` | Real-time chat WebSocket | customer / provider |
+The provider quotes a visit fee; the customer accepts and pays it through Hosted Checkout. After arrival evidence, the provider submits the final service quote. The customer may request revisions or accept and pay the service fee before work starts. Completion evidence and customer confirmation close the booking; confirmation does not charge again.
 
-## Utils layer
+Payment records track the stage and verified iyzico outcome. Submerchant settlement and refunds use external results before terminal local states are recorded. Cancellation closes the booking without an automatic refund. Refund requests have provider review and an admin appeal path where applicable; consult the action functions for status eligibility and amount limits.
 
-Utils contain real business actions. Routers mostly validate input, enforce auth, and wrap responses.
+Booking detail includes a historical reference price range when applicable. It uses the latest formal quote revision from each other booking in the same canonical category, excludes visit fees, and displays a range based on the historical mean. It is guidance rather than a price constraint. See [reference-price design](superpowers/specs/2026-10-06-reference-price-range-design.md).
 
-| File | Role |
-|---|---|
-| `utils/customer_booking_actions.py` | Customer booking: create, cancel, pay, refund, reject quote, accept/reject completion |
-| `utils/provider_booking_actions.py` | Provider booking: quote, reject, complete, approve/reject refund |
-| `utils/booking.py` | Booking queries, formatting, status checks |
-| `utils/payment.py` | Mock payment formatting |
-| `utils/refund.py` | Refund formatting and status history |
-| `utils/complaint.py` | Complaint formatting and status history |
-| `utils/review.py` | Review formatting, rating stats, visibility |
-| `utils/chat.py` | Chat rooms, messages, booking/system messages |
-| `utils/websocket_manager.py` | WebSocket connections and push |
-| `utils/notification.py` | Notifications and unread counts |
-| `utils/notification_queue.py` | Notification delivery queue |
-| `utils/review_embedding.py` | Single-review embedding sync |
-| `utils/review_embedding_queue.py` | Review embedding job queue |
-| `utils/upload.py` | File save, extension checks, URLs |
-| `utils/location.py` | Distance and service-area checks |
-| `utils/availability.py` | Provider availability |
-| `utils/provider.py` | Provider profile queries and formatting |
-| `utils/ai_chat_handler.py` | AI chat orchestration: tools, drafts, multi-turn, confirmation cards |
-| `utils/ai_chat.py` | AI chat persistence and history |
-| `utils/ai_context.py` | Actionable bookings/refunds for AI |
-| `utils/ai_pending_action.py` | Pending AI actions: create, preview, confirm, cancel, expire |
-| `utils/ai_tool_log.py` | AI tool call logs |
-| `utils/response.py` | Unified success/error responses |
-| `utils/router.py` | Default response models |
+## AI actions
 
-## Services layer
+Read-only tools can return search/review/status information immediately. Supported writes are prepared as `AIPendingAction` records and shown as confirmation cards. The client sends the stored action ID to `/ai/actions/confirm`; the backend validates ownership, expiry and current business rules before execution. Display previews are not authoritative write payloads. Incomplete booking drafts stay drafts until required fields are supplied and the user confirms.
 
-External integrations — not called directly by the frontend.
+Model configuration can be saved by an administrator and override environment settings. Chat and embeddings are separate connections. Default Docker embeddings run locally in TEI; Milvus stores review vectors. Celery performs queued indexing. Sample SQL reviews alone do not establish that the vector index is ready.
 
-| File | Role |
-|---|---|
-| `services/ai_service.py` | Qwen chat, intent, need extraction, review summary, embeddings |
-| `services/redis_service.py` | Redis presence, notification cache, AI recommendation context |
-| `services/milvus_service.py` | Milvus collections, review vector CRUD/search |
-| `services/social_auth_service.py` | Google/Apple id_token verification |
+## Messaging and storage
 
-## AI layer
+HTTP persists chat history and manages uploads. WebSockets authenticate with a first `auth` message, then deliver chat, presence and read events. In-app notifications retain HTTP-readable history.
 
-AI is chat + tool calling + user confirmation.
-
-| File | Role |
-|---|---|
-| `ai/clients.py` | LangChain Qwen chat and embedding clients |
-| `ai/prompts.py` | Prompt templates |
-| `ai/parsers.py` | Pydantic parsers and fallbacks |
-| `ai/tools.py` | Tool business implementations |
-| `ai/langchain_tools.py` | StructuredTool wrappers |
-| `ai/tool_calling.py` | Tool selection, execution, logging, final answers |
-
-AI tool principles:
-
-- Read-only tools (search, reviews, status) return results directly.
-- DB-changing actions create `AIPendingAction` first.
-- Frontend shows `confirmation_card`; user confirms via `/ai/actions/confirm`.
-- Booking creation uses `booking_draft` until fields are complete.
-
-## Tasks layer
-
-Celery handles slow work off the request thread.
-
-| File | Role |
-|---|---|
-| `tasks/celery_app.py` | Celery app, Redis broker/backend |
-| `tasks/ai_tasks.py` | Async AI chat |
-| `tasks/review_tasks.py` | Review embedding sync |
-| `tasks/notification_tasks.py` | Notification delivery |
-
-## Database models
-
-Main tables (see `models/`):
-
-| Model | Purpose |
-|---|---|
-| `User` | Account; role customer/provider/admin |
-| `RefreshToken` | Refresh token storage |
-| `SocialAccount` | Google/Apple linkage |
-| `CustomerProfile` | Customer profile, address, location |
-| `ProviderProfile` | Current approved provider display and operating data |
-| `IdentityVerificationApplication` | Immutable real-name application snapshot and review result |
-| `QualificationVerificationApplication` | Immutable business qualification snapshot and review result |
-| `ProviderApprovedService` | Approved services and their current enabled state |
-| `ProviderServiceArea` | Province/city/district coverage selected after approval |
-| `ProviderAvailability` | Bookable hours |
-| `ProviderPortfolio` | Portfolio items |
-| `FavoriteProvider` | Customer favorites |
-| `ChatRoom` | Customer–provider chat |
-| `ChatMessage` | Chat messages |
-| `ChatMessageAttachment` | Chat attachments |
-| `Booking` | Bookings |
-| `BookingAttachment` | Booking attachments |
-| `BookingStatusHistory` | Booking status history |
-| `Payment` | Mock payments |
-| `RefundRequest` | Refund requests |
-| `RefundRequestStatusHistory` | Refund status history |
-| `Review` | Reviews |
-| `Complaint` | Complaints |
-| `ComplaintStatusHistory` | Complaint status history |
-| `Notification` | In-app notifications |
-| `AIChatMessage` | AI chat and draft context |
-| `AIPendingAction` | Pending AI actions |
-| `AIToolCallLog` | AI tool logs |
-| `AsyncTask` | Celery task records |
-| `ProviderVerificationHistory` | Provider verification history |
-
-## Core flows
-
-### Authentication
-
-```text
-POST /register -> User (email_verified and phone_verified start false)
-POST /login -> access_token + refresh_token
-POST /auth/verify-email or /auth/verify-phone -> any 6 digits, no SMTP/SMS
-POST /auth/change-password -> current + new password
-POST /auth/change-email -> new email + any 6 digits
-POST /social-login -> verify id_token, upsert User/SocialAccount, tokens
-POST /refresh-token -> new access_token
-```
-
-### Provider verification
-
-```text
-register provider -> identity not_submitted, qualification locked
-POST /provider/identity-verification -> identity pending (name locked)
-PUT /admin/identity-verifications/{id}/decision
--> approved unlocks qualification; rejected unlocks correction/resubmission
-POST /provider/qualification-files/upload
-POST /provider/qualification-verification -> qualification pending (application locked)
-PUT /admin/qualification-verifications/{id}/decision
--> approved creates ProviderProfile + approved services and unlocks provider features
--> rejected unlocks a new qualification submission
-PATCH /provider/operating-settings + PUT /provider/service-areas after approval
-```
-
-### Standard booking
-
-```text
-customer creates booking -> pending, chat room, notify provider
-provider quotes -> quoted
-customer pays -> accepted
-provider completes -> awaiting_confirmation
-customer accepts -> completed
-```
-
-### Refunds
-
-```text
-customer requests refund -> refunding, RefundRequest pending
-provider approves -> refunded
-provider rejects -> RefundRequest rejected, booking stays refunding
-customer cancels refund -> prior booking status
-```
-
-### Complaints
-
-```text
-customer complains on accepted/awaiting_confirmation/completed
--> Complaint open, notify admin
-admin resolves -> history + notify customer
-```
-
-### AI booking creation
-
-```text
-customer describes need to AI
--> search or booking_draft
--> booking_draft_missing_info if fields missing
--> frontend fills fields
--> AIPendingAction(create_booking) when complete
--> user confirms -> real booking
-```
-
-## Frontend reading list
-
-- API usage: `docs/api-usage.md`
-- Response conventions: `docs/backend-api-standard.md`
-- Module map: this document
-- Types: `backend/schemas.py` and OpenAPI
-- Endpoints: `backend/routers/*.py`
-- Booking status rules: `BookingStatus` in `schemas.py` and `BOOKING_STATUS_EXPLANATIONS` in `ai/tools.py`
+PostgreSQL holds marketplace records, verification snapshots, payment/refund state, AI drafts and task records. Redis supports background jobs and presence/cache use. Uploaded files and credentials need persistent storage and backups; Compose mounts separate named volumes. See [deployment](deployment.md) for addresses, credentials and indexing steps.

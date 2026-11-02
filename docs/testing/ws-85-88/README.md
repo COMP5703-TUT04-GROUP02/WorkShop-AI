@@ -1,5 +1,7 @@
 # WS-85 and WS-88 — Account and Security: test evidence
 
+> Historical evidence: captured before purpose-bound email codes were implemented. The email verification/change-email results below describe that older build; current behavior requires the actual requested code. See [deployment](../../deployment.md).
+
 Captured against a locally running API on a seeded database, signed in as
 `demo_customer_1@workshop.ai`, `demo_customer_5@workshop.ai` and
 `demo_provider_16@workshop.ai`. Every image is a real run, not a mockup.
