@@ -94,7 +94,10 @@ services:
 
   minio:
     container_name: workshop-ai-minio
-    image: minio/minio:RELEASE.2024-05-28T17-19-04Z
+    # minio/minio was withdrawn from Docker Hub; this is the same 2024-05-28 release.
+    image: bitnamilegacy/minio:2024.5.28
+    # The image runs as a non-root user that cannot write a fresh named volume.
+    user: root
     environment:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
