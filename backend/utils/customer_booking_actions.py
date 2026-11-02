@@ -1722,12 +1722,30 @@ async def _complete_direct_paid_booking(
     if booking_status_chat_message:
         db.refresh(booking_status_chat_message)
         await push_chat_message_to_room_members(booking_status_chat_message, db)
-    return {
+    result = {
         "message": "Booking completed successfully",
         "booking": format_booking_detail_response(booking, db),
         "payment": format_payment_response(payment, db),
         "settlement": format_payment_settlement(settlement),
     }
+
+    from backend.tasks.marketplace_tasks import enqueue_payment_settlement
+
+    # Both stages were held until the customer confirmed the work; release the visit fee
+    # and the service fee to the provider now.
+    paid_payment_ids = [
+        paid.id
+        for paid in db.query(models.Payment.id)
+        .filter(
+            models.Payment.booking_id == booking.id,
+            models.Payment.status == PaymentStatus.paid,
+        )
+        .all()
+    ]
+    for paid_payment_id in paid_payment_ids:
+        enqueue_payment_settlement(paid_payment_id)
+
+    return result
 
 
 async def confirm_customer_booking_complete_action(

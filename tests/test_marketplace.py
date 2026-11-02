@@ -296,6 +296,82 @@ def test_payment_flow_uses_marketplace_split_before_postauth(
     assert provider_payments.json()["data"]["items"][0]["settlement"] is not None
 
 
+def test_confirming_a_two_stage_booking_approves_both_settlements(
+    client, marketplace, fake_iyzico, monkeypatch
+):
+    from backend.tasks.marketplace_tasks import _approve_payment_settlement
+
+    customer = marketplace["customer"]["headers"]
+    provider = marketplace["provider"]["headers"]
+    booking_id = create_booking(client, customer, marketplace["provider_profile"]["id"])["id"]
+
+    def pay(stage):
+        checkout = client.put(
+            f"/customer/bookings/{booking_id}/pay",
+            json={"payment_method": "iyzico_checkout", "payment_stage": stage},
+            headers=customer,
+        )
+        assert checkout.status_code == 200, checkout.text
+        callback = client.post(
+            "/payments/iyzico/callback", data={"token": checkout.json()["data"]["token"]}
+        )
+        assert callback.status_code == 200, callback.text
+
+    assert client.put(
+        f"/provider/bookings/{booking_id}/quote",
+        json={"quote_amount": 210, "visit_fee_amount": 40},
+        headers=provider,
+    ).status_code == 200
+    assert client.put(
+        f"/customer/bookings/{booking_id}/accept-quote", headers=customer
+    ).status_code == 200
+    pay("visit_fee")
+    assert client.put(
+        f"/provider/bookings/{booking_id}/start-visit",
+        files=[("proof_files", ("arrival.png", PNG_BYTES, "image/png"))],
+        headers=provider,
+    ).status_code == 200
+    assert client.put(
+        f"/provider/bookings/{booking_id}/final-quote",
+        json={"quote_amount": 240},
+        headers=provider,
+    ).status_code == 200
+    assert client.put(
+        f"/customer/bookings/{booking_id}/accept-final-quote", headers=customer
+    ).status_code == 200
+    pay("service_fee")
+    assert client.put(
+        f"/provider/bookings/{booking_id}/complete",
+        files=[("proof_files", ("proof.png", PNG_BYTES, "image/png"))],
+        headers=provider,
+    ).status_code == 200
+
+    queued = []
+    monkeypatch.setattr(
+        "backend.tasks.marketplace_tasks.enqueue_payment_settlement",
+        lambda payment_id: queued.append(payment_id) or True,
+    )
+    confirmed = client.put(
+        f"/customer/bookings/{booking_id}/confirm-complete", headers=customer
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["data"]["booking"]["status"] == "completed"
+
+    db = SessionLocal()
+    try:
+        payments = {
+            payment.payment_stage: payment.id
+            for payment in db.query(models.Payment).filter(models.Payment.booking_id == booking_id)
+        }
+    finally:
+        db.close()
+    assert sorted(queued) == sorted([payments["visit_fee"], payments["service_fee"]])
+
+    # What the worker does with each queued payment.
+    for payment_id in queued:
+        assert _approve_payment_settlement(payment_id)["status"] == "approved"
+
+
 def test_admin_can_filter_marketplace_payments_and_retry_failed_settlement(
     client, marketplace, monkeypatch
 ):
