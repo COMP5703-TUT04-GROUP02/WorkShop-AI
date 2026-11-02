@@ -277,7 +277,7 @@ export function BookingRequestModal({
           </View>
         </View>
       </View>
-      </Modal>
+      {/* iOS shows one modal at a time, so the picker has to open from inside this one. */}
       <LocationPickerModal
         onClose={() => setIsLocationPickerVisible(false)}
         onConfirm={(location) => {
@@ -293,6 +293,7 @@ export function BookingRequestModal({
         value={selectedLocation}
         visible={visible && isLocationPickerVisible}
       />
+      </Modal>
     </>
   );
 }
