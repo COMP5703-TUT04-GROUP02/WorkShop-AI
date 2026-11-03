@@ -28,6 +28,8 @@ def _approve_payment_settlement(payment_id: int) -> dict:
             return {"status": "missing", "payment_id": payment_id}
         if settlement.status == SettlementStatus.approved.value:
             return {"status": "approved", "payment_id": payment_id}
+        if settlement.status == SettlementStatus.cancelled.value:
+            return {"status": "cancelled", "payment_id": payment_id}
         if settlement.status == SettlementStatus.approve_requested.value:
             requested_at = settlement.approve_requested_at
             if requested_at and requested_at > utc_now() - APPROVAL_REQUEST_TTL:

@@ -164,6 +164,7 @@ export type SettlementStatus =
   | "approved"
   | "approval_failed"
   | "disapproved"
+  | "cancelled"
   | string;
 
 export type PaymentSettlement = {

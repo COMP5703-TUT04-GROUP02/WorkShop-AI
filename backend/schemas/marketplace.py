@@ -133,3 +133,5 @@ class SettlementStatus(str, Enum):
     approved = "approved"
     approval_failed = "approval_failed"
     disapproved = "disapproved"
+    # The payment went back to the customer before the provider's share was released.
+    cancelled = "cancelled"

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from backend import models
 from backend.database import SessionLocal
-from tests.conftest import create_booking
+from tests.conftest import PNG_BYTES, create_booking
 
 
 def _create_checkout(client, customer_headers, provider_profile_id):
@@ -314,3 +314,34 @@ def test_late_payment_callback_can_retry_when_iyzico_returns_nothing(
     assert retried.status_code == 200, retried.text
     assert retried.json()["data"]["payment"]["status"] == "voided"
 
+
+def _refund_visit_fee(client, marketplace, refund_amount=None):
+    customer = marketplace["customer"]["headers"]
+    provider = marketplace["provider"]["headers"]
+    booking_id, token = _open_visit_fee_checkout(client, marketplace)
+    assert client.post("/payments/iyzico/callback", data={"token": token}).status_code == 200
+    started = client.put(
+        f"/provider/bookings/{booking_id}/start-visit",
+        files=[("proof_files", ("arrival.png", PNG_BYTES, "image/png"))],
+        headers=provider,
+    )
+    assert started.status_code == 200, started.text
+    body = {"reason": "The provider could not fix it"}
+    if refund_amount is not None:
+        body["refund_amount"] = refund_amount
+    requested = client.post(f"/bookings/{booking_id}/refund-requests", json=body, headers=customer)
+    assert requested.status_code == 200, requested.text
+    refund_id = requested.json()["data"]["refund_request"]["id"]
+    approved = client.put(f"/provider/refund-requests/{refund_id}/approve", headers=provider)
+    assert approved.status_code == 200, approved.text
+    with SessionLocal() as db:
+        payment = db.query(models.Payment).filter_by(iyzico_token=token).one()
+        return db.query(models.PaymentSettlement).filter_by(payment_id=payment.id).one().status
+
+
+def test_full_refund_cancels_the_unreleased_settlement(client, marketplace, fake_iyzico):
+    assert _refund_visit_fee(client, marketplace) == "cancelled"
+
+
+def test_partial_refund_leaves_the_settlement_pending(client, marketplace, fake_iyzico):
+    assert _refund_visit_fee(client, marketplace, refund_amount=10) == "pending"
