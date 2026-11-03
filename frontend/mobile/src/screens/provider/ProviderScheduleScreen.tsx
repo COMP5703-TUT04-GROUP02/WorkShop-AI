@@ -35,6 +35,7 @@ import type {
 } from "../../types/provider";
 import { formatShortDateTime, formatShortDateTimeRange } from "../../utils/datetime";
 import { getErrorMessage } from "../../utils/errors";
+import { KeyboardAvoidingOverlay } from "../../components/KeyboardAvoidingOverlay";
 
 type ScheduleTab = "availability" | "jobs";
 
@@ -519,7 +520,7 @@ function DefaultAvailabilityModal({
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingOverlay style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Default work hours</Text>
           <TextField
@@ -574,7 +575,7 @@ function DefaultAvailabilityModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }
@@ -610,7 +611,7 @@ function DayAvailabilityModal({
 }) {
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingOverlay style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>{selectedDate || "Day settings"}</Text>
           <View style={styles.switchRow}>
@@ -658,7 +659,7 @@ function DayAvailabilityModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }
@@ -733,7 +734,7 @@ function JobListModal({
 }) {
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingOverlay style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>{selectedDate || "Bookings for this day"}</Text>
           <ScrollView contentContainerStyle={styles.jobListContent}>
@@ -769,7 +770,7 @@ function JobListModal({
             <SecondaryButton label="Close" onPress={onClose} />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

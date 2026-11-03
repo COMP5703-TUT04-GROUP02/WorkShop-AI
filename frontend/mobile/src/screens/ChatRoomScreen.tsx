@@ -1,8 +1,10 @@
+import { HeaderHeightContext } from "@react-navigation/elements";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { CalendarClock, MapPin, Send, SendHorizontal } from "lucide-react-native";
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -138,6 +140,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const { isConnected, markChatRoomRead, subscribe } = useRealtime();
   const { confirmationModal, requestConfirmation } = useConfirmation();
   const listRef = useRef<FlatList<ChatDisplayItem>>(null);
+  // Android pads the chat above the keyboard itself, starting below this header.
+  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   const websocketRef = useRef<WebSocket | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1376,8 +1380,8 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={88}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === "android" ? headerHeight : 88}
       style={styles.container}
     >
       {isLoading ? (

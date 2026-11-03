@@ -4,6 +4,7 @@ import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
 import { colors, radius, spacing } from "../theme/theme";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 
 export function ActionReasonModal({
   amount,
@@ -34,7 +35,7 @@ export function ActionReasonModal({
 }) {
   return (
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingOverlay style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
           <ScrollView contentContainerStyle={styles.content}>
@@ -62,7 +63,7 @@ export function ActionReasonModal({
             <PrimaryButton label={confirmLabel} onPress={onConfirm} />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

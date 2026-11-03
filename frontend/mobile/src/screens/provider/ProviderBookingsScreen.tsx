@@ -494,7 +494,14 @@ export function ProviderBookingsScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} style={styles.container}>
+    // The booking modals render inside this ScrollView, so their taps pass
+    // through it; without "handled", a tap on a modal button while the
+    // keyboard is open would only close the keyboard.
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      style={styles.container}
+    >
       <View
         style={[styles.header, isWebDesktop ? null : styles.headerPhone]}
       >

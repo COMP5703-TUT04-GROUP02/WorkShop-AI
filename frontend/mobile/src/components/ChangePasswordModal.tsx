@@ -5,6 +5,7 @@ import { colors, radius, spacing, type } from "../theme/theme";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 
 type ChangePasswordModalProps = {
   visible: boolean;
@@ -59,7 +60,7 @@ export function ChangePasswordModal({
 
   return (
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible={visible}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingOverlay style={styles.backdrop}>
         <View style={styles.sheet}>
           <Text style={styles.title}>Change password</Text>
           <Text style={styles.description}>
@@ -104,7 +105,7 @@ export function ChangePasswordModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

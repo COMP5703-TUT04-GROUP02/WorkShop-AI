@@ -6,6 +6,7 @@ import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 import { colors, radius, spacing } from "../theme/theme";
 import type { BookingDetail } from "../types/booking";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 
 type CustomerReviewModalProps = {
   booking: BookingDetail | null;
@@ -55,7 +56,7 @@ export function CustomerReviewModal({
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingOverlay style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>Rate this service</Text>
           <Text style={styles.providerName}>
@@ -119,7 +120,7 @@ export function CustomerReviewModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }
