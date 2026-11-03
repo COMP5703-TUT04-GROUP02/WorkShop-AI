@@ -67,6 +67,7 @@ import {
   type BookingRequestFormState,
 } from "../components/BookingRequestModal";
 import { isBookingTimeRangeValid } from "../features/bookings/request-time";
+import { mergeOpenBooking } from "../features/bookings/open-booking";
 import { CompletionProofGallery } from "../components/CompletionProofGallery";
 import { BookingPriceBreakdown } from "../components/BookingPriceBreakdown";
 import { BookingCoreDetails } from "../components/BookingCoreDetails";
@@ -81,7 +82,7 @@ import { PrimaryButton } from "../components/PrimaryButton";
 import { SecondaryButton } from "../components/SecondaryButton";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
-import { useRealtime } from "../context/RealtimeContext";
+import { getBookingEventId, useRealtime } from "../context/RealtimeContext";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 import { colors, radius, spacing } from "../theme/theme";
 import type {
@@ -134,7 +135,7 @@ type ChatReasonAction =
   | "reject_refund";
 export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
   const { user } = useAuth();
-  const { markChatRoomRead } = useRealtime();
+  const { isConnected, markChatRoomRead, subscribe } = useRealtime();
   const { confirmationModal, requestConfirmation } = useConfirmation();
   const listRef = useRef<FlatList<ChatDisplayItem>>(null);
   const websocketRef = useRef<WebSocket | null>(null);
@@ -406,6 +407,44 @@ export function ChatRoomScreen({ navigation, route }: ChatRoomScreenProps) {
       subscription.remove();
     };
   }, []);
+
+  // An open booking takes the other party's moves, and a payment finished in
+  // the browser, as they arrive. A socket that just came back may have missed
+  // one, so it asks again then too.
+  const openBookingId = selectedBooking?.id;
+  useEffect(() => {
+    if (openBookingId == null) return;
+    const bookingId = openBookingId;
+    let isActive = true;
+
+    async function refreshOpenBooking() {
+      try {
+        const booking = await getBookingById(bookingId);
+        if (!isActive || !booking) return;
+        setSelectedBooking((current) =>
+          current?.id === bookingId ? mergeOpenBooking(current, booking) : current,
+        );
+        if (user?.role === "customer") {
+          const paymentResult = await getCustomerPayments(1, 100);
+          if (!isActive) return;
+          setSelectedBookingPayment(
+            indexLatestPayments(paymentResult?.items ?? [])[bookingId] ?? null,
+          );
+        }
+      } catch {
+        // The booking keeps what it shows until the next update.
+      }
+    }
+
+    if (isConnected) void refreshOpenBooking();
+    const unsubscribe = subscribe((event) => {
+      if (getBookingEventId(event) === bookingId) void refreshOpenBooking();
+    });
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, [isConnected, openBookingId, subscribe, user?.role]);
 
   useEffect(() => {
     const token = getAccessToken();

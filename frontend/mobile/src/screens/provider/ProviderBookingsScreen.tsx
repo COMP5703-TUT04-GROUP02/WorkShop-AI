@@ -51,6 +51,7 @@ import { formatMoney } from "../../utils/money";
 import { indexLatestPayments } from "../../utils/payment";
 import { createLatestRequestGuard } from "../../utils/latestRequest";
 import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
+import { refreshOpenBooking } from "../../features/bookings/open-booking";
 import {
   shouldShowFinalQuote,
   shouldShowInitialQuote,
@@ -80,7 +81,6 @@ export function ProviderBookingsScreen() {
     Record<number, PaymentHistoryEntry>
   >({});
   const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<PaymentHistoryEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [message, setMessage] = useState("");
@@ -112,6 +112,7 @@ export function ProviderBookingsScreen() {
         const items = bookingResult?.items ?? [];
         setBookings(filterActiveBookings(items));
         setFinishedCount(items.length - filterActiveBookings(items).length);
+        setSelectedBooking((current) => refreshOpenBooking(current, items));
       }
       setPaymentsByBookingId(indexLatestPayments(paymentResult?.items ?? []));
     } catch (error) {
@@ -192,7 +193,6 @@ export function ProviderBookingsScreen() {
     if (!openBookingRequestGuard.isLatest(requestGeneration)) return;
 
     setSelectedBooking(detail);
-    setSelectedPayment(paymentsByBookingId[booking.id] ?? null);
     setQuoteAmount(
       detail.expected_service_amount == null
         ? detail.quote_amount == null
@@ -229,7 +229,6 @@ export function ProviderBookingsScreen() {
   function closeBooking() {
     openBookingRequestGuard.invalidate();
     setSelectedBooking(null);
-    setSelectedPayment(null);
     setQuoteAmount("");
     setVisitFeeAmount("");
     setQuoteMessage("");
@@ -547,7 +546,7 @@ export function ProviderBookingsScreen() {
         quoteAmountError={quoteAmountError}
         visitFeeError={visitFeeError}
         booking={selectedBooking}
-        payment={selectedPayment}
+        payment={selectedBooking ? paymentsByBookingId[selectedBooking.id] ?? null : null}
         isActing={isActing}
         onClose={closeBooking}
         onApproveRefund={handleApproveRefund}
