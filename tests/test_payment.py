@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from backend import models
 from backend.database import SessionLocal
-from tests.conftest import create_booking
+from tests.conftest import PNG_BYTES, create_booking
 
 
 def _create_checkout(client, customer_headers, provider_profile_id):
@@ -215,3 +215,133 @@ def test_payment_callback_rejects_amount_mismatch(client, marketplace, fake_iyzi
     assert callback.status_code == 400
     assert "currency" not in callback.text.lower()
     assert "amount" in callback.text.lower()
+
+
+def _open_visit_fee_checkout(client, marketplace):
+    customer = marketplace["customer"]["headers"]
+    provider = marketplace["provider"]["headers"]
+    booking_id = _create_checkout(client, customer, marketplace["provider_profile"]["id"])
+    client.put(
+        f"/provider/bookings/{booking_id}/quote",
+        json={"quote_amount": 180, "visit_fee_amount": 30},
+        headers=provider,
+    )
+    client.put(f"/customer/bookings/{booking_id}/accept-quote", headers=customer)
+    checkout = client.put(
+        f"/customer/bookings/{booking_id}/pay",
+        json={"payment_method": "iyzico_checkout"},
+        headers=customer,
+    )
+    assert checkout.status_code == 200, checkout.text
+    return booking_id, checkout.json()["data"]["token"]
+
+
+def _cancel_then_pay_on_the_open_page(client, marketplace):
+    booking_id, token = _open_visit_fee_checkout(client, marketplace)
+    cancelled = client.put(
+        f"/customer/bookings/{booking_id}/cancel", headers=marketplace["customer"]["headers"]
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    # The iyzico page was still open, and the customer paid on it anyway.
+    return token, client.post("/payments/iyzico/callback", data={"token": token})
+
+
+def _settlement_count(token):
+    with SessionLocal() as db:
+        payment = db.query(models.Payment).filter_by(iyzico_token=token).one()
+        return db.query(models.PaymentSettlement).filter_by(payment_id=payment.id).count()
+
+
+def test_payment_after_the_booking_was_cancelled_is_cancelled_at_iyzico(
+    client, marketplace, fake_iyzico, monkeypatch
+):
+    cancels = []
+    original_cancel = fake_iyzico.cancel_payment
+
+    async def record_cancel(payment_id, conversation_id):
+        cancels.append(payment_id)
+        return await original_cancel(payment_id, conversation_id)
+
+    monkeypatch.setattr(fake_iyzico, "cancel_payment", record_cancel)
+
+    token, callback = _cancel_then_pay_on_the_open_page(client, marketplace)
+
+    assert callback.status_code == 200, callback.text
+    data = callback.json()["data"]
+    assert data["payment"]["status"] == "voided"
+    assert data["payment"]["failure_code"] == "booking_not_awaiting_payment"
+    assert data["booking"]["status"] == "cancelled"
+    assert cancels == [f"iyzico-payment-{token}"]
+    assert _settlement_count(token) == 0
+
+    again = client.post("/payments/iyzico/callback", data={"token": token})
+    assert again.json()["data"]["payment"]["status"] == "voided"
+    assert len(cancels) == 1
+
+
+def test_late_payment_is_refunded_when_iyzico_refuses_the_cancel(
+    client, marketplace, fake_iyzico, monkeypatch
+):
+    async def refuse_cancel(payment_id, conversation_id):
+        return {"status": "failure", "errorMessage": "Cancel window closed"}
+
+    monkeypatch.setattr(fake_iyzico, "cancel_payment", refuse_cancel)
+
+    token, callback = _cancel_then_pay_on_the_open_page(client, marketplace)
+
+    assert callback.status_code == 200, callback.text
+    assert callback.json()["data"]["payment"]["status"] == "refunded"
+    assert _settlement_count(token) == 0
+
+
+def test_late_payment_callback_can_retry_when_iyzico_returns_nothing(
+    client, marketplace, fake_iyzico, monkeypatch
+):
+    original_cancel = fake_iyzico.cancel_payment
+
+    async def refuse(*args):
+        return {"status": "failure", "errorMessage": "iyzico is unavailable"}
+
+    monkeypatch.setattr(fake_iyzico, "cancel_payment", refuse)
+    monkeypatch.setattr(fake_iyzico, "refund_payment", refuse)
+
+    token, callback = _cancel_then_pay_on_the_open_page(client, marketplace)
+    assert callback.status_code == 502
+
+    monkeypatch.setattr(fake_iyzico, "cancel_payment", original_cancel)
+    retried = client.post("/payments/iyzico/callback", data={"token": token})
+
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["data"]["payment"]["status"] == "voided"
+
+
+def _refund_visit_fee(client, marketplace, refund_amount=None):
+    customer = marketplace["customer"]["headers"]
+    provider = marketplace["provider"]["headers"]
+    booking_id, token = _open_visit_fee_checkout(client, marketplace)
+    assert client.post("/payments/iyzico/callback", data={"token": token}).status_code == 200
+    started = client.put(
+        f"/provider/bookings/{booking_id}/start-visit",
+        files=[("proof_files", ("arrival.png", PNG_BYTES, "image/png"))],
+        headers=provider,
+    )
+    assert started.status_code == 200, started.text
+    body = {"reason": "The provider could not fix it"}
+    if refund_amount is not None:
+        body["refund_amount"] = refund_amount
+    requested = client.post(f"/bookings/{booking_id}/refund-requests", json=body, headers=customer)
+    assert requested.status_code == 200, requested.text
+    refund_id = requested.json()["data"]["refund_request"]["id"]
+    approved = client.put(f"/provider/refund-requests/{refund_id}/approve", headers=provider)
+    assert approved.status_code == 200, approved.text
+    with SessionLocal() as db:
+        payment = db.query(models.Payment).filter_by(iyzico_token=token).one()
+        return db.query(models.PaymentSettlement).filter_by(payment_id=payment.id).one().status
+
+
+def test_full_refund_cancels_the_unreleased_settlement(client, marketplace, fake_iyzico):
+    assert _refund_visit_fee(client, marketplace) == "cancelled"
+
+
+def test_partial_refund_leaves_the_settlement_pending(client, marketplace, fake_iyzico):
+    assert _refund_visit_fee(client, marketplace, refund_amount=10) == "pending"

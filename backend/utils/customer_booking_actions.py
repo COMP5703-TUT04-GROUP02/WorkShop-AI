@@ -754,6 +754,77 @@ def _external_amount_matches(payment: models.Payment, result: dict) -> bool:
         return False
 
 
+async def _return_late_checkout_payment(
+    payment: models.Payment,
+    booking: models.Booking,
+    db: Session,
+):
+    """Give back a checkout payment its booking is no longer waiting for.
+
+    The iyzico page stays open after the customer cancels the booking (or after
+    the same stage is paid elsewhere), and iyzico still takes the card. Nothing
+    can use that money, so it is cancelled at once, or refunded when iyzico no
+    longer allows a cancel. Either way no settlement is created for it.
+    """
+    client = iyzico_service.get_iyzico_client()
+    returned_as = None
+    error_message = "iyzico did not return the payment"
+    try:
+        result = await client.cancel_payment(payment.iyzico_payment_id, payment.conversation_id)
+        if str(result.get("status", "")).lower() == "success":
+            returned_as = PaymentStatus.voided
+        else:
+            error_message = str(result.get("errorMessage") or error_message)
+    except iyzico_service.IyzicoClientError as exc:
+        error_message = str(exc)
+    if returned_as is None and payment.payment_transaction_id:
+        try:
+            result = await client.refund_payment(
+                payment.payment_transaction_id, payment.conversation_id, payment.amount
+            )
+            if str(result.get("status", "")).lower() == "success":
+                returned_as = PaymentStatus.refunded
+            else:
+                error_message = str(result.get("errorMessage") or error_message)
+        except iyzico_service.IyzicoClientError as exc:
+            error_message = str(exc)
+
+    payment.processing_started_at = None
+    payment.checkout_expires_at = None
+    payment.payment_method = "iyzico_checkout"
+    if returned_as is None:
+        # Leave the status alone so the same callback can try again.
+        payment.failure_code = "late_payment_not_returned"
+        payment.failure_message = error_message
+        db.commit()
+        raise HTTPException(status_code=502, detail=error_message)
+
+    now = utc_now()
+    payment.status = returned_as
+    payment.external_status = returned_as.value
+    if returned_as == PaymentStatus.voided:
+        payment.voided_at = now
+        payment.failure_message = (
+            "This booking was no longer waiting for this payment, "
+            "so it was cancelled and nothing was charged."
+        )
+    else:
+        payment.refunded_at = now
+        payment.failure_message = (
+            "This booking was no longer waiting for this payment, "
+            "so the full amount was refunded to your card."
+        )
+    payment.failure_code = "booking_not_awaiting_payment"
+    db.commit()
+    db.refresh(payment)
+    db.refresh(booking)
+    return {
+        "message": "Booking was not awaiting this payment; the payment was returned",
+        "payment": format_payment_response(payment, db),
+        "booking": format_booking_detail_response(booking, db),
+    }
+
+
 async def apply_iyzico_checkout_result(
     payment: models.Payment,
     result: dict,
@@ -854,17 +925,6 @@ async def apply_iyzico_checkout_result(
         db.commit()
         raise HTTPException(status_code=400, detail=payment.failure_message)
 
-    now = utc_now()
-    payment.status = PaymentStatus.paid
-    payment.processing_started_at = None
-    payment.checkout_expires_at = None
-    payment.payment_method = "iyzico_checkout"
-    payment.authorized_at = None
-    payment.paid_at = now
-    payment.failed_at = None
-    payment.failure_code = None
-    payment.failure_message = None
-    booking_status_chat_message = None
     expected_status = (
         BookingStatus.visit_paid
         if payment.payment_stage == "visit_fee"
@@ -875,56 +935,68 @@ async def apply_iyzico_checkout_result(
         if payment.payment_stage == "visit_fee"
         else {BookingStatus.awaiting_service_payment}
     )
-    if booking.status in expected_previous:
-        old_status = booking.status
-        booking.status = expected_status
-        booking.status_note = (
-            "Visit fee paid; provider must submit arrival evidence"
+    if booking.status not in expected_previous:
+        return await _return_late_checkout_payment(payment, booking, db)
+
+    now = utc_now()
+    payment.status = PaymentStatus.paid
+    payment.processing_started_at = None
+    payment.checkout_expires_at = None
+    payment.payment_method = "iyzico_checkout"
+    payment.authorized_at = None
+    payment.paid_at = now
+    payment.failed_at = None
+    payment.failure_code = None
+    payment.failure_message = None
+    old_status = booking.status
+    booking.status = expected_status
+    booking.status_note = (
+        "Visit fee paid; provider must submit arrival evidence"
+        if payment.payment_stage == "visit_fee"
+        else "Service fee paid; provider can complete the service"
+    )
+    add_booking_status_history(
+        booking,
+        old_status,
+        booking.status,
+        booking.status_note,
+        db.get(models.User, payment.customer_id),
+        db,
+    )
+    booking_status_chat_message = create_booking_status_chat_message(
+        booking,
+        old_status,
+        payment.customer_id,
+        (
+            "Customer paid the visit fee; provider can start the visit"
             if payment.payment_stage == "visit_fee"
-            else "Service fee paid; provider can complete the service"
-        )
-        add_booking_status_history(
-            booking,
-            old_status,
-            booking.status,
-            booking.status_note,
-            db.get(models.User, payment.customer_id),
+            else "Customer paid the final service quote"
+        ),
+        booking.status_note,
+        db,
+        {
+            "payment_id": payment.id,
+            "payment_status": payment.status,
+            "amount": payment.amount,
+            "currency": payment.currency,
+            "paid_at": payment.paid_at,
+        },
+    )
+    provider_profile = (
+        db.query(models.ProviderProfile)
+        .filter(models.ProviderProfile.id == booking.provider_profile_id)
+        .first()
+    )
+    if provider_profile:
+        create_notification(
+            provider_profile.user_id,
+            "Payment received",
+            "A customer paid a booking payment through iyzico Sandbox",
+            NotificationType.payment_paid,
+            NotificationRelatedType.payment,
+            payment.id,
             db,
         )
-        booking_status_chat_message = create_booking_status_chat_message(
-            booking,
-            old_status,
-            payment.customer_id,
-            (
-                "Customer paid the visit fee; provider can start the visit"
-                if payment.payment_stage == "visit_fee"
-                else "Customer paid the final service quote"
-            ),
-            booking.status_note,
-            db,
-            {
-                "payment_id": payment.id,
-                "payment_status": payment.status,
-                "amount": payment.amount,
-                "currency": payment.currency,
-                "paid_at": payment.paid_at,
-            },
-        )
-        provider_profile = (
-            db.query(models.ProviderProfile)
-            .filter(models.ProviderProfile.id == booking.provider_profile_id)
-            .first()
-        )
-        if provider_profile:
-            create_notification(
-                provider_profile.user_id,
-                "Payment received",
-                "A customer paid a booking payment through iyzico Sandbox",
-                NotificationType.payment_paid,
-                NotificationRelatedType.payment,
-                payment.id,
-                db,
-            )
     settlement = ensure_payment_settlement(payment, db, transaction=transaction)
     db.commit()
     db.refresh(payment)
@@ -1722,12 +1794,30 @@ async def _complete_direct_paid_booking(
     if booking_status_chat_message:
         db.refresh(booking_status_chat_message)
         await push_chat_message_to_room_members(booking_status_chat_message, db)
-    return {
+    result = {
         "message": "Booking completed successfully",
         "booking": format_booking_detail_response(booking, db),
         "payment": format_payment_response(payment, db),
         "settlement": format_payment_settlement(settlement),
     }
+
+    from backend.tasks.marketplace_tasks import enqueue_payment_settlement
+
+    # Both stages were held until the customer confirmed the work; release the visit fee
+    # and the service fee to the provider now.
+    paid_payment_ids = [
+        paid.id
+        for paid in db.query(models.Payment.id)
+        .filter(
+            models.Payment.booking_id == booking.id,
+            models.Payment.status == PaymentStatus.paid,
+        )
+        .all()
+    ]
+    for paid_payment_id in paid_payment_ids:
+        enqueue_payment_settlement(paid_payment_id)
+
+    return result
 
 
 async def confirm_customer_booking_complete_action(

@@ -5,11 +5,16 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend import models
-from backend.schemas import BookingStatus
+from backend.schemas import BookingStatus, SettlementStatus
 from backend.utils.booking import format_booking_detail_response
 from backend.utils.payment import format_payment_response
 from backend.core.clock import utc_now
 from backend.services import iyzico as iyzico_service
+
+UNRELEASED_SETTLEMENT_STATUSES = {
+    SettlementStatus.pending.value,
+    SettlementStatus.approval_failed.value,
+}
 
 REFUND_RESTORABLE_BOOKING_STATUSES = [
     BookingStatus.provider_arrived,
@@ -97,6 +102,10 @@ async def execute_external_refund(
                 refund_request.refund_amount * settlement.provider_share_amount / payment.amount
             ).quantize(Decimal("0.01"))
             settlement.recovery_status = "pending"
+        elif settlement and is_full and settlement.status in UNRELEASED_SETTLEMENT_STATUSES:
+            # The whole payment went back before the provider's share was released,
+            # so there is nothing left to settle.
+            settlement.status = SettlementStatus.cancelled.value
     return movement
 
 

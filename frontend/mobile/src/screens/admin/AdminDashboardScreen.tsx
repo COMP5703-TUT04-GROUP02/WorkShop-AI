@@ -576,6 +576,7 @@ function MarketplaceSection({
             ["Pending", "pending"],
             ["Approved", "approved"],
             ["Failed", "approval_failed"],
+            ["Cancelled", "cancelled"],
           ].map(([label, value]) => (
             <FilterChip
               active={filters.settlementStatus === value}

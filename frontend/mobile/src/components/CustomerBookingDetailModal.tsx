@@ -27,6 +27,7 @@ import {
 import { getBookingHelpLinks, isPaymentFailed } from "../utils/bookingHelp";
 import { getPaymentAction } from "../utils/payment";
 import { shouldShowCustomerReferencePrice } from "../utils/referencePrice";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 
 export type CustomerBookingDetailModalProps = {
   actionError?: string;
@@ -124,7 +125,7 @@ export function CustomerBookingDetailModal({
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingOverlay style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.content}>
@@ -199,7 +200,7 @@ export function CustomerBookingDetailModal({
             {canAppealRefund ? <PrimaryButton disabled={isActing} isLoading={isActing} label="Submit appeal" onPress={onAppealRefund!} /> : null}
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

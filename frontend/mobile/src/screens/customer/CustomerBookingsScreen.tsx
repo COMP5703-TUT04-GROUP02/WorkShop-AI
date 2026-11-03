@@ -74,6 +74,7 @@ import {
 } from "../../utils/bookingActions";
 import { createLatestRequestGuard } from "../../utils/latestRequest";
 import { resolveBookingReferenceDetail } from "../../utils/referencePrice";
+import { mergeOpenBooking, refreshOpenBooking } from "../../features/bookings/open-booking";
 
 const HIDDEN_ORDER_STATUSES = [
   "completed",
@@ -133,6 +134,7 @@ export function CustomerBookingsScreen() {
       setBookings(filterActiveBookings(items));
       setFinishedCount(items.length - filterActiveBookings(items).length);
       setPaymentsByBookingId(indexLatestPayments(payments));
+      setSelectedBooking((current) => refreshOpenBooking(current, items));
     } catch (error) {
       setMessage(getErrorMessage(error));
     }
@@ -238,11 +240,7 @@ export function CustomerBookingsScreen() {
   }
 
   function updateSelectedBooking(booking: BookingDetail) {
-    setSelectedBooking((current) => ({
-      ...booking,
-      reference_price_range:
-        booking.reference_price_range ?? current?.reference_price_range,
-    }));
+    setSelectedBooking((current) => mergeOpenBooking(current, booking));
   }
 
   function closeBooking() {
@@ -579,7 +577,14 @@ export function CustomerBookingsScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} style={styles.container}>
+    // The booking modals render inside this ScrollView, so their taps pass
+    // through it; without "handled", a tap on a modal button while the
+    // keyboard is open would only close the keyboard.
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      style={styles.container}
+    >
       <View
         style={[styles.header, isWebDesktop ? null : styles.headerPhone]}
       >

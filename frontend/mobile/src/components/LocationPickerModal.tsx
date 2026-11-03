@@ -17,6 +17,7 @@ import { colors, radius, spacing } from "../theme/theme";
 import type { PlaceSuggestion, SelectedLocation } from "../types/location";
 import { getErrorMessage } from "../utils/errors";
 import { PrimaryButton } from "./PrimaryButton";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 import { SecondaryButton } from "./SecondaryButton";
 
 /**
@@ -175,7 +176,7 @@ export function LocationPickerModal({
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingOverlay style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.header}>
             <View>
@@ -272,7 +273,7 @@ export function LocationPickerModal({
             </Text>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

@@ -1,3 +1,4 @@
+import { HeaderHeightContext } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
@@ -8,7 +9,7 @@ import {
   SendHorizontal,
   X,
 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -76,6 +77,8 @@ export function CustomerAIChatScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const listRef = useRef<FlatList<AIChatMessageItem>>(null);
+  // Android pads the chat above the keyboard itself, starting below this header.
+  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   const [messages, setMessages] = useState<AIChatMessageItem[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -355,8 +358,8 @@ export function CustomerAIChatScreen() {
   return (
     <>
       <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={88}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === "android" ? headerHeight : 88}
       style={styles.container}
     >
       <Pressable

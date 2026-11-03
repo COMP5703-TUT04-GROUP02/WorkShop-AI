@@ -87,6 +87,8 @@ class UserResponse(BaseModel):
     qualification_verification_status: str | None = None
     last_login_at: str | None = None
     created_at: str | None = None
+    # Only GET /me fills this: "email_password", "google" and/or "apple".
+    sign_in_methods: list[str] | None = None
 
 
 class UserProfileUpdate(BaseModel):

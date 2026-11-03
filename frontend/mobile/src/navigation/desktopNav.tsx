@@ -7,7 +7,7 @@ import { AppState } from "react-native";
 import { getCustomerBookings } from "../api/customer";
 import { useAuth } from "../context/AuthContext";
 import { useProviderProfileGate } from "../context/ProviderProfileGateContext";
-import { useRealtime } from "../context/RealtimeContext";
+import { getBookingEventId, useRealtime } from "../context/RealtimeContext";
 import { findCurrentJob, type CurrentJob } from "../features/current-job/current-job";
 import type { AdminArea } from "./AdminMenu";
 import { tabIcons } from "./tabIcons";
@@ -94,6 +94,7 @@ export function useDesktopNav() {
 export function useCurrentJob() {
   const [job, setJob] = useState<CurrentJob | null>(null);
   const active = useActiveDesktopRoute("CustomerHome");
+  const { subscribe } = useRealtime();
 
   useEffect(() => {
     let cancelled = false;
@@ -113,15 +114,21 @@ export function useCurrentJob() {
 
     refresh();
     const timer = setInterval(refresh, 60000);
+    // A payment or the provider's move changes which booking waits on the
+    // customer, and its booking event says so at once.
+    const unsubscribe = subscribe((event) => {
+      if (getBookingEventId(event) != null) refresh();
+    });
     const appState = AppState.addEventListener("change", (state) => {
       if (state === "active") refresh();
     });
     return () => {
       cancelled = true;
       clearInterval(timer);
+      unsubscribe();
       appState.remove();
     };
-  }, [active.stack, active.tab]);
+  }, [active.stack, active.tab, subscribe]);
 
   return job;
 }

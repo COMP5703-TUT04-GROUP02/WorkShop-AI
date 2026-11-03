@@ -100,6 +100,27 @@ def test_repeat_sign_in_uses_the_link_even_when_apple_omits_the_email(client, mo
     assert again.json()["data"]["user"]["id"] == first.json()["data"]["user"]["id"]
 
 
+def test_me_lists_the_sign_in_methods_the_account_really_has(client, monkeypatch):
+    password_account = register_session(client, "both@example.com")
+    assert client.get("/me", headers=password_account["headers"]).json()["data"][
+        "sign_in_methods"
+    ] == ["email_password"]
+
+    fake_identity(monkeypatch, email="both@example.com")
+    assert social_login(client).status_code == 200
+    assert client.get("/me", headers=password_account["headers"]).json()["data"][
+        "sign_in_methods"
+    ] == ["email_password", "google"]
+
+    fake_identity(
+        monkeypatch, provider="apple", provider_user_id="apple-only", email="apple-only@example.com"
+    )
+    apple = social_login(client, provider="apple", nonce="n", tos_accepted=True)
+    assert apple.status_code == 200, apple.text
+    apple_headers = {"Authorization": f"Bearer {apple.json()['data']['access_token']}"}
+    assert client.get("/me", headers=apple_headers).json()["data"]["sign_in_methods"] == ["apple"]
+
+
 def test_apple_names_come_from_the_app(client, monkeypatch):
     seen = fake_identity(
         monkeypatch,

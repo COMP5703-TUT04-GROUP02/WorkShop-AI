@@ -19,6 +19,7 @@ import {
   isCanonicalServiceSelection,
 } from "../utils/bookingService";
 import { DateTimeField } from "./DateTimeField";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 import { LocationPickerModal } from "./LocationPickerModal";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
@@ -164,7 +165,7 @@ export function BookingRequestModal({
       transparent
       visible={visible}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingOverlay style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Request booking</Text>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
@@ -276,7 +277,7 @@ export function BookingRequestModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
       {/* iOS shows one modal at a time, so the picker has to open from inside this one. */}
       <LocationPickerModal
         onClose={() => setIsLocationPickerVisible(false)}

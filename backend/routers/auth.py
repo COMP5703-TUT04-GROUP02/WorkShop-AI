@@ -352,8 +352,22 @@ def logout(request_data: RefreshTokenRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=ApiResponse[UserResponse])
-def get_me(current_user: models.User = Depends(get_current_user)):
-    return success_response(format_user_response(current_user))
+def get_me(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    password_identity = get_password_identity(current_user, db)
+    linked_providers = {
+        account.provider
+        for account in db.query(models.SocialAccount.provider).filter(
+            models.SocialAccount.user_id == current_user.id
+        )
+    }
+    sign_in_methods = ["email_password"] if password_identity and password_identity.password_hash else []
+    sign_in_methods += [provider for provider in ("google", "apple") if provider in linked_providers]
+    return success_response(
+        {**format_user_response(current_user), "sign_in_methods": sign_in_methods}
+    )
 
 
 @router.put("/me", response_model=ApiResponse[UserResponse])

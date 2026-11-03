@@ -5,6 +5,7 @@ import { colors, radius, spacing, type } from "../theme/theme";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 
 type ChangeEmailModalProps = {
   visible: boolean;
@@ -38,7 +39,7 @@ export function ChangeEmailModal({
 
   return (
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible={visible}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingOverlay style={styles.backdrop}>
         <View style={styles.sheet}>
           <Text style={styles.title}>Change sign-in email</Text>
           <Text style={styles.description}>
@@ -71,7 +72,7 @@ export function ChangeEmailModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

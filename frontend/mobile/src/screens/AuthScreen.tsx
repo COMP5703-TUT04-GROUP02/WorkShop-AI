@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ImageBackground,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -284,7 +283,7 @@ export function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
       style={[
         styles.keyboardView,
         { paddingTop: insets.top, paddingBottom: insets.bottom },

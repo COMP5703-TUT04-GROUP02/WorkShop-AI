@@ -5,6 +5,7 @@ import { colors, radius, spacing } from "../theme/theme";
 import { PrimaryButton } from "./PrimaryButton";
 import { SecondaryButton } from "./SecondaryButton";
 import { TextField } from "./TextField";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 
 /**
  * WS-85. The shared six-digit verification step, used by email and phone
@@ -91,7 +92,7 @@ export function VerifyCodeModal({
       transparent
       visible={visible}
     >
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingOverlay style={styles.backdrop}>
         <View accessibilityViewIsModal style={styles.sheet}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
@@ -133,7 +134,7 @@ export function VerifyCodeModal({
             <SecondaryButton label="Cancel" onPress={onCancel} />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

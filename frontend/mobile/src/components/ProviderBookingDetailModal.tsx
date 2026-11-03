@@ -5,6 +5,7 @@ import { BookingAttachments } from "./BookingAttachments";
 import { BookingContextInformation } from "./BookingContextInformation";
 import { BookingCoreDetails, Row as DetailRow } from "./BookingCoreDetails";
 import { BookingPriceBreakdown } from "./BookingPriceBreakdown";
+import { KeyboardAvoidingOverlay } from "./KeyboardAvoidingOverlay";
 import { MarketplaceBreakdownCard } from "./MarketplaceBreakdownCard";
 import { PrimaryButton } from "./PrimaryButton";
 import { QuoteAttachmentPicker } from "./QuoteAttachmentPicker";
@@ -106,7 +107,7 @@ export function ProviderBookingDetailModal({
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingOverlay style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Booking #{booking.id}</Text>
           <ScrollView contentContainerStyle={styles.content}>
@@ -178,7 +179,7 @@ export function ProviderBookingDetailModal({
             {canProcessRefund ? <PrimaryButton disabled={isActing} isLoading={isActing} label="Approve refund" onPress={onApproveRefund!} /> : null}
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingOverlay>
     </Modal>
   );
 }

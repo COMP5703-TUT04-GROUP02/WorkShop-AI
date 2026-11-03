@@ -64,7 +64,7 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   processing: "Payment processing",
   authorized: "Payment authorized",
   paid: "Paid",
-  voided: "Authorization released",
+  voided: "Cancelled, not charged",
   failed: "Payment failed",
   capture_failed: "Payment capture failed",
   refund_failed: "Refund failed",

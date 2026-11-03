@@ -1,9 +1,19 @@
-from tests.conftest import BOOKING_START, PNG_BYTES, create_booking
+from datetime import datetime, timedelta, timezone
+
+from tests.conftest import BOOKING_END, BOOKING_START, PNG_BYTES, create_booking
+
+# The schedule refuses months before the current one, so the fixed BOOKING_START goes
+# stale once its month has passed. Move it forward by whole weeks (same weekday and time,
+# so the provider's weekly hours still apply) until it falls in a month that can be viewed.
+_SHIFT = timedelta(weeks=0)
+while (BOOKING_START + _SHIFT).strftime("%Y-%m") < datetime.now(timezone.utc).strftime("%Y-%m"):
+    _SHIFT += timedelta(weeks=1)
+START, END = BOOKING_START + _SHIFT, BOOKING_END + _SHIFT
 
 
 def _schedule_ids(client, provider):
     response = client.get(
-        f"/provider/bookings/schedule?month={BOOKING_START:%Y-%m}", headers=provider
+        f"/provider/bookings/schedule?month={START:%Y-%m}", headers=provider
     )
     assert response.status_code == 200, response.text
     return {item["id"] for item in response.json()["data"]}
@@ -31,7 +41,13 @@ def _status(response):
 def test_schedule_shows_bookings_from_visit_payment_to_confirmation(client, marketplace):
     customer = marketplace["customer"]["headers"]
     provider = marketplace["provider"]["headers"]
-    booking_id = create_booking(client, customer, marketplace["provider_profile"]["id"])["id"]
+    booking_id = create_booking(
+        client,
+        customer,
+        marketplace["provider_profile"]["id"],
+        scheduled_start_time=START.isoformat(),
+        scheduled_end_time=END.isoformat(),
+    )["id"]
     visible = {}
 
     def record(status):
