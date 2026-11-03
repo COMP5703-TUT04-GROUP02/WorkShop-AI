@@ -1,10 +1,11 @@
 import axios from "axios";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import {
   changeEmail,
   changePassword,
+  getCurrentUser,
   sendEmailCode,
   verifyEmail,
   verifyPhone,
@@ -36,6 +37,12 @@ import { getErrorMessage } from "../utils/errors";
  */
 type PendingAction = "none" | "verify-email" | "verify-phone" | "change-email";
 
+const SIGN_IN_METHOD_LABELS: Record<string, string> = {
+  email_password: "Email and password",
+  google: "Google",
+  apple: "Apple",
+};
+
 export function AccountSecurityScreen() {
   const { user, setCurrentUser, signIn } = useAuth();
 
@@ -57,6 +64,23 @@ export function AccountSecurityScreen() {
   const [emailError, setEmailError] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [isSendingEmailChangeCode, setIsSendingEmailChangeCode] = useState(false);
+
+  // The sign-in user carries no identity list, so ask /me once for the real methods.
+  const [signInMethods, setSignInMethods] = useState<string[] | null>(null);
+  useEffect(() => {
+    let isActive = true;
+    getCurrentUser()
+      .then((me) => {
+        if (isActive) {
+          setSignInMethods(me.sign_in_methods ?? null);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isActive = false;
+    };
+  }, []);
+  const hasPassword = signInMethods === null || signInMethods.includes("email_password");
 
   /**
    * Mails a code, then opens the modal. A 429 means a code was sent moments
@@ -246,17 +270,21 @@ export function AccountSecurityScreen() {
           <View style={styles.rowText}>
             <Text style={styles.label}>Sign-in password</Text>
             <Text style={styles.hint}>
-              Changing it signs out your other devices.
+              {hasPassword
+                ? "Changing it signs out your other devices."
+                : "This account has no password. It signs in with Google or Apple."}
             </Text>
           </View>
-          <SecondaryButton
-            label="Change"
-            onPress={() => {
-              setPasswordError("");
-              setPasswordMessage("");
-              setIsPasswordModalVisible(true);
-            }}
-          />
+          {hasPassword ? (
+            <SecondaryButton
+              label="Change"
+              onPress={() => {
+                setPasswordError("");
+                setPasswordMessage("");
+                setIsPasswordModalVisible(true);
+              }}
+            />
+          ) : null}
         </View>
         {passwordMessage ? (
           <Text style={styles.success}>{passwordMessage}</Text>
@@ -285,12 +313,15 @@ export function AccountSecurityScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Sign-in method</Text>
-        <Text style={styles.value}>Email and password</Text>
-        <Text style={styles.hint}>
-          Google and Apple sign-in are on the sign-in screen as a reminder. OAuth is
-          not connected yet.
+        <Text style={styles.cardTitle}>Sign-in methods</Text>
+        <Text style={styles.value}>
+          {signInMethods === null
+            ? "—"
+            : signInMethods
+                .map((method) => SIGN_IN_METHOD_LABELS[method] ?? method)
+                .join(" · ")}
         </Text>
+        <Text style={styles.hint}>Each of these signs in to this account.</Text>
       </View>
 
       <ChangeEmailModal

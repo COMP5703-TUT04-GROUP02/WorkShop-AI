@@ -18,6 +18,8 @@ export type User = {
   created_at: string | null;
   identity_verification_status?: string | null;
   qualification_verification_status?: string | null;
+  /** Only GET /me sends this: "email_password", "google" and/or "apple". */
+  sign_in_methods?: string[] | null;
 };
 
 export type ApiResponse<T> = {
